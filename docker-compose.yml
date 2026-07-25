@@ -1,0 +1,133 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: polywatch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-polywatch}
+      POSTGRES_DB: polywatch
+    ports:
+      # Bind to loopback only
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polywatch -d polywatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      # Bind to loopback only — Redis has no auth and must not be reachable
+      # from the network. Remove the mapping entirely if host access is not needed.
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://polywatch:${POSTGRES_PASSWORD:-polywatch}@postgres:5432/polywatch
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-32}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-prod-32}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token-change-in-prod-32}
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://127.0.0.1:5173}
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/worker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://polywatch:${POSTGRES_PASSWORD:-polywatch}@postgres:5432/polywatch
+      REDIS_URL: redis://redis:6379
+      BACKEND_URL: http://backend:3000
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token-change-in-prod-32}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      backend:
+        condition: service_started
+      copy-trading:
+        condition: service_started
+    restart: unless-stopped
+
+  copy-trading:
+    build:
+      context: .
+      dockerfile: packages/copy-trading/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://polywatch:${POSTGRES_PASSWORD:-polywatch}@postgres:5432/polywatch
+      REDIS_URL: redis://redis:6379
+      BACKEND_URL: http://backend:3000
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token-change-in-prod-32}
+      POLYMARKET_DATA_API: ${POLYMARKET_DATA_API:-https://data-api.polymarket.com}
+      POLYMARKET_CLOB_API: ${POLYMARKET_CLOB_API:-https://clob.polymarket.com}
+      POLYMARKET_WS_URL: ${POLYMARKET_WS_URL:-wss://ws-subscriptions-clob.polymarket.com/ws/market}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  crypto-algo:
+    build:
+      context: .
+      dockerfile: packages/crypto-algo/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://polywatch:${POSTGRES_PASSWORD:-polywatch}@postgres:5432/polywatch
+      REDIS_URL: redis://redis:6379
+      BACKEND_URL: http://backend:3000
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token-change-in-prod-32}
+      POLYMARKET_GAMMA_API: ${POLYMARKET_GAMMA_API:-https://gamma-api.polymarket.com}
+      POLYMARKET_CLOB_API: ${POLYMARKET_CLOB_API:-https://clob.polymarket.com}
+      POLYMARKET_WS_URL: ${POLYMARKET_WS_URL:-wss://ws-subscriptions-clob.polymarket.com/ws/market}
+      CRYPTO_ALGO_POLL_MS: ${CRYPTO_ALGO_POLL_MS:-30000}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

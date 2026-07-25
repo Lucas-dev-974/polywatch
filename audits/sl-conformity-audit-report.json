@@ -1,0 +1,227 @@
+{
+  "auditDate": "2026-07-06T17:56:34.657Z",
+  "riskConfig": {
+    "sim_sl_tp_enabled": true,
+    "sim_sl_percent": 40,
+    "sim_tp_percent": 300,
+    "real_sl_tp_enabled": false,
+    "real_sl_percent": 50,
+    "real_tp_percent": 500,
+    "crypto_algo_sl_percent": null,
+    "crypto_algo_sl_bid_points": 0.1
+  },
+  "expectedSl": {
+    "sim_copy": 40,
+    "algo_interval_defaults": {
+      "5m": {
+        "slPercent": 12,
+        "tpPercent": 45
+      },
+      "10m": {
+        "slPercent": 12,
+        "tpPercent": 45
+      },
+      "15m": {
+        "slPercent": 15,
+        "tpPercent": 50
+      },
+      "30m": {
+        "slPercent": 15,
+        "tpPercent": 55
+      },
+      "1h": {
+        "slPercent": 18,
+        "tpPercent": 60
+      },
+      "4h": {
+        "slPercent": 20,
+        "tpPercent": 65
+      },
+      "1d": {
+        "slPercent": 22,
+        "tpPercent": 70
+      }
+    }
+  },
+  "stats": {
+    "totalClosed": 25,
+    "simClosed": 9,
+    "realClosed": 16,
+    "algoOpen": 4,
+    "copyOpen": 5,
+    "conformityIssues": 1,
+    "missedSLs": 0,
+    "realWithSlPercent": 1,
+    "noTicksPositions": 0
+  },
+  "conformityIssues": [
+    {
+      "positionId": 7068,
+      "mode": "real",
+      "posSlPercent": 50,
+      "slTpEnabled": false,
+      "issue": "sl_tp_enabled=false mais pos.sl_percent=50 (attendu: null)",
+      "closeReason": "SL",
+      "realizedPnl": -0.6591467
+    }
+  ],
+  "algoConformityNotes": [
+    {
+      "positionId": 16334,
+      "mode": "sim",
+      "slPercent": 12,
+      "tpPercent": 45,
+      "closeReason": "REDEMPTION",
+      "realizedPnl": 1.1911142,
+      "note": "ALGO position: sl=12 matches an interval default (OK)"
+    },
+    {
+      "positionId": 16335,
+      "mode": "sim",
+      "slPercent": 12,
+      "tpPercent": 45,
+      "closeReason": "REDEMPTION",
+      "realizedPnl": 0.18520221,
+      "note": "ALGO position: sl=12 matches an interval default (OK)"
+    },
+    {
+      "positionId": 16337,
+      "mode": "sim",
+      "slPercent": 12,
+      "tpPercent": 45,
+      "closeReason": "REDEMPTION",
+      "realizedPnl": 1.3324306,
+      "note": "ALGO position: sl=12 matches an interval default (OK)"
+    },
+    {
+      "positionId": 16340,
+      "mode": "sim",
+      "slPercent": 12,
+      "tpPercent": 45,
+      "closeReason": "REDEMPTION",
+      "realizedPnl": 0.89317495,
+      "note": "ALGO position: sl=12 matches an interval default (OK)"
+    }
+  ],
+  "missedSLs": [],
+  "noTicksPositions": [],
+  "realModeCheck": {
+    "totalRealClosed": 16,
+    "withSlPercent": 1,
+    "withoutSlPercent": 15,
+    "details": [
+      {
+        "positionId": 2846,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -0.000001,
+        "reason": null
+      },
+      {
+        "positionId": 2866,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": 0.367661,
+        "reason": null
+      },
+      {
+        "positionId": 2885,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.048999,
+        "reason": null
+      },
+      {
+        "positionId": 4290,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": 1.067889,
+        "reason": null
+      },
+      {
+        "positionId": 4292,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.043399,
+        "reason": null
+      },
+      {
+        "positionId": 4294,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": 0.52062,
+        "reason": null
+      },
+      {
+        "positionId": 4297,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.040599,
+        "reason": null
+      },
+      {
+        "positionId": 4307,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": 1.024693,
+        "reason": null
+      },
+      {
+        "positionId": 4309,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.057399,
+        "reason": null
+      },
+      {
+        "positionId": 4311,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.0476,
+        "reason": null
+      },
+      {
+        "positionId": 4320,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.044799,
+        "reason": null
+      },
+      {
+        "positionId": 4326,
+        "slPercent": null,
+        "closeReason": "MANUAL",
+        "realizedPnl": -0.2291,
+        "reason": null
+      },
+      {
+        "positionId": 4356,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.008397,
+        "reason": null
+      },
+      {
+        "positionId": 6692,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": 0.67228204,
+        "reason": null
+      },
+      {
+        "positionId": 6698,
+        "slPercent": null,
+        "closeReason": "REDEMPTION",
+        "realizedPnl": -1.5829489,
+        "reason": null
+      },
+      {
+        "positionId": 7068,
+        "slPercent": 50,
+        "closeReason": "SL",
+        "realizedPnl": -0.6591467,
+        "reason": null
+      }
+    ]
+  }
+}

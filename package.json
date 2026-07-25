@@ -1,0 +1,76 @@
+{
+  "name": "polywatch",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @polywatch/core && npm run build -w @polywatch/backend && npm run build -w @polywatch/worker && npm run build -w @polywatch/copy-trading && npm run build -w @polywatch/crypto-algo && npm run build -w @polywatch/weather-algo && npm run build -w @polywatch/frontend",
+    "dev": "concurrently -n core,backend,worker,copy-trading,crypto-algo,weather-algo,frontend -c blue,green,yellow,red,cyan,white,magenta \"npm run dev -w @polywatch/core\" \"npm run dev -w @polywatch/backend\" \"npm run dev:worker\" \"npm run dev:copy-trading\" \"npm run dev:crypto-algo\" \"npm run dev:weather-algo\" \"npm run dev:frontend\"",
+    "dev:worker": "npm run dev -w @polywatch/worker",
+    "dev:copy-trading": "npm run dev -w @polywatch/copy-trading",
+    "dev:crypto-algo": "npm run dev -w @polywatch/crypto-algo",
+    "dev:weather-algo": "npm run dev -w @polywatch/weather-algo",
+    "dev:frontend": "wait-on -t 60000 http-get://127.0.0.1:3000/health && npm run dev -w @polywatch/frontend",
+    "postinstall": "patch-package && node scripts/prune-ethers-v5-deps.mjs",
+    "test": "npm run test -w @polywatch/core && npm run test -w @polywatch/worker && npm run test -w @polywatch/copy-trading && npm run test -w @polywatch/backend && npm run test -w @polywatch/frontend && npm run test -w @polywatch/crypto-algo && npm run test -w @polywatch/weather-algo",
+    "test:compliance": "vitest run -c tools/e2e/vitest.config.ts tools/e2e",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
+    "migrate": "npm run migrate -w @polywatch/core",
+    "db:drop-shadow-tables": "node scripts/drop-shadow-activity-tables.mjs",
+    "generate-secrets": "node scripts/generate-secrets.mjs",
+    "dry-run:real": "bash scripts/dry-run-real-trading.sh",
+    "spike:salt": "tsx scripts/archive/spike-clob-salt-dedup.ts",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "test:e2e:crypto": "vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo",
+    "test:e2e:crypto:hardening": "vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo/crypto-algo.execution-hardening.e2e.test.ts",
+    "test:e2e:crypto:sim-reset": "vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo/sim-reset-redis-hygiene.e2e.test.ts",
+    "test:e2e:crypto:real": "cross-env RUN_REAL_SIM_E2E=1 vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo/crypto-algo.real-sim.e2e.test.ts",
+    "validate:redemption": "node scripts/validate-redemption-onchain.mjs",
+    "audit:stale-entries": "tsx tools/detect-stale-entry-timestamps.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@typescript-eslint/eslint-plugin": "^8.32.0",
+    "@typescript-eslint/parser": "^8.32.0",
+    "concurrently": "^10.0.3",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.26.0",
+    "patch-package": "^8.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2",
+    "wait-on": "^8.0.5"
+  },
+  "overrides": {
+    "axios": "^1.18.0",
+    "ts-node": "^10.7.0",
+    "@polymarket/builder-abstract-signer": {
+      "ethers": "npm:ethers@6.17.0"
+    },
+    "@polymarket/builder-relayer-client": {
+      "@ethersproject/providers": "npm:viem@^2.31.4",
+      "@ethersproject/wallet": "npm:viem@^2.31.4",
+      "ethers": "npm:ethers@6.17.0"
+    },
+    "@polymarket/clob-client-v2": {
+      "@ethersproject/providers": "npm:viem@^2.31.4",
+      "@ethersproject/wallet": "npm:viem@^2.31.4"
+    },
+    "ws": "8.21.0",
+    "form-data": "^4.0.6",
+    "shell-quote": "^1.8.4",
+    "ethers": {
+      "ws": "8.21.0"
+    },
+    "viem": {
+      "ws": "8.21.0"
+    },
+    "vite": {
+      "esbuild": "0.25.12"
+    },
+    "tsx": {
+      "esbuild": "^0.28.1"
+    }
+  }
+}

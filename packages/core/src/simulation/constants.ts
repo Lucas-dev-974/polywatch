@@ -1,0 +1,1 @@
+export const DEFAULT_SIM_BALANCE = 10_000;

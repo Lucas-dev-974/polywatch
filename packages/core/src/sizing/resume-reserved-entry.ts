@@ -1,0 +1,152 @@
+import type { IPolymarketConnectionManager } from '../worker-shared/connection-manager-interface.js';
+import type { RedisQueue } from '../worker-shared/redis-queue.js';
+import type { ReservationService, ReserveResult } from '../services/reservation.service.js';
+import type { OrderReason, OrderSignal, TradingMode } from '../types/index.js';
+import { MIN_ORDER_SHARES, MIN_ORDER_USDC } from './constants.js';
+import { ENTRY_MOS_SKIP_CANNOT_BUMP } from './entry-mos.js';
+import { enqueueEntrySignal } from './enqueue-entry-signal.js';
+import { resolveEntryEnqueueBlocked } from './entry-enqueue-result.js';
+import { fetchEntryAskLiquidityWithRetries } from './entry-depth-retry.js';
+
+export type EntryOpenReason = Extract<
+  OrderReason,
+  'COPY_OPEN' | 'COPY_INCREASE' | 'ALGO_OPEN' | 'WEATHER_OPEN'
+>;
+
+export type ResolveEffectiveEntryMos = (input: {
+  conditionId: string;
+  assetId: string;
+}) => Promise<number>;
+
+export interface ResumeReservedEntryParams {
+  conditionId: string;
+  assetId: string;
+  mode: TradingMode;
+  /** Position-specific order signal id used as job.id and execution claim key. */
+  signalId: string;
+  /** Dedupe key for enqueueUnique; defaults to signalId (copy-trading). */
+  logicalKey?: string;
+  reason: EntryOpenReason;
+  reservation: ReserveResult;
+  connectionManager: Pick<IPolymarketConnectionManager, 'fetchExecutablePrices'> & {
+    forceRefreshBook?(assetId: string): Promise<unknown>;
+  };
+  reservationService: ReservationService;
+  orderQueue: RedisQueue<OrderSignal>;
+  resolveEffectiveEntryMos?: ResolveEffectiveEntryMos;
+  hasBuyExecution?: () => Promise<boolean>;
+  hasInFlightBuy?: () => Promise<boolean>;
+}
+
+/**
+ * Re-enqueue a BUY after a transient failure once `ReservationService.reserve`
+ * already succeeded. Quantity is derived from the reserved notional so
+ * exposure accounting stays aligned with the reservation row.
+ */
+export async function resumeEntryFromReservation(
+  params: ResumeReservedEntryParams,
+): Promise<string | null> {
+  const {
+    conditionId,
+    assetId,
+    mode,
+    signalId,
+    logicalKey = signalId,
+    reason,
+    reservation,
+    connectionManager,
+    reservationService,
+    orderQueue,
+    resolveEffectiveEntryMos,
+    hasBuyExecution,
+    hasInFlightBuy,
+  } = params;
+  const { reservedNotionalUsdc, reservationId, copiedPositionId } = reservation;
+
+  const deferToWorker = async (): Promise<null> => {
+    return null;
+  };
+
+  const abandon = async (skipReason: string): Promise<string | null> => {
+    if (hasInFlightBuy && (await hasInFlightBuy())) {
+      return deferToWorker();
+    }
+    await reservationService.release(signalId).catch(() => undefined);
+    return skipReason;
+  };
+
+  const roughPrices = await connectionManager.fetchExecutablePrices(assetId, 1);
+  if (roughPrices.executableAskVwap <= 0) {
+    return abandon('Pas de liquidit� (reprise r�servation)');
+  }
+
+  const estimatedQty = reservedNotionalUsdc / roughPrices.executableAskVwap;
+  const depthResult = await fetchEntryAskLiquidityWithRetries({
+    assetId,
+    targetQty: estimatedQty,
+    maxRetries: 1,
+    delayMs: 250,
+    connectionManager,
+  });
+  if (!depthResult.ok) {
+    return abandon(depthResult.skipReason);
+  }
+  const entryAskVwap = depthResult.prices.executableAskVwap;
+
+  const targetQty = reservedNotionalUsdc / entryAskVwap;
+  if (targetQty < MIN_ORDER_SHARES) {
+    return abandon('Quantit� r�serv�e inf�rieure au minimum');
+  }
+  if (mode === 'real' && reservedNotionalUsdc < MIN_ORDER_USDC) {
+    return abandon(
+      `Montant r�serv� inf�rieur au minimum live (${MIN_ORDER_USDC} USDC)`,
+    );
+  }
+
+  if (resolveEffectiveEntryMos) {
+    const effectiveMos = await resolveEffectiveEntryMos({ conditionId, assetId });
+    if (targetQty < effectiveMos) {
+      return abandon(ENTRY_MOS_SKIP_CANNOT_BUMP);
+    }
+  }
+
+  const ttlSeconds = Math.max(
+    1,
+    Math.ceil((reservation.expiresAt.getTime() - Date.now()) / 1000),
+  );
+  const enqueued = await enqueueEntrySignal({
+    orderQueue,
+    dedupeKey: logicalKey,
+    ttlSeconds,
+    hasBuyExecution,
+    hasInFlightBuy,
+    job: {
+      id: signalId,
+      copiedPositionId,
+      reservationId,
+      conditionId,
+      assetId,
+      side: 'BUY',
+      quantity: targetQty,
+      usdcAmount: reservedNotionalUsdc,
+      orderType: reason === 'ALGO_OPEN' ? 'FOK' : 'FAK',
+      referenceVwap: entryAskVwap,
+      reason,
+      mode,
+    },
+  });
+
+  const blocked = await resolveEntryEnqueueBlocked({
+    enqueued,
+    orderQueue,
+    dedupeKey: logicalKey,
+    orderSignalId: signalId,
+    reservationService,
+    hasBuyExecution,
+    hasInFlightBuy,
+    blockedReason: 'Enqueue file bloqué (reprise)',
+  });
+  if (blocked) return blocked;
+
+  return null;
+}

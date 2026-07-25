@@ -1,0 +1,162 @@
+{
+  "name": "@polywatch/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./config/env": {
+      "types": "./dist/config/env.d.ts",
+      "import": "./dist/config/env.js"
+    },
+    "./config/secrets": {
+      "types": "./dist/config/secrets.d.ts",
+      "import": "./dist/config/secrets.js"
+    },
+    "./market-list": {
+      "types": "./dist/polymarket/market-list.d.ts",
+      "import": "./dist/polymarket/market-list.js"
+    },
+    "./polymarket/pusd-amount": {
+      "types": "./dist/polymarket/pusd-amount.d.ts",
+      "import": "./dist/polymarket/pusd-amount.js"
+    },
+    "./polymarket/trading-wallet": {
+      "types": "./dist/polymarket/trading-wallet.d.ts",
+      "import": "./dist/polymarket/trading-wallet.js"
+    },
+    "./polymarket/connection-manager": {
+      "types": "./dist/polymarket/connection-manager.d.ts",
+      "import": "./dist/polymarket/connection-manager.js"
+    },
+    "./positions/redemption-wait": {
+      "types": "./dist/positions/redemption-wait.d.ts",
+      "import": "./dist/positions/redemption-wait.js"
+    },
+    "./simulation/constants": {
+      "types": "./dist/simulation/constants.d.ts",
+      "import": "./dist/simulation/constants.js"
+    },
+    "./simulation/trader-analytics": {
+      "types": "./dist/simulation/trader-analytics.d.ts",
+      "import": "./dist/simulation/trader-analytics.js"
+    },
+    "./simulation/trader-pnl-series": {
+      "types": "./dist/simulation/trader-pnl-series.d.ts",
+      "import": "./dist/simulation/trader-pnl-series.js"
+    },
+    "./market/nav-category": {
+      "types": "./dist/market/nav-category.d.ts",
+      "import": "./dist/market/nav-category.js"
+    },
+    "./simulation/pnl-by-category": {
+      "types": "./dist/simulation/pnl-by-category.d.ts",
+      "import": "./dist/simulation/pnl-by-category.js"
+    },
+    "./risk/sim-mode-fields": {
+      "types": "./dist/risk/sim-mode-fields.d.ts",
+      "import": "./dist/risk/sim-mode-fields.js"
+    },
+    "./worker/move-detector-settings": {
+      "types": "./dist/worker/move-detector-settings.d.ts",
+      "import": "./dist/worker/move-detector-settings.js"
+    },
+    "./types/sim-state-snapshot": {
+      "types": "./dist/types/sim-state-snapshot.d.ts",
+      "import": "./dist/types/sim-state-snapshot.js"
+    },
+    "./types/trader-analytics": {
+      "types": "./dist/types/trader-analytics.d.ts",
+      "import": "./dist/types/trader-analytics.js"
+    },
+    "./simulation/market-analytics": {
+      "types": "./dist/simulation/market-analytics.d.ts",
+      "import": "./dist/simulation/market-analytics.js"
+    },
+    "./types/market-analytics": {
+      "types": "./dist/types/market-analytics.d.ts",
+      "import": "./dist/types/market-analytics.js"
+    },
+    "./worker-shared/safe-interval": {
+      "types": "./dist/worker-shared/safe-interval.d.ts",
+      "import": "./dist/worker-shared/safe-interval.js"
+    },
+    "./worker-shared/backend-readiness": {
+      "types": "./dist/worker-shared/backend-readiness.d.ts",
+      "import": "./dist/worker-shared/backend-readiness.js"
+    },
+    "./worker-shared/backend-client": {
+      "types": "./dist/worker-shared/backend-client.d.ts",
+      "import": "./dist/worker-shared/backend-client.js"
+    },
+    "./worker-shared/redis-queue": {
+      "types": "./dist/worker-shared/redis-queue.d.ts",
+      "import": "./dist/worker-shared/redis-queue.js"
+    },
+    "./worker-shared/connection-manager-interface": {
+      "types": "./dist/worker-shared/connection-manager-interface.d.ts",
+      "import": "./dist/worker-shared/connection-manager-interface.js"
+    },
+    "./algo/surveillance-constants": {
+      "types": "./dist/services/algo-surveillance.types.d.ts",
+      "import": "./dist/services/algo-surveillance.types.js"
+    },
+    "./services/system-config.service": {
+      "types": "./dist/services/system-config.service.d.ts",
+      "import": "./dist/services/system-config.service.js"
+    },
+    "./seed/system-config-defaults": {
+      "types": "./dist/seed/system-config-defaults.d.ts",
+      "import": "./dist/seed/system-config-defaults.js"
+    },
+    "./lib/algo-price-tick.types": {
+      "types": "./dist/lib/algo-price-tick.types.d.ts",
+      "import": "./dist/lib/algo-price-tick.types.js"
+    },
+    "./entities/E2eTestRun": {
+      "types": "./dist/entities/E2eTestRun.d.ts",
+      "import": "./dist/entities/E2eTestRun.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./weather/question-parser": {
+      "types": "./dist/weather/question-parser.d.ts",
+      "import": "./dist/weather/question-parser.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate": "tsx src/migrate.ts",
+    "migration:run": "tsx src/migrate.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "ioredis": "^5.6.1",
+    "pg": "^8.13.1",
+    "pino": "^9.6.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.22",
+    "viem": "^2.31.4",
+    "ws": "^8.18.2"
+  },
+  "peerDependencies": {
+    "pino": "^9.6.0",
+    "ws": "^8.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/ws": "^8.18.1",
+    "pg-mem": "^3.0.14",
+    "vitest": "^3.1.2"
+  }
+}

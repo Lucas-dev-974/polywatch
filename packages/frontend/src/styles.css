@@ -8451,3 +8451,62 @@ body.is-resizing-columns .position-market-split-handle::after {
   display: flex;
   gap: .375rem;
 }
+
+/* === Weather Settings / Auto-track === */
+.weather-settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: .875rem;
+  padding: .75rem 1rem 1rem;
+}
+
+.weather-settings-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  font-size: .8125rem;
+  color: var(--text-secondary);
+}
+
+.weather-settings-mvp-note,
+.weather-autotrack-note {
+  margin: 0 .75rem .5rem;
+}
+
+.weather-settings-inactive {
+  opacity: .75;
+}
+
+.weather-settings-inactive .badge {
+  align-self: flex-start;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.weather-settings-inactive .form-hint,
+.weather-settings-grid > label > .form-hint {
+  padding: .375rem .5rem;
+  border-left-width: 2px;
+}
+
+.weather-autotrack-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: 0 .75rem .75rem;
+  align-items: center;
+}
+
+.weather-autotrack-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .75rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: .8125rem;
+}
+
+.weather-autotrack-row--disabled {
+  opacity: .5;
+}

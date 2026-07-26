@@ -272,6 +272,20 @@ export {
   computeCdfAbove,
 } from './weather/forecast-distribution.js';
 export { calculateEdge, resolveDynamicMinEdge } from './weather/weather-edge.js';
+export {
+  shouldCloseForForecastDrift,
+  shouldCloseBeforeResolution,
+  shouldCloseForBucketExit,
+  isForecastInBucket,
+  normalizeWeatherCity,
+  buildLookAheadTargetDates,
+  type BucketBounds,
+} from './weather/weather-exit-helpers.js';
+export {
+  selectForecastAlignedBucket,
+  type BucketCandidate,
+  type SelectedBucket,
+} from './weather/forecast-bucket-selector.js';
 export { seedDefaults } from './seed/defaults.js';
 export { SYSTEM_CONFIG_DEFAULTS } from './seed/system-config-defaults.js';
 export * from './polymarket/index.js';

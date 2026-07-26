@@ -22,19 +22,24 @@ export interface WeatherMarketDiscoveryResult {
 }
 
 export async function discoverWeatherMarkets(
-  options?: { limit?: number; offset?: number; targetDate?: Date },
+  options?: {
+    limit?: number;
+    offset?: number;
+    targetDate?: Date;
+    targetDates?: Date[];
+  },
 ): Promise<WeatherMarketDiscoveryResult> {
   const limit = Math.min(100, Math.max(1, options?.limit ?? 100));
   const offset = Math.max(0, options?.offset ?? 0);
 
-  // Default target dates: tomorrow (J+1) primarily, with today (J) as fallback.
-  // User asked to show J+1 markets primarily; we still accept J markets because
-  // Polymarket creates daily weather markets very close to the event date.
   const today = defaultToday();
   const tomorrow = defaultTomorrow();
-  const targetDates = options?.targetDate
-    ? [options.targetDate]
-    : [tomorrow, today];
+  const targetDates =
+    options?.targetDates && options.targetDates.length > 0
+      ? options.targetDates
+      : options?.targetDate
+        ? [options.targetDate]
+        : [tomorrow, today];
 
   const targetStrs = new Set(targetDates.map((d) => d.toISOString().slice(0, 10)));
   const targetMonthDays = new Set(

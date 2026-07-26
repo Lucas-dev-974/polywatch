@@ -7,6 +7,7 @@ import {
   createWeatherSelectionServices,
   WeatherAutoTrackService,
   WeatherForecastService,
+  WeatherPositionForecastService,
   createRedis,
   safeInterval,
   waitForBackendReady,
@@ -20,7 +21,6 @@ import {
 } from '@polywatch/core';
 import { config } from './config.js';
 import { seedWeatherAlgoWatchlistEntry } from './watchlist-seed.js';
-import { WeatherSelectionLoader } from './selection-loader.js';
 import {
   WeatherStrategyRegistry,
   WeatherForecastStrategy,
@@ -29,75 +29,79 @@ import {
 import { WeatherStrategyRunner } from './strategy/strategy-runner.js';
 import { WeatherAlgoRuntimeStatusPublisher } from './runtime-status.js';
 import { runWeatherEntryPipeline } from './processors/weather-entry-pipeline.js';
+import { WeatherExitEvaluator } from './processors/weather-exit-evaluator.js';
+import { runWeatherAutoTrackJanitorCycle } from './auto-track-janitor.js';
 
 const log = pino({ name: 'weather-algo' });
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const BACKEND_READY_TIMEOUT_MS = 60_000;
+const CONFIG_CHANGED_CHANNEL = 'config-changed';
 
 async function main() {
-  // 1. Initialize DataSource
   const ds = await initializeDataSource(createDataSource());
   await assertDatabaseExists(ds);
 
-  // 2. Seed weather-algo watchlist entry
   const watchlistId = await seedWeatherAlgoWatchlistEntry(ds);
   log.info({ watchlistId }, 'weather-algo watchlist entry ready');
 
-  // 3. Create services
   const riskService = new RiskService(ds);
   const { selectionService } = createWeatherSelectionServices(ds);
   const forecastService = new WeatherForecastService(ds);
+  const positionForecastService = new WeatherPositionForecastService(ds);
+  const autoTrackService = new WeatherAutoTrackService(ds);
   const marketService = new MarketService(ds);
   const reservationService = new ReservationService(ds);
   const simulationService = new SimulationService(ds);
 
-  // 4. Create Redis connections
   const redisCmd = createRedis();
   const redisPub = createRedis();
   const redisSub = createRedis();
 
-  // 5. Create SelectionLoader
-  const selectionLoader = new WeatherSelectionLoader(selectionService, redisSub);
-
-  // 6. Create StrategyRegistry
   const registry = new WeatherStrategyRegistry();
   registry.register(new WeatherForecastStrategy());
 
-  // 7. Create connection manager for live prices
   const connectionManager = new PolymarketConnectionManager({
     wsUrl: config.wsUrl,
     clobApi: config.clobApi,
   });
 
-  // 8. Create order queue
   const orderQueue = new RedisQueue<OrderSignal>(
     redisCmd,
     WORKER_QUEUES.WEATHER_ORDER_SIGNALS,
     async () => {},
   );
 
-  // 9. Wait for backend
+  const closeQueue = new RedisQueue<OrderSignal>(
+    redisCmd,
+    WORKER_QUEUES.CLOSE_SIGNALS,
+    async () => {},
+  );
+
   try {
     await waitForBackendReady(redisSub, BACKEND_READY_TIMEOUT_MS);
   } catch (err) {
     log.warn({ err }, 'backend-ready signal not received within timeout — continuing anyway');
   }
 
-  // 10. Load RiskConfig
-  const riskConfig = await riskService.getConfig();
+  let riskConfig = await riskService.getConfig();
   if (!riskConfig.weatherAlgoEnabled) {
     log.warn('weather-algo is disabled in risk config — starting in standby mode');
   } else {
     log.info('weather-algo enabled in risk config');
   }
 
-  // 11. Load selections
-  await selectionLoader.load();
-  selectionLoader.subscribeToConfigChanges();
-  selectionLoader.startPeriodicRefresh();
+  const exitEvaluator = new WeatherExitEvaluator({
+    ds,
+    watchlistId,
+    risk: riskConfig,
+    forecastService,
+    positionForecastService,
+    marketService,
+    connectionManager,
+    closeQueue,
+  });
 
-  // 12. Create entry pipeline
   const onSignal = async (signal: WeatherSignal): Promise<boolean> => {
     const result = await runWeatherEntryPipeline({
       signal,
@@ -112,6 +116,8 @@ async function main() {
       ds,
       backendUrl: config.backendUrl,
       serviceToken: config.serviceToken,
+      forecastService,
+      positionForecastService,
     });
 
     if (result === null) {
@@ -129,11 +135,11 @@ async function main() {
     return false;
   };
 
-  // 13. Create StrategyRunner
   const runtimeStatus = new WeatherAlgoRuntimeStatusPublisher(redisCmd);
   const strategyRunner = new WeatherStrategyRunner({
     ds,
     selectionService,
+    autoTrackService,
     forecastService,
     registry,
     redisCmd,
@@ -141,13 +147,36 @@ async function main() {
     pollMs: config.pollMs,
     forecastCacheTtlMs: config.forecastCacheTtlMs,
     runtimeStatus,
+    exitEvaluator,
   });
   strategyRunner.setRiskConfig(riskConfig);
 
-  // 14. Start evaluation loop
+  const runAutoTrackTick = async (): Promise<void> => {
+    try {
+      const { added } = await runWeatherAutoTrackJanitorCycle(
+        autoTrackService,
+        selectionService,
+      );
+      if (added > 0) {
+        await redisPub.publish(
+          CONFIG_CHANGED_CHANNEL,
+          JSON.stringify({ at: Date.now(), source: 'weather-algo-auto-track' }),
+        );
+      }
+    } catch (err) {
+      log.error({ err }, 'weather auto-track janitor failed');
+    }
+  };
+
   strategyRunner.start();
 
-  // 15. Heartbeat
+  const autoTrackTimer = safeInterval(
+    () => runAutoTrackTick(),
+    config.pollMs,
+    'weather-algo:auto-track-janitor',
+  );
+  void runAutoTrackTick();
+
   const heartbeatTimer = safeInterval(
     async () => {
       await redisPub.publish(
@@ -160,28 +189,26 @@ async function main() {
     'weather-algo:heartbeat',
   );
 
-  // 16. Subscribe to config-changed
-  redisSub.subscribe('config-changed', (err: Error | null | undefined) => {
+  redisSub.subscribe(CONFIG_CHANGED_CHANNEL, (err: Error | null | undefined) => {
     if (err) log.error({ err }, 'failed to subscribe to config-changed channel');
   });
 
   redisSub.on('message', (channel: string) => {
-    if (channel !== 'config-changed') return;
-    log.info('config-changed received — reloading selections and risk config');
+    if (channel !== CONFIG_CHANGED_CHANNEL) return;
+    log.info('config-changed received — reloading risk config');
     void (async () => {
       try {
-        await selectionLoader.reload();
         RiskService.invalidateConfigCache();
-        const refreshed = await riskService.getConfig();
-        log.info({ weatherAlgoEnabled: refreshed.weatherAlgoEnabled }, 'risk config reloaded');
-        strategyRunner.setRiskConfig(refreshed);
+        riskConfig = await riskService.getConfig();
+        log.info({ weatherAlgoEnabled: riskConfig.weatherAlgoEnabled }, 'risk config reloaded');
+        strategyRunner.setRiskConfig(riskConfig);
+        exitEvaluator.updateRiskConfig(riskConfig);
       } catch (err) {
         log.error({ err }, 'failed to reload on config-changed');
       }
     })();
   });
 
-  // 17. Connect to Polymarket WS
   try {
     await connectionManager.getWsClient().connect();
     log.info('connected to Polymarket websocket');
@@ -191,12 +218,11 @@ async function main() {
 
   log.info('Polywatch weather-algo started');
 
-  // Graceful shutdown
   const shutdown = async () => {
     log.info('shutting down...');
     strategyRunner.stop();
     clearInterval(heartbeatTimer);
-    await selectionLoader.stop();
+    clearInterval(autoTrackTimer);
     try {
       await connectionManager.getWsClient().disconnect();
     } catch {

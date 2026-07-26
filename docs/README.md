@@ -24,7 +24,8 @@ kill switch, limites d'exposition).
 | [`rapports-analyse.md`](./rapports-analyse.md) | Hub Rapports (Crypto Algo sim, comparaison, fingerprint, révisions config) |
 | [`frontend.md`](./frontend.md) | Application SolidJS (pages, composants, temps réel) |
 | [`crypto-algo.md`](./crypto-algo.md) | Module d'automatisation et de trading algorithmique (Auto-Track, stratégies) |
-| [`code/`](./code/README.md) | Documentation détaillée du code — architecture, pipeline, packages (core, copy-trading, worker, backend, frontend, crypto-algo) |
+| [`weather-algo.md`](./weather-algo.md) | Module weather-algo (température, Open-Meteo, entrées/sorties, auto-track) |
+| [`code/`](./code/README.md) | Documentation détaillée du code — architecture, pipeline, packages (core, copy-trading, worker, backend, frontend, crypto-algo, weather-algo) |
 
 > Les rapports d'audits et plans d'optimisation sont disponibles dans le dossier [`audits/`](./audits/).
 >

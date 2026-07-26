@@ -62,6 +62,7 @@ export interface AutoTrackRule {
   metric: string;
   lookAheadDays: number;
   enabled: boolean;
+  mode: 'expand' | 'city_follow' | null;
 }
 
 const STATUS_POLL_MS = 10_000;
@@ -125,10 +126,10 @@ export function useWeatherAlgoDashboard() {
     await refreshSelections();
   }
 
-  async function addAutoTrackRule(city: string, metric: string, lookAheadDays: number) {
+  async function addAutoTrackRule(city: string, metric: string, lookAheadDays: number, mode?: 'expand' | 'city_follow') {
     await api('/weather-algo-auto-track', {
       method: 'POST',
-      body: JSON.stringify({ city, metric, lookAheadDays }),
+      body: JSON.stringify({ city, metric, lookAheadDays, mode }),
     });
     await refreshAutoTrackRules();
   }

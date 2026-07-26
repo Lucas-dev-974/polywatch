@@ -114,6 +114,8 @@ import { AddCryptoAlgoCurveFilter1700000000061 } from '../migrations/AddCryptoAl
 import { SystemConfig1700000000001 } from '../migrations/SystemConfig1700000000001.js';
 import { CreateWeatherAlgo1700000000070 } from '../migrations/CreateWeatherAlgo1700000000070.js';
 import { WeatherAlgoUniqueIndexes1700000000080 } from '../migrations/WeatherAlgoUniqueIndexes1700000000080.js';
+import { WeatherPositionForecastUnique1700000000081 } from '../migrations/WeatherPositionForecastUnique1700000000081.js';
+import { WeatherCityFollow1700000000082 } from '../migrations/WeatherCityFollow1700000000082.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -184,6 +186,8 @@ export const migrations = [
   SystemConfig1700000000001,
   CreateWeatherAlgo1700000000070,
   WeatherAlgoUniqueIndexes1700000000080,
+  WeatherPositionForecastUnique1700000000081,
+  WeatherCityFollow1700000000082,
 ];
 
 export const entities = [

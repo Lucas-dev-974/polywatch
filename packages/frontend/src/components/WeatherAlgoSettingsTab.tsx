@@ -18,7 +18,6 @@ export function WeatherAlgoSettingsTab() {
     if (!c) return;
     setSaving(true);
     try {
-      // PUT /risk-config accepts partial fields (schema is .partial())
       await api('/risk-config', {
         method: 'PUT',
         body: JSON.stringify({
@@ -32,6 +31,7 @@ export function WeatherAlgoSettingsTab() {
           weatherAlgoForecastChangeThreshold: c.weatherAlgoForecastChangeThreshold,
           weatherAlgoCloseBeforeResolutionHours: c.weatherAlgoCloseBeforeResolutionHours,
           weatherAlgoPollMs: c.weatherAlgoPollMs,
+          weatherAlgoCityFollowSwitchMode: c.weatherAlgoCityFollowSwitchMode,
         }),
       });
     } catch { /* ignore */ }
@@ -84,7 +84,7 @@ export function WeatherAlgoSettingsTab() {
                 onChange={(e) => update('weatherAlgoSelectionMode', e.currentTarget.value)}>
                 <option value="single">Single (meilleur edge)</option>
                 <option value="multi">Multi (top N)</option>
-                <option value="spread">Spread (adjacent)</option>
+                <option value="spread">Spread (meilleur YES + meilleur NO)</option>
               </select>
             </label>
             <label>
@@ -98,12 +98,24 @@ export function WeatherAlgoSettingsTab() {
               <input type="number" step="0.5"
                 value={c().weatherAlgoForecastChangeThreshold as number}
                 onInput={(e) => update('weatherAlgoForecastChangeThreshold', Number(e.currentTarget.value))} />
+              <span class="form-hint">Ferme la position si le forecast mean dérive au-delà de ce seuil.</span>
             </label>
             <label>
-              Auto-close avant résolution (heures)
+              Fenêtre avant résolution (heures)
               <input type="number" step="0.5"
                 value={c().weatherAlgoCloseBeforeResolutionHours as number}
                 onInput={(e) => update('weatherAlgoCloseBeforeResolutionHours', Number(e.currentTarget.value))} />
+              <span class="form-hint">Bloque les nouvelles entrées et ferme les positions ouvertes dans cette fenêtre.</span>
+            </label>
+            <label>
+              Comportement si la prévision change de bucket
+              <select value={c().weatherAlgoCityFollowSwitchMode as string}
+                onChange={(e) => update('weatherAlgoCityFollowSwitchMode', e.currentTarget.value)}>
+                <option value="close_and_reenter">Fermer et re-entrer sur le nouveau bucket</option>
+                <option value="hold">Conserver la position (seuil drift uniquement)</option>
+                <option value="add_position">Ouvrir une position additionnelle (mode multi requis)</option>
+              </select>
+              <span class="form-hint">En mode "Suivre la ville". "Ouvrir additionnelle" requiert Mode de sélection = Multi.</span>
             </label>
           </div>
         )}

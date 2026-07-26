@@ -50,10 +50,10 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `MarketSyncConfig` | `market_sync_config` | Configuration de synchronisation des marches (intervalles, backoff, concurrency) |
 | `E2eTestRun` | `e2e_test_runs` | Runs de tests E2E (suite, statut, duree, logs, triggeredBy, errorMessage) |
 | `E2eRunPosition` | `e2e_run_positions` | Positions d'un run E2E (conditionId, cryptoSymbol, interval, prix d'entree, PnL, statut) |
-| `WeatherMarketSelection` | `weather_market_selections` | Marchés météo sélectionnés pour le trading weather-algo (conditionId, city, metric, targetValue, eventSlug) |
-| `WeatherAutoTrackRule` | `weather_auto_track_rules` | Règles d'auto-découverte weather-algo (city, metric, lookAheadDays) |
-| `WeatherForecastCache` | `weather_forecast_cache` | Cache des prévisions Open-Meteo multi-modèles (city, date, metric, mean, stdDev, modelValues, lat/lon, TTL) |
-| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot du forecast à l'ouverture d'une position (copiedPositionId, city, targetDate, entryForecastMean, entryForecastStdDev) |
+| `WeatherMarketSelection` | `weather_market_selections` | Marchés météo sélectionnés pour le trading weather-algo (conditionId, city, metric, targetValue, eventSlug) — **actif** |
+| `WeatherAutoTrackRule` | `weather_auto_track_rules` | Règles auto-track (city, metric, lookAheadDays, mode) — sync périodique vers sélections (expand) ou sélection à runtime (city_follow) |
+| `WeatherForecastCache` | `weather_forecast_cache` | Cache Open-Meteo — **actif** |
+| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture — **actif** (index unique `copied_position_id`). Colonnes `entry_bucket_comparison` + `entry_bucket_bounds` pour le mode city-follow. |
 
 ## Relations conceptuelles
 

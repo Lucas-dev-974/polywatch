@@ -129,6 +129,8 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       return { kind: 'abstain', reason: 'missing_token' };
     }
 
+    const targetDate = market.endDate ? new Date(market.endDate) : new Date();
+
     const signal: WeatherSignal = {
       conditionId: market.conditionId,
       assetId,
@@ -147,11 +149,20 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       ],
       strategyId: this.id,
       eventSlug: market.eventSlug ?? market.conditionId,
+      city: parsed.city,
+      metric: parsed.metric,
+      targetDate,
       forecastMean: ctx.forecastMean,
       forecastStdDev: ctx.forecastStdDev,
       forecastProbability: candidate.forecastProb,
       marketPrice: candidate.marketPrice,
       edge: candidate.edge,
+      entryBucketComparison: parsed.comparison,
+      entryBucketBounds: {
+        low: parsed.targetValueLow,
+        high: parsed.targetValueHigh,
+        target: parsed.targetValue,
+      },
     };
 
     log.debug(

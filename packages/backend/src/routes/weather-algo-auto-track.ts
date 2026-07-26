@@ -10,6 +10,7 @@ const createRuleSchema = z.object({
   city: z.string().min(1),
   metric: z.enum(['highest_temp', 'lowest_temp']),
   lookAheadDays: z.number().int().min(1).max(30).optional(),
+  mode: z.enum(['expand', 'city_follow']).optional(),
 });
 
 const patchRuleSchema = z.object({
@@ -35,8 +36,8 @@ export function createWeatherAlgoAutoTrackRouter(ds: DataSource): Router {
       });
       return;
     }
-    const { city, metric, lookAheadDays } = parsed.data;
-    const rule = await autoTrackService.addRule(city, metric, lookAheadDays ?? 1);
+    const { city, metric, lookAheadDays, mode } = parsed.data;
+    const rule = await autoTrackService.addRule(city, metric, lookAheadDays ?? 1, mode);
     await publishConfigChanged();
     emitAlgoMarketsChanged();
     res.status(201).json(rule);

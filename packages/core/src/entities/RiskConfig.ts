@@ -723,4 +723,8 @@ export class RiskConfig {
   /** Evaluation polling interval (ms). Default 30min. */
   @Column({ type: 'integer', name: 'weather_algo_poll_ms', default: 1800000 })
   weatherAlgoPollMs!: number;
+
+  /** City-follow switch mode: close_and_reenter | hold | add_position. */
+  @Column({ type: 'text', name: 'weather_algo_city_follow_switch_mode', default: 'close_and_reenter' })
+  weatherAlgoCityFollowSwitchMode!: string;
 }

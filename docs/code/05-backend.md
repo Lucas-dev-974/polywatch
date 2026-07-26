@@ -50,7 +50,9 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 
 ### Internes (`/api/internal`, service token uniquement)
 
-Consommées par le worker / copy-trading / crypto-algo : watchlist, copied-positions, trader-snapshots, move-events (lecture + `processed`), reconcile/poll-cycle par trader, pnl-ticks et move-detected (relais Socket.IO), **clob-credentials (déchiffrés — worker uniquement)**, balances (copy-trading + crypto-algo sizing real), position-reservations (create/delete), executions claim, pending-resolution, retry-close, replay des dead-letter queues, clob-approvals/ensure, redeem (rédemption on-chain).
+Consommées par le worker / copy-trading / crypto-algo / weather-algo : watchlist, copied-positions, trader-snapshots, move-events (lecture + `processed`), reconcile/poll-cycle par trader, pnl-ticks et move-detected (relais Socket.IO), **clob-credentials (déchiffrés — worker uniquement)**, balances (copy-trading + crypto/weather-algo sizing real), position-reservations (create/delete), executions claim, pending-resolution, retry-close, replay des dead-letter queues, clob-approvals/ensure, redeem (rédemption on-chain).
+
+Routes JWT weather-algo : `/api/weather-algo-markets`, `/api/weather-algo-discover`, `/api/weather-algo-forecasts`, `/api/weather-algo-auto-track` (voir [`../api.md`](../api.md) § Weather Algo et [`../weather-algo.md`](../weather-algo.md)).
 
 Également : POST `/api/executions` (service token) — notification d'exécution du worker, relayée en WebSocket.
 

@@ -156,39 +156,13 @@ Voir [`docs/code/07-crypto-algo.md`](code/07-crypto-algo.md) pour le détail.
 
 ### Weather-Algo (`packages/weather-algo/src/index.ts`)
 
-Process sans serveur HTTP qui gère le trading algorithmique sur les marchés
-météo (température). Il :
+Process sans serveur HTTP — trading météo température. Détail : [`weather-algo.md`](./weather-algo.md).
 
-- Découvre les marchés de température sur Polymarket (tag `weather`) via la
-  fonction `discoverWeatherMarkets()` et le parser `parseWeatherQuestion()`
-  (supporte °C et °F, patterns exact / or below / or above / between).
-  Les marchés découverts sont groupés par ville (`groupMarketsByCity()`) et
-  retournés dans le champ `byCity` de la réponse API, filtrés sur
-  `highest_temp` uniquement.
-- Fetch les prévisions multi-modèles Open-Meteo (GFS, ECMWF, ICON, JMA,
-  MétéoFrance) via `fetchWeatherForecast()`, avec cache DB
-  (`WeatherForecastCache`, TTL configurable).
-- Calcule une distribution de probabilité N(mean, stdDev) sur les températures
-  discrètes via `buildTempProbabilityDistribution()` et
-  `computeMarketImpliedProbabilities()`.
-- Compare la probabilité forecast avec le prix marché → edge
-  (`calculateEdge()`), avec seuil dynamique
-  (`resolveDynamicMinEdge()` — incertitude + temps restant).
-- Si edge > seuil → signal `WEATHER_OPEN` poussé sur la file Redis
-  `weather-order-signals` (consommée par le worker via l'`Executor` existant).
-- Modes de sélection : `single` (meilleur edge), `multi` (top N), `spread`
-  (adjacent). Re-entry throttle par `eventSlug`.
-- Close on forecast change : si le forecast mean dérive de plus de
-  `weatherAlgoForecastChangeThreshold` °C depuis l'entrée → signal
-  `WEATHER_FORECAST_CHANGE` sur la file `close-signals`.
-- Auto-close X heures avant la résolution du marché
-  (`weatherAlgoCloseBeforeResolutionHours`).
-- **Entités** : `WeatherMarketSelection`, `WeatherAutoTrackRule`,
-  `WeatherForecastCache`, `WeatherPositionForecast`.
-- **RiskConfig** : 10 champs `weatherAlgo*` (edge, sizing, selection mode,
-  thresholds, poll interval).
-- Publie un heartbeat sur Redis (`weather-algo:heartbeat`) et son statut
-  runtime (`weather-algo:runtime-status`).
+- Entrées : discovery, Open-Meteo, edge, `WEATHER_OPEN` → `weather-order-signals`.
+- Sorties : `WeatherExitEvaluator` → `WEATHER_FORECAST_CHANGE` / `WEATHER_PRE_CLOSE` sur `close-signals` (même si algo désactivé).
+- Snapshot forecast à l'ouverture (`WeatherPositionForecast`).
+- Auto-track : janitor sync règles → sélections (`lookAheadDays`, multi-dates discovery).
+- Heartbeat + `weather-algo:runtime-status`.
 
 ### Frontend (`packages/frontend`)
 
@@ -222,7 +196,7 @@ reçoit les mises à jour via WebSocket. Voir [`frontend.md`](./frontend.md).
 | File Redis `order-signals` | copy-trading → worker | Signaux `COPY_*` |
 | File Redis `algo-order-signals` | crypto-algo → worker | Signaux `ALGO_*` |
 | File Redis `weather-order-signals` | weather-algo → worker | Signaux `WEATHER_OPEN` |
-| File Redis `close-signals` | worker Strategy → worker Executor | SL/TP/pre-close/kill-switch / closes manuels / `WEATHER_FORECAST_CHANGE` |
+| File Redis `close-signals` | worker Strategy / weather-algo → worker Executor | SL/TP/pre-close/kill-switch / closes manuels / `WEATHER_FORECAST_CHANGE` / `WEATHER_PRE_CLOSE` |
 | File Redis `execution-results` | worker Executor → ResultsConsumer | Finalisation |
 | Pub/Sub Redis | Backend → worker / copy-trading / crypto-algo / weather-algo | `config-changed`, `backend-ready`, `simulation-reset` |
 | Pub/Sub Redis | Crypto-Algo → Backend | `crypto-algo:runtime-status` (statut runtime) |

@@ -9,13 +9,13 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 
 1. Initialisation PostgreSQL (TypeORM, schéma vérifié par `assertDatabaseExists`).
 2. **`ensureCashIntegrity()`** — réconciliation du cash simulation depuis le ledger d'exécutions (log si drift réparé).
-3. **6+ connexions Redis** : commandes, pub (heartbeat), sub (`config-changed`, `backend-ready`), et 4 connexions consommateurs dédiées (`order-signals`, `algo-order-signals`, `close-signals`, `execution-results`).
+3. **6+ connexions Redis** : commandes, pub (heartbeat), sub (`config-changed`, `backend-ready`), et connexions consommateurs dédiées (`order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals`, `execution-results`).
 4. `waitForBackendReady()` — attend le signal Redis `backend-ready` (timeout 60 s) avant de continuer.
 5. `reconcilePlacingExecutions` (exécutions réelles orphelines en `placing`).
 6. **`startup-reconciler.ts`** — Réconciliation au démarrage : positions, exécutions, réservations.
 7. **`worker-context-refresh.ts`** — Abonnements Redis `config-changed` / `backend-ready` ; refresh du contexte trading (debounce 5 s).
 8. `backfillClosingStartedAt()` — backfill colonne legacy.
-9. `recoverOrphans()` sur les 4 files d'exécution (clés `:processing` → files normales).
+9. `recoverOrphans()` sur les files d'exécution (`order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals`, `execution-results` — clés `:processing` → files normales).
 10. Connexion WebSocket **book** + `syncBookSubscriptions` (10 s) ; WebSocket **user** (`UserChannelManager`).
 11. Boucles : strategy (100 ms), market-resolution (**15 s**), redemption (15 s), closing-watchdog (15 s), placing-janitor (15 s défaut, sim-only), pending-entry-janitor (30 s), reservation-janitor (60 s), purge horaire `MarketPositionTick`.
 12. Abonnements Redis (dispatcher `Map<channel, handler>` — `messageHandlers`) :
@@ -36,7 +36,7 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 
 | Fichier | File consommée | Rôle |
 |---|---|---|
-| `executor.ts` ×2 | `order-signals` / `close-signals` | Verrou position, claim + réconciliation in-flight, mos sortie, exécution sim/réelle → `execution-results`. Consomme les signaux `COPY_*` produits par `@polywatch/copy-trading` et `ALGO_*` par `@polywatch/crypto-algo`. |
+| `executor.ts` | `order-signals` / `algo-order-signals` / `weather-order-signals` / `close-signals` | Verrou position, claim + réconciliation in-flight, mos sortie, exécution sim/réelle → `execution-results`. Consomme `COPY_*` (copy-trading), `ALGO_*` (crypto-algo), `WEATHER_*` (weather-algo). |
 | `results-consumer.ts` | `execution-results` | `completeExecution` sous `positionLocks` → finalize + retry sorties forcées |
 | `strategy-processing.ts` | — (100 ms + book updates) | Boucle principale ; délègue à `position-exit-evaluator` et `kill-switch-monitor` → `close-signals` |
 | `market-resolution-watcher.ts` | — (**15 s**) | Délègue à `MarketResolutionService` |

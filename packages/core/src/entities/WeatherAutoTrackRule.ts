@@ -22,6 +22,9 @@ export class WeatherAutoTrackRule {
   @Column({ type: 'integer', name: 'look_ahead_days', default: 1 })
   lookAheadDays!: number;
 
+  @Column({ type: 'text', nullable: true, default: 'expand' })
+  mode!: string | null;
+
   @Column({ type: 'boolean', default: true })
   enabled!: boolean;
 

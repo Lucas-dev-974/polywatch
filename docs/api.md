@@ -333,13 +333,17 @@ Routes pour le trading algorithmique météo (weather-algo). Toutes requièrent 
 | DELETE | `/api/weather-algo-markets/:conditionId` | Supprime (204) |
 | PATCH | `/api/weather-algo-markets/:conditionId` | Active/désactive `{enabled: boolean}` |
 | GET | `/api/weather-algo-markets/status` | Statut runtime (heartbeat Redis + counts) |
-| POST | `/api/weather-algo-markets/notify-changed` | Interne — notifie un changement (sans JWT) |
+| POST | `/api/weather-algo-markets/notify-changed` | Interne — notifie un changement (`x-service-token`, pas de JWT utilisateur) |
 
 ### Découverte
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/weather-algo-discover?limit=50&offset=0` | Découvre les marchés météo Polymarket (`tag_slug=weather`) → `{temperatureMarkets, allWeatherMarkets, byCity: [{city, markets, targetDate, forecastMean, forecastStdDev, forecastStatus}]}`. Le champ `byCity` groupe les marchés `highest_temp` par ville, enrichi avec la température de prédiction Open-Meteo (cache DB). |
+| GET | `/api/weather-algo-discover?offset=0` | Découvre les marchés météo Polymarket (`tag_slug=weather`, page Gamma forcée à 100) → `{temperatureMarkets, allWeatherMarkets, byCity: [{city, markets, targetDate, forecastMean, forecastStdDev, forecastStatus}]}`. Le champ `byCity` groupe les marchés `highest_temp` par ville, enrichi avec la température de prédiction Open-Meteo (cache DB). |
+
+### Auto-track
+
+Les routes persistent des règles ; le janitor `weather-algo` les applique périodiquement (`syncMarketSelectionsForAutoTrack`).
 
 ### Prévisions
 
@@ -352,6 +356,6 @@ Routes pour le trading algorithmique météo (weather-algo). Toutes requièrent 
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/weather-algo-auto-track` | Liste les règles |
-| POST | `/api/weather-algo-auto-track` | Ajoute `{city, metric, lookAheadDays?}` |
+| POST | `/api/weather-algo-auto-track` | Ajoute `{city, metric, lookAheadDays?, mode?}` (mode: `expand` \| `city_follow`, défaut `expand`) |
 | DELETE | `/api/weather-algo-auto-track/:id` | Supprime (204) |
 | PATCH | `/api/weather-algo-auto-track/:id` | Active/désactive `{enabled: boolean}` |

@@ -45,7 +45,8 @@ export type OrderReason =
   | 'ALGO_OPEN'
   | 'ALGO_INCREASE'
   | 'WEATHER_OPEN'
-  | 'WEATHER_FORECAST_CHANGE';
+  | 'WEATHER_FORECAST_CHANGE'
+  | 'WEATHER_PRE_CLOSE';
 
 export interface OrderBookLevel {
   price: number;

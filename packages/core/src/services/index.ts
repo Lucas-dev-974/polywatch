@@ -149,6 +149,10 @@ export {
 export { createWeatherSelectionServices } from './weather-services.js';
 export { WeatherAutoTrackService } from './weather-auto-track.service.js';
 export {
+  WeatherPositionForecastService,
+  type WeatherPositionForecastInput,
+} from './weather-position-forecast.service.js';
+export {
   WeatherForecastService,
   type ForecastResult,
 } from './weather-forecast.service.js';

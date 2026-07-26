@@ -28,6 +28,8 @@ import {
   resumeEntryFromReservation,
   ExecutionService,
   resolveAlgoEntryExitParams,
+  WeatherForecastService,
+  WeatherPositionForecastService,
 } from '@polywatch/core';
 import type { WeatherSignal } from '../strategy/strategy.js';
 import { fetchAvailableRealCash } from '../real-cash.js';
@@ -49,6 +51,8 @@ export interface WeatherEntryPipelineParams {
   ds: DataSource;
   backendUrl: string;
   serviceToken: string;
+  forecastService?: WeatherForecastService;
+  positionForecastService?: WeatherPositionForecastService;
 }
 
 /**
@@ -135,6 +139,8 @@ export async function runWeatherEntryPipeline(
         ds,
         backendUrl,
         serviceToken,
+        forecastService: params.forecastService,
+        positionForecastService: params.positionForecastService,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -166,6 +172,8 @@ async function runMode(args: {
   ds: DataSource;
   backendUrl: string;
   serviceToken: string;
+  forecastService?: WeatherForecastService;
+  positionForecastService?: WeatherPositionForecastService;
 }): Promise<string | null> {
   const {
     signal,
@@ -454,6 +462,13 @@ async function runMode(args: {
       },
       'weather entry signal enqueued',
     );
+    await persistEntryForecastSnapshot({
+      ds,
+      signal,
+      copiedPositionId: reservation.copiedPositionId,
+      forecastService: args.forecastService,
+      positionForecastService: args.positionForecastService,
+    });
     return null;
   }
 
@@ -466,4 +481,46 @@ async function runMode(args: {
 
 export async function createWeatherEntryPipeline(params: WeatherEntryPipelineParams): Promise<(signal: WeatherSignal) => Promise<string | null>> {
   return (signal: WeatherSignal) => runWeatherEntryPipeline({ ...params, signal });
+}
+
+async function persistEntryForecastSnapshot(args: {
+  ds: DataSource;
+  signal: WeatherSignal;
+  copiedPositionId: number;
+  forecastService?: WeatherForecastService;
+  positionForecastService?: WeatherPositionForecastService;
+}): Promise<void> {
+  const { signal, copiedPositionId } = args;
+  const forecastService = args.forecastService ?? new WeatherForecastService(args.ds);
+  const positionForecastService =
+    args.positionForecastService ?? new WeatherPositionForecastService(args.ds);
+
+  try {
+    let modelValues: Record<string, number> = {};
+    const cached = await forecastService.getCached(
+      signal.city,
+      signal.targetDate,
+      signal.metric,
+    );
+    if (cached?.modelValues && Object.keys(cached.modelValues).length > 0) {
+      modelValues = cached.modelValues;
+    }
+
+    await positionForecastService.saveIfAbsent({
+      copiedPositionId,
+      city: signal.city,
+      targetDate: signal.targetDate,
+      metric: signal.metric,
+      entryForecastMean: signal.forecastMean,
+      entryForecastStdDev: signal.forecastStdDev,
+      entryModelValues: modelValues,
+      entryBucketComparison: signal.entryBucketComparison ?? null,
+      entryBucketBounds: signal.entryBucketBounds ?? null,
+    });
+  } catch (err) {
+    log.error(
+      { err, copiedPositionId, conditionId: signal.conditionId },
+      'failed to persist weather entry forecast snapshot — entry still enqueued',
+    );
+  }
 }

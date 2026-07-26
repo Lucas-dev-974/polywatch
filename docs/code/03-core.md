@@ -48,6 +48,10 @@ core/src/
 | `Market` | `markets` | tokenIdYes/No, endDate, negRisk, `feeRate`/`feeExponent` (frais CLOB dynamiques), lifecycle (active/resolved/closed/acceptingOrders/winningTokenId), `category`, `tagSlugs` (cache filtre copie), `marketType` |
 | `AlgoAutoTrackRule` | `algo_auto_track_rules` | Règle auto-track `(cryptoSymbol, interval)` unique, flag `enabled` |
 | `AlgoMarketSelection` | `algo_market_selections` | Marché sélectionné pour crypto-algo (`conditionId`, `cryptoSymbol`, `interval`, `slug`, `enabled`) |
+| `WeatherMarketSelection` | `weather_market_selections` | Marché sélectionné pour weather-algo (`conditionId`, city, metric, targetDate, eventSlug) |
+| `WeatherAutoTrackRule` | `weather_auto_track_rules` | Règle auto-track météo (city, metric, lookAheadDays) |
+| `WeatherForecastCache` | `weather_forecast_cache` | Cache prévisions Open-Meteo (city, date, metric, mean, stdDev) |
+| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture d'une position weather |
 | `AlgoSurveillanceSnapshot` | `algo_surveillance_snapshots` | Snapshot OHLC surveillance (open/close up/down, `marketStartAt`/`EndAt`, `unresolvedAt`) — `UNIQUE(conditionId)` |
 | `AlgoPriceTick` | `algo_price_ticks` | Ticks UP/DOWN 1 Hz (`PriceTickRecorder`) + métriques enrichies ; purge > 24 h ; chart API |
 | `IntegrationSettings` | `integration_settings` | Paramètres d'intégration tiers (clé API Polygonscan chiffrée, singleton) |
@@ -199,6 +203,7 @@ alors que « marché » reste proche de 0 %. Le filtre `*MinBidToAskRatio` dans
 | `SystemConfigService` | CRUD configuration système (clés/valeurs, catégories) |
 | `ExitAttemptEventService` | `listByPosition` — journal des tentatives de sortie |
 | `CryptoAlgoRuntimeStatusService` | Publication/lecture du statut runtime crypto-algo via Redis |
+| `WeatherMarketSelectionService` / `WeatherAutoTrackService` / `WeatherForecastService` / `WeatherPositionForecastService` | Sélections, auto-track, cache Open-Meteo, snapshot forecast d'entrée (voir [`../weather-algo.md`](../weather-algo.md)) |
 | `MarketResolutionService` | Détection des marchés réglés → positions `pending_resolution` |
 | `AlgoSurveillanceService` | `findLiveMarkets`, gestion snapshots de surveillance OHLC |
 | `AlgoSelectionBookAssets` | Résolution des assets de book pour les sélections algo |

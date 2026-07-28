@@ -47,12 +47,7 @@ export function EnvSettingsEntryTab(props: {
         <section class="settings-section">
           <h3 class="settings-section-title">Limites &amp; filtres</h3>
           <Show when={props.mode === 'sim'}>
-            <SimInitialCapitalField
-              value={props.config.simInitialCapital}
-              onChange={(simInitialCapital) =>
-                props.onChange({ simInitialCapital })
-              }
-            />
+            {/* Capital moved to Risk tab (per algoKind) */}
           </Show>
           <NumberField
             label="Plafond max par position (pUSD)"
@@ -192,6 +187,31 @@ export function EnvSettingsRiskTab(props: {
 
       <section class="settings-section settings-section-full">
         <h3 class="settings-section-title">Limites &amp; kill switch</h3>
+        <Show when={props.mode === 'sim'}>
+          <div class="settings-panel-grid settings-panel-grid-3">
+            <SimInitialCapitalField
+              label="Capital initial — Crypto (pUSD)"
+              value={props.config.simInitialCapitalCrypto}
+              onChange={(simInitialCapitalCrypto) =>
+                props.onChange({ simInitialCapitalCrypto })
+              }
+            />
+            <SimInitialCapitalField
+              label="Capital initial — Weather (pUSD)"
+              value={props.config.simInitialCapitalWeather}
+              onChange={(simInitialCapitalWeather) =>
+                props.onChange({ simInitialCapitalWeather })
+              }
+            />
+            <SimInitialCapitalField
+              label="Capital initial — Copy (pUSD)"
+              value={props.config.simInitialCapitalCopy}
+              onChange={(simInitialCapitalCopy) =>
+                props.onChange({ simInitialCapitalCopy })
+              }
+            />
+          </div>
+        </Show>
         <RiskSection
           prefix={props.mode}
           config={props.config}

@@ -82,12 +82,14 @@ describe('ReservationService', () => {
 
   it('rejects sim COPY_OPEN when cash is insufficient', async () => {
     const balanceRepo = ds.getRepository(SimulationBalance);
-    const balance = await balanceRepo.findOne({ where: {} });
+    const balance = await balanceRepo.findOne({ where: { algoKind: 'copy' } });
     if (balance) {
       balance.amount = 30;
       await balanceRepo.save(balance);
     } else {
-      await balanceRepo.save(balanceRepo.create({ token: 'pUSD', amount: 30 }));
+      await balanceRepo.save(
+        balanceRepo.create({ algoKind: 'copy', token: 'pUSD', amount: 30 }),
+      );
     }
 
     await expect(
@@ -188,7 +190,7 @@ describe('ReservationService', () => {
 
   it('counts active sim reservations against available cash', async () => {
     const balanceRepo = ds.getRepository(SimulationBalance);
-    const balance = (await balanceRepo.findOne({ where: {} }))!;
+    const balance = (await balanceRepo.findOne({ where: { algoKind: 'copy' } }))!;
     balance.amount = 100;
     await balanceRepo.save(balance);
 

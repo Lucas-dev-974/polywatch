@@ -23,6 +23,7 @@ async function seedSimPosition(ds: DataSourceType): Promise<void> {
       entryQuantityRemaining: 10,
       entryFees: 0,
       entryFeesRemaining: 0,
+      reason: 'ALGO_OPEN',
       status: 'open',
       mode: 'sim',
       realizedPnl: 0,
@@ -39,6 +40,7 @@ describe('SimulationArchiveService', () => {
       createTestDataSource(),
     );
     await seedDefaults(ds);
+    await ds.getRepository(SimulationStateSnapshot).clear();
     archiveService = new SimulationArchiveService(ds);
     await seedSimPosition(ds);
   });
@@ -49,12 +51,12 @@ describe('SimulationArchiveService', () => {
 
   describe('createAutoSnapshotIfDue', () => {
     it('creates the first auto snapshot when due', async () => {
-      const summary = await archiveService.createAutoSnapshotIfDue({
+      const summaries = await archiveService.createAutoSnapshotIfDue({
         intervalSec: 3600,
       });
 
-      expect(summary).not.toBeNull();
-      expect(summary?.source).toBe('auto');
+      expect(summaries.length).toBeGreaterThan(0);
+      expect(summaries[0]?.source).toBe('auto');
       expect(
         await ds.getRepository(SimulationStateSnapshot).count({
           where: { source: 'auto' },
@@ -66,13 +68,13 @@ describe('SimulationArchiveService', () => {
       const first = await archiveService.createAutoSnapshotIfDue({
         intervalSec: 3600,
       });
-      expect(first).not.toBeNull();
+      expect(first.length).toBeGreaterThan(0);
 
       const tooSoon = await archiveService.createAutoSnapshotIfDue({
         intervalSec: 3600,
       });
 
-      expect(tooSoon).toBeNull();
+      expect(tooSoon).toHaveLength(0);
       expect(
         await ds.getRepository(SimulationStateSnapshot).count({
           where: { source: 'auto' },
@@ -84,14 +86,14 @@ describe('SimulationArchiveService', () => {
       const first = await archiveService.createAutoSnapshotIfDue({
         intervalSec: 3600,
       });
-      expect(first).not.toBeNull();
+      expect(first.length).toBeGreaterThan(0);
 
       // With a zero interval, any elapsed age (>= 0) is due.
       const second = await archiveService.createAutoSnapshotIfDue({
         intervalSec: 0,
         minIntervalSec: 0,
       });
-      expect(second).not.toBeNull();
+      expect(second.length).toBeGreaterThan(0);
       expect(
         await ds.getRepository(SimulationStateSnapshot).count({
           where: { source: 'auto' },
@@ -103,6 +105,7 @@ describe('SimulationArchiveService', () => {
   describe('CRUD', () => {
     it('createSnapshot with source=manual returns summary with correct source', async () => {
       const summary = await archiveService.createSnapshot({
+        algoKind: 'crypto',
         source: 'manual',
         label: 'Test manuel',
       });
@@ -115,6 +118,7 @@ describe('SimulationArchiveService', () => {
 
     it('createSnapshot with source=reset creates a reset snapshot', async () => {
       const summary = await archiveService.createSnapshot({
+        algoKind: 'crypto',
         source: 'reset',
         label: 'Avant réinitialisation',
         skipIfEmpty: true,
@@ -130,6 +134,7 @@ describe('SimulationArchiveService', () => {
       await ds.getRepository(CopiedPosition).clear();
 
       const summary = await archiveService.createSnapshot({
+        algoKind: 'crypto',
         source: 'manual',
         skipIfEmpty: true,
       });
@@ -138,8 +143,8 @@ describe('SimulationArchiveService', () => {
     });
 
     it('listSnapshots filters by source', async () => {
-      await archiveService.createSnapshot({ source: 'manual' });
-      await archiveService.createSnapshot({ source: 'reset', label: 'reset' });
+      await archiveService.createSnapshot({ algoKind: 'crypto', source: 'manual' });
+      await archiveService.createSnapshot({ algoKind: 'crypto', source: 'reset', label: 'reset' });
 
       const manual = await archiveService.listSnapshots({ source: 'manual' });
       expect(manual.total).toBe(1);
@@ -151,14 +156,14 @@ describe('SimulationArchiveService', () => {
     });
 
     it('listSnapshots filters by label (case-insensitive)', async () => {
-      await archiveService.createSnapshot({ source: 'manual', label: 'MonSnapshotTest' });
+      await archiveService.createSnapshot({ algoKind: 'crypto', source: 'manual', label: 'MonSnapshotTest' });
 
       const result = await archiveService.listSnapshots({ label: 'snapshot' });
       expect(result.total).toBe(1);
     });
 
     it('listSnapshots filters by date range', async () => {
-      await archiveService.createSnapshot({ source: 'manual' });
+      await archiveService.createSnapshot({ algoKind: 'crypto', source: 'manual' });
 
       const today = new Date().toISOString().slice(0, 10);
       const result = await archiveService.listSnapshots({
@@ -169,7 +174,7 @@ describe('SimulationArchiveService', () => {
     });
 
     it('getSnapshotDetail returns parsed JSON with correct structure', async () => {
-      const summary = await archiveService.createSnapshot({ source: 'manual' });
+      const summary = await archiveService.createSnapshot({ algoKind: 'crypto', source: 'manual' });
       expect(summary).not.toBeNull();
 
       const detail = await archiveService.getSnapshotDetail(summary!.id);
@@ -191,8 +196,8 @@ describe('SimulationArchiveService', () => {
     });
 
     it('deleteAllSnapshots removes all rows and returns count', async () => {
-      await archiveService.createSnapshot({ source: 'manual' });
-      await archiveService.createSnapshot({ source: 'manual' });
+      await archiveService.createSnapshot({ algoKind: 'crypto', source: 'manual' });
+      await archiveService.createSnapshot({ algoKind: 'crypto', source: 'manual' });
 
       const deleted = await archiveService.deleteAllSnapshots();
       expect(deleted).toBe(2);

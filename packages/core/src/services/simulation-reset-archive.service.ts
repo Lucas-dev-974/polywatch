@@ -3,16 +3,18 @@ import type { SimulationSession } from '../entities/SimulationSession.js';
 import { SimulationSession as SimulationSessionEntity } from '../entities/SimulationSession.js';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Execution } from '../entities/Execution.js';
+import { MarketPositionTick } from '../entities/MarketPositionTick.js';
 import { ExitAttemptEvent } from '../entities/ExitAttemptEvent.js';
 import { AlgoSurveillanceSnapshot } from '../entities/AlgoSurveillanceSnapshot.js';
 import { AlgoPriceTick } from '../entities/AlgoPriceTick.js';
 import { MarketPriceTick } from '../entities/MarketPriceTick.js';
-import { MarketPositionTick } from '../entities/MarketPositionTick.js';
 import { SimArchivePosition } from '../entities/SimArchivePosition.js';
 import { SimArchiveExecution } from '../entities/SimArchiveExecution.js';
 import { SimArchiveExitAttempt } from '../entities/SimArchiveExitAttempt.js';
 import { SimArchiveSurveillance } from '../entities/SimArchiveSurveillance.js';
 import { SimArchivePriceCandle } from '../entities/SimArchivePriceCandle.js';
+import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
+import { In } from 'typeorm';
 import type {
   SimArchiveCandleDto,
   SimArchiveExecutionDto,
@@ -72,18 +74,47 @@ export class SimulationResetArchiveService {
   ): Promise<SimArchiveSummary> {
     const sessionId = session.id;
     const startedAt = session.startedAt;
+    const algoKind = session.algoKind ?? 'crypto';
 
-    const positions = await manager.count(CopiedPosition, { where: { mode: 'sim' } });
-    const executions = await manager.count(Execution, { where: { mode: 'sim' } });
-    const exitAttempts = await manager
-      .getRepository(ExitAttemptEvent)
-      .createQueryBuilder('ea')
-      .where("(ea.mode = 'sim' OR ea.mode IS NULL)")
-      .andWhere('ea.created_at >= :startedAt', { startedAt })
-      .getCount();
-    const surveillance = await manager.count(AlgoSurveillanceSnapshot);
+    const allSimPositions = await manager.find(CopiedPosition, {
+      where: { mode: 'sim' },
+    });
+    const simPositions = allSimPositions.filter(
+      (p) => algoKindFromReason(p.reason) === algoKind,
+    );
+    const positionIds = simPositions.map((p) => p.id);
+    const conditionIds = [...new Set(simPositions.map((p) => p.conditionId))];
 
-    const simPositions = await manager.find(CopiedPosition, { where: { mode: 'sim' } });
+    const positions = simPositions.length;
+    const simExecutions =
+      positionIds.length > 0
+        ? await manager.find(Execution, {
+            where: { mode: 'sim', copiedPositionId: In(positionIds) },
+          })
+        : [];
+    const executions = simExecutions.length;
+
+    let exitAttemptRows: ExitAttemptEvent[] = [];
+    if (positionIds.length > 0) {
+      exitAttemptRows = await manager
+        .getRepository(ExitAttemptEvent)
+        .createQueryBuilder('ea')
+        .where("(ea.mode = 'sim' OR ea.mode IS NULL)")
+        .andWhere('ea.created_at >= :startedAt', { startedAt })
+        .andWhere('ea.copied_position_id IN (:...positionIds)', { positionIds })
+        .getMany();
+    }
+    const exitAttempts = exitAttemptRows.length;
+
+    let surveillance = 0;
+    let surveillanceRows: AlgoSurveillanceSnapshot[] = [];
+    if (algoKind === 'crypto' && conditionIds.length > 0) {
+      surveillanceRows = await manager.find(AlgoSurveillanceSnapshot, {
+        where: { conditionId: In(conditionIds) },
+      });
+      surveillance = surveillanceRows.length;
+    }
+
     if (simPositions.length > 0) {
       await insertInChunks(
         manager,
@@ -109,7 +140,6 @@ export class SimulationResetArchiveService {
       );
     }
 
-    const simExecutions = await manager.find(Execution, { where: { mode: 'sim' } });
     if (simExecutions.length > 0) {
       await insertInChunks(
         manager,
@@ -131,12 +161,6 @@ export class SimulationResetArchiveService {
       );
     }
 
-    const exitAttemptRows = await manager
-      .getRepository(ExitAttemptEvent)
-      .createQueryBuilder('ea')
-      .where("(ea.mode = 'sim' OR ea.mode IS NULL)")
-      .andWhere('ea.created_at >= :startedAt', { startedAt })
-      .getMany();
     if (exitAttemptRows.length > 0) {
       await insertInChunks(
         manager,
@@ -156,7 +180,6 @@ export class SimulationResetArchiveService {
       );
     }
 
-    const surveillanceRows = await manager.find(AlgoSurveillanceSnapshot);
     if (surveillanceRows.length > 0) {
       await insertInChunks(
         manager,
@@ -182,7 +205,14 @@ export class SimulationResetArchiveService {
       );
     }
 
-    await this.archivePriceCandles(manager, sessionId, startedAt);
+    await this.archivePriceCandles(
+      manager,
+      sessionId,
+      startedAt,
+      algoKind,
+      conditionIds,
+      positionIds,
+    );
 
     const candleRow = await manager.query(
       `
@@ -223,35 +253,52 @@ export class SimulationResetArchiveService {
     manager: EntityManager,
     sessionId: number,
     startedAt: Date,
+    algoKind: SimAlgoKind,
+    conditionIds: string[],
+    positionIds: number[],
   ): Promise<void> {
-    const algoTicks = await manager
-      .getRepository(AlgoPriceTick)
-      .createQueryBuilder('t')
-      .where('t.recorded_at >= :startedAt', { startedAt })
-      .getMany();
-    const marketTicks = await manager
-      .getRepository(MarketPriceTick)
-      .createQueryBuilder('t')
-      .where('t.recorded_at >= :startedAt', { startedAt })
-      .getMany();
-    const positionTicks = await manager
-      .getRepository(MarketPositionTick)
-      .createQueryBuilder('mpt')
-      .innerJoin(CopiedPosition, 'cp', 'cp.id = mpt.copied_position_id')
-      .where('cp.mode = :mode', { mode: 'sim' })
-      .andWhere('mpt.created_at >= :startedAt', { startedAt })
-      .select([
-        'mpt.condition_id',
-        'mpt.asset_id',
-        'mpt.mid_price',
-        'mpt.created_at',
-      ])
-      .getRawMany<{
-        condition_id: string;
-        asset_id: string;
-        mid_price: number;
-        created_at: Date;
-      }>();
+    if (conditionIds.length === 0 && positionIds.length === 0) return;
+
+    const algoTicks =
+      algoKind === 'crypto' && conditionIds.length > 0
+        ? await manager
+            .getRepository(AlgoPriceTick)
+            .createQueryBuilder('t')
+            .where('t.recorded_at >= :startedAt', { startedAt })
+            .andWhere('t.condition_id IN (:...conditionIds)', { conditionIds })
+            .getMany()
+        : [];
+
+    const marketTicks =
+      conditionIds.length > 0
+        ? await manager
+            .getRepository(MarketPriceTick)
+            .createQueryBuilder('t')
+            .where('t.recorded_at >= :startedAt', { startedAt })
+            .andWhere('t.condition_id IN (:...conditionIds)', { conditionIds })
+            .getMany()
+        : [];
+
+    const positionTicks =
+      positionIds.length > 0
+        ? await manager
+            .getRepository(MarketPositionTick)
+            .createQueryBuilder('mpt')
+            .where('mpt.copied_position_id IN (:...positionIds)', { positionIds })
+            .andWhere('mpt.created_at >= :startedAt', { startedAt })
+            .select([
+              'mpt.condition_id',
+              'mpt.asset_id',
+              'mpt.mid_price',
+              'mpt.created_at',
+            ])
+            .getRawMany<{
+              condition_id: string;
+              asset_id: string;
+              mid_price: number;
+              created_at: Date;
+            }>()
+        : [];
 
     const candleInputs = [
       ...algoTicks.map((t) => ({
@@ -298,42 +345,46 @@ export class SimulationResetArchiveService {
     );
   }
 
-  async purgeMarketData(manager: EntityManager): Promise<void> {
-    await manager.query(
-      `
-      DELETE FROM market_position_ticks
-      WHERE copied_position_id IN (
-        SELECT id FROM copied_positions WHERE mode = 'sim'
-      )
-      `,
-    );
+  async purgeAlgoScopedMarketData(
+    manager: EntityManager,
+    algoKind: SimAlgoKind,
+    positionIds: number[],
+    conditionIds: string[],
+  ): Promise<void> {
+    if (positionIds.length > 0) {
+      await manager.delete(MarketPositionTick, {
+        copiedPositionId: In(positionIds),
+      });
+      await manager.delete(ExitAttemptEvent, {
+        copiedPositionId: In(positionIds),
+      });
+    }
 
-    await manager.query(
-      `
-      DELETE FROM algo_surveillance_snapshots
-      WHERE close_captured_at IS NOT NULL OR unresolved_at IS NOT NULL
-      `,
-    );
+    if (algoKind === 'crypto' && conditionIds.length > 0) {
+      await manager
+        .getRepository(AlgoSurveillanceSnapshot)
+        .createQueryBuilder()
+        .delete()
+        .where('condition_id IN (:...conditionIds)', { conditionIds })
+        .andWhere(
+          '(close_captured_at IS NOT NULL OR unresolved_at IS NOT NULL)',
+        )
+        .execute();
+    }
+  }
 
-    await manager.query(
-      `
-      DELETE FROM exit_attempt_events
-      WHERE mode = 'sim' OR mode IS NULL
-      `,
-    );
-
-    await manager.query(`DELETE FROM algo_price_ticks`);
-    await manager.query(`DELETE FROM market_price_ticks`);
-
-    await manager.query(
-      `
-      UPDATE market_price_history_sync
-      SET last_point_ts = NULL,
-          sync_status = 'idle',
-          next_sync_at = NULL,
-          last_synced_at = NULL,
-          error_message = NULL
-      `,
+  /** @deprecated Use purgeAlgoScopedMarketData — kept for callers migrating. */
+  async purgeMarketData(
+    manager: EntityManager,
+    algoKind: SimAlgoKind = 'crypto',
+    positionIds: number[] = [],
+    conditionIds: string[] = [],
+  ): Promise<void> {
+    await this.purgeAlgoScopedMarketData(
+      manager,
+      algoKind,
+      positionIds,
+      conditionIds,
     );
   }
 

@@ -1,4 +1,5 @@
 import { createSignal, For, Show } from 'solid-js';
+import type { SimAlgoKind } from '../lib/simulation';
 import { formatPnlAmount, pnlClass } from '../lib/position';
 import { formatShortDateTime } from '../lib/date';
 import { SessionElapsed } from './SessionElapsed';
@@ -17,8 +18,14 @@ import { SimSnapshotSettingsDialog } from './SimSnapshotSettingsDialog';
 import { SimSessionArchiveDialog } from './SimSessionArchiveDialog';
 import type { SimSessionSummary } from '../lib/simulation-sessions';
 
+const ALGO_TABS: { id: SimAlgoKind; label: string }[] = [
+  { id: 'crypto', label: 'Crypto' },
+  { id: 'weather', label: 'Weather' },
+  { id: 'copy', label: 'Copy' },
+];
+
 export function SimulationSnapshotsPanel() {
-  const snap = useSimulationSnapshots();
+  const snap = useSimulationSnapshots('crypto');
   const [collapsed, setCollapsed] = useCollapse();
   const [detailId, setDetailId] = createSignal<number | null>(null);
   const [detailOpen, setDetailOpen] = createSignal(false);
@@ -89,6 +96,25 @@ export function SimulationSnapshotsPanel() {
       <section class="panel">
         <div class="panel-header">
           <h2>Snapshots simulation</h2>
+          <nav class="algo-kind-tabs" role="tablist" aria-label="Algo kind">
+            <For each={ALGO_TABS}>
+              {(tab) => (
+                <button
+                  type="button"
+                  class="algo-kind-tab"
+                  classList={{ active: snap.algoKind() === tab.id }}
+                  role="tab"
+                  aria-selected={snap.algoKind() === tab.id}
+                  onClick={() => {
+                    snap.setAlgoKind(tab.id);
+                    void snap.refresh();
+                  }}
+                >
+                  {tab.label}
+                </button>
+              )}
+            </For>
+          </nav>
           <div class="event-header-actions">
             <button
               type="button"
@@ -531,6 +557,7 @@ export function SimulationSnapshotsPanel() {
         open={createOpen()}
         onClose={() => setCreateOpen(false)}
         onCreated={() => void snap.refresh()}
+        algoKind={snap.algoKind()}
       />
       <SimSnapshotSettingsDialog
         open={settingsOpen()}

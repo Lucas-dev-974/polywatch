@@ -74,7 +74,7 @@ export function NewSessionResetDialog(props: NewSessionResetDialogProps) {
     setAlgoConfigOpen(false);
     setCopyConfig(null);
     setAlgoConfig(null);
-    void fetchSimInitialCapital()
+    void fetchSimInitialCapital(props.algoKind ?? 'crypto')
       .then(setCapital)
       .catch(() => setCapital(null));
   });

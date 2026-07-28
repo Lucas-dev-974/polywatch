@@ -139,6 +139,7 @@ export function CryptoAlgoOptimizeReportDialog(props: CryptoAlgoOptimizeReportDi
         onClose={() => setNewSessionOpen(false)}
         mode="post-apply"
         defaultLabel={newSessionLabel()}
+        algoKind="crypto"
         onDone={() => {
           setApplySuccess((prev) =>
             prev ? `${prev} Session sim réinitialisée.` : 'Session sim réinitialisée.',

@@ -10,7 +10,9 @@ export const SIM_RISK_CONFIG_KEYS = [
   'simKellyFraction',
   'simRiskBudgetUsdc',
   'simDefaultWinProbability',
-  'simInitialCapital',
+  'simInitialCapitalCrypto',
+  'simInitialCapitalWeather',
+  'simInitialCapitalCopy',
   'simMaxPositionSizeUsdc',
   'simCopyIncreaseEnabled',
   'simCopyDecreaseEnabled',
@@ -216,7 +218,9 @@ export const SIM_SESSION_ROTATION_KEYS: readonly (keyof RiskConfig)[] = [
   'simKellyFraction',
   'simRiskBudgetUsdc',
   'simDefaultWinProbability',
-  'simInitialCapital',
+  'simInitialCapitalCrypto',
+  'simInitialCapitalWeather',
+  'simInitialCapitalCopy',
   'simMaxPositionSizeUsdc',
   'simCopyIncreaseEnabled',
   'simCopyDecreaseEnabled',
@@ -406,18 +410,6 @@ export function pickRotationKeys(
     picked[key as string] = config[key];
   }
   return JSON.stringify(picked, Object.keys(picked).sort());
-}
-
-/**
- * Check whether the rotation-relevant subset of config changed between
- * `before` and `after`. Returns true if a rotation should be triggered.
- */
-export function simRotationChanged(
-  before: RiskConfig,
-  after: RiskConfig,
-): boolean {
-  return pickRotationKeys(before, SIM_SESSION_ROTATION_KEYS) !==
-    pickRotationKeys(after, SIM_SESSION_ROTATION_KEYS);
 }
 
 export function realRotationChanged(

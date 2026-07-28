@@ -97,14 +97,19 @@ export function NullableNumberField(props: {
 export function SimInitialCapitalField(props: {
   value: number;
   onChange: (simInitialCapital: number) => void;
+  label?: string;
+  hint?: string;
 }) {
   return (
     <NumberField
-      label="Capital initial (pUSD)"
+      label={props.label ?? 'Capital initial (pUSD)'}
       value={props.value}
       min={0.01}
       step={0.01}
-      hint="Montant restauré lors de la réinitialisation de la simulation."
+      hint={
+        props.hint ??
+        'Montant restauré lors de la réinitialisation de la simulation pour cet algo.'
+      }
       onChange={props.onChange}
     />
   );

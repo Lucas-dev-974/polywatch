@@ -18,6 +18,10 @@ import {
   type SimExecutionCashRow,
 } from '../simulation/accounting.js';
 import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
+import {
+  getSimInitialCapital,
+  setSimInitialCapital,
+} from '../simulation/sim-initial-capital.js';
 import { MarketService } from './market.service.js';
 
 export { DEFAULT_SIM_BALANCE };
@@ -68,11 +72,27 @@ export class SimulationService {
 
   /** Apply a signed cash delta from a finalized execution (sim mode only). */
   async adjustCash(delta: number, algoKind: SimAlgoKind, manager?: EntityManager): Promise<void> {
-    const repo = (manager ?? this.ds.manager).getRepository(SimulationBalance);
-    const balance = await repo.findOne({ where: { algoKind } });
-    if (!balance) return;
-    balance.amount = Math.max(0, balance.amount + delta);
-    await repo.save(balance);
+    const run = async (m: EntityManager): Promise<void> => {
+      const repo = m.getRepository(SimulationBalance);
+      let balance = await repo.findOne({ where: { algoKind } });
+      if (!balance) {
+        const risk = await m.getRepository(RiskConfig).findOne({ where: {} });
+        const baseline = getSimInitialCapital(risk, algoKind);
+        balance = await repo.save(
+          repo.create({
+            algoKind,
+            token: 'pUSD',
+            amount: baseline,
+            baselineCapital: baseline,
+            sessionStartedAt: new Date(),
+          }),
+        );
+      }
+      balance.amount = Math.max(0, balance.amount + delta);
+      await repo.save(balance);
+    };
+    if (manager) return run(manager);
+    return this.ds.transaction(run);
   }
 
   private async loadFilledSimExecutions(
@@ -114,7 +134,7 @@ export class SimulationService {
       return balance.baselineCapital;
     }
     const risk = await manager.getRepository(RiskConfig).findOne({ where: {} });
-    return risk?.simInitialCapital ?? DEFAULT_SIM_BALANCE;
+    return getSimInitialCapital(risk, balance.algoKind);
   }
 
   async computeExpectedCash(algoKind: SimAlgoKind, manager?: EntityManager): Promise<{
@@ -164,14 +184,26 @@ export class SimulationService {
       let balance = await repo.findOne({ where: { algoKind } });
       if (!balance) {
         const risk = await m.getRepository(RiskConfig).findOne({ where: {} });
-        const baseline = risk?.simInitialCapital ?? DEFAULT_SIM_BALANCE;
+        const baseline = getSimInitialCapital(risk, algoKind);
         balance = await repo.save(
-          repo.create({ algoKind, token: 'pUSD', amount: baseline, baselineCapital: baseline, sessionStartedAt: new Date() }),
+          repo.create({
+            algoKind,
+            token: 'pUSD',
+            amount: baseline,
+            baselineCapital: baseline,
+            sessionStartedAt: new Date(),
+          }),
         );
+        const netCashDelta = replaySimCashDelta(
+          await this.loadFilledSimExecutions(algoKind, m),
+        );
+        const expectedCash = baseline + netCashDelta;
+        balance.amount = expectedCash;
+        await repo.save(balance);
         return {
           repaired: false,
           drift: 0,
-          expectedCash: baseline,
+          expectedCash,
           baselineCapital: baseline,
         };
       }
@@ -295,11 +327,10 @@ export class SimulationService {
     manager: EntityManager,
     amount = DEFAULT_SIM_BALANCE,
   ): Promise<void> {
-    // 1. Get copiedPositionIds of this algoKind (filter on opening reason)
-    const positions = await manager.getRepository(CopiedPosition).find({
-      where: { mode: 'sim', status: In([...OPEN_LIKE_POSITION_STATUSES, 'closed']) },
+    const allPositions = await manager.getRepository(CopiedPosition).find({
+      where: { mode: 'sim' },
     });
-    const matchingPosIds = positions
+    const matchingPosIds = allPositions
       .filter((p) => algoKindFromReason(p.reason) === algoKind)
       .map((p) => p.id);
 
@@ -308,7 +339,6 @@ export class SimulationService {
       await manager.delete(CopiedPosition, { id: In(matchingPosIds) });
     }
 
-    // 2. Delete reservations of this algoKind (filter by reason via algoKindFromReason)
     const reservations = await manager.getRepository(PositionReservation).find({
       where: { mode: 'sim' },
     });
@@ -319,7 +349,16 @@ export class SimulationService {
       await manager.delete(PositionReservation, { id: In(matchingResIds) });
     }
 
-    // 3. Reset the balance of this algoKind only
+    if (algoKind === 'copy') {
+      await manager
+        .getRepository(MoveEventEntity)
+        .createQueryBuilder()
+        .update()
+        .set({ processed: true })
+        .where('processed = :processed', { processed: false })
+        .execute();
+    }
+
     const repo = manager.getRepository(SimulationBalance);
     const sessionStartedAt = new Date();
     let balance = await repo.findOne({ where: { algoKind } });
@@ -338,11 +377,10 @@ export class SimulationService {
     }
     await repo.save(balance);
 
-    // Persist the reset amount as the default for future resets / dialog prefill.
     const riskRepo = manager.getRepository(RiskConfig);
     const risk = await riskRepo.findOne({ where: {} });
-    if (risk && risk.simInitialCapital !== amount) {
-      risk.simInitialCapital = amount;
+    if (risk) {
+      setSimInitialCapital(risk, algoKind, amount);
       await riskRepo.save(risk);
     }
   }

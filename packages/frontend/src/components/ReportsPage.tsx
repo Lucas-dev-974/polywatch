@@ -394,6 +394,7 @@ export function ReportsPage() {
         onClose={() => setNewSessionOpen(false)}
         mode="post-apply"
         defaultLabel={newSessionLabel()}
+        algoKind="crypto"
         onDone={() => {
           setSuccess((prev) =>
             prev ? `${prev} Session sim réinitialisée.` : 'Session sim réinitialisée.',

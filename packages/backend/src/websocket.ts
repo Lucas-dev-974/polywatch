@@ -70,9 +70,11 @@ export function emitMoveDetected(data: unknown): void {
   io?.to('positions').emit('move_detected', data);
 }
 
-export function emitSimulationReset(): void {
-  io?.to('positions').emit('simulation_reset');
-  io?.to('executions').emit('simulation_reset');
+import type { SimAlgoKind } from '@polywatch/core';
+
+export function emitSimulationReset(payload: { algoKind: SimAlgoKind }): void {
+  io?.to('positions').emit('simulation_reset', payload);
+  io?.to('executions').emit('simulation_reset', payload);
 }
 
 export function emitSimulationSnapshotCreated(): void {

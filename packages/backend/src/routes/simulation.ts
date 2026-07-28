@@ -9,9 +9,11 @@ import {
   SimulationService,
   SimulationResetArchiveService,
   resolveSimResetAmount,
+  getSimInitialCapital,
+  algoKindFromReason,
+  CopiedPosition,
   type SimAlgoKind,
   type SimArchiveSummary,
-  CopiedPosition,
   CopiedPositionPresenter,
   WatchlistEntry,
   buildTraderAnalytics,
@@ -267,9 +269,15 @@ export function createSimulationRouter(ds: DataSource): Router {
     });
   });
 
+  const algoKindSchema = z.enum(['crypto', 'weather', 'copy']);
+
   router.get('/simulation-balance', requireJwt, async (req, res) => {
-    const algoKind = (req.query.algoKind as SimAlgoKind) ?? 'crypto';
-    res.json(await simulationService.getSnapshot(algoKind));
+    const parsed = algoKindSchema.safeParse(req.query.algoKind ?? 'crypto');
+    if (!parsed.success) {
+      res.status(400).json({ error: 'invalid_query' });
+      return;
+    }
+    res.json(await simulationService.getSnapshot(parsed.data));
   });
 
   router.post('/simulation-balance/reset', requireJwt, async (req, res) => {
@@ -280,8 +288,8 @@ export function createSimulationRouter(ds: DataSource): Router {
     }
     const body = parsedBody.data;
 
-    // Lock against concurrent resets (Redis SET NX PX)
-    const LOCK_KEY = 'sim:reset:lock';
+    // Lock against concurrent resets per algoKind
+    const LOCK_KEY = `sim:reset:lock:${body.algoKind}`;
     const LOCK_TTL_MS = 10_000;
     let acquired: string | null;
     try {
@@ -298,10 +306,14 @@ export function createSimulationRouter(ds: DataSource): Router {
     try {
       const risk = await riskService.getConfig();
       const algoKind = body.algoKind;
-      const amount = resolveSimResetAmount(body.amount, risk.simInitialCapital);
+      const amount = resolveSimResetAmount(
+        body.amount,
+        getSimInitialCapital(risk, algoKind),
+      );
 
       const before = await simulationService.getSnapshot(algoKind);
       const resetSnapshot = await archiveService.createSnapshot({
+        algoKind,
         source: 'reset',
         label: 'Avant réinitialisation',
         skipIfEmpty: true,
@@ -321,24 +333,40 @@ export function createSimulationRouter(ds: DataSource): Router {
       // position could be created — this would leave orphaned dedupe/cooldown
       // markers (the queue lists themselves are scanned by mode==='sim' at purge
       // time, so queued jobs are always removed regardless of hints).
-      const redisPurgeHints = await collectSimRedisPurgeHints(ds);
+      const redisPurgeHints = await collectSimRedisPurgeHints(ds, algoKind);
 
       let archiveSummary: SimArchiveSummary | null = null;
 
       await ds.transaction(async (manager) => {
-        const session = await sessionService.ensureActiveSession(manager);
+        const session = await sessionService.ensureActiveSession(algoKind, manager);
+        const allPositions = await manager.find(CopiedPosition, {
+          where: { mode: 'sim' },
+        });
+        const scopedPositions = allPositions.filter(
+          (p) => algoKindFromReason(p.reason) === algoKind,
+        );
+        const positionIds = scopedPositions.map((p) => p.id);
+        const conditionIds = [
+          ...new Set(scopedPositions.map((p) => p.conditionId)),
+        ];
+
         if (body.archive) {
           archiveSummary = await resetArchiveService.archiveSession(manager, session);
         }
         if (body.deepClean) {
-          await resetArchiveService.purgeMarketData(manager);
+          await resetArchiveService.purgeAlgoScopedMarketData(
+            manager,
+            algoKind,
+            positionIds,
+            conditionIds,
+          );
         }
         await simulationService.resetWithManager(algoKind, manager, amount);
         const balance = await manager
           .getRepository(SimulationBalance)
           .findOne({ where: { algoKind } });
         const sessionStartedAt = balance?.sessionStartedAt ?? new Date();
-        await sessionService.rotateAfterReset(manager, {
+        await sessionService.rotateAfterReset(algoKind, manager, {
           endingEquity,
           endingSessionPnl,
           newBaselineCapital: amount,
@@ -357,7 +385,11 @@ export function createSimulationRouter(ds: DataSource): Router {
 
       let redisPurge: SimResetRedisPurgeResult | null = null;
       try {
-        redisPurge = await purgeSimExecutionRedisState(getRedis(), redisPurgeHints);
+        redisPurge = await purgeSimExecutionRedisState(
+          getRedis(),
+          redisPurgeHints,
+          algoKind,
+        );
       } catch (err) {
         log.error({ err }, 'redis purge failed after reset — sim jobs may linger');
         warnings.push('redis_purge_failed');
@@ -366,7 +398,7 @@ export function createSimulationRouter(ds: DataSource): Router {
       const balanceRow = await ds.getRepository(SimulationBalance).findOne({ where: { algoKind } });
 
       try {
-        emitSimulationReset();
+        emitSimulationReset({ algoKind });
         emitSimSnapshot(snapshot, algoKind);
       } catch (err) {
         log.warn({ err }, 'ws emit failed after reset');
@@ -375,6 +407,7 @@ export function createSimulationRouter(ds: DataSource): Router {
 
       try {
         await publishSimulationReset(getRedis(), {
+          algoKind,
           sessionStartedAt: balanceRow?.sessionStartedAt?.toISOString(),
         });
       } catch (err) {
@@ -396,6 +429,11 @@ export function createSimulationRouter(ds: DataSource): Router {
   });
 
   router.get('/simulation-snapshots', requireJwt, async (req, res) => {
+    const algoKindParsed = algoKindSchema.safeParse(req.query.algoKind);
+    if (!algoKindParsed.success) {
+      res.status(400).json({ error: 'invalid_query' });
+      return;
+    }
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
     const sourceParsed = z
@@ -407,6 +445,7 @@ export function createSimulationRouter(ds: DataSource): Router {
     const toParsed = z.string().date().safeParse(req.query.to);
     res.json(
       await archiveService.listSnapshots({
+        algoKind: algoKindParsed.data,
         limit,
         offset,
         source: sourceParsed.success ? sourceParsed.data : undefined,
@@ -419,14 +458,21 @@ export function createSimulationRouter(ds: DataSource): Router {
   });
 
   router.get('/simulation-sessions', requireJwt, async (req, res) => {
+    const algoKindParsed = algoKindSchema.safeParse(req.query.algoKind);
+    if (!algoKindParsed.success) {
+      res.status(400).json({ error: 'invalid_query' });
+      return;
+    }
+    const algoKind = algoKindParsed.data;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
     const statusParsed = z.enum(['active', 'closed']).safeParse(req.query.status);
     const labelParsed = z.string().max(200).safeParse(req.query.label);
     const fromParsed = z.string().date().safeParse(req.query.from);
     const toParsed = z.string().date().safeParse(req.query.to);
-    const live = await simulationService.getGlobalSnapshot();
+    const live = await simulationService.getSnapshot(algoKind);
     const result = await sessionService.listSessions({
+      algoKind,
       limit,
       offset,
       status: statusParsed.success ? statusParsed.data : undefined,
@@ -448,9 +494,15 @@ export function createSimulationRouter(ds: DataSource): Router {
     });
   });
 
-  router.get('/simulation-sessions/current', requireJwt, async (_req, res) => {
-    const live = await simulationService.getGlobalSnapshot();
-    const current = await sessionService.getCurrentSession(live.equity);
+  router.get('/simulation-sessions/current', requireJwt, async (req, res) => {
+    const algoKindParsed = algoKindSchema.safeParse(req.query.algoKind);
+    if (!algoKindParsed.success) {
+      res.status(400).json({ error: 'invalid_query' });
+      return;
+    }
+    const algoKind = algoKindParsed.data;
+    const live = await simulationService.getSnapshot(algoKind);
+    const current = await sessionService.getCurrentSession(algoKind, live.equity);
     res.json(current);
   });
 
@@ -486,9 +538,18 @@ export function createSimulationRouter(ds: DataSource): Router {
       res.status(400).json({ error: 'invalid_id' });
       return;
     }
-    const live = await simulationService.getGlobalSnapshot();
+    const algoKindParsed = algoKindSchema.safeParse(req.query.algoKind);
+    if (!algoKindParsed.success) {
+      res.status(400).json({ error: 'invalid_query' });
+      return;
+    }
+    const live = await simulationService.getSnapshot(algoKindParsed.data);
     const session = await sessionService.getSession(id, live.equity);
     if (!session) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    if (session.algoKind !== algoKindParsed.data) {
       res.status(404).json({ error: 'not_found' });
       return;
     }
@@ -519,8 +580,13 @@ export function createSimulationRouter(ds: DataSource): Router {
     res.json(updated);
   });
 
-  router.delete('/simulation-sessions/closed', requireJwt, async (_req, res) => {
-    const result = await sessionService.deleteAllClosedSessions();
+  router.delete('/simulation-sessions/closed', requireJwt, async (req, res) => {
+    const algoKindParsed = algoKindSchema.safeParse(req.query.algoKind);
+    if (!algoKindParsed.success) {
+      res.status(400).json({ error: 'invalid_query' });
+      return;
+    }
+    const result = await sessionService.deleteAllClosedSessions(algoKindParsed.data);
     await refreshSnapshotCount();
     emitSimulationSnapshotCreated();
     res.json(result);
@@ -533,8 +599,15 @@ export function createSimulationRouter(ds: DataSource): Router {
       return;
     }
     const deleteSnapshots = req.query.deleteSnapshots === 'true';
+    const algoKindParsed = algoKindSchema.safeParse(req.query.algoKind);
+    if (!algoKindParsed.success) {
+      res.status(400).json({ error: 'invalid_query' });
+      return;
+    }
     try {
-      const result = await sessionService.deleteSession(id, { deleteSnapshots });
+      const result = await sessionService.deleteSession(id, algoKindParsed.data, {
+        deleteSnapshots,
+      });
       if (!result.deleted) {
         res.status(404).json({ error: 'not_found' });
         return;
@@ -553,13 +626,17 @@ export function createSimulationRouter(ds: DataSource): Router {
 
   router.post('/simulation-snapshots', requireJwt, async (req, res) => {
     const parsed = z
-      .object({ label: z.string().max(200).optional() })
+      .object({
+        algoKind: algoKindSchema,
+        label: z.string().max(200).optional(),
+      })
       .safeParse(req.body ?? {});
     if (!parsed.success) {
       res.status(400).json({ error: 'invalid_body' });
       return;
     }
     const summary = await archiveService.createSnapshot({
+      algoKind: parsed.data.algoKind,
       source: 'manual',
       label: parsed.data.label ?? null,
     });

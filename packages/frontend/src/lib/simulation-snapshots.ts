@@ -1,4 +1,5 @@
 import { api } from '../api';
+import type { SimAlgoKind } from './simulation';
 import type { SimRiskConfigSnapshot } from '@polywatch/core/risk/sim-mode-fields';
 
 export type SimStateSnapshotSource = 'manual' | 'reset' | 'auto' | 'config_change';
@@ -122,6 +123,7 @@ export interface SimulationSnapshotsListResponse {
 export type SimulationSnapshotSourceFilter = SimStateSnapshotSource | 'all';
 
 export interface SimulationSnapshotListFilters {
+  algoKind?: SimAlgoKind;
   source?: SimulationSnapshotSourceFilter;
   sessionId?: number;
   label?: string;
@@ -134,6 +136,9 @@ function appendListFilters(
   filters?: SimulationSnapshotListFilters,
 ): void {
   if (!filters) return;
+  if (filters.algoKind) {
+    params.set('algoKind', filters.algoKind);
+  }
   if (filters.source && filters.source !== 'all') {
     params.set('source', filters.source);
   }
@@ -162,11 +167,12 @@ export async function fetchSimulationSnapshots(
 }
 
 export async function createSimulationSnapshot(
+  algoKind: SimAlgoKind,
   label?: string,
 ): Promise<SimStateSnapshotSummary> {
   return api<SimStateSnapshotSummary>('/simulation-snapshots', {
     method: 'POST',
-    body: JSON.stringify(label ? { label } : {}),
+    body: JSON.stringify({ algoKind, ...(label ? { label } : {}) }),
   });
 }
 

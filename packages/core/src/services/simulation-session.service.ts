@@ -3,6 +3,7 @@ import { SimulationBalance } from '../entities/SimulationBalance.js';
 import { SimulationSession } from '../entities/SimulationSession.js';
 import { SimulationStateSnapshot } from '../entities/SimulationStateSnapshot.js';
 import { DEFAULT_SIM_BALANCE } from '../simulation/constants.js';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
 import { RiskService } from './risk.service.js';
 import {
   extractSimConfigSnapshot,
@@ -46,9 +47,7 @@ function toSummary(
 ): SimSessionSummary {
   const startedAt = toIso(row.startedAt)!;
   const endedAt = toIso(row.endedAt);
-  const endMs = row.endedAt
-    ? row.endedAt.getTime()
-    : Date.now();
+  const endMs = row.endedAt ? row.endedAt.getTime() : Date.now();
   const startMs = row.startedAt.getTime();
   const sessionPnl =
     row.status === 'closed'
@@ -59,6 +58,7 @@ function toSummary(
 
   return {
     id: row.id,
+    algoKind: row.algoKind,
     startedAt,
     endedAt,
     status: row.status,
@@ -84,10 +84,6 @@ export class SimulationSessionService {
     this.riskService = new RiskService(ds);
   }
 
-  /**
-   * Stamp the current live config onto a session row.
-   * Called at session creation and for in-place meta re-stamp.
-   */
   async stampSessionConfig(
     manager: EntityManager,
     sessionId: number,
@@ -102,20 +98,20 @@ export class SimulationSessionService {
     });
   }
 
-  /**
-   * Create an initial snapshot for a newly created session.
-   * Captures the starting portfolio state (clean slate).
-   */
   private async createInitialSnapshot(
     manager: EntityManager,
     sessionId: number,
+    algoKind: SimAlgoKind,
   ): Promise<void> {
-    const balance = await manager.getRepository(SimulationBalance).findOne({ where: { algoKind: 'crypto' } });
+    const balance = await manager
+      .getRepository(SimulationBalance)
+      .findOne({ where: { algoKind } });
     const amount = balance?.amount ?? 0;
     const baselineCapital = balance?.baselineCapital ?? amount;
     const snapshot = manager.getRepository(SimulationStateSnapshot).create({
       source: 'auto',
       sessionId,
+      algoKind,
       amount,
       token: 'pUSD',
       positionsValue: 0,
@@ -141,31 +137,29 @@ export class SimulationSessionService {
   }
 
   async getActiveSession(
+    algoKind: SimAlgoKind,
     manager?: EntityManager,
   ): Promise<SimulationSession | null> {
     const m = manager ?? this.ds.manager;
     return m.getRepository(SimulationSession).findOne({
-      where: { status: 'active' },
+      where: { status: 'active', algoKind },
       order: { id: 'DESC' },
     });
   }
 
-  /**
-   * Ensure an active session exists and is linked on SimulationBalance.
-   * Creates one lazily when missing (first snapshot / first API call).
-   */
   async ensureActiveSession(
+    algoKind: SimAlgoKind,
     manager: EntityManager,
     baselineCapital?: number,
   ): Promise<SimulationSession> {
     const balanceRepo = manager.getRepository(SimulationBalance);
-    let balance = await balanceRepo.findOne({ where: { algoKind: 'crypto' } });
+    let balance = await balanceRepo.findOne({ where: { algoKind } });
     if (!balance) {
       const baseline = baselineCapital ?? DEFAULT_SIM_BALANCE;
       const now = new Date();
       balance = await balanceRepo.save(
         balanceRepo.create({
-          algoKind: 'crypto',
+          algoKind,
           token: 'pUSD',
           amount: baseline,
           baselineCapital: baseline,
@@ -176,12 +170,16 @@ export class SimulationSessionService {
 
     if (balance.currentSessionId != null) {
       const linked = await manager.getRepository(SimulationSession).findOne({
-        where: { id: balance.currentSessionId, status: 'active' },
+        where: {
+          id: balance.currentSessionId,
+          status: 'active',
+          algoKind,
+        },
       });
       if (linked) return linked;
     }
 
-    const existing = await this.getActiveSession(manager);
+    const existing = await this.getActiveSession(algoKind, manager);
     if (existing) {
       balance.currentSessionId = existing.id;
       if (!balance.sessionStartedAt) {
@@ -199,6 +197,7 @@ export class SimulationSessionService {
       DEFAULT_SIM_BALANCE;
     const session = await manager.getRepository(SimulationSession).save(
       manager.getRepository(SimulationSession).create({
+        algoKind,
         startedAt: now,
         endedAt: null,
         status: 'active',
@@ -213,10 +212,8 @@ export class SimulationSessionService {
         configJson: '{}',
       }),
     );
-    // Stamp config on new session
     await this.stampSessionConfig(manager, session.id);
-    // Initial snapshot for the new session
-    await this.createInitialSnapshot(manager, session.id);
+    await this.createInitialSnapshot(manager, session.id, algoKind);
     balance.currentSessionId = session.id;
     balance.sessionStartedAt = now;
     await balanceRepo.save(balance);
@@ -244,11 +241,8 @@ export class SimulationSessionService {
     await repo.save(session);
   }
 
-  /**
-   * Close the active session (after reset snapshot), then open a new one.
-   * Call after wipe so the new session aligns with the fresh baseline.
-   */
   async rotateAfterReset(
+    algoKind: SimAlgoKind,
     manager: EntityManager,
     options: {
       endingEquity: number;
@@ -260,7 +254,7 @@ export class SimulationSessionService {
   ): Promise<{ closed: SimulationSession | null; opened: SimulationSession }> {
     const sessionRepo = manager.getRepository(SimulationSession);
     const balanceRepo = manager.getRepository(SimulationBalance);
-    const active = await this.getActiveSession(manager);
+    const active = await this.getActiveSession(algoKind, manager);
 
     if (active) {
       active.status = 'closed';
@@ -272,6 +266,7 @@ export class SimulationSessionService {
 
     const opened = await sessionRepo.save(
       sessionRepo.create({
+        algoKind,
         startedAt: options.sessionStartedAt,
         endedAt: null,
         status: 'active',
@@ -286,12 +281,10 @@ export class SimulationSessionService {
         configJson: '{}',
       }),
     );
-    // Stamp config on new session
     await this.stampSessionConfig(manager, opened.id);
-    // Initial snapshot for the new session
-    await this.createInitialSnapshot(manager, opened.id);
+    await this.createInitialSnapshot(manager, opened.id, algoKind);
 
-    const balance = await balanceRepo.findOne({ where: { algoKind: 'crypto' } });
+    const balance = await balanceRepo.findOne({ where: { algoKind } });
     if (balance) {
       balance.currentSessionId = opened.id;
       balance.sessionStartedAt = options.sessionStartedAt;
@@ -302,13 +295,15 @@ export class SimulationSessionService {
   }
 
   async listSessions(
-    options: ListSimSessionsOptions = {},
+    options: ListSimSessionsOptions,
   ): Promise<{ items: SimSessionSummary[]; total: number }> {
     const limit = options.limit ?? 50;
     const offset = options.offset ?? 0;
     const qb = this.ds
       .getRepository(SimulationSession)
       .createQueryBuilder('s');
+
+    qb.andWhere('s.algoKind = :algoKind', { algoKind: options.algoKind });
 
     if (options.status) {
       qb.andWhere('s.status = :status', { status: options.status });
@@ -334,17 +329,8 @@ export class SimulationSessionService {
 
     const [rows, total] = await qb.skip(offset).take(limit).getManyAndCount();
 
-    let liveEquity: number | null = null;
-    if (rows.some((r) => r.status === 'active')) {
-      const balance = await this.ds
-        .getRepository(SimulationBalance)
-        .findOne({ where: {} });
-      // Approximate live equity as cash only here; callers can enrich via getSnapshot.
-      liveEquity = balance?.amount ?? null;
-    }
-
     return {
-      items: rows.map((r) => toSummary(r, r.status === 'active' ? liveEquity : null)),
+      items: rows.map((r) => toSummary(r, null)),
       total,
     };
   }
@@ -364,10 +350,11 @@ export class SimulationSessionService {
   }
 
   async getCurrentSession(
+    algoKind: SimAlgoKind,
     liveEquity?: number | null,
   ): Promise<SimSessionSummary | null> {
     const active = await this.ds.transaction(async (manager) =>
-      this.ensureActiveSession(manager),
+      this.ensureActiveSession(algoKind, manager),
     );
     return toSummary(active, liveEquity ?? null);
   }
@@ -387,11 +374,12 @@ export class SimulationSessionService {
 
   async deleteSession(
     id: number,
+    algoKind: SimAlgoKind,
     options?: { deleteSnapshots?: boolean },
   ): Promise<{ deleted: boolean; snapshotsDeleted: number }> {
     const session = await this.ds
       .getRepository(SimulationSession)
-      .findOne({ where: { id } });
+      .findOne({ where: { id, algoKind } });
     if (!session) return { deleted: false, snapshotsDeleted: 0 };
     if (session.status === 'active') {
       throw new Error('cannot_delete_active_session');
@@ -422,12 +410,9 @@ export class SimulationSessionService {
     return { deleted: true, snapshotsDeleted };
   }
 
-  /**
-   * Delete all closed sessions and their associated snapshots in one transaction.
-   * Active sessions are never touched.
-   * Returns the number of sessions deleted and snapshots removed.
-   */
-  async deleteAllClosedSessions(): Promise<{
+  async deleteAllClosedSessions(
+    algoKind: SimAlgoKind,
+  ): Promise<{
     sessionsDeleted: number;
     snapshotsDeleted: number;
   }> {
@@ -436,7 +421,7 @@ export class SimulationSessionService {
       const snapshotRepo = manager.getRepository(SimulationStateSnapshot);
 
       const closedSessions = await sessionRepo.find({
-        where: { status: 'closed' as const },
+        where: { status: 'closed' as const, algoKind },
         select: ['id'],
       });
       if (closedSessions.length === 0) {

@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
 
 @Entity('simulation_state_snapshots')
 @Index('idx_sim_snapshots_source_created', ['source', 'createdAt'])
@@ -18,6 +19,10 @@ export class SimulationStateSnapshot {
 
   @Column({ type: 'integer', name: 'session_id', nullable: true })
   sessionId!: number | null;
+
+  /** Algo perimeter this snapshot belongs to. */
+  @Column({ type: 'text', name: 'algo_kind', nullable: true })
+  algoKind!: SimAlgoKind | null;
 
   @Column({ type: 'real' })
   amount!: number;

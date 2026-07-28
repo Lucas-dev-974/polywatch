@@ -51,6 +51,32 @@ function realJob(id: string) {
   });
 }
 
+const CLOSE_QUEUE = WORKER_QUEUES.CLOSE_SIGNALS;
+const RESULTS_QUEUE = WORKER_QUEUES.EXECUTION_RESULTS;
+
+function closeJob(id: string, copiedPositionId: number, reason = 'SL') {
+  return JSON.stringify({
+    id,
+    copiedPositionId,
+    conditionId: '0xcond',
+    assetId: '0xasset',
+    side: 'SELL',
+    quantity: 5,
+    reason,
+    mode: 'sim',
+  });
+}
+
+function resultJob(id: string, orderSignalId: string, reason = 'SL') {
+  return JSON.stringify({
+    id,
+    orderSignalId,
+    reason,
+    mode: 'sim',
+    status: 'filled',
+  });
+}
+
 describe('sim reset redis hygiene e2e', () => {
   let ds: DataSource;
   let redis: MockRedis;
@@ -107,23 +133,23 @@ describe('sim reset redis hygiene e2e', () => {
       }),
     );
 
-    const hints = await collectSimRedisPurgeHints(ds);
+    const hints = await collectSimRedisPurgeHints(ds, 'crypto');
     expect(hints.algoLogicalKeys).toContain(logicalKey);
     expect(hints.copySignalIds).toContain('sim-signal-1');
 
     await redis.rpush(ALGO_QUEUE, simJob('sim-1'), realJob('real-1'));
     await redis.set(`${ALGO_QUEUE}:enqueued:${logicalKey}`, '1', 'EX', 180);
     await redis.set(`${ALGO_QUEUE}:enqueued:${logicalKey}-real`, '1', 'EX', 180);
-    await redis.set('algo-entry-cooldown:0xcond:sim', '1', 'EX', 30);
+    await redis.set(`algo-entry-cooldown:${logicalKey}:sim`, '1', 'EX', 30);
     await redis.set('algo-entry-cooldown:0xcond:real', '1', 'EX', 30);
 
-    const result = await purgeSimExecutionRedisState(redis as never, hints);
+    const result = await purgeSimExecutionRedisState(redis as never, hints, 'crypto');
 
     expect(result.algoOrderSignalsRemoved).toBe(1);
     expect(redis.getQueue(ALGO_QUEUE)).toEqual([realJob('real-1')]);
     expect(await redis.exists(`${ALGO_QUEUE}:enqueued:${logicalKey}`)).toBe(0);
     expect(await redis.exists(`${ALGO_QUEUE}:enqueued:${logicalKey}-real`)).toBe(1);
-    expect(await redis.exists('algo-entry-cooldown:0xcond:sim')).toBe(0);
+    expect(await redis.exists(`algo-entry-cooldown:${logicalKey}:sim`)).toBe(0);
     expect(await redis.exists('algo-entry-cooldown:0xcond:real')).toBe(1);
   });
 
@@ -145,8 +171,8 @@ describe('sim reset redis hygiene e2e', () => {
       180,
     );
 
-    const hints = await collectSimRedisPurgeHints(ds);
-    await purgeSimExecutionRedisState(redisAsRedis, hints);
+    const hints = await collectSimRedisPurgeHints(ds, 'crypto');
+    await purgeSimExecutionRedisState(redisAsRedis, hints, 'crypto');
 
     await configureCryptoAlgoRisk(ds);
     const connectionManager = new MockConnectionManager();
@@ -187,5 +213,64 @@ describe('sim reset redis hygiene e2e', () => {
       `SELECT COUNT(*)::int AS n FROM copied_positions WHERE status = 'pending' AND mode = 'sim'`,
     );
     expect(pending[0]?.n).toBe(1);
+  });
+
+  it('close SL on copy position is purged only by copy reset, not crypto', async () => {
+    const posRepo = ds.getRepository(CopiedPosition);
+    const copyPos = await posRepo.save(
+      posRepo.create({
+        watchlistId: 1,
+        conditionId: '0xcopy-cond',
+        assetId: '0xcopy-asset',
+        outcome: 'YES',
+        side: 'BUY',
+        quantity: 10,
+        entryPrice: 0.5,
+        entryBidVwap: 0.5,
+        status: 'closing',
+        mode: 'sim',
+        reason: 'COPY_OPEN',
+      }),
+    );
+
+    const closeRaw = closeJob('close-copy-sl', copyPos.id, 'SL');
+    const resultRaw = resultJob('result-copy-sl', 'close-copy-sl', 'SL');
+    await redis.rpush(CLOSE_QUEUE, closeRaw);
+    await redis.rpush(RESULTS_QUEUE, resultRaw);
+
+    const copyHints = await collectSimRedisPurgeHints(ds, 'copy');
+    expect(copyHints.copiedPositionIds).toContain(copyPos.id);
+
+    const cryptoHints = await collectSimRedisPurgeHints(ds, 'crypto');
+    await purgeSimExecutionRedisState(redis as never, cryptoHints, 'crypto');
+    expect(redis.getQueue(CLOSE_QUEUE)).toEqual([closeRaw]);
+    expect(redis.getQueue(RESULTS_QUEUE)).toEqual([resultRaw]);
+
+    await purgeSimExecutionRedisState(redis as never, copyHints, 'copy');
+    expect(redis.getQueue(CLOSE_QUEUE)).toEqual([]);
+    expect(redis.getQueue(RESULTS_QUEUE)).toEqual([]);
+  });
+
+  it('algo-specific execution results are only purged by matching algoKind', async () => {
+    const copyResult = resultJob('result-copy-open', 'orphan-copy', 'COPY_OPEN');
+    const weatherResult = resultJob(
+      'result-weather-open',
+      'orphan-weather',
+      'WEATHER_OPEN',
+    );
+    const algoResult = resultJob('result-algo-open', 'orphan-algo', 'ALGO_OPEN');
+    await redis.rpush(RESULTS_QUEUE, copyResult, weatherResult, algoResult);
+
+    const cryptoHints = await collectSimRedisPurgeHints(ds, 'crypto');
+    await purgeSimExecutionRedisState(redis as never, cryptoHints, 'crypto');
+    expect(redis.getQueue(RESULTS_QUEUE)).toEqual([copyResult, weatherResult]);
+
+    const copyHints = await collectSimRedisPurgeHints(ds, 'copy');
+    await purgeSimExecutionRedisState(redis as never, copyHints, 'copy');
+    expect(redis.getQueue(RESULTS_QUEUE)).toEqual([weatherResult]);
+
+    const weatherHints = await collectSimRedisPurgeHints(ds, 'weather');
+    await purgeSimExecutionRedisState(redis as never, weatherHints, 'weather');
+    expect(redis.getQueue(RESULTS_QUEUE)).toEqual([]);
   });
 });

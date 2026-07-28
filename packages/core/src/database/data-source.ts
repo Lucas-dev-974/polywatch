@@ -118,6 +118,8 @@ import { WeatherPositionForecastUnique1700000000081 } from '../migrations/Weathe
 import { WeatherCityFollow1700000000082 } from '../migrations/WeatherCityFollow1700000000082.js';
 import { AddWeatherAlgoModeToggles1700000000083 } from '../migrations/AddWeatherAlgoModeToggles1700000000083.js';
 import { SimBalancePerAlgoKind1700000000084 } from '../migrations/SimBalancePerAlgoKind1700000000084.js';
+import { SimSessionsPerAlgoKind1700000000085 } from '../migrations/SimSessionsPerAlgoKind1700000000085.js';
+import { AddSimInitialCapitalPerAlgoKind1700000000086 } from '../migrations/AddSimInitialCapitalPerAlgoKind1700000000086.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -192,6 +194,8 @@ export const migrations = [
   WeatherCityFollow1700000000082,
   AddWeatherAlgoModeToggles1700000000083,
   SimBalancePerAlgoKind1700000000084,
+  SimSessionsPerAlgoKind1700000000085,
+  AddSimInitialCapitalPerAlgoKind1700000000086,
 ];
 
 export const entities = [

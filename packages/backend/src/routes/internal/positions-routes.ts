@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { DataSource } from 'typeorm';
+import { z } from 'zod';
 import {
   buildCloseOrderSignal,
   CopiedPosition,
@@ -8,7 +9,6 @@ import {
   ExecutionService,
   CopiedPositionService,
   SimulationService,
-  type SimAlgoKind,
 } from '@polywatch/core';
 import { getRedis } from '../../redis.js';
 import { fetchPusdBalance } from '../../polymarket/pusd-balance.js';
@@ -41,8 +41,12 @@ export function createInternalPositionsRouter(ds: DataSource): Router {
   router.get('/balances', async (req, res) => {
     const mode = req.query.mode ?? 'sim';
     if (mode === 'sim') {
-      const algoKind = (req.query.algoKind as SimAlgoKind) ?? 'crypto';
-      res.json(await simulationService.getSnapshot(algoKind));
+      const parsed = z.enum(['crypto', 'weather', 'copy']).safeParse(req.query.algoKind ?? 'crypto');
+      if (!parsed.success) {
+        res.status(400).json({ error: 'invalid_query' });
+        return;
+      }
+      res.json(await simulationService.getSnapshot(parsed.data));
       return;
     }
 

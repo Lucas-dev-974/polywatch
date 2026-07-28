@@ -55,33 +55,46 @@ export function SimHero() {
     setCopyTradingEnabled(risk.simCopyTradingEnabled);
   }
 
+  let balanceLoadGen = 0;
+
   async function loadSimBalance() {
+    const gen = ++balanceLoadGen;
+    const ak = activeAlgo();
     try {
-      setSimBalance(await fetchSimBalance(activeAlgo()));
+      const bal = await fetchSimBalance(ak);
+      if (gen === balanceLoadGen && ak === activeAlgo()) {
+        setSimBalance(bal);
+      }
     } catch {
       // Initial REST load failed — WS pushes will populate the value.
+    }
+  }
+
+  async function loadInitialCapitalForAlgo(ak: SimAlgoKind) {
+    try {
+      setInitialCapital(await fetchSimInitialCapital(ak));
+    } catch {
+      setInitialCapital(null);
     }
   }
 
   onMount(() => {
     void loadRisk();
     void loadExecStats();
-    void fetchSimInitialCapital()
-      .then(setInitialCapital)
-      .catch(() => {
-        // Risk config unavailable — session PnL line stays hidden.
-      });
+    void loadInitialCapitalForAlgo(activeAlgo());
     const socket = connectSocket();
     const refreshBalance = debounceFn(() => void loadSimBalance(), BALANCE_REFRESH_DEBOUNCE_MS);
     const refreshExecStats = debounceFn(
       () => void loadExecStats(),
       EXEC_STATS_REFRESH_DEBOUNCE_MS,
     );
-    const onSimulationReset = () => void loadSimBalance();
+    const onSimulationReset = (payload?: { algoKind?: string }) => {
+      if (payload?.algoKind && payload.algoKind !== activeAlgo()) return;
+      void loadSimBalance();
+    };
     socket.on('simulation_balance', (payload: SimBalance & { algoKind?: string }) => {
-      if (!payload.algoKind || payload.algoKind === activeAlgo()) {
-        setSimBalance(payload);
-      }
+      if (!payload.algoKind || payload.algoKind !== activeAlgo()) return;
+      setSimBalance(payload);
     });
     socket.on('simulation_reset', onSimulationReset);
     socket.on('pnl_tick', refreshBalance);
@@ -127,7 +140,9 @@ export function SimHero() {
 
   function switchAlgo(algo: SimAlgoKind) {
     setActiveAlgo(algo);
+    setSimBalance(null);
     void loadSimBalance();
+    void loadInitialCapitalForAlgo(algo);
   }
 
   const balance = () => simBalance();
@@ -234,6 +249,7 @@ export function SimHero() {
         open={snapshotOpen()}
         onClose={() => setSnapshotOpen(false)}
         onCreated={onSnapshotCreated}
+        algoKind={activeAlgo()}
       />
       <SimExecutionSettingsDialog
         open={simExecSettingsOpen()}

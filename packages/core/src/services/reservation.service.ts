@@ -17,6 +17,7 @@ import {
   getModeMaxPositionSizeUsdc,
 } from '../risk/policy.js';
 import { RESERVATION_TTL_MS } from '../types/index.js';
+import { algoKindFromReason } from '../simulation/algo-kind.js';
 import { RiskService } from './risk.service.js';
 
 /** Entry signals that open or increase a copy position (not algo). */
@@ -142,13 +143,15 @@ export class ReservationService {
         input.mode === 'sim' &&
         SIM_ENTRY_REASONS.includes(input.reason)
       ) {
+        const algoKind = algoKindFromReason(input.reason);
         const balance = await manager.getRepository(SimulationBalance).findOne({
-          where: {},
+          where: { algoKind },
         });
         const cash = balance?.amount ?? 0;
         const activeReserved = await this.sumActiveReservedNotionalWithManager(
           manager,
           'sim',
+          algoKind,
         );
         const availableCash = cash - activeReserved;
         if (input.notionalUsdc > availableCash) {
@@ -302,15 +305,18 @@ export class ReservationService {
   private async sumActiveReservedNotionalWithManager(
     manager: EntityManager,
     mode: 'real' | 'sim',
+    algoKind?: ReturnType<typeof algoKindFromReason>,
   ): Promise<number> {
-    const rows = await manager
-      .getRepository(PositionReservation)
-      .createQueryBuilder('r')
-      .select('SUM(r.reserved_notional_usdc)', 'total')
-      .where('r.mode = :mode', { mode })
-      .andWhere('r.expires_at >= :now', { now: new Date() })
-      .getRawOne<{ total: string | null }>();
-    return Number(rows?.total ?? 0);
+    const rows = await manager.getRepository(PositionReservation).find({
+      where: { mode },
+    });
+    const now = new Date();
+    const active = rows.filter(
+      (r) =>
+        r.expiresAt >= now &&
+        (algoKind == null || algoKindFromReason(r.reason) === algoKind),
+    );
+    return active.reduce((sum, r) => sum + (r.reservedNotionalUsdc ?? 0), 0);
   }
 
   async release(orderSignalId: string): Promise<void> {

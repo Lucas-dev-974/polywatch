@@ -96,7 +96,29 @@ export class RiskConfig {
     name: 'sim_initial_capital',
     default: DEFAULT_SIM_BALANCE,
   })
+  /** @deprecated Use simInitialCapitalCrypto — kept for DB compat only. */
   simInitialCapital!: number;
+
+  @Column({
+    type: 'real',
+    name: 'sim_initial_capital_crypto',
+    default: DEFAULT_SIM_BALANCE,
+  })
+  simInitialCapitalCrypto!: number;
+
+  @Column({
+    type: 'real',
+    name: 'sim_initial_capital_weather',
+    default: DEFAULT_SIM_BALANCE,
+  })
+  simInitialCapitalWeather!: number;
+
+  @Column({
+    type: 'real',
+    name: 'sim_initial_capital_copy',
+    default: DEFAULT_SIM_BALANCE,
+  })
+  simInitialCapitalCopy!: number;
 
   @Column({ type: 'text', name: 'real_sizing_mode', default: 'fixed_usdc' })
   realSizingMode!: string;

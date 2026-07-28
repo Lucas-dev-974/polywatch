@@ -21,7 +21,11 @@ export interface EnvSettings {
   simKellyFraction: number;
   simRiskBudgetUsdc: number;
   simDefaultWinProbability: number;
+  /** @deprecated Alias crypto — use simInitialCapitalCrypto */
   simInitialCapital: number;
+  simInitialCapitalCrypto: number;
+  simInitialCapitalWeather: number;
+  simInitialCapitalCopy: number;
   realSizingMode: SizingMode;
   realCopyRatio: number;
   realEntryUsdcAmount: number;

@@ -93,6 +93,7 @@ type CryptoAlgoJsonUpdate = {
 export function presentRiskConfigForApi(config: RiskConfig): RiskConfigApi {
   return {
     ...config,
+    simInitialCapital: config.simInitialCapitalCrypto,
     simAllowedMarketTags: parseAllowedMarketTags(config.simAllowedMarketTags),
     realAllowedMarketTags: parseAllowedMarketTags(config.realAllowedMarketTags),
     cryptoAlgoStrategies: parseCryptoAlgoStrategies(config.cryptoAlgoStrategies),

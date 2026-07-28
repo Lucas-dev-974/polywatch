@@ -3,9 +3,13 @@ import { RiskConfig } from '../entities/RiskConfig.js';
 import { SimulationBalance } from '../entities/SimulationBalance.js';
 import { User } from '../entities/User.js';
 import { DEFAULT_SIM_BALANCE } from '../simulation/constants.js';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
+import { getSimInitialCapital } from '../simulation/sim-initial-capital.js';
 import { SimulationSessionService } from '../services/simulation-session.service.js';
 import { backfillLegacyRiskConfig } from './risk-config-backfill.js';
 import { seedSystemConfigDefaults } from './system-config-defaults.js';
+
+const ALL_ALGO_KINDS: SimAlgoKind[] = ['crypto', 'weather', 'copy'];
 
 export async function seedDefaults(ds: DataSource): Promise<void> {
   const userRepo = ds.getRepository(User);
@@ -31,11 +35,13 @@ export async function seedDefaults(ds: DataSource): Promise<void> {
   }
 
   const simRepo = ds.getRepository(SimulationBalance);
-  const existingSim = await simRepo.findOne({ where: {} });
-  if (!existingSim) {
-    const baseline = existingRisk.simInitialCapital ?? DEFAULT_SIM_BALANCE;
+  for (const algoKind of ALL_ALGO_KINDS) {
+    const existingSim = await simRepo.findOne({ where: { algoKind } });
+    if (existingSim) continue;
+    const baseline = getSimInitialCapital(existingRisk, algoKind) ?? DEFAULT_SIM_BALANCE;
     await simRepo.save(
       simRepo.create({
+        algoKind,
         token: 'pUSD',
         amount: baseline,
         baselineCapital: baseline,
@@ -45,7 +51,11 @@ export async function seedDefaults(ds: DataSource): Promise<void> {
   }
 
   await ds.transaction(async (manager) => {
-    await new SimulationSessionService(ds).ensureActiveSession(manager);
+    const sessionService = new SimulationSessionService(ds);
+    for (const algoKind of ALL_ALGO_KINDS) {
+      const baseline = getSimInitialCapital(existingRisk, algoKind);
+      await sessionService.ensureActiveSession(algoKind, manager, baseline);
+    }
   });
 
   await seedSystemConfigDefaults(ds);

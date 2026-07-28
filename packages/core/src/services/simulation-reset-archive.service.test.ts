@@ -30,6 +30,7 @@ describe('SimulationResetArchiveService', () => {
     const sessionRepo = ds.getRepository(SimulationSession);
     session = await sessionRepo.save(
       sessionRepo.create({
+        algoKind: 'crypto',
         startedAt: new Date('2026-01-01T00:00:00Z'),
         status: 'active',
         baselineCapital: 1000,
@@ -54,6 +55,7 @@ describe('SimulationResetArchiveService', () => {
         entryFeesRemaining: 0,
         status: 'closed',
         mode: 'sim',
+        reason: 'ALGO_OPEN',
         realizedPnl: 5,
         openedAt: new Date('2026-01-01T01:00:00Z'),
         closedAt: new Date('2026-01-01T02:00:00Z'),
@@ -104,14 +106,14 @@ describe('SimulationResetArchiveService', () => {
 
     await ds.getRepository(AlgoSurveillanceSnapshot).save(
       ds.getRepository(AlgoSurveillanceSnapshot).create({
-        conditionId: 'surv-closed',
+        conditionId: 'sim-c1',
         closeCapturedAt: new Date('2026-01-01T03:00:00Z'),
         positionsJson: '[]',
       }),
     );
     await ds.getRepository(AlgoSurveillanceSnapshot).save(
       ds.getRepository(AlgoSurveillanceSnapshot).create({
-        conditionId: 'surv-live',
+        conditionId: 'other-live',
         openCapturedAt: new Date('2026-01-01T03:00:00Z'),
       }),
     );
@@ -133,7 +135,7 @@ describe('SimulationResetArchiveService', () => {
 
     await ds.getRepository(AlgoPriceTick).save(
       ds.getRepository(AlgoPriceTick).create({
-        conditionId: 'algo-c1',
+        conditionId: 'sim-c1',
         upPrice: 0.55,
         downPrice: 0.45,
         recordedAt: new Date('2026-01-01T01:00:00Z'),
@@ -141,7 +143,7 @@ describe('SimulationResetArchiveService', () => {
     );
     await ds.getRepository(AlgoPriceTick).save(
       ds.getRepository(AlgoPriceTick).create({
-        conditionId: 'algo-c1',
+        conditionId: 'sim-c1',
         upPrice: 0.56,
         downPrice: 0.44,
         recordedAt: new Date('2026-01-01T01:00:30Z'),
@@ -150,8 +152,8 @@ describe('SimulationResetArchiveService', () => {
 
     await ds.getRepository(MarketPriceTick).save(
       ds.getRepository(MarketPriceTick).create({
-        conditionId: 'mkt-c1',
-        assetId: 'mkt-a1',
+        conditionId: 'sim-c1',
+        assetId: 'sim-a1',
         midPrice: 0.5,
         recordedAt: new Date('2026-01-01T01:00:00Z'),
       }),
@@ -180,7 +182,7 @@ describe('SimulationResetArchiveService', () => {
     expect(summary.positions).toBe(1);
     expect(summary.executions).toBe(1);
     expect(summary.exitAttempts).toBe(1);
-    expect(summary.surveillance).toBe(2);
+    expect(summary.surveillance).toBe(1);
     expect(summary.candles).toBeGreaterThan(0);
 
     const refreshed = await ds
@@ -195,28 +197,38 @@ describe('SimulationResetArchiveService', () => {
     expect(archive?.items[0]).toMatchObject({ conditionId: 'sim-c1' });
   });
 
-  it('purgeMarketData keeps real position ticks and live surveillance', async () => {
+  it('purgeAlgoScopedMarketData removes only scoped sim market artifacts', async () => {
+    const simPos = await ds.getRepository(CopiedPosition).findOne({
+      where: { mode: 'sim' },
+    });
+    expect(simPos).toBeTruthy();
+
     await ds.transaction(async (manager) => {
-      await archiveService.purgeMarketData(manager);
+      await archiveService.purgeAlgoScopedMarketData(
+        manager,
+        'crypto',
+        [simPos!.id],
+        ['sim-c1'],
+      );
     });
 
     expect(await ds.getRepository(MarketPositionTick).count()).toBe(0);
-    expect(await ds.getRepository(AlgoPriceTick).count()).toBe(0);
-    expect(await ds.getRepository(MarketPriceTick).count()).toBe(0);
+    expect(await ds.getRepository(AlgoPriceTick).count()).toBe(2);
+    expect(await ds.getRepository(MarketPriceTick).count()).toBe(1);
     expect(await ds.getRepository(ExitAttemptEvent).count()).toBe(0);
 
     const surv = await ds.getRepository(AlgoSurveillanceSnapshot).find();
     expect(surv).toHaveLength(1);
-    expect(surv[0]?.conditionId).toBe('surv-live');
+    expect(surv[0]?.conditionId).toBe('other-live');
 
     const sync = await ds.getRepository(MarketPriceHistorySync).findOne({
       where: { conditionId: 'mkt-c1' },
     });
-    expect(sync?.lastPointTs).toBeNull();
-    expect(sync?.syncStatus).toBe('idle');
+    expect(sync?.lastPointTs).toBe(12345);
+    expect(sync?.syncStatus).toBe('done');
   });
 
-  it('archives large surveillance batches without bulk insert failure', async () => {
+  it('archives surveillance scoped to session position conditionIds', async () => {
     const survRepo = ds.getRepository(AlgoSurveillanceSnapshot);
     const bulkRows = Array.from({ length: 200 }, (_, index) =>
       survRepo.create({
@@ -233,11 +245,11 @@ describe('SimulationResetArchiveService', () => {
       summary = await archiveService.archiveSession(manager, session);
     });
 
-    expect(summary.surveillance).toBe(202);
+    expect(summary.surveillance).toBe(1);
     const archive = await archiveService.getArchive(session.id, 'surveillance', {
       limit: 200,
     });
-    expect(archive?.total).toBe(202);
+    expect(archive?.total).toBe(1);
   });
 
   it('resetWithManager clears sim positions only', async () => {
@@ -263,6 +275,6 @@ describe('SimulationResetArchiveService', () => {
     });
 
     const risk = await ds.getRepository(RiskConfig).findOne({ where: {} });
-    expect(risk?.simInitialCapital).toBe(4200);
+    expect(risk?.simInitialCapitalCrypto).toBe(4200);
   });
 });

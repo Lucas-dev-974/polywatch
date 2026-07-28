@@ -6,6 +6,7 @@ import { SimulationBalance } from '../entities/SimulationBalance.js';
 import { SimulationStateSnapshot } from '../entities/SimulationStateSnapshot.js';
 import type { WatchlistEntry } from '../entities/Watchlist.js';
 import { isOpenLikePositionStatus } from '../positions/mark.js';
+import type { SimAlgoKind } from './algo-kind.js';
 import type { ExitAttemptEventDto } from '../services/exit-attempt-event.service.js';
 
 export const SNAPSHOT_DECISION_MAX_EVENTS = 500;
@@ -124,20 +125,23 @@ export async function resolveDecisionWindowFrom(
   manager: EntityManager,
   snapshotAt: Date,
   windowHours: number,
+  algoKind: SimAlgoKind,
 ): Promise<Date> {
   const hourFloor = new Date(snapshotAt.getTime() - windowHours * 3_600_000);
 
   const lastSnap = await manager
     .getRepository(SimulationStateSnapshot)
     .createQueryBuilder('s')
+    .where('s.algoKind = :algoKind', { algoKind })
     .orderBy('s.createdAt', 'DESC')
     .addOrderBy('s.id', 'DESC')
     .select(['s.createdAt'])
     .getOne();
 
-  const balance = await manager
-    .getRepository(SimulationBalance)
-    .findOne({ where: {}, select: ['sessionStartedAt'] });
+  const balance = await manager.getRepository(SimulationBalance).findOne({
+    where: { algoKind },
+    select: ['sessionStartedAt'],
+  });
 
   const candidates = [hourFloor.getTime()];
   if (lastSnap?.createdAt) {
@@ -160,6 +164,7 @@ function truncateEvents<T>(items: T[], max: number): { items: T[]; truncated: bo
 export async function collectSimDecisionPayload(
   manager: EntityManager,
   options: {
+    algoKind: SimAlgoKind;
     snapshotAt: Date;
     windowHours: number;
     positions: CopiedPosition[];
@@ -170,25 +175,34 @@ export async function collectSimDecisionPayload(
     manager,
     options.snapshotAt,
     options.windowHours,
+    options.algoKind,
   );
 
-  const exitRows = await manager
-    .getRepository(ExitAttemptEvent)
-    .createQueryBuilder('e')
-    .where('e.mode = :mode', { mode: 'sim' })
-    .andWhere('e.createdAt >= :windowFrom', { windowFrom })
-    .andWhere('e.createdAt <= :snapshotAt', { snapshotAt: options.snapshotAt })
-    .orderBy('e.createdAt', 'ASC')
-    .addOrderBy('e.id', 'ASC')
-    .getMany();
+  const positionIds = options.positions.map((p) => p.id);
+  let exitRows: ExitAttemptEvent[] = [];
+  if (positionIds.length > 0) {
+    exitRows = await manager
+      .getRepository(ExitAttemptEvent)
+      .createQueryBuilder('e')
+      .where('e.mode = :mode', { mode: 'sim' })
+      .andWhere('e.createdAt >= :windowFrom', { windowFrom })
+      .andWhere('e.createdAt <= :snapshotAt', { snapshotAt: options.snapshotAt })
+      .andWhere('e.copiedPositionId IN (:...positionIds)', { positionIds })
+      .orderBy('e.createdAt', 'ASC')
+      .addOrderBy('e.id', 'ASC')
+      .getMany();
+  }
 
-  const simTraderAddresses = [
-    ...new Set(
-      options.watchlistEntries
-        .filter((w) => w.simEnabled !== false)
-        .map((w) => w.traderAddress.toLowerCase()),
-    ),
-  ];
+  const simTraderAddresses =
+    options.algoKind === 'copy'
+      ? [
+          ...new Set(
+            options.watchlistEntries
+              .filter((w) => w.simEnabled !== false)
+              .map((w) => w.traderAddress.toLowerCase()),
+          ),
+        ]
+      : [];
 
   let moveRows: MoveEventEntity[] = [];
   if (simTraderAddresses.length > 0) {

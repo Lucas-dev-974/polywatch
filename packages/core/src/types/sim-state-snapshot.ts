@@ -2,6 +2,7 @@ import type { EnrichedCopiedPosition } from '../services/copied-position-present
 import type { Execution } from '../entities/Execution.js';
 import type { SimRiskConfigSnapshot } from '../risk/sim-mode-fields.js';
 import type { ExitAttemptEventDto } from '../services/exit-attempt-event.service.js';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
 import type {
   SimSnapshotDecisionSummary,
   SimSnapshotMoveEvent,
@@ -62,6 +63,7 @@ export interface SimStateSnapshotDetail extends SimStateSnapshotSummary {
 }
 
 export interface CreateSimStateSnapshotOptions {
+  algoKind: SimAlgoKind;
   label?: string | null;
   source: SimStateSnapshotSource;
   /** When true, skip persisting if no positions and no executions. */
@@ -71,6 +73,7 @@ export interface CreateSimStateSnapshotOptions {
 export interface ListSimSnapshotsOptions {
   limit?: number;
   offset?: number;
+  algoKind?: SimAlgoKind;
   source?: SimStateSnapshotSource;
   sessionId?: number;
   /** Case-insensitive substring match on label. */

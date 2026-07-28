@@ -2,10 +2,13 @@ import { createSignal, Show } from 'solid-js';
 import { Dialog } from './Dialog';
 import { createSimulationSnapshot } from '../lib/simulation-snapshots';
 
+import type { SimAlgoKind } from '../lib/simulation';
+
 interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  algoKind: SimAlgoKind;
 }
 
 export function SimSnapshotDialog(props: Props) {
@@ -18,7 +21,7 @@ export function SimSnapshotDialog(props: Props) {
     setError(null);
     try {
       const trimmed = label().trim();
-      await createSimulationSnapshot(trimmed || undefined);
+      await createSimulationSnapshot(props.algoKind, trimmed || undefined);
       setLabel('');
       props.onCreated();
       props.onClose();

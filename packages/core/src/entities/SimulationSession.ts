@@ -1,20 +1,19 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  Index,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
 
 export type SimulationSessionStatus = 'active' | 'closed';
 
 @Entity('simulation_sessions')
 @Index('idx_sim_sessions_status_started', ['status', 'startedAt'])
 @Index('idx_sim_sessions_started', ['startedAt'])
+@Index('idx_sim_sessions_algo_status_started', ['algoKind', 'status', 'startedAt'])
 export class SimulationSession {
   @PrimaryGeneratedColumn()
   id!: number;
+
+  /** Identifies the algo perimeter this session belongs to. */
+  @Column({ type: 'text', name: 'algo_kind', default: 'crypto' })
+  algoKind!: SimAlgoKind;
 
   @Column({ type: 'timestamp', name: 'started_at' })
   startedAt!: Date;

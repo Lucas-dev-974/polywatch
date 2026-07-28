@@ -26,6 +26,7 @@ import {
   type ConfigDiffPreviewLine,
 } from '../lib/snapshot-config-diff';
 import { connectSocket } from '../socket';
+import type { SimAlgoKind } from '../lib/simulation';
 
 export const SNAPSHOT_PAGE_SIZE = 12;
 export const SNAPSHOT_CHART_LIMIT = 200;
@@ -35,7 +36,8 @@ export type SnapshotPanelView = 'sessions' | 'snapshots';
 
 const LABEL_DEBOUNCE_MS = 400;
 
-export function useSimulationSnapshots() {
+export function useSimulationSnapshots(initialAlgoKind: SimAlgoKind = 'crypto') {
+  const [algoKind, setAlgoKind] = createSignal<SimAlgoKind>(initialAlgoKind);
   const [view, setView] = createSignal<SnapshotPanelView>('sessions');
   const [items, setItems] = createSignal<SimStateSnapshotSummary[]>([]);
   const [chartItems, setChartItems] = createSignal<SimStateSnapshotSummary[]>([]);
@@ -48,7 +50,10 @@ export function useSimulationSnapshots() {
   const [sessionsTotal, setSessionsTotal] = createSignal(0);
   const [sessionsPage, setSessionsPage] = createSignal(0);
   const [sessionFilters, setSessionFilters] =
-    createSignal<SimulationSessionListFilters>({ status: 'all' });
+    createSignal<SimulationSessionListFilters>({
+      status: 'all',
+      algoKind: initialAlgoKind,
+    });
   const [currentSession, setCurrentSession] =
     createSignal<SimSessionSummary | null>(null);
   const [selected, setSelected] = createSignal<Set<number>>(new Set());
@@ -224,7 +229,7 @@ export function useSimulationSnapshots() {
 
   async function loadCurrentSession() {
     try {
-      setCurrentSession(await fetchCurrentSimulationSession());
+      setCurrentSession(await fetchCurrentSimulationSession(algoKind()));
     } catch {
       setCurrentSession(null);
     }
@@ -236,7 +241,7 @@ export function useSimulationSnapshots() {
       const data = await fetchSimulationSessions(
         SESSION_PAGE_SIZE,
         sessionsPage() * SESSION_PAGE_SIZE,
-        sessionFilters(),
+        { ...sessionFilters(), algoKind: algoKind() },
       );
       setSessions(data.items);
       setSessionsTotal(data.total);
@@ -252,7 +257,7 @@ export function useSimulationSnapshots() {
       const data = await fetchSimulationSnapshots(
         SNAPSHOT_CHART_LIMIT,
         0,
-        filters(),
+        { ...filters(), algoKind: algoKind() },
       );
       setChartItems(data.items);
     } catch {
@@ -266,7 +271,7 @@ export function useSimulationSnapshots() {
       const data = await fetchSimulationSnapshots(
         SNAPSHOT_PAGE_SIZE,
         page() * SNAPSHOT_PAGE_SIZE,
-        filters(),
+        { ...filters(), algoKind: algoKind() },
       );
       setItems(data.items);
       setTotal(data.total);
@@ -275,6 +280,19 @@ export function useSimulationSnapshots() {
       await loadCurrentSession();
     } finally {
       setLoading(false);
+    }
+  }
+
+  function changeAlgoKind(kind: SimAlgoKind) {
+    if (kind === algoKind()) return;
+    setAlgoKind(kind);
+    setSessionFilters((f) => ({ ...f, algoKind: kind }));
+    clearSelection();
+    clearSessionSelection();
+    setPage(0);
+    setSessionsPage(0);
+    if (filters().sessionId != null) {
+      setFilters({ source: 'all' });
     }
   }
 
@@ -469,7 +487,7 @@ export function useSimulationSnapshots() {
   }
 
   async function removeSession(id: number, deleteSnapshots: boolean) {
-    const result = await deleteSimulationSession(id, deleteSnapshots);
+    const result = await deleteSimulationSession(id, algoKind(), deleteSnapshots);
     if (filters().sessionId === id) clearSessionFocus();
     setSelectedSessions((prev) => {
       if (!prev.has(id)) return prev;
@@ -514,7 +532,9 @@ export function useSimulationSnapshots() {
     }
     setDeleting(true);
     try {
-      await Promise.all(ids.map((id) => deleteSimulationSession(id, deleteSnapshots)));
+      await Promise.all(
+        ids.map((id) => deleteSimulationSession(id, algoKind(), deleteSnapshots)),
+      );
       clearSessionSelection();
       await refresh();
     } finally {
@@ -551,7 +571,7 @@ export function useSimulationSnapshots() {
     if (!confirmed) return false;
     setDeleting(true);
     try {
-      await deleteAllClosedSimulationSessions();
+      await deleteAllClosedSimulationSessions(algoKind());
       clearSelection();
       clearSessionSelection();
       setDetails(new Map());
@@ -580,6 +600,8 @@ export function useSimulationSnapshots() {
 
   return {
     view,
+    algoKind,
+    setAlgoKind: changeAlgoKind,
     switchView,
     items,
     chartItems,

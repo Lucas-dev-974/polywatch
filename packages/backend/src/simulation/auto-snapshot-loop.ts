@@ -74,18 +74,20 @@ async function runAutoSnapshotTick(
     const risk = await riskService.getConfig();
     if (!risk.simAutoSnapshotEnabled) return;
 
-    const summary = await archiveService.createAutoSnapshotIfDue({
+    const summaries = await archiveService.createAutoSnapshotIfDue({
       intervalSec: risk.simAutoSnapshotIntervalSeconds,
       minIntervalSec: MIN_AUTO_SNAPSHOT_INTERVAL_SECONDS,
     });
-    if (summary) {
+    if (summaries.length > 0) {
       emitSimulationSnapshotCreated();
       recordSnapshotCreated('auto', 'sim');
       recordSnapshotCount(await archiveService.countSnapshots(), 'sim');
-      log.info(
-        { snapshotId: summary.id, intervalSec: risk.simAutoSnapshotIntervalSeconds },
-        'automatic simulation snapshot created',
-      );
+      for (const summary of summaries) {
+        log.info(
+          { snapshotId: summary.id, intervalSec: risk.simAutoSnapshotIntervalSeconds },
+          'automatic simulation snapshot created',
+        );
+      }
     }
 
     // Prune old snapshots if retention policy is configured

@@ -13,6 +13,7 @@ import {
   MIN_AUTO_SNAPSHOT_INTERVAL_SECONDS,
 } from '../simulation/auto-snapshot-timing.js';
 import { buildSimTraderRollup } from '../simulation/trader-rollup.js';
+import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
 import {
   collectSimDecisionPayload,
   estimateDecisionPayloadBytes,
@@ -84,17 +85,6 @@ export class SimulationArchiveService {
     this.sessionService = new SimulationSessionService(ds);
   }
 
-  async hasSimActivity(): Promise<boolean> {
-    const positionCount = await this.ds.getRepository(CopiedPosition).count({
-      where: { mode: 'sim' },
-    });
-    if (positionCount > 0) return true;
-    const executionCount = await this.ds.getRepository(Execution).count({
-      where: { mode: 'sim' },
-    });
-    return executionCount > 0;
-  }
-
   async createSnapshot(
     options: CreateSimStateSnapshotOptions,
   ): Promise<SimStateSnapshotSummary | null> {
@@ -116,33 +106,46 @@ export class SimulationArchiveService {
     intervalSec: number;
     minIntervalSec?: number;
     label?: string | null;
-  }): Promise<SimStateSnapshotSummary | null> {
+  }): Promise<SimStateSnapshotSummary[]> {
     const minIntervalSec =
       options.minIntervalSec ?? MIN_AUTO_SNAPSHOT_INTERVAL_SECONDS;
+    const created: SimStateSnapshotSummary[] = [];
 
-    const ageSeconds = await this.lastAutoSnapshotAgeSeconds(this.ds.manager);
-    if (!isAutoSnapshotDueByAge(options.intervalSec, ageSeconds, minIntervalSec)) {
-      return null;
-    }
-
-    return withAutoSnapshotCreationLock(this.ds, async (manager) => {
-      const lockedAgeSeconds = await this.lastAutoSnapshotAgeSeconds(manager);
-      if (
-        !isAutoSnapshotDueByAge(
-          options.intervalSec,
-          lockedAgeSeconds,
-          minIntervalSec,
-        )
-      ) {
-        return null;
+    for (const algoKind of ['crypto', 'weather', 'copy'] as const) {
+      const ageSeconds = await this.lastAutoSnapshotAgeSeconds(
+        this.ds.manager,
+        algoKind,
+      );
+      if (!isAutoSnapshotDueByAge(options.intervalSec, ageSeconds, minIntervalSec)) {
+        continue;
       }
 
-      return this.persistSnapshot(manager, {
-        source: 'auto',
-        label: options.label ?? 'Automatique',
-        skipIfEmpty: true,
+      const summary = await withAutoSnapshotCreationLock(this.ds, async (manager) => {
+        const lockedAgeSeconds = await this.lastAutoSnapshotAgeSeconds(
+          manager,
+          algoKind,
+        );
+        if (
+          !isAutoSnapshotDueByAge(
+            options.intervalSec,
+            lockedAgeSeconds,
+            minIntervalSec,
+          )
+        ) {
+          return null;
+        }
+
+        return this.persistSnapshot(manager, {
+          algoKind,
+          source: 'auto',
+          label: options.label ?? 'Automatique',
+          skipIfEmpty: true,
+        });
       });
-    });
+      if (summary) created.push(summary);
+    }
+
+    return created;
   }
 
   /**
@@ -151,20 +154,23 @@ export class SimulationArchiveService {
    */
   private async lastAutoSnapshotAgeSeconds(
     manager: EntityManager,
+    algoKind: SimAlgoKind,
   ): Promise<number | null> {
     const isPostgres = this.ds.options.type === 'postgres';
     const sql = isPostgres
       ? `SELECT EXTRACT(EPOCH FROM (now() - created_at)) AS age
          FROM simulation_state_snapshots
-         WHERE source = 'auto'
+         WHERE source = 'auto' AND algo_kind = $1
          ORDER BY created_at DESC, id DESC
          LIMIT 1`
       : `SELECT (julianday('now') - julianday(created_at)) * 86400 AS age
          FROM simulation_state_snapshots
-         WHERE source = 'auto'
+         WHERE source = 'auto' AND algo_kind = ?
          ORDER BY created_at DESC, id DESC
          LIMIT 1`;
-    const rows = (await manager.query(sql)) as Array<{ age: number | string }>;
+    const rows = (await manager.query(sql, [algoKind])) as Array<{
+      age: number | string;
+    }>;
     if (!rows || rows.length === 0) return null;
     const age = Number(rows[0].age);
     return Number.isFinite(age) ? age : null;
@@ -174,14 +180,22 @@ export class SimulationArchiveService {
     manager: EntityManager,
     options: CreateSimStateSnapshotOptions,
   ): Promise<SimStateSnapshotSummary | null> {
-    const positions = await manager.getRepository(CopiedPosition).find({
+    const algoKind = options.algoKind;
+    const allPositions = await manager.getRepository(CopiedPosition).find({
       where: { mode: 'sim' },
       order: { id: 'ASC' },
     });
-    const executions = await manager.getRepository(Execution).find({
-      where: { mode: 'sim' },
-      order: { executedAt: 'ASC', id: 'ASC' },
-    });
+    const positions = allPositions.filter(
+      (p) => algoKindFromReason(p.reason) === algoKind,
+    );
+    const positionIds = positions.map((p) => p.id);
+    const executions =
+      positionIds.length > 0
+        ? await manager.getRepository(Execution).find({
+            where: { mode: 'sim', copiedPositionId: In(positionIds) },
+            order: { executedAt: 'ASC', id: 'ASC' },
+          })
+        : [];
 
     if (
       options.skipIfEmpty &&
@@ -198,7 +212,7 @@ export class SimulationArchiveService {
     }
 
     const snapshotAt = new Date();
-    const portfolio = await this.simulationService.getGlobalSnapshot(manager);
+    const portfolio = await this.simulationService.getSnapshot(algoKind, manager);
     const riskConfig = await this.riskService.getConfig({
       manager,
       bypassCache: true,
@@ -212,6 +226,7 @@ export class SimulationArchiveService {
     );
 
     const decisionPayload = await collectSimDecisionPayload(manager, {
+      algoKind,
       snapshotAt,
       windowHours: riskConfig.simSnapshotDecisionWindowHours ?? 24,
       positions,
@@ -231,6 +246,7 @@ export class SimulationArchiveService {
     const closedPositionCount = decisionPayload.summary.closedPositionCount;
 
     const session = await this.sessionService.ensureActiveSession(
+      algoKind,
       manager,
       portfolio.baselineCapital,
     );
@@ -239,6 +255,7 @@ export class SimulationArchiveService {
       label: options.label ?? null,
       source: options.source,
       sessionId: session.id,
+      algoKind,
       amount: portfolio.amount,
       token: portfolio.token,
       positionsValue: portfolio.positionsValue,
@@ -277,6 +294,9 @@ export class SimulationArchiveService {
     const repo = this.ds.getRepository(SimulationStateSnapshot);
     const qb = repo.createQueryBuilder('s');
 
+    if (options.algoKind) {
+      qb.andWhere('s.algoKind = :algoKind', { algoKind: options.algoKind });
+    }
     if (options.source) {
       qb.andWhere('s.source = :source', { source: options.source });
     }

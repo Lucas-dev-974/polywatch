@@ -1,11 +1,13 @@
 import type { SimulationSessionStatus } from '../entities/SimulationSession.js';
 import type { SimArchiveSummary } from './sim-session-archive.js';
 import type { SimRiskConfigSnapshot } from '../risk/sim-mode-fields.js';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
 
 export type { SimulationSessionStatus };
 
 export interface SimSessionSummary {
   id: number;
+  algoKind: SimAlgoKind;
   startedAt: string;
   endedAt: string | null;
   status: SimulationSessionStatus;
@@ -26,6 +28,7 @@ export interface SimSessionSummary {
 }
 
 export interface ListSimSessionsOptions {
+  algoKind: SimAlgoKind;
   limit?: number;
   offset?: number;
   status?: SimulationSessionStatus;

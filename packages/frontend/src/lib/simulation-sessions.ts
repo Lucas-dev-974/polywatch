@@ -1,6 +1,8 @@
 import type { SimSessionSummary } from '@polywatch/core';
 import { api } from '../api';
 
+import type { SimAlgoKind } from './simulation';
+
 export type SimSessionStatus = 'active' | 'closed';
 
 export type SimSessionSummary = import('@polywatch/core').SimSessionSummary;
@@ -11,6 +13,7 @@ export interface SimulationSessionsListResponse {
 }
 
 export interface SimulationSessionListFilters {
+  algoKind?: SimAlgoKind;
   status?: SimSessionStatus | 'all';
   label?: string;
   from?: string;
@@ -22,6 +25,8 @@ function appendSessionFilters(
   filters?: SimulationSessionListFilters,
 ): void {
   if (!filters) return;
+  if (filters.algoKind) params.set('algoKind', filters.algoKind);
+  else params.set('algoKind', 'crypto');
   if (filters.status && filters.status !== 'all') {
     params.set('status', filters.status);
   }
@@ -46,8 +51,12 @@ export async function fetchSimulationSessions(
   );
 }
 
-export async function fetchCurrentSimulationSession(): Promise<SimSessionSummary | null> {
-  return api<SimSessionSummary | null>('/simulation-sessions/current');
+export async function fetchCurrentSimulationSession(
+  algoKind: SimAlgoKind = 'crypto',
+): Promise<SimSessionSummary | null> {
+  return api<SimSessionSummary | null>(
+    `/simulation-sessions/current?algoKind=${algoKind}`,
+  );
 }
 
 export async function updateSimulationSession(
@@ -62,10 +71,12 @@ export async function updateSimulationSession(
 
 export async function deleteSimulationSession(
   id: number,
+  algoKind: SimAlgoKind,
   deleteSnapshots = false,
 ): Promise<{ deleted: boolean; snapshotsDeleted: number }> {
-  const q = deleteSnapshots ? '?deleteSnapshots=true' : '';
-  return api(`/simulation-sessions/${id}${q}`, { method: 'DELETE' });
+  const params = new URLSearchParams({ algoKind });
+  if (deleteSnapshots) params.set('deleteSnapshots', 'true');
+  return api(`/simulation-sessions/${id}?${params.toString()}`, { method: 'DELETE' });
 }
 
 export interface SimulationClosedSessionsDeleteResult {
@@ -73,9 +84,11 @@ export interface SimulationClosedSessionsDeleteResult {
   snapshotsDeleted: number;
 }
 
-export async function deleteAllClosedSimulationSessions(): Promise<SimulationClosedSessionsDeleteResult> {
+export async function deleteAllClosedSimulationSessions(
+  algoKind: SimAlgoKind,
+): Promise<SimulationClosedSessionsDeleteResult> {
   return api<SimulationClosedSessionsDeleteResult>(
-    '/simulation-sessions/closed',
+    `/simulation-sessions/closed?algoKind=${algoKind}`,
     { method: 'DELETE' },
   );
 }

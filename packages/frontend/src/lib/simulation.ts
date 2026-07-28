@@ -32,11 +32,23 @@ export async function fetchSimBalance(algoKind: SimAlgoKind = 'crypto'): Promise
   return api<SimBalance>(`/simulation-balance?algoKind=${algoKind}`);
 }
 
-export async function fetchSimInitialCapital(): Promise<number> {
-  const { simInitialCapital } = await api<{ simInitialCapital?: number }>(
-    '/risk-config',
-  );
-  return simInitialCapital ?? DEFAULT_SIM_BALANCE;
+export async function fetchSimInitialCapital(
+  algoKind: SimAlgoKind = 'crypto',
+): Promise<number> {
+  const risk = await api<{
+    simInitialCapital?: number;
+    simInitialCapitalCrypto?: number;
+    simInitialCapitalWeather?: number;
+    simInitialCapitalCopy?: number;
+  }>('/risk-config');
+  switch (algoKind) {
+    case 'weather':
+      return risk.simInitialCapitalWeather ?? DEFAULT_SIM_BALANCE;
+    case 'copy':
+      return risk.simInitialCapitalCopy ?? DEFAULT_SIM_BALANCE;
+    default:
+      return risk.simInitialCapitalCrypto ?? risk.simInitialCapital ?? DEFAULT_SIM_BALANCE;
+  }
 }
 
 export async function resetSimulation(
@@ -44,7 +56,8 @@ export async function resetSimulation(
 ): Promise<SimResetResult> {
   const opts: ResetSimulationOptions =
     typeof options === 'number' ? { algoKind: 'crypto', amount: options } : options;
-  const capital = opts.amount ?? (await fetchSimInitialCapital());
+  const capital =
+    opts.amount ?? (await fetchSimInitialCapital(opts.algoKind));
   return api<SimResetResult>('/simulation-balance/reset', {
     method: 'POST',
     body: JSON.stringify({

@@ -688,6 +688,14 @@ export class RiskConfig {
   @Column({ type: 'boolean', name: 'weather_algo_enabled', default: false })
   weatherAlgoEnabled!: boolean;
 
+  /** Whether weather-algo executes in simulation mode. Default true (preserves legacy behaviour). */
+  @Column({ type: 'boolean', name: 'weather_algo_sim_enabled', default: true })
+  weatherAlgoSimEnabled!: boolean;
+
+  /** Whether weather-algo executes in real mode. Default false. Requires realTradingEnabled too. */
+  @Column({ type: 'boolean', name: 'weather_algo_real_enabled', default: false })
+  weatherAlgoRealEnabled!: boolean;
+
   /** Base edge (forecast prob - market price) required for entry. Default 10%. */
   @Column({ type: 'real', name: 'weather_algo_min_edge', default: 0.10 })
   weatherAlgoMinEdge!: number;

@@ -28,13 +28,19 @@ import {
   resumeEntryFromReservation,
   ExecutionService,
   resolveAlgoEntryExitParams,
+  effectiveEntryMos,
+  resolveEntryMinOrderSharesDetailed,
   WeatherForecastService,
   WeatherPositionForecastService,
 } from '@polywatch/core';
 import type { WeatherSignal } from '../strategy/strategy.js';
 import { fetchAvailableRealCash } from '../real-cash.js';
+import { resolvedClobApi } from '../config.js';
 
-const CLOB_API = process.env.POLYMARKET_CLOB_API ?? 'https://clob.polymarket.com';
+const CLOB_API = resolvedClobApi;
+
+/** Error message thrown by resolveEntryBalances when real cash is unavailable. */
+const REAL_CASH_UNAVAILABLE = 'real_cash_unavailable';
 
 const log = pino({ name: 'weather-algo:entry-pipeline' });
 
@@ -121,7 +127,8 @@ export async function runWeatherEntryPipeline(
   let anyModeEnqueued = false;
 
   for (const mode of modes) {
-    if (mode === 'real' && !risk.realTradingEnabled) continue;
+    if (mode === 'sim' && !risk.weatherAlgoSimEnabled) continue;
+    if (mode === 'real' && (!risk.weatherAlgoRealEnabled || !risk.realTradingEnabled)) continue;
 
     let modeResult: string | null = null;
     try {
@@ -240,8 +247,6 @@ async function runMode(args: {
       hasInFlightBuy: () =>
         executionService.hasInFlightBuy(existingReservation.copiedPositionId),
       resolveEffectiveEntryMos: async ({ conditionId, assetId }) => {
-        const { effectiveEntryMos } = await import('@polywatch/core');
-        const { resolveEntryMinOrderSharesDetailed } = await import('@polywatch/core');
         const detailed = await resolveEntryMinOrderSharesDetailed({
           conditionId,
           assetId,
@@ -281,11 +286,12 @@ async function runMode(args: {
       mode,
       sizing.sizingMode,
       simulationService,
+      'weather',
       realCashOverride,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg === 'real_cash_unavailable') {
+    if (msg === REAL_CASH_UNAVAILABLE) {
       log.warn({ conditionId: signal.conditionId, mode }, 'real mode skipped — real cash unavailable');
       return 'Cash réel indisponible';
     }

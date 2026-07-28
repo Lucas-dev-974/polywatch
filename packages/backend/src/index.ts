@@ -36,6 +36,7 @@ import { createAlgoMarketsRouter } from './routes/algo-markets.js';
 import { createAlgoAutoTrackRouter } from './routes/algo-auto-track.js';
 import { createAlgoExecutionsRouter } from './routes/algo-executions.js';
 import { createAlgoCapitalRouter } from './routes/algo-capital.js';
+import { createWeatherAlgoCapitalRouter } from './routes/weather-algo-capital.js';
 import { createAlgoMarketsPricesRouter } from './routes/algo-markets-prices.js';
 import { createAlgoSurveillanceHistoryRouter } from './routes/algo-surveillance-history.js';
 import { createAlgoEventsRouter } from './routes/algo-events.js';
@@ -180,6 +181,7 @@ async function main() {
   app.use('/api/weather-algo-discover', jwtLimiter, createWeatherAlgoDiscoverRouter(ds));
   app.use('/api/weather-algo-forecasts', jwtLimiter, createWeatherAlgoForecastsRouter(ds));
   app.use('/api/weather-algo-auto-track', jwtLimiter, createWeatherAlgoAutoTrackRouter(ds));
+  app.use('/api/weather-algo/capital', jwtLimiter, createWeatherAlgoCapitalRouter(ds));
   app.use('/api/internal', createInternalRouter(ds));
 
   const server = createServer(app);

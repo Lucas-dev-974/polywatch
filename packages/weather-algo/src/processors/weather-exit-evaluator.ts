@@ -11,16 +11,11 @@ import {
   CopiedPosition,
   WeatherPositionForecastService,
   buildCloseOrderSignal,
-  fetchWeatherForecast,
   shouldCloseForForecastDrift,
   shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
   type BucketBounds,
 } from '@polywatch/core';
-
-type WeatherPositionForecastRow = NonNullable<
-  Awaited<ReturnType<WeatherPositionForecastService['findByCopiedPositionId']>>
->;
 
 const log = pino({ name: 'weather-algo:exit-evaluator' });
 
@@ -97,27 +92,43 @@ export class WeatherExitEvaluator {
     const preClose = shouldCloseBeforeResolution(hoursToEnd, closeBeforeHours);
 
     let drift = false;
+    let bucketExit = false;
     if (!preClose) {
-      const current = await this.resolveCurrentForecast(snapshot);
+      const current = await this.params.forecastService.getOrFetch(
+        snapshot.city,
+        snapshot.targetDate,
+        snapshot.metric as 'highest_temp' | 'lowest_temp',
+      );
       if (current == null) {
         log.warn(
           { positionId: pos.id, city: snapshot.city },
-          'weather drift check skipped — forecast unavailable',
+          'weather exit checks skipped — forecast unavailable',
         );
       } else {
         drift = shouldCloseForForecastDrift(
           snapshot.entryForecastMean,
-          current,
+          current.forecastMean,
           risk.weatherAlgoForecastChangeThreshold ?? 2,
         );
+
+        if (!drift && snapshot.entryBucketComparison && snapshot.entryBucketBounds) {
+          const bounds = JSON.parse(snapshot.entryBucketBounds) as BucketBounds;
+          bucketExit = shouldCloseForBucketExit(
+            snapshot.entryBucketComparison as 'exact' | 'between' | 'or_below' | 'or_above',
+            bounds,
+            current.forecastMean,
+          );
+        }
       }
     }
 
-    if (!preClose && !drift) return;
+    if (!preClose && !drift && !bucketExit) return;
 
     const reason: TotalCloseReason = preClose
       ? 'WEATHER_PRE_CLOSE'
-      : 'WEATHER_FORECAST_CHANGE';
+      : drift
+        ? 'WEATHER_FORECAST_CHANGE'
+        : 'WEATHER_BUCKET_EXIT';
 
     const prices = await this.params.connectionManager.fetchExecutablePrices(
       pos.assetId,
@@ -164,21 +175,4 @@ export class WeatherExitEvaluator {
     );
   }
 
-  private async resolveCurrentForecast(
-    snapshot: WeatherPositionForecastRow,
-  ): Promise<number | null> {
-    const cached = await this.params.forecastService.getCached(
-      snapshot.city,
-      snapshot.targetDate,
-      snapshot.metric,
-    );
-    if (cached) return cached.forecastMean;
-
-    const fresh = await fetchWeatherForecast(
-      snapshot.city,
-      snapshot.targetDate,
-      snapshot.metric as 'highest_temp' | 'lowest_temp',
-    );
-    return fresh?.forecastMean ?? null;
-  }
 }

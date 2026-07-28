@@ -88,8 +88,8 @@ export function emitRealPeriodRotated(): void {
   io?.to('executions').emit('real_period_rotated');
 }
 
-export function emitSimulationBalance(snapshot: SimulationSnapshot): void {
-  io?.to('positions').emit('simulation_balance', snapshot);
+export function emitSimulationBalance(payload: SimulationSnapshot & { algoKind: string }): void {
+  io?.to('positions').emit('simulation_balance', payload);
 }
 
 export function emitAlgoMarketsChanged(): void {

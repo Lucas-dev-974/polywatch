@@ -243,7 +243,7 @@ describe('SimulationResetArchiveService', () => {
   it('resetWithManager clears sim positions only', async () => {
     const simulationService = new SimulationService(ds);
     await ds.transaction(async (manager) => {
-      await simulationService.resetWithManager(manager, 1000);
+      await simulationService.resetWithManager('crypto', manager, 1000);
     });
 
     const simCount = await ds.getRepository(CopiedPosition).count({
@@ -259,7 +259,7 @@ describe('SimulationResetArchiveService', () => {
   it('resetWithManager persists amount as simInitialCapital', async () => {
     const simulationService = new SimulationService(ds);
     await ds.transaction(async (manager) => {
-      await simulationService.resetWithManager(manager, 4200);
+      await simulationService.resetWithManager('crypto', manager, 4200);
     });
 
     const risk = await ds.getRepository(RiskConfig).findOne({ where: {} });

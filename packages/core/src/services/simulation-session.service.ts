@@ -110,7 +110,7 @@ export class SimulationSessionService {
     manager: EntityManager,
     sessionId: number,
   ): Promise<void> {
-    const balance = await manager.getRepository(SimulationBalance).findOne({ where: {} });
+    const balance = await manager.getRepository(SimulationBalance).findOne({ where: { algoKind: 'crypto' } });
     const amount = balance?.amount ?? 0;
     const baselineCapital = balance?.baselineCapital ?? amount;
     const snapshot = manager.getRepository(SimulationStateSnapshot).create({
@@ -159,12 +159,13 @@ export class SimulationSessionService {
     baselineCapital?: number,
   ): Promise<SimulationSession> {
     const balanceRepo = manager.getRepository(SimulationBalance);
-    let balance = await balanceRepo.findOne({ where: {} });
+    let balance = await balanceRepo.findOne({ where: { algoKind: 'crypto' } });
     if (!balance) {
       const baseline = baselineCapital ?? DEFAULT_SIM_BALANCE;
       const now = new Date();
       balance = await balanceRepo.save(
         balanceRepo.create({
+          algoKind: 'crypto',
           token: 'pUSD',
           amount: baseline,
           baselineCapital: baseline,
@@ -290,7 +291,7 @@ export class SimulationSessionService {
     // Initial snapshot for the new session
     await this.createInitialSnapshot(manager, opened.id);
 
-    const balance = await balanceRepo.findOne({ where: {} });
+    const balance = await balanceRepo.findOne({ where: { algoKind: 'crypto' } });
     if (balance) {
       balance.currentSessionId = opened.id;
       balance.sessionStartedAt = options.sessionStartedAt;

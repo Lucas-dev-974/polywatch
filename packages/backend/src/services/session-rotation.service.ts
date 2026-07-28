@@ -23,7 +23,7 @@ import type { RiskConfig } from '@polywatch/core';
 import { fetchObservedWalletCash } from '../polymarket/observed-wallet-cash.js';
 import { getRedis } from '../redis.js';
 import { emitSimulationReset, emitRealPeriodRotated } from '../websocket.js';
-import { emitSimSnapshot } from '../notify/simulation.js';
+import { broadcastSimSnapshot } from '../notify/simulation.js';
 import { recordSnapshotCreated, recordSnapshotCount } from '../metrics.js';
 
 export interface SimRotationResult {
@@ -106,7 +106,7 @@ export class SessionRotationService {
       return { closedId: null, openedId: opened.id };
     }
 
-    const before = await this.simService.getSnapshot();
+    const before = await this.simService.getGlobalSnapshot();
     const amount = activeSession.baselineCapital;
 
     // Pre-close snapshot
@@ -128,10 +128,13 @@ export class SessionRotationService {
     await this.ds.transaction(async (manager) => {
       const session = await this.simSessionService.ensureActiveSession(manager);
       await this.resetArchiveService.archiveSession(manager, session);
-      await this.simService.resetWithManager(manager, amount);
+      // Reset all 3 algoKind for a hard rotate
+      for (const ak of ['crypto', 'weather', 'copy'] as const) {
+        await this.simService.resetWithManager(ak, manager, amount);
+      }
       const balance = await manager
         .getRepository(SimulationBalance)
-        .findOne({ where: {} });
+        .findOne({ where: { algoKind: 'crypto' } });
       const sessionStartedAt = balance?.sessionStartedAt ?? new Date();
       await this.simSessionService.rotateAfterReset(manager, {
         endingEquity,
@@ -147,11 +150,10 @@ export class SessionRotationService {
 
     const balanceRow = await this.ds
       .getRepository(SimulationBalance)
-      .findOne({ where: {} });
+      .findOne({ where: { algoKind: 'crypto' } });
 
     emitSimulationReset();
-    const snapshot = await this.simService.getSnapshot();
-    emitSimSnapshot(snapshot);
+    await broadcastSimSnapshot(this.ds);
     await publishSimulationReset(getRedis(), {
       sessionStartedAt: balanceRow?.sessionStartedAt?.toISOString(),
     });

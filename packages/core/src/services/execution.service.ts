@@ -8,6 +8,7 @@ import {
   computeBuyCashDebit,
   computeSellSettlement,
 } from '../simulation/accounting.js';
+import { algoKindFromReason } from '../simulation/algo-kind.js';
 import { MIN_ORDER_SHARES } from '../sizing/constants.js';
 import { computePositionUnrealizedPnl } from '../positions/mark.js';
 import {
@@ -599,6 +600,7 @@ export class ExecutionService {
               input.fillQuantity,
               input.fees,
             ),
+            algoKindFromReason(pos.reason),
             manager,
           );
         }
@@ -654,7 +656,7 @@ export class ExecutionService {
         }
 
         if (pos.mode === 'sim') {
-          await this.simulationService.adjustCash(settlement.cashCredit, manager);
+          await this.simulationService.adjustCash(settlement.cashCredit, algoKindFromReason(pos.reason), manager);
         }
       }
 

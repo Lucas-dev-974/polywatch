@@ -151,7 +151,7 @@ export async function loadCryptoAlgoOptimizeReport(
       params,
     ),
     riskService.getConfig(),
-    simulationService.getSnapshot(),
+    simulationService.getSnapshot('crypto'),
   ]);
 
   const tickCoverage: OptimizeReportTickCoverageInput = {

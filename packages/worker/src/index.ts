@@ -70,16 +70,19 @@ async function main() {
 
   const simulationService = new SimulationService(ds);
   try {
-    const integrity = await simulationService.ensureCashIntegrity();
-    if (integrity.repaired) {
-      log.warn(
-        {
-          drift: integrity.drift,
-          expectedCash: integrity.expectedCash,
-          baselineCapital: integrity.baselineCapital,
-        },
-        'simulation cash reconciled from execution ledger',
-      );
+    for (const algoKind of ['crypto', 'weather', 'copy'] as const) {
+      const integrity = await simulationService.ensureCashIntegrity(algoKind);
+      if (integrity.repaired) {
+        log.warn(
+          {
+            algoKind,
+            drift: integrity.drift,
+            expectedCash: integrity.expectedCash,
+            baselineCapital: integrity.baselineCapital,
+          },
+          'simulation cash reconciled from execution ledger',
+        );
+      }
     }
   } catch (err) {
     log.error({ err }, 'simulation cash integrity check failed');

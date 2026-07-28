@@ -17,6 +17,7 @@ import {
   replaySimCashDelta,
   type SimExecutionCashRow,
 } from '../simulation/accounting.js';
+import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
 import { MarketService } from './market.service.js';
 
 export { DEFAULT_SIM_BALANCE };
@@ -59,26 +60,39 @@ export class SimulationService {
     this.marketService = new MarketService(ds);
   }
 
-  async getCashAmount(manager?: EntityManager): Promise<number> {
+  async getCashAmount(algoKind: SimAlgoKind, manager?: EntityManager): Promise<number> {
     const repo = (manager ?? this.ds.manager).getRepository(SimulationBalance);
-    const balance = await repo.findOne({ where: {} });
+    const balance = await repo.findOne({ where: { algoKind } });
     return balance?.amount ?? 0;
   }
 
   /** Apply a signed cash delta from a finalized execution (sim mode only). */
-  async adjustCash(delta: number, manager?: EntityManager): Promise<void> {
+  async adjustCash(delta: number, algoKind: SimAlgoKind, manager?: EntityManager): Promise<void> {
     const repo = (manager ?? this.ds.manager).getRepository(SimulationBalance);
-    const balance = await repo.findOne({ where: {} });
+    const balance = await repo.findOne({ where: { algoKind } });
     if (!balance) return;
     balance.amount = Math.max(0, balance.amount + delta);
     await repo.save(balance);
   }
 
   private async loadFilledSimExecutions(
+    algoKind: SimAlgoKind,
     manager: EntityManager,
   ): Promise<SimExecutionCashRow[]> {
+    // 1. Get copiedPositionIds whose opening reason maps to this algoKind
+    const positions = await manager.getRepository(CopiedPosition)
+      .createQueryBuilder('p')
+      .select(['p.id', 'p.reason'])
+      .where('p.mode = :mode', { mode: 'sim' })
+      .getMany();
+    const matchingIds = positions
+      .filter((p) => algoKindFromReason(p.reason) === algoKind)
+      .map((p) => p.id);
+    if (matchingIds.length === 0) return [];
+
+    // 2. Load executions for those positions
     const rows = await manager.getRepository(Execution).find({
-      where: { mode: 'sim', status: In([...FILLED_EXEC_STATUSES]) },
+      where: { mode: 'sim', status: In([...FILLED_EXEC_STATUSES]), copiedPositionId: In(matchingIds) },
       order: { executedAt: 'ASC', id: 'ASC' },
     });
 
@@ -103,17 +117,17 @@ export class SimulationService {
     return risk?.simInitialCapital ?? DEFAULT_SIM_BALANCE;
   }
 
-  async computeExpectedCash(manager?: EntityManager): Promise<{
+  async computeExpectedCash(algoKind: SimAlgoKind, manager?: EntityManager): Promise<{
     expectedCash: number;
     baselineCapital: number;
     netCashDelta: number;
   }> {
     const m = manager ?? this.ds.manager;
-    const balance = await m.getRepository(SimulationBalance).findOne({ where: {} });
+    const balance = await m.getRepository(SimulationBalance).findOne({ where: { algoKind } });
     const baselineCapital = balance
       ? await this.resolveBaselineCapital(balance, m)
       : DEFAULT_SIM_BALANCE;
-    const netCashDelta = replaySimCashDelta(await this.loadFilledSimExecutions(m));
+    const netCashDelta = replaySimCashDelta(await this.loadFilledSimExecutions(algoKind, m));
     return {
       expectedCash: baselineCapital + netCashDelta,
       baselineCapital,
@@ -123,17 +137,36 @@ export class SimulationService {
 
   /**
    * Align stored cash with baseline + replayed execution ledger.
-   * Repairs legacy rows missing baseline_capital and corrects drift from bugs.
+   * If algoKind is provided, only checks/repairs that line.
+   * If omitted, loops over all 3 algoKind.
    */
-  async ensureCashIntegrity(manager?: EntityManager): Promise<CashIntegrityResult> {
+  async ensureCashIntegrity(
+    algoKind?: SimAlgoKind,
+    manager?: EntityManager,
+  ): Promise<CashIntegrityResult> {
+    if (algoKind) {
+      return this.ensureCashIntegrityForAlgo(algoKind, manager);
+    }
+    // Loop over all 3 — return the last result (caller should check each individually)
+    let result: CashIntegrityResult = { repaired: false, drift: 0, expectedCash: 0, baselineCapital: 0 };
+    for (const ak of ['crypto', 'weather', 'copy'] as const) {
+      result = await this.ensureCashIntegrityForAlgo(ak, manager);
+    }
+    return result;
+  }
+
+  private async ensureCashIntegrityForAlgo(
+    algoKind: SimAlgoKind,
+    manager?: EntityManager,
+  ): Promise<CashIntegrityResult> {
     const run = async (m: EntityManager): Promise<CashIntegrityResult> => {
       const repo = m.getRepository(SimulationBalance);
-      let balance = await repo.findOne({ where: {} });
+      let balance = await repo.findOne({ where: { algoKind } });
       if (!balance) {
         const risk = await m.getRepository(RiskConfig).findOne({ where: {} });
         const baseline = risk?.simInitialCapital ?? DEFAULT_SIM_BALANCE;
         balance = await repo.save(
-          repo.create({ token: 'pUSD', amount: baseline, baselineCapital: baseline, sessionStartedAt: new Date() }),
+          repo.create({ algoKind, token: 'pUSD', amount: baseline, baselineCapital: baseline, sessionStartedAt: new Date() }),
         );
         return {
           repaired: false,
@@ -148,7 +181,7 @@ export class SimulationService {
         balance.baselineCapital = baselineCapital;
       }
 
-      const netCashDelta = replaySimCashDelta(await this.loadFilledSimExecutions(m));
+      const netCashDelta = replaySimCashDelta(await this.loadFilledSimExecutions(algoKind, m));
       const expectedCash = baselineCapital + netCashDelta;
       const drift = balance.amount - expectedCash;
 
@@ -169,25 +202,31 @@ export class SimulationService {
     return this.ds.transaction(run);
   }
 
-  async getSnapshot(manager?: EntityManager): Promise<SimulationSnapshot> {
+  async getSnapshot(algoKind: SimAlgoKind, manager?: EntityManager): Promise<SimulationSnapshot> {
     const m = manager ?? this.ds.manager;
     const balance = await m.getRepository(SimulationBalance).findOne({
-      where: {},
+      where: { algoKind },
     });
     const amount = balance?.amount ?? 0;
     const token = balance?.token ?? 'pUSD';
-    const { baselineCapital } = await this.computeExpectedCash(m);
+    const { baselineCapital } = await this.computeExpectedCash(algoKind, m);
 
-    const openLikePositions = await m.getRepository(CopiedPosition).find({
+    const allOpenLikePositions = await m.getRepository(CopiedPosition).find({
       where: OPEN_LIKE_POSITION_STATUSES.map((status) => ({
         mode: 'sim' as const,
         status,
       })),
     });
+    const openLikePositions = allOpenLikePositions.filter(
+      (p) => algoKindFromReason(p.reason) === algoKind,
+    );
 
-    const closedPositions = await m.getRepository(CopiedPosition).find({
+    const allClosedPositions = await m.getRepository(CopiedPosition).find({
       where: { mode: 'sim', status: 'closed' },
     });
+    const closedPositions = allClosedPositions.filter(
+      (p) => algoKindFromReason(p.reason) === algoKind,
+    );
 
     const conditionIds = [...new Set(openLikePositions.map((p) => p.conditionId))];
     const marketRows = await this.marketService.loadByConditionIds(conditionIds);
@@ -224,34 +263,69 @@ export class SimulationService {
     };
   }
 
-  async reset(amount = DEFAULT_SIM_BALANCE): Promise<SimulationSnapshot> {
+  /**
+   * Aggregate snapshot summing all 3 algoKind lines.
+   * Used by session rotation and archives for the global view.
+   */
+  async getGlobalSnapshot(manager?: EntityManager): Promise<SimulationSnapshot> {
+    const m = manager ?? this.ds.manager;
+    const crypto = await this.getSnapshot('crypto', m);
+    const weather = await this.getSnapshot('weather', m);
+    const copy = await this.getSnapshot('copy', m);
+    return {
+      amount: crypto.amount + weather.amount + copy.amount,
+      token: 'pUSD',
+      positionsValue: crypto.positionsValue + weather.positionsValue + copy.positionsValue,
+      equity: crypto.equity + weather.equity + copy.equity,
+      openPnlSum: crypto.openPnlSum + weather.openPnlSum + copy.openPnlSum,
+      closedPnlSum: crypto.closedPnlSum + weather.closedPnlSum + copy.closedPnlSum,
+      baselineCapital: crypto.baselineCapital + weather.baselineCapital + copy.baselineCapital,
+    };
+  }
+
+  async reset(algoKind: SimAlgoKind, amount = DEFAULT_SIM_BALANCE): Promise<SimulationSnapshot> {
     await this.ds.transaction(async (manager) => {
-      await this.resetWithManager(manager, amount);
+      await this.resetWithManager(algoKind, manager, amount);
     });
-    return this.getSnapshot();
+    return this.getSnapshot(algoKind);
   }
 
   async resetWithManager(
+    algoKind: SimAlgoKind,
     manager: EntityManager,
     amount = DEFAULT_SIM_BALANCE,
   ): Promise<void> {
-    await manager.delete(PositionReservation, { mode: 'sim' });
-    await manager.delete(Execution, { mode: 'sim' });
-    await manager.delete(CopiedPosition, { mode: 'sim' });
+    // 1. Get copiedPositionIds of this algoKind (filter on opening reason)
+    const positions = await manager.getRepository(CopiedPosition).find({
+      where: { mode: 'sim', status: In([...OPEN_LIKE_POSITION_STATUSES, 'closed']) },
+    });
+    const matchingPosIds = positions
+      .filter((p) => algoKindFromReason(p.reason) === algoKind)
+      .map((p) => p.id);
 
-    // Move events are shared between modes, so they cannot be deleted.
-    // Marking the still-unprocessed ones as processed prevents the worker's
-    // startup orphan recovery from replaying stale (pre-reset) events into
-    // the fresh simulation.
-    await manager
-      .getRepository(MoveEventEntity)
-      .update({ processed: false }, { processed: true });
+    if (matchingPosIds.length > 0) {
+      await manager.delete(Execution, { copiedPositionId: In(matchingPosIds) });
+      await manager.delete(CopiedPosition, { id: In(matchingPosIds) });
+    }
 
+    // 2. Delete reservations of this algoKind (filter by reason via algoKindFromReason)
+    const reservations = await manager.getRepository(PositionReservation).find({
+      where: { mode: 'sim' },
+    });
+    const matchingResIds = reservations
+      .filter((r) => algoKindFromReason(r.reason) === algoKind)
+      .map((r) => r.id);
+    if (matchingResIds.length > 0) {
+      await manager.delete(PositionReservation, { id: In(matchingResIds) });
+    }
+
+    // 3. Reset the balance of this algoKind only
     const repo = manager.getRepository(SimulationBalance);
     const sessionStartedAt = new Date();
-    let balance = await repo.findOne({ where: {} });
+    let balance = await repo.findOne({ where: { algoKind } });
     if (!balance) {
       balance = repo.create({
+        algoKind,
         token: 'pUSD',
         amount,
         baselineCapital: amount,

@@ -1,6 +1,7 @@
 import { LessThan, MoreThan, DataSource } from 'typeorm';
 import pino from 'pino';
 import { WeatherForecastCache } from '../entities/WeatherForecastCache.js';
+import { fetchWeatherForecast } from '../weather/weather-api-client.js';
 
 const log = pino({ name: 'core:weather-forecast' });
 
@@ -20,6 +21,63 @@ export interface ForecastResult {
 
 export class WeatherForecastService {
   constructor(private readonly ds: DataSource) {}
+
+  /**
+   * Get a forecast from cache or fetch from Open-Meteo and persist.
+   * Returns null on failure.
+   */
+  async getOrFetch(
+    city: string,
+    forecastDate: Date,
+    metric: 'highest_temp' | 'lowest_temp' | string,
+    ttlMs: number = 3600_000,
+  ): Promise<{ forecastMean: number; forecastStdDev: number } | null> {
+    const cached = await this.getCached(city, forecastDate, metric);
+    if (cached?.isFresh) {
+      return {
+        forecastMean: cached.forecastMean,
+        forecastStdDev: cached.forecastStdDev,
+      };
+    }
+
+    log.info({ city, forecastDate, metric }, 'fetching fresh weather forecast');
+    const fresh = await fetchWeatherForecast(
+      city,
+      forecastDate,
+      metric as 'highest_temp' | 'lowest_temp',
+    );
+    if (!fresh) {
+      log.warn({ city, forecastDate }, 'forecast fetch failed');
+      // Stale cache is better than nothing
+      if (cached) {
+        return {
+          forecastMean: cached.forecastMean,
+          forecastStdDev: cached.forecastStdDev,
+        };
+      }
+      return null;
+    }
+
+    const expiresAt = new Date(Date.now() + ttlMs);
+    await this.save({
+      city,
+      forecastDate,
+      metric,
+      forecastMean: fresh.forecastMean,
+      forecastStdDev: fresh.forecastStdDev,
+      modelValues: fresh.modelValues,
+      latitude: fresh.latitude,
+      longitude: fresh.longitude,
+      fetchedAt: new Date(),
+      expiresAt,
+      isFresh: true,
+    });
+
+    return {
+      forecastMean: fresh.forecastMean,
+      forecastStdDev: fresh.forecastStdDev,
+    };
+  }
 
   async getCached(
     city: string,

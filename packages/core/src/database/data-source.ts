@@ -116,6 +116,8 @@ import { CreateWeatherAlgo1700000000070 } from '../migrations/CreateWeatherAlgo1
 import { WeatherAlgoUniqueIndexes1700000000080 } from '../migrations/WeatherAlgoUniqueIndexes1700000000080.js';
 import { WeatherPositionForecastUnique1700000000081 } from '../migrations/WeatherPositionForecastUnique1700000000081.js';
 import { WeatherCityFollow1700000000082 } from '../migrations/WeatherCityFollow1700000000082.js';
+import { AddWeatherAlgoModeToggles1700000000083 } from '../migrations/AddWeatherAlgoModeToggles1700000000083.js';
+import { SimBalancePerAlgoKind1700000000084 } from '../migrations/SimBalancePerAlgoKind1700000000084.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -188,6 +190,8 @@ export const migrations = [
   WeatherAlgoUniqueIndexes1700000000080,
   WeatherPositionForecastUnique1700000000081,
   WeatherCityFollow1700000000082,
+  AddWeatherAlgoModeToggles1700000000083,
+  SimBalancePerAlgoKind1700000000084,
 ];
 
 export const entities = [

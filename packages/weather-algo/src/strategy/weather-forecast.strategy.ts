@@ -137,6 +137,10 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       outcome: candidate.outcome,
       side: 'BUY',
       confidence: Math.min(1, Math.abs(candidate.edge) * 2),
+      // confidence = edge × 2, capped at 1.0
+      // An edge of 0.50 (50% underpriced) maps to confidence 1.0.
+      // Edge of 0.10 maps to confidence 0.20. The ×2 factor amplifies
+      // small edges into meaningful confidence scores for sizing.
       reasons: [
         `forecast=${parsed.metric}:${parsed.targetValue ?? `${parsed.targetValueLow}-${parsed.targetValueHigh}`}°C`,
         `comparison=${parsed.comparison}`,

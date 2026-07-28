@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   selectForecastAlignedBucket,
-  isForecastInBucket,
   type BucketCandidate,
 } from './forecast-bucket-selector.js';
+import { isForecastInBucket } from './weather-exit-helpers.js';
 import type { ParsedWeatherQuestion } from './question-parser.js';
 
 function makeBucket(

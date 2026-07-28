@@ -3,6 +3,7 @@ import {
   fetchSimInitialCapital,
   formatSimCapital,
   resetSimulation,
+  type SimAlgoKind,
   type SimResetResult,
 } from '../lib/simulation';
 import { api } from '../api';
@@ -23,6 +24,7 @@ export interface NewSessionResetDialogProps {
   mode: 'post-apply' | 'manual';
   defaultLabel?: string;
   onDone?: (result: SimResetResult | null) => void;
+  algoKind?: SimAlgoKind;
 }
 
 type CopyConfigTab = 'entry' | 'exit' | 'risk';
@@ -159,6 +161,7 @@ export function NewSessionResetDialog(props: NewSessionResetDialogProps) {
       // Save configs before reset
       await saveConfigs();
       const result = await resetSimulation({
+        algoKind: props.algoKind ?? 'crypto',
         amount,
         archive: archive(),
         deepClean: deepClean(),

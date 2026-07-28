@@ -198,7 +198,7 @@ export class SimulationArchiveService {
     }
 
     const snapshotAt = new Date();
-    const portfolio = await this.simulationService.getSnapshot(manager);
+    const portfolio = await this.simulationService.getGlobalSnapshot(manager);
     const riskConfig = await this.riskService.getConfig({
       manager,
       bypassCache: true,

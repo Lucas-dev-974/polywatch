@@ -1,6 +1,7 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { api, apiText } from '../api';
 import { onGlobalRefresh } from '../socket';
+import { fetchWeatherAlgoCapital, type WeatherAlgoCapital } from '../lib/weather-algo-capital';
 
 export interface WeatherSelection {
   id: number;
@@ -73,6 +74,10 @@ export function useWeatherAlgoDashboard() {
   const [discoverGroups, setDiscoverGroups] = createSignal<CityMarketGroup[]>([]);
   const [discoverLoading, setDiscoverLoading] = createSignal(false);
   const [autoTrackRules, setAutoTrackRules] = createSignal<AutoTrackRule[]>([]);
+  const [capital, setCapital] = createSignal<WeatherAlgoCapital | null>(null);
+  const [realTradingEnabled, setRealTradingEnabled] = createSignal(false);
+  const [weatherAlgoSimEnabled, setWeatherAlgoSimEnabled] = createSignal(true);
+  const [weatherAlgoRealEnabled, setWeatherAlgoRealEnabled] = createSignal(false);
 
   async function refreshSelections() {
     try {
@@ -90,6 +95,57 @@ export function useWeatherAlgoDashboard() {
     try {
       setAutoTrackRules(await api<AutoTrackRule[]>('/weather-algo-auto-track'));
     } catch { /* ignore */ }
+  }
+
+  async function loadCapital() {
+    try {
+      setCapital(await fetchWeatherAlgoCapital());
+    } catch {
+      setCapital(null);
+    }
+  }
+
+  async function loadRiskFlags() {
+    try {
+      const risk = await api<{
+        realTradingEnabled: boolean;
+        weatherAlgoEnabled: boolean;
+        weatherAlgoSimEnabled: boolean;
+        weatherAlgoRealEnabled: boolean;
+      }>('/risk-config');
+      setRealTradingEnabled(risk.realTradingEnabled);
+      setWeatherAlgoSimEnabled(risk.weatherAlgoSimEnabled);
+      setWeatherAlgoRealEnabled(risk.weatherAlgoRealEnabled);
+    } catch {
+      setRealTradingEnabled(false);
+      setWeatherAlgoSimEnabled(true);
+      setWeatherAlgoRealEnabled(false);
+    }
+  }
+
+  async function toggleRealTrading() {
+    const next = !realTradingEnabled();
+    if (
+      next &&
+      !confirm(
+        'Activer le trading réel global ? Les algos configurés en mode réel exécuteront des ordres avec de vrais fonds.',
+      )
+    ) {
+      return;
+    }
+    try {
+      await api('/risk-config', {
+        method: 'PUT',
+        body: JSON.stringify({ realTradingEnabled: next }),
+      });
+      setRealTradingEnabled(next);
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? `Échec : ${err.message}`
+          : 'Impossible de modifier le trading réel.',
+      );
+    }
   }
 
   async function discoverMarkets() {
@@ -152,15 +208,20 @@ export function useWeatherAlgoDashboard() {
     void refreshStatus();
     void discoverMarkets();
     void refreshAutoTrackRules();
+    void loadCapital();
+    void loadRiskFlags();
 
     const poll = setInterval(() => {
       void refreshSelections();
       void refreshStatus();
+      void loadCapital();
     }, STATUS_POLL_MS);
 
     const unsub = onGlobalRefresh(() => {
       void refreshSelections();
       void refreshStatus();
+      void loadCapital();
+      void loadRiskFlags();
     });
 
     onCleanup(() => {
@@ -174,5 +235,7 @@ export function useWeatherAlgoDashboard() {
     discoverMarkets, addMarket, toggleSelection, removeSelection,
     addAutoTrackRule, removeAutoTrackRule, toggleAutoTrackRule,
     refreshSelections, refreshStatus,
+    capital, realTradingEnabled, weatherAlgoSimEnabled, weatherAlgoRealEnabled,
+    loadCapital, loadRiskFlags, toggleRealTrading,
   };
 }

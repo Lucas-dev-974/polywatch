@@ -1,9 +1,14 @@
-import { Column, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('simulation_balances')
+@Index('idx_sim_balances_algo_kind', ['algoKind'], { unique: true })
 export class SimulationBalance {
   @PrimaryGeneratedColumn()
   id!: number;
+
+  /** Identifies the algo perimeter this balance belongs to. */
+  @Column({ type: 'text', name: 'algo_kind', default: 'crypto' })
+  algoKind!: 'crypto' | 'weather' | 'copy';
 
   @Column({ type: 'text', default: 'pUSD' })
   token!: string;

@@ -12,6 +12,10 @@ export interface WeatherAlgoRuntimeStatus {
 export class WeatherAlgoRuntimeStatusPublisher {
   constructor(private readonly redis: Redis) {}
 
+  /**
+   * Publish runtime status to Redis with a 5-minute TTL.
+   * Caller is responsible for catching Redis errors (e.g. connection drops).
+   */
   async publish(status: WeatherAlgoRuntimeStatus): Promise<void> {
     await this.redis.set(
       RUNTIME_STATUS_KEY,
@@ -21,16 +25,3 @@ export class WeatherAlgoRuntimeStatusPublisher {
     );
   }
 }
-
-export function parseWeatherAlgoRuntimeStatus(
-  raw: string | null,
-): WeatherAlgoRuntimeStatus | null {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as WeatherAlgoRuntimeStatus;
-  } catch {
-    return null;
-  }
-}
-
-export { RUNTIME_STATUS_KEY };

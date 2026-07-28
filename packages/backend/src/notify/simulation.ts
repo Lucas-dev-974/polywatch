@@ -5,14 +5,16 @@ import {
 } from '@polywatch/core';
 import { emitSimulationBalance } from '../websocket.js';
 
-export function emitSimSnapshot(snapshot: SimulationSnapshot): void {
-  emitSimulationBalance(snapshot);
+export function emitSimSnapshot(snapshot: SimulationSnapshot, algoKind?: string): void {
+  emitSimulationBalance({ ...snapshot, algoKind: algoKind ?? 'crypto' });
 }
 
 export async function broadcastSimSnapshot(
   ds: DataSource,
-): Promise<SimulationSnapshot> {
-  const snapshot = await new SimulationService(ds).getSnapshot();
-  emitSimSnapshot(snapshot);
-  return snapshot;
+): Promise<void> {
+  const simulationService = new SimulationService(ds);
+  for (const algoKind of ['crypto', 'weather', 'copy'] as const) {
+    const snapshot = await simulationService.getSnapshot(algoKind);
+    emitSimulationBalance({ ...snapshot, algoKind });
+  }
 }

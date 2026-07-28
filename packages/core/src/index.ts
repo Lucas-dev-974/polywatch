@@ -97,6 +97,8 @@ export {
 } from './market/behavior-registry.js';
 export type { MarketBehavior } from './market/behavior-registry.js';
 export * from './simulation/accounting.js';
+export { algoKindFromReason, type SimAlgoKind } from './simulation/algo-kind.js';
+export * from './simulation/algo-kind.js';
 export {
   buildCryptoAlgoOptimizeReport,
   OPTIMIZE_REPORT_MIN_CLOSED,

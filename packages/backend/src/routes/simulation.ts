@@ -9,6 +9,7 @@ import {
   SimulationService,
   SimulationResetArchiveService,
   resolveSimResetAmount,
+  type SimAlgoKind,
   type SimArchiveSummary,
   CopiedPosition,
   CopiedPositionPresenter,
@@ -48,6 +49,7 @@ export function createSimulationRouter(ds: DataSource): Router {
 
   const resetBodySchema = z
     .object({
+      algoKind: z.enum(['crypto', 'weather', 'copy']),
       amount: z.number().finite().nonnegative().optional(),
       archive: z.boolean().default(true),
       deepClean: z.boolean().default(false),
@@ -265,8 +267,9 @@ export function createSimulationRouter(ds: DataSource): Router {
     });
   });
 
-  router.get('/simulation-balance', requireJwt, async (_req, res) => {
-    res.json(await simulationService.getSnapshot());
+  router.get('/simulation-balance', requireJwt, async (req, res) => {
+    const algoKind = (req.query.algoKind as SimAlgoKind) ?? 'crypto';
+    res.json(await simulationService.getSnapshot(algoKind));
   });
 
   router.post('/simulation-balance/reset', requireJwt, async (req, res) => {
@@ -294,9 +297,10 @@ export function createSimulationRouter(ds: DataSource): Router {
     }
     try {
       const risk = await riskService.getConfig();
+      const algoKind = body.algoKind;
       const amount = resolveSimResetAmount(body.amount, risk.simInitialCapital);
 
-      const before = await simulationService.getSnapshot();
+      const before = await simulationService.getSnapshot(algoKind);
       const resetSnapshot = await archiveService.createSnapshot({
         source: 'reset',
         label: 'Avant réinitialisation',
@@ -329,10 +333,10 @@ export function createSimulationRouter(ds: DataSource): Router {
         if (body.deepClean) {
           await resetArchiveService.purgeMarketData(manager);
         }
-        await simulationService.resetWithManager(manager, amount);
+        await simulationService.resetWithManager(algoKind, manager, amount);
         const balance = await manager
           .getRepository(SimulationBalance)
-          .findOne({ where: {} });
+          .findOne({ where: { algoKind } });
         const sessionStartedAt = balance?.sessionStartedAt ?? new Date();
         await sessionService.rotateAfterReset(manager, {
           endingEquity,
@@ -345,7 +349,7 @@ export function createSimulationRouter(ds: DataSource): Router {
       // resetWithManager may have updated simInitialCapital — drop stale cache.
       RiskService.invalidateConfigCache();
 
-      const snapshot = await simulationService.getSnapshot();
+      const snapshot = await simulationService.getSnapshot(algoKind);
 
       // Post-commit side-effects: each wrapped individually so a partial failure
       // does not prevent the HTTP response or leave the client guessing.
@@ -359,11 +363,11 @@ export function createSimulationRouter(ds: DataSource): Router {
         warnings.push('redis_purge_failed');
       }
 
-      const balanceRow = await ds.getRepository(SimulationBalance).findOne({ where: {} });
+      const balanceRow = await ds.getRepository(SimulationBalance).findOne({ where: { algoKind } });
 
       try {
         emitSimulationReset();
-        emitSimSnapshot(snapshot);
+        emitSimSnapshot(snapshot, algoKind);
       } catch (err) {
         log.warn({ err }, 'ws emit failed after reset');
         warnings.push('ws_emit_failed');
@@ -421,7 +425,7 @@ export function createSimulationRouter(ds: DataSource): Router {
     const labelParsed = z.string().max(200).safeParse(req.query.label);
     const fromParsed = z.string().date().safeParse(req.query.from);
     const toParsed = z.string().date().safeParse(req.query.to);
-    const live = await simulationService.getSnapshot();
+    const live = await simulationService.getGlobalSnapshot();
     const result = await sessionService.listSessions({
       limit,
       offset,
@@ -445,7 +449,7 @@ export function createSimulationRouter(ds: DataSource): Router {
   });
 
   router.get('/simulation-sessions/current', requireJwt, async (_req, res) => {
-    const live = await simulationService.getSnapshot();
+    const live = await simulationService.getGlobalSnapshot();
     const current = await sessionService.getCurrentSession(live.equity);
     res.json(current);
   });
@@ -482,7 +486,7 @@ export function createSimulationRouter(ds: DataSource): Router {
       res.status(400).json({ error: 'invalid_id' });
       return;
     }
-    const live = await simulationService.getSnapshot();
+    const live = await simulationService.getGlobalSnapshot();
     const session = await sessionService.getSession(id, live.equity);
     if (!session) {
       res.status(404).json({ error: 'not_found' });

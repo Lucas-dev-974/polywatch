@@ -2,6 +2,7 @@ import { createSignal, Show } from 'solid-js';
 import { useWeatherAlgoDashboard } from '../hooks/useWeatherAlgoDashboard';
 import { useWeatherAlgoPositions } from '../hooks/useWeatherAlgoPositions';
 import { WeatherAlgoHeader } from './WeatherAlgoHeader';
+import { WeatherAlgoCapitalHero } from './WeatherAlgoCapitalHero';
 import { WeatherAlgoDiscoverPanel } from './WeatherAlgoDiscoverPanel';
 import { WeatherAlgoActiveMarketsPanel } from './WeatherAlgoActiveMarketsPanel';
 import { WeatherAlgoForecastPanel } from './WeatherAlgoForecastPanel';
@@ -20,6 +21,13 @@ export function WeatherAlgoPage() {
   return (
     <div class="weather-algo-page">
       <WeatherAlgoHeader status={dashboard.status()} />
+      <WeatherAlgoCapitalHero
+        capital={dashboard.capital()}
+        realTradingEnabled={dashboard.realTradingEnabled()}
+        weatherAlgoSimEnabled={dashboard.weatherAlgoSimEnabled()}
+        weatherAlgoRealEnabled={dashboard.weatherAlgoRealEnabled()}
+        onToggleRealTrading={dashboard.toggleRealTrading}
+      />
 
       <div class="weather-algo-tabs">
         <button classList={{ 'btn btn-sm': true, 'btn-primary': tab() === 'markets', 'btn-ghost': tab() !== 'markets' }}

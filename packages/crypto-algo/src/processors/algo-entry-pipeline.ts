@@ -379,6 +379,7 @@ async function runMode(args: {
       mode,
       sizing.sizingMode,
       simulationService,
+      'crypto',
       realCashOverride,
     );
   } catch (err) {

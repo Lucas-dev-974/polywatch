@@ -93,7 +93,7 @@ describe('ExecutionService simulation cash guards', () => {
       }),
     );
 
-    await balanceRepo.save({ ...(await balanceRepo.findOne({ where: {} }))!, amount: 100, baselineCapital: 100 });
+    await balanceRepo.save({ ...(await balanceRepo.findOne({ where: { algoKind: 'crypto' } }))!, amount: 100, baselineCapital: 100 });
 
     await executionService.claim({
       orderSignalId: 'sell-once',
@@ -114,9 +114,9 @@ describe('ExecutionService simulation cash guards', () => {
       });
 
     await finalize();
-    const cashAfterFirst = await simulationService.getCashAmount();
+    const cashAfterFirst = await simulationService.getCashAmount('crypto');
     await finalize();
-    const cashAfterSecond = await simulationService.getCashAmount();
+    const cashAfterSecond = await simulationService.getCashAmount('crypto');
 
     expect(cashAfterSecond).toBeCloseTo(cashAfterFirst, 6);
     expect(cashAfterFirst).toBeCloseTo(106, 4);
@@ -186,13 +186,13 @@ describe('ExecutionService simulation cash guards', () => {
       }),
     ]);
 
-    await balanceRepo.save({ ...(await balanceRepo.findOne({ where: {} }))!, amount: 7.96, baselineCapital: 50 });
+    await balanceRepo.save({ ...(await balanceRepo.findOne({ where: { algoKind: 'crypto' } }))!, amount: 7.96, baselineCapital: 50 });
 
-    const result = await simulationService.ensureCashIntegrity();
+    const result = await simulationService.ensureCashIntegrity('crypto');
     expect(result.repaired).toBe(true);
     expect(result.expectedCash).toBeCloseTo(50.997, 2);
 
-    const balance = await balanceRepo.findOne({ where: {} });
+    const balance = await balanceRepo.findOne({ where: { algoKind: 'crypto' } });
     expect(balance?.amount).toBeCloseTo(result.expectedCash, 4);
     expect(balance?.baselineCapital).toBe(50);
   });

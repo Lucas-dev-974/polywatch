@@ -1,5 +1,4 @@
 import pino from 'pino';
-import type { DataSource } from 'typeorm';
 import {
   WeatherAutoTrackService,
   type WeatherMarketSelectionService,

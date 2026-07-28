@@ -22,6 +22,8 @@ export function WeatherAlgoSettingsTab() {
         method: 'PUT',
         body: JSON.stringify({
           weatherAlgoEnabled: c.weatherAlgoEnabled,
+          weatherAlgoSimEnabled: c.weatherAlgoSimEnabled,
+          weatherAlgoRealEnabled: c.weatherAlgoRealEnabled,
           weatherAlgoMinEdge: c.weatherAlgoMinEdge,
           weatherAlgoMaxForecastStd: c.weatherAlgoMaxForecastStd,
           weatherAlgoSizingMode: c.weatherAlgoSizingMode,
@@ -59,6 +61,17 @@ export function WeatherAlgoSettingsTab() {
               <input type="checkbox" checked={c().weatherAlgoEnabled as boolean}
                 onInput={(e) => update('weatherAlgoEnabled', e.currentTarget.checked)} />
               Algo activé
+            </label>
+            <label>
+              <input type="checkbox" checked={c().weatherAlgoSimEnabled as boolean}
+                onInput={(e) => update('weatherAlgoSimEnabled', e.currentTarget.checked)} />
+              Mode Simulation actif
+            </label>
+            <label>
+              <input type="checkbox" checked={c().weatherAlgoRealEnabled as boolean}
+                onInput={(e) => update('weatherAlgoRealEnabled', e.currentTarget.checked)} />
+              Mode Réel actif
+              <span class="form-hint">Requiert aussi le master kill global <code>realTradingEnabled</code> activé.</span>
             </label>
             <label>
               Edge minimum ({((c().weatherAlgoMinEdge as number) * 100).toFixed(0)}%)

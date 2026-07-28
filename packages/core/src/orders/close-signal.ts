@@ -13,6 +13,7 @@ export const TOTAL_CLOSE_REASONS = [
   'KILL_SWITCH',
   'WEATHER_FORECAST_CHANGE',
   'WEATHER_PRE_CLOSE',
+  'WEATHER_BUCKET_EXIT',
 ] as const satisfies readonly OrderReason[];
 
 export type TotalCloseReason = (typeof TOTAL_CLOSE_REASONS)[number];

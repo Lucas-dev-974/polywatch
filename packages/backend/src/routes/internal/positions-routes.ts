@@ -8,6 +8,7 @@ import {
   ExecutionService,
   CopiedPositionService,
   SimulationService,
+  type SimAlgoKind,
 } from '@polywatch/core';
 import { getRedis } from '../../redis.js';
 import { fetchPusdBalance } from '../../polymarket/pusd-balance.js';
@@ -40,7 +41,8 @@ export function createInternalPositionsRouter(ds: DataSource): Router {
   router.get('/balances', async (req, res) => {
     const mode = req.query.mode ?? 'sim';
     if (mode === 'sim') {
-      res.json(await simulationService.getSnapshot());
+      const algoKind = (req.query.algoKind as SimAlgoKind) ?? 'crypto';
+      res.json(await simulationService.getSnapshot(algoKind));
       return;
     }
 

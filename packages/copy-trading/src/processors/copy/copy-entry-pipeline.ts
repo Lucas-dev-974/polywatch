@@ -129,6 +129,7 @@ export async function runCopyEntryPipeline(params: {
       mode,
       sizing.sizingMode,
       simulationService,
+      'copy',
       realCashOverride,
     );
   } catch (err) {

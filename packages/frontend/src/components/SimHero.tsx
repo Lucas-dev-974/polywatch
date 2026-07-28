@@ -1,10 +1,11 @@
-import { createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { createSignal, onCleanup, onMount, Show, For } from 'solid-js';
 import { api } from '../api';
 import { debounceFn } from '../lib/debounce';
 import {
   fetchSimBalance,
   fetchSimInitialCapital,
   type SimBalance,
+  type SimAlgoKind,
 } from '../lib/simulation';
 import { connectSocket } from '../socket';
 import { EnvSettingsDialogTrigger } from './EnvSettingsDialog';
@@ -23,7 +24,14 @@ import {
 const BALANCE_REFRESH_DEBOUNCE_MS = 500;
 const EXEC_STATS_REFRESH_DEBOUNCE_MS = 2_000;
 
+const ALGO_TABS: { id: SimAlgoKind; label: string }[] = [
+  { id: 'crypto', label: 'Crypto' },
+  { id: 'weather', label: 'Weather' },
+  { id: 'copy', label: 'Copy' },
+];
+
 export function SimHero() {
+  const [activeAlgo, setActiveAlgo] = createSignal<SimAlgoKind>('crypto');
   const [simBalance, setSimBalance] = createSignal<SimBalance | null>(null);
   const [initialCapital, setInitialCapital] = createSignal<number | null>(null);
   const [snapshotOpen, setSnapshotOpen] = createSignal(false);
@@ -49,7 +57,7 @@ export function SimHero() {
 
   async function loadSimBalance() {
     try {
-      setSimBalance(await fetchSimBalance());
+      setSimBalance(await fetchSimBalance(activeAlgo()));
     } catch {
       // Initial REST load failed — WS pushes will populate the value.
     }
@@ -70,13 +78,17 @@ export function SimHero() {
       EXEC_STATS_REFRESH_DEBOUNCE_MS,
     );
     const onSimulationReset = () => void loadSimBalance();
-    socket.on('simulation_balance', setSimBalance);
+    socket.on('simulation_balance', (payload: SimBalance & { algoKind?: string }) => {
+      if (!payload.algoKind || payload.algoKind === activeAlgo()) {
+        setSimBalance(payload);
+      }
+    });
     socket.on('simulation_reset', onSimulationReset);
     socket.on('pnl_tick', refreshBalance);
     socket.on('position_update', refreshBalance);
     socket.on('execution', refreshExecStats);
     onCleanup(() => {
-      socket.off('simulation_balance', setSimBalance);
+      socket.off('simulation_balance');
       socket.off('simulation_reset', onSimulationReset);
       socket.off('pnl_tick', refreshBalance);
       socket.off('position_update', refreshBalance);
@@ -113,6 +125,11 @@ export function SimHero() {
     setTimeout(() => setSnapshotSaved(false), 3000);
   }
 
+  function switchAlgo(algo: SimAlgoKind) {
+    setActiveAlgo(algo);
+    void loadSimBalance();
+  }
+
   const balance = () => simBalance();
   const sessionPnl = () => {
     const b = balance();
@@ -124,8 +141,24 @@ export function SimHero() {
   return (
     <section class="mode-hero">
       <div class="mode-hero-group">
+        <nav class="algo-kind-tabs" role="tablist" aria-label="Algo kind">
+          <For each={ALGO_TABS}>
+            {(tab) => (
+              <button
+                type="button"
+                class="algo-kind-tab"
+                classList={{ active: activeAlgo() === tab.id }}
+                role="tab"
+                aria-selected={activeAlgo() === tab.id}
+                onClick={() => switchAlgo(tab.id)}
+              >
+                {tab.label}
+              </button>
+            )}
+          </For>
+        </nav>
         <ModeHeroBalanceStat
-          label="Simulation"
+          label={`Simulation (${activeAlgo()})`}
           equity={balance()?.equity}
           cash={balance()?.amount}
           positions={balance()?.positionsValue}
@@ -195,6 +228,7 @@ export function SimHero() {
         onClose={() => setResetDialogOpen(false)}
         mode="manual"
         onDone={(result) => onResetDone(result)}
+        algoKind={activeAlgo()}
       />
       <SimSnapshotDialog
         open={snapshotOpen()}

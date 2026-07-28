@@ -1,5 +1,6 @@
 import type { MarketListItemDto } from '../polymarket/market-list.js';
 import { parseWeatherQuestion, type ParsedWeatherQuestion } from './question-parser.js';
+import { isForecastInBucket, type BucketBounds } from './weather-exit-helpers.js';
 
 export interface BucketCandidate {
   conditionId: string;
@@ -11,43 +12,6 @@ export interface SelectedBucket {
   conditionId: string;
   market: MarketListItemDto;
   parsed: ParsedWeatherQuestion;
-}
-
-export interface BucketBounds {
-  low?: number | null;
-  high?: number | null;
-  target?: number | null;
-}
-
-/**
- * Check whether a forecast mean falls inside a given temperature bucket.
- */
-export function isForecastInBucket(
-  forecastMean: number,
-  comparison: 'exact' | 'between' | 'or_below' | 'or_above',
-  bounds: BucketBounds,
-): boolean {
-  switch (comparison) {
-    case 'between': {
-      const low = bounds.low ?? -Infinity;
-      const high = bounds.high ?? Infinity;
-      return forecastMean >= low - 0.5 && forecastMean <= high + 0.5;
-    }
-    case 'exact': {
-      const target = bounds.target ?? NaN;
-      return Math.abs(forecastMean - target) <= 0.5;
-    }
-    case 'or_below': {
-      const target = bounds.target ?? NaN;
-      return forecastMean <= target;
-    }
-    case 'or_above': {
-      const target = bounds.target ?? NaN;
-      return forecastMean >= target;
-    }
-    default:
-      return false;
-  }
 }
 
 /**

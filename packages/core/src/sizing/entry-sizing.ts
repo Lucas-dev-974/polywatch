@@ -1,5 +1,6 @@
 import type { ModeSizingParams } from '../risk/policy.js';
 import type { TradingMode } from '../types/index.js';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
 import { computeTargetQuantity, type SizingInput } from './compute.js';
 import type { SignalScore } from './signal-scorer.js';
 
@@ -72,16 +73,17 @@ export function requiresTraderPortfolioValue(sizingMode: string): boolean {
 
 export async function resolveSimEntryBalances(
   simulationService: {
-    getCashAmount(): Promise<number>;
-    getSnapshot(): Promise<{ equity: number }>;
+    getCashAmount(algoKind: SimAlgoKind): Promise<number>;
+    getSnapshot(algoKind: SimAlgoKind): Promise<{ equity: number }>;
   },
   sizingMode: string,
+  algoKind: SimAlgoKind,
 ): Promise<EntrySizingBalances> {
-  const cash = await simulationService.getCashAmount();
+  const cash = await simulationService.getCashAmount(algoKind);
   if (sizingMode !== 'proportional_capital') {
     return { cash };
   }
-  const snapshot = await simulationService.getSnapshot();
+  const snapshot = await simulationService.getSnapshot(algoKind);
   return { cash, capitalForRatio: snapshot.equity };
 }
 
@@ -99,13 +101,14 @@ export async function resolveEntryBalances(
   mode: TradingMode,
   sizingMode: string,
   simulationService: {
-    getCashAmount(): Promise<number>;
-    getSnapshot(): Promise<{ equity: number }>;
+    getCashAmount(algoKind: SimAlgoKind): Promise<number>;
+    getSnapshot(algoKind: SimAlgoKind): Promise<{ equity: number }>;
   },
+  algoKind: SimAlgoKind,
   realCashOverride?: number,
 ): Promise<EntrySizingBalances> {
   if (mode === 'sim') {
-    return resolveSimEntryBalances(simulationService, sizingMode);
+    return resolveSimEntryBalances(simulationService, sizingMode, algoKind);
   }
   if (realCashOverride === undefined) {
     throw new Error('real_cash_unavailable');

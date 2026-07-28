@@ -9,7 +9,7 @@ import {
   type WeatherForecastService,
   type WeatherAutoTrackService,
   type WeatherAutoTrackRule,
-  fetchWeatherForecast,
+  type ParsedWeatherQuestion,
   discoverWeatherMarkets,
   safeInterval,
   parseWeatherQuestion,
@@ -23,6 +23,7 @@ import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherSignal, WeatherStrategy } from './strategy.js';
 import { WeatherAlgoRuntimeStatusPublisher } from '../runtime-status.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
+import { WEATHER_FORECAST_CACHE_TTL_MS_DEFAULT } from '../config.js';
 
 const log = pino({ name: 'weather-algo:strategy-runner' });
 
@@ -69,7 +70,7 @@ export class WeatherStrategyRunner {
     this.redisCmd = params.redisCmd;
     this.onSignal = params.onSignal;
     this.pollMs = params.pollMs;
-    this.forecastCacheTtlMs = params.forecastCacheTtlMs ?? 3600_000;
+    this.forecastCacheTtlMs = params.forecastCacheTtlMs ?? WEATHER_FORECAST_CACHE_TTL_MS_DEFAULT;
     this.runtimeStatus = params.runtimeStatus;
     this.exitEvaluator = params.exitEvaluator;
   }
@@ -245,8 +246,8 @@ export class WeatherStrategyRunner {
         }),
       );
 
-      // Filter markets matching this rule
-      const matchingMarkets: MarketListItemDto[] = [];
+      // Filter markets matching this rule, storing parsed result to avoid double-parse
+      const matching: Array<{ market: MarketListItemDto; parsed: ParsedWeatherQuestion }> = [];
       for (const market of temperatureMarkets) {
         if (!market.question) continue;
         const parsed = parseWeatherQuestion(market.question);
@@ -259,21 +260,17 @@ export class WeatherStrategyRunner {
           (market.endDate ? targetDateStrs.has(new Date(market.endDate).toISOString().slice(0, 10)) : false);
         if (!dateMatch) continue;
 
-        matchingMarkets.push(market);
+        matching.push({ market, parsed });
       }
 
-      if (matchingMarkets.length === 0) {
+      if (matching.length === 0) {
         log.debug({ city: rule.city, metric: rule.metric }, 'city-follow: no matching markets found');
         continue;
       }
 
       // Group by target date (each date = one event)
       const byDate = new Map<string, MarketListItemDto[]>();
-      for (const market of matchingMarkets) {
-        const q = market.question;
-        if (!q) continue;
-        const parsed = parseWeatherQuestion(q);
-        if (!parsed) continue;
+      for (const { market, parsed } of matching) {
         const dateKey: string = market.endDate
           ? new Date(market.endDate).toISOString().slice(0, 10)
           : parsed.dateString;
@@ -318,7 +315,7 @@ export class WeatherStrategyRunner {
     const targetDate = new Date(`${dateKey}T12:00:00Z`);
 
     // Fetch forecast (cache or Open-Meteo)
-    const forecast = await this.getOrFetchForecast(city, targetDate, metric);
+    const forecast = await this.forecastService.getOrFetch(city, targetDate, metric, this.forecastCacheTtlMs);
     if (!forecast) {
       log.warn({ city, targetDate, metric }, 'city-follow: forecast unavailable — skipping');
       return null;
@@ -379,52 +376,6 @@ export class WeatherStrategyRunner {
     return null;
   }
 
-  /**
-   * Get a forecast from cache or fetch from Open-Meteo and persist.
-   * Returns null on failure.
-   */
-  private async getOrFetchForecast(
-    city: string,
-    targetDate: Date,
-    metric: 'highest_temp' | 'lowest_temp',
-  ): Promise<{ forecastMean: number; forecastStdDev: number } | null> {
-    let forecast = await this.forecastService.getCached(city, targetDate, metric);
-
-    if (!forecast || !forecast.isFresh) {
-      log.info({ city, targetDate, metric }, 'fetching fresh weather forecast');
-      const freshForecast = await fetchWeatherForecast(city, targetDate, metric);
-      if (!freshForecast) {
-        log.warn({ city, targetDate }, 'forecast fetch failed');
-        return null;
-      }
-
-      const expiresAt = new Date(Date.now() + this.forecastCacheTtlMs);
-      await this.forecastService.save({
-        city,
-        forecastDate: targetDate,
-        metric,
-        forecastMean: freshForecast.forecastMean,
-        forecastStdDev: freshForecast.forecastStdDev,
-        modelValues: freshForecast.modelValues,
-        latitude: freshForecast.latitude,
-        longitude: freshForecast.longitude,
-        fetchedAt: new Date(),
-        expiresAt,
-        isFresh: true,
-      });
-
-      return {
-        forecastMean: freshForecast.forecastMean,
-        forecastStdDev: freshForecast.forecastStdDev,
-      };
-    }
-
-    return {
-      forecastMean: forecast.forecastMean,
-      forecastStdDev: forecast.forecastStdDev,
-    };
-  }
-
   private async publishStatus(status: {
     evaluableSelections: number;
     lastEvaluatedAt: number | null;
@@ -470,7 +421,7 @@ export class WeatherStrategyRunner {
     const targetDate = first.targetDate ?? new Date();
     const metric = first.metric as 'highest_temp' | 'lowest_temp';
 
-    const forecast = await this.getOrFetchForecast(first.city, targetDate, metric);
+    const forecast = await this.forecastService.getOrFetch(first.city, targetDate, metric, this.forecastCacheTtlMs);
     if (!forecast) {
       log.warn({ city: first.city, targetDate }, 'forecast unavailable — skipping event');
       return [];
@@ -535,6 +486,9 @@ export class WeatherStrategyRunner {
     }
 
     if (mode === 'spread') {
+      // Spread mode: select the best YES and best NO signal regardless of edge threshold.
+      // This is a coverage strategy (not edge-hunting) — it takes both sides even if edge ≈ 0,
+      // to capture the spread between market price and forecast probability on both outcomes.
       const yesSignals = signals.filter((s) => s.outcome === 'YES');
       const noSignals = signals.filter((s) => s.outcome === 'NO');
       const selected: WeatherSignal[] = [];

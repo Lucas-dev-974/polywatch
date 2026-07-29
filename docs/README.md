@@ -117,9 +117,10 @@ cp .env.example .env   # puis éditer les secrets
 npm run dev
 ```
 
-Le script `dev` orchestre les 5 packages via `concurrently` (core, backend,
-worker, crypto-algo, frontend). Le worker, crypto-algo et frontend attendent que
-le backend réponde sur `http://127.0.0.1:3000/health` avant de démarrer.
+Le script `dev` orchestre les 7 packages via `concurrently` (core, backend,
+worker, copy-trading, crypto-algo, weather-algo, frontend). Le worker, crypto-algo,
+weather-algo et frontend attendent que le backend réponde sur
+`http://127.0.0.1:3000/health` avant de démarrer.
 
 > Voir [`configuration.md`](./configuration.md) pour le détail des variables
 > d'environnement et des scripts disponibles.

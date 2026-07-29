@@ -6,11 +6,13 @@ Plateforme de copy trading sur Polymarket — MVP mono-utilisateur, dual-mode si
 
 ```
 packages/
-  core/         — @polywatch/core (entités, services, VWAP, idempotence)
-  backend/      — @polywatch/backend (API Express + Socket.IO + auth JWT)
-  worker/       — @polywatch/worker (Hot path : poll, copy, SL/TP, exécution)
-  crypto-algo/  — @polywatch/crypto-algo (trading algorithmique crypto court-terme)
-  frontend/     — @polywatch/frontend (UI SolidJS)
+  core/          — @polywatch/core (entités, services, VWAP, idempotence)
+  backend/       — @polywatch/backend (API Express + Socket.IO + auth JWT)
+  copy-trading/  — @polywatch/copy-trading (détection copy : polling traders, pipelines entry/exit)
+  worker/        — @polywatch/worker (exécution CLOB/sim, SL/TP, sorties risque, janitors)
+  crypto-algo/   — @polywatch/crypto-algo (trading algorithmique crypto court-terme)
+  weather-algo/  — @polywatch/weather-algo (trading algorithmique météo, Open-Meteo)
+  frontend/      — @polywatch/frontend (UI SolidJS)
 ```
 
 ## Démarrage local

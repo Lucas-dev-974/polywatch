@@ -8,7 +8,7 @@ Domaine partagé entre backend et worker : entités, services, calculs métier. 
 core/src/
 ├── config/        env (.env racine, chemins), secrets (validation prod)
 ├── database/      DataSource TypeORM PostgreSQL (pg driver)
-├── entities/      43 entités TypeORM
+├── entities/      47 entités TypeORM
 ├── idempotence/   hashes SHA-256 des événements et ordres
 ├── market/        cycle de vie marché (settled, payoff, polling) + tags Gamma (whitelist, enrichissement events)
 ├── move-events/   règles de pertinence des événements
@@ -23,9 +23,17 @@ core/src/
 ├── simulation/    comptabilité cash sim
 ├── sizing/        calcul de quantité copiée
 ├── types/         types partagés (TradingMode, OrderSignal, etc.)
+├── crypto-algo/   optimize-report, config-fingerprint, comparaison rapports
+├── lib/           utilitaires (ttl-cache, algo-price-tick-snapshot)
+├── real/          rollup/périodes réel, locks advisory rotation/auto-snapshot
+├── redis/         factory Redis, invalidation SL quota, cooldown, sim-reset hygiene
+├── trader-insight/ construction des profils trader (capital, funding, insight)
+├── worker/        paramétrage MoveDetector (move-detector-settings)
+├── worker-shared/ RedisQueue, safe-interval, backend client/readiness, connection-manager interface
+├── weather/       découverte marchés météo, Open-Meteo, forecast distribution, edge, exit helpers
 ├── migrate.ts     création du schéma + seed (one-shot)
 ├── migration-backfill.ts  backfill colonnes héritées
-└── migrations/    63 migrations TypeORM (Baseline, Algo*, CryptoAlgo*, AlgoPriceTick*, MarketPositionTicks*, MarketPriceTicks*, E2e*, SnapshotSystemV2, RealSessions, SimulationSessions, AnalysisReports, etc.)
+└── migrations/    69 migrations TypeORM (Baseline, Algo*, CryptoAlgo*, AlgoPriceTick*, MarketPositionTicks*, MarketPriceTicks*, E2e*, SnapshotSystemV2, RealSessions, SimulationSessions, AnalysisReports, WeatherAlgo*, SimSessionsPerAlgoKind, etc.)
 ```
 
 ## Entités (PostgreSQL)
@@ -43,7 +51,7 @@ core/src/
 | `CopiedPosition` | `copied_positions` | Statuts : `pending → open → closing → closed` (+ `failed`, `pending_resolution`, `cancelled`) ; `entryPrice`, `entryBidVwap`, `entryQuantityRemaining`, `entryFeesRemaining`, PnL réalisé/latent, `peakClosurePnlPercent` (clôture), `peakBidVwap` (pic du bid pour trailing), `closingAttemptSeq`, `closingReason`, `closeReason` |
 | `Execution` | `executions` | Statuts `placing → filled/failed` ; fillPrice (VWAP pondéré sur partiels), fillQuantity, fees, realizedPnl, clobOrderId |
 | `PositionReservation` | `position_reservations` | Notionnel USDC réservé, TTL 180 s |
-| `SimulationBalance` | `simulation_balances` | Cash pUSD sim (ligne unique, défaut 10 000) |
+| `SimulationBalance` | `simulation_balances` | Cash pUSD sim **par `algoKind`** (`crypto` / `weather` / `copy`, unique) |
 | `SimulationStateSnapshot` | `simulation_state_snapshots` | Archives d'état sim (JSON config/traders/positions/exécutions) — [`snapshots-simulation.md`](../snapshots-simulation.md) |
 | `Market` | `markets` | tokenIdYes/No, endDate, negRisk, `feeRate`/`feeExponent` (frais CLOB dynamiques), lifecycle (active/resolved/closed/acceptingOrders/winningTokenId), `category`, `tagSlugs` (cache filtre copie), `marketType` |
 | `AlgoAutoTrackRule` | `algo_auto_track_rules` | Règle auto-track `(cryptoSymbol, interval)` unique, flag `enabled` |
@@ -58,7 +66,7 @@ core/src/
 | `MarketPositionTick` | `market_position_ticks` | Tick de marché persisté par book update (throttle 500 ms/asset) pour les assets avec positions ouvertes : `bestBid`/`bestAsk`/`midPrice`/`spread`/`spreadPercent`, VWAP exécutables (`executableBidVwap`/`executableAskVwap`), `lastTradePrice`. Index : `copiedPositionId`, `(conditionId, createdAt)`, `(assetId, createdAt)`, `createdAt` (purge). Rétention 30 j (`MARKET_TICK_RETENTION_DAYS`), purge horaire batchée par 5 000 lignes via `MarketPositionTickService.purgeOlderThan` |
 | `E2eTestRun` | `e2e_test_runs` | Runs de tests E2E (suite, statut, durée, logs) — démarrés via `/api/e2e-runs` |
 | `E2eRunPosition` | `e2e_run_positions` | Positions d'un run E2E (conditionId, prix d'entrée, PnL, statut) |
-| `SimulationSession` | `simulation_sessions` | Sessions de simulation entre deux resets (status, started_at, ended_at, label, notes, agrégats) |
+| `SimulationSession` | `simulation_sessions` | Sessions de simulation entre deux resets **par `algoKind`** (une active par kind) |
 | `RealSession` | `real_sessions` | Périodes de trading réel entre deux clôtures (même forme que SimulationSession) |
 | `RealSessionState` | `real_session_state` | Pointeur singleton vers la période réelle active |
 | `RealStateSnapshot` | `real_state_snapshots` | Archives d'état réel (sources `manual`, `auto`, `rotate`) |
@@ -195,7 +203,7 @@ alors que « marché » reste proche de 0 %. Le filtre `*MinBidToAskRatio` dans
 | `RealPeriodArchiveService` | Archivage de clôture de période réelle |
 | `RealSessionService` | Gestion des sessions de trading réel |
 | `RealPortfolioService` | Calculs de portfolio réel (equity, PnL) |
-| `SimulationSessionService` | Gestion des sessions de simulation |
+| `SimulationSessionService` | Gestion des sessions de simulation **scopées par `algoKind`** |
 | `SimulationResetArchiveService` | Archivage reset simulation (création session close + archivage) |
 | `SimExecutionStatsService` | Statistiques d'exécution simulation (latence p50/p90, shadow fills) |
 | `RiskConfigRevisionService` | Journal append-only des révisions `risk_config` |

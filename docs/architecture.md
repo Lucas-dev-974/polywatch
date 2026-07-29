@@ -2,9 +2,9 @@
 
 ## 1. Organisation du monorepo
 
-Polywatch est un monorepo npm (`workspaces: ["packages/*"]`) composé de six
+Polywatch est un monorepo npm (`workspaces: ["packages/*"]`) composé de sept
 packages liés par dépendances internes (`@polywatch/core` est consommé par
-backend, worker, copy-trading et crypto-algo).
+backend, worker, copy-trading, crypto-algo et weather-algo).
 
 ```
 packages/
@@ -246,4 +246,5 @@ export function createDataSource(opts?: { synchronize?: boolean; migrationsRun?:
   - `worker:heartbeat`
   - `copy-trading:heartbeat`
   - `crypto-algo:heartbeat`
+  - `weather-algo:heartbeat`
   Lus par `GET /api/system/overview` pour l'onglet System Overview.

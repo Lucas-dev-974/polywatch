@@ -77,7 +77,7 @@ export interface NaiveMomentumConfig {
   maxBookAgeMs: number;
 
   /**
-   * Merged spread-abs table from RiskConfig (optional).
+   * Merged spread-abs table from CryptoConfig (optional).
    */
   spreadAbsByInterval?: Partial<
     Record<'5m' | '10m' | '15m' | '30m' | '1h' | '4h' | '1d', number>
@@ -151,7 +151,7 @@ export class NaiveMomentumStrategy implements CryptoAlgoStrategy {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  /** Hot-reload tunables from RiskConfig (called by strategy runner). */
+  /** Hot-reload tunables from CryptoConfig (called by strategy runner). */
   setConfig(config: Partial<NaiveMomentumConfig>): void {
     this.config = { ...this.config, ...config };
   }

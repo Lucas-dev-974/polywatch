@@ -4,7 +4,7 @@ import {
   computeTakerFee,
   Market,
   MarketService,
-  RiskService,
+  GlobalConfigService,
   type ExecutionResult,
   type OrderSignal,
   type PlatformFeeParams,
@@ -88,14 +88,14 @@ export async function prepareFakMarketOrder(
 
   let maxSlippage = 2;
   let negRisk = false;
-  let riskConfig = null as Awaited<ReturnType<RiskService['getConfig']>> | null;
+  let globalConfig = null as Awaited<ReturnType<GlobalConfigService['getConfig']>> | null;
   let platformFeeParams: PlatformFeeParams = { feeRate: 0, feeExponent: 1 };
 
   if (deps.ds) {
-    const riskService = new RiskService(deps.ds);
+    const globalConfigService = new GlobalConfigService(deps.ds);
     const marketService = new MarketService(deps.ds);
     const [config, market, fees] = await Promise.all([
-      riskService.getConfig(),
+      globalConfigService.getConfig(),
       signal.conditionId
         ? deps.ds.getRepository(Market).findOne({
             where: { conditionId: signal.conditionId },
@@ -105,7 +105,7 @@ export async function prepareFakMarketOrder(
         ? marketService.resolvePlatformFeeParams(signal.conditionId)
         : Promise.resolve(platformFeeParams),
     ]);
-    riskConfig = config;
+    globalConfig = config;
     maxSlippage = config.maxSlippagePercent ?? 2;
     negRisk = market?.negRisk === true;
     platformFeeParams = fees;

@@ -1,4 +1,4 @@
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import {
   CRYPTO_INTERVAL_EXIT_DEFAULTS,
   CRYPTO_INTERVAL_PRE_CLOSE_SECONDS,
@@ -197,7 +197,7 @@ export function serializeCryptoAlgoIntervalJsonMap(
   return JSON.stringify(value);
 }
 
-export function resolveNaiveMomentumConfig(risk: RiskConfig): NaiveMomentumTunables {
+export function resolveNaiveMomentumConfig(risk: CryptoConfig): NaiveMomentumTunables {
   const spreadOverride = parseCryptoAlgoIntervalNumberMap(
     risk.cryptoAlgoSpreadAbsByInterval,
   );
@@ -252,7 +252,7 @@ export function clampCurveLookbackMs(value: number): number {
 }
 
 export function resolveSpreadAbsByInterval(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   interval: string | null | undefined,
 ): number {
   const tunables = resolveNaiveMomentumConfig(risk);
@@ -264,7 +264,7 @@ export function resolveSpreadAbsByInterval(
 }
 
 export function resolveExitDefaultsByInterval(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   interval: string | null | undefined,
 ): CryptoAlgoIntervalExitDefaults | undefined {
   const normalized = normalizeCryptoAlgoInterval(interval);
@@ -281,7 +281,7 @@ export function resolveExitDefaultsByInterval(
 }
 
 export function resolvePreCloseSecondsByInterval(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   interval: string | null | undefined,
 ): number | undefined {
   const normalized = normalizeCryptoAlgoInterval(interval);
@@ -304,7 +304,7 @@ const SHORT_GAMMA_INTERVALS: ReadonlySet<CryptoAlgoValidInterval> = new Set([
 ]);
 
 export function resolveGammaCacheTtlMs(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   interval: string | null | undefined,
 ): number {
   const normalized = normalizeCryptoAlgoInterval(interval);
@@ -323,69 +323,69 @@ export function resolveGammaCacheTtlMs(
   );
 }
 
-export function resolveGammaStaleOnErrorFactor(risk: RiskConfig): number {
+export function resolveGammaStaleOnErrorFactor(risk: CryptoConfig): number {
   return (
     risk.cryptoAlgoGammaStaleOnErrorFactor ??
     DEFAULT_CRYPTO_ALGO_GAMMA_STALE_ON_ERROR_FACTOR
   );
 }
 
-export function resolveWsDebounceMs(risk: RiskConfig): number {
+export function resolveWsDebounceMs(risk: CryptoConfig): number {
   return risk.cryptoAlgoWsDebounceMs ?? DEFAULT_CRYPTO_ALGO_WS_DEBOUNCE_MS;
 }
 
-export function resolveMaxBookAgeMs(risk: RiskConfig): number {
+export function resolveMaxBookAgeMs(risk: CryptoConfig): number {
   return risk.cryptoAlgoMaxBookAgeMs ?? DEFAULT_CRYPTO_ALGO_MAX_BOOK_AGE_MS;
 }
 
 export function resolvePollMs(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   envFallback = DEFAULT_CRYPTO_ALGO_POLL_MS,
 ): number {
   return risk.cryptoAlgoPollMs ?? envFallback;
 }
 
-export function resolveTickIntervalMs(risk: RiskConfig): number {
+export function resolveTickIntervalMs(risk: CryptoConfig): number {
   return risk.cryptoAlgoTickIntervalMs ?? DEFAULT_CRYPTO_ALGO_TICK_INTERVAL_MS;
 }
 
-export function resolveTickRetentionHours(risk: RiskConfig): number {
+export function resolveTickRetentionHours(risk: CryptoConfig): number {
   return (
     risk.cryptoAlgoTickRetentionHours ?? DEFAULT_CRYPTO_ALGO_TICK_RETENTION_HOURS
   );
 }
 
-export function resolvePriceTickRefQty(risk: RiskConfig): number {
+export function resolvePriceTickRefQty(risk: CryptoConfig): number {
   return risk.cryptoAlgoPriceTickRefQty ?? DEFAULT_CRYPTO_ALGO_PRICE_TICK_REF_QTY;
 }
 
-export function resolveMinTimeToCloseBufferSeconds(risk: RiskConfig): number {
+export function resolveMinTimeToCloseBufferSeconds(risk: CryptoConfig): number {
   return (
     risk.cryptoAlgoMinTimeToCloseBufferSeconds ??
     DEFAULT_CRYPTO_ALGO_MIN_TIME_TO_CLOSE_BUFFER_SECONDS
   );
 }
 
-export function resolveLastCloseableBidMaxAgeMs(risk: RiskConfig): number {
+export function resolveLastCloseableBidMaxAgeMs(risk: CryptoConfig): number {
   return (
     risk.cryptoAlgoLastCloseableBidMaxAgeMs ??
     DEFAULT_CRYPTO_ALGO_LAST_CLOSEABLE_BID_MAX_AGE_MS
   );
 }
 
-export function resolveSlQuotaEnabled(risk: RiskConfig): boolean {
+export function resolveSlQuotaEnabled(risk: CryptoConfig): boolean {
   return risk.cryptoAlgoSlQuotaEnabled ?? DEFAULT_CRYPTO_ALGO_SL_QUOTA_ENABLED;
 }
 
-export function resolveSlQuotaPerMarket(risk: RiskConfig): number {
+export function resolveSlQuotaPerMarket(risk: CryptoConfig): number {
   return risk.cryptoAlgoSlQuotaPerMarket ?? DEFAULT_CRYPTO_ALGO_SL_QUOTA_PER_MARKET;
 }
 
-export function resolveSlQuotaCacheTtlSeconds(risk: RiskConfig): number {
+export function resolveSlQuotaCacheTtlSeconds(risk: CryptoConfig): number {
   return risk.cryptoAlgoSlQuotaCacheTtlSeconds ?? DEFAULT_CRYPTO_ALGO_SL_QUOTA_CACHE_TTL_SECONDS;
 }
 
-export function getCryptoAlgoSizingParams(risk: RiskConfig): ModeSizingParams {
+export function getCryptoAlgoSizingParams(risk: CryptoConfig): ModeSizingParams {
   return {
     sizingMode: risk.cryptoAlgoSizingMode as import('../types/index.js').SizingMode,
     copyRatio: 0,

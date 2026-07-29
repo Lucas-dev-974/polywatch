@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { RiskConfig, createBackendClient, BACKEND_HTTP_TIMEOUT_MS } from '@polywatch/core';
+import { GlobalConfig, createBackendClient, BACKEND_HTTP_TIMEOUT_MS } from '@polywatch/core';
 import pino from 'pino';
 
 const log = pino({ name: 'crypto-algo:real-cash' });
@@ -7,7 +7,7 @@ const log = pino({ name: 'crypto-algo:real-cash' });
 /**
  * Fetch available real cash for crypto-algo real-mode sizing.
  *
- * 1. Checks for `realCashOverride` in RiskConfig — if set, returns that value directly.
+ * 1. Checks for `realCashOverride` in GlobalConfig — if set, returns that value directly.
  * 2. Otherwise, calls the backend's /api/internal/balances endpoint to get the on-chain balance.
  *
  * Returns undefined when real cash cannot be determined (backend unavailable, no credentials, etc.).
@@ -17,18 +17,18 @@ export async function fetchAvailableRealCash(
   backendUrl: string,
   serviceToken: string,
 ): Promise<number | undefined> {
-  // Step 1: Check for override in RiskConfig
+  // Step 1: Check for override in GlobalConfig
   try {
-    const riskConfig = await ds.getRepository(RiskConfig).findOne({ where: {} });
-    if (riskConfig?.realCashOverride != null) {
+    const globalConfig = await ds.getRepository(GlobalConfig).findOne({ where: {} });
+    if (globalConfig?.realCashOverride != null) {
       log.info(
-        { realCashOverride: riskConfig.realCashOverride },
-        'using realCashOverride from RiskConfig',
+        { realCashOverride: globalConfig.realCashOverride },
+        'using realCashOverride from GlobalConfig',
       );
-      return riskConfig.realCashOverride;
+      return globalConfig.realCashOverride;
     }
   } catch (err) {
-    log.warn({ err }, 'failed to read RiskConfig.realCashOverride — falling back to backend');
+    log.warn({ err }, 'failed to read GlobalConfig.realCashOverride — falling back to backend');
   }
 
   // Step 2: Call backend for on-chain balance

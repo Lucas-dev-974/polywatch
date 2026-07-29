@@ -22,6 +22,7 @@ import { createAuthRouter } from './routes/auth.js';
 import { createWatchlistRouter } from './routes/watchlist.js';
 import { createPositionsRouter } from './routes/positions.js';
 import { createConfigRouter } from './routes/config.js';
+import { createConfigPerKindRouter } from './routes/config-per-kind.js';
 import { createSimulationRouter } from './routes/simulation.js';
 import { createRealSessionsRouter } from './routes/real-sessions.js';
 import { createInternalRouter } from './routes/internal.js';
@@ -166,6 +167,7 @@ async function main() {
   app.use('/api/reports', jwtLimiter, createReportsRouter(ds));
   app.use('/api/copied-positions', jwtLimiter, createPositionsRouter(ds));
   app.use('/api', jwtLimiter, createConfigRouter(ds));
+  app.use('/api', jwtLimiter, createConfigPerKindRouter(ds));
   app.use('/api', jwtLimiter, createSimulationRouter(ds));
   app.use('/api', jwtLimiter, createRealSessionsRouter(ds));
   app.use('/api/executions', jwtLimiter, createExecutionsRouter(ds));

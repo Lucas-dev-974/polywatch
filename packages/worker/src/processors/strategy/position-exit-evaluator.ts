@@ -1,8 +1,10 @@
-import type { CopiedPosition, Market, RiskConfig } from '@polywatch/core';
+import type { CopiedPosition, Market, GlobalConfig, CopyConfig, CryptoConfig, WeatherConfig } from '@polywatch/core';
 import {
   buildCloseOrderSignal,
   evaluatePositionExit,
-  getModeSlCloseMaxRetries,
+  getCopySlCloseMaxRetries,
+  getCryptoSlCloseMaxRetries,
+  getWeatherSlCloseMaxRetries,
   getPositionPreCloseParams,
   isCriticalExitEmitBlock,
   isForcedExitCloseReason,
@@ -15,6 +17,7 @@ import {
   type OrderSignal,
   type TotalCloseReason,
   type TradingMode,
+  getAlgoKindForPosition,
 } from '@polywatch/core';
 import type { RedisQueue } from '../../queue/redis-queue.js';
 import pino from 'pino';
@@ -112,7 +115,8 @@ export class PositionExitEvaluator {
   private forcedEmitGate(
     pos: CopiedPosition,
     closeReason: TotalCloseReason,
-    risk: RiskConfig,
+    globalConfig: GlobalConfig,
+    algoConfig: CopyConfig | CryptoConfig | WeatherConfig,
     mode: TradingMode,
     now: number,
   ): ForcedEmitGate {
@@ -120,7 +124,15 @@ export class PositionExitEvaluator {
       return { ok: true };
     }
 
-    const maxRetries = getModeSlCloseMaxRetries(risk, mode);
+    const algoKind = getAlgoKindForPosition(pos);
+    let maxRetries: number;
+    if (algoKind === 'copy') {
+      maxRetries = getCopySlCloseMaxRetries(algoConfig as CopyConfig, mode);
+    } else if (algoKind === 'crypto') {
+      maxRetries = getCryptoSlCloseMaxRetries(algoConfig as CryptoConfig, mode);
+    } else {
+      maxRetries = getWeatherSlCloseMaxRetries(algoConfig as WeatherConfig, mode);
+    }
     const failedAttempts = pos.forcedExitFailedAttempts ?? 0;
     if (failedAttempts >= maxRetries) {
       const lastWarn = this.lastForcedExitExhaustedWarnAt.get(pos.id) ?? 0;
@@ -228,7 +240,8 @@ export class PositionExitEvaluator {
   async evaluateCloseLogic(
     pos: CopiedPosition,
     market: Market | undefined,
-    risk: RiskConfig,
+    globalConfig: GlobalConfig,
+    algoConfig: CopyConfig | CryptoConfig | WeatherConfig,
     trigger: number,
     closure: number,
     peakClosure: number,
@@ -252,7 +265,7 @@ export class PositionExitEvaluator {
     const lifecycle = market ? marketLifecycleFromEntity(market) : null;
     const mode = pos.mode as TradingMode;
     const preClose = getPositionPreCloseParams(
-      risk,
+      algoConfig as any,
       mode,
       pos.reason,
       marketInterval,
@@ -267,7 +280,7 @@ export class PositionExitEvaluator {
 
     this.warnStaleData(pos, trigger, closure, liquidityStatus, bookUpdatedAt, lastTradePrice, lastTradeTimestamp, now);
 
-    const lastCloseableBidMaxAgeMs = resolveLastCloseableBidMaxAgeMs(risk);
+    const lastCloseableBidMaxAgeMs = resolveLastCloseableBidMaxAgeMs(algoConfig as any);
 
     const closeReason: TotalCloseReason | null = evaluatePositionExit({
       slTpInput: {
@@ -309,7 +322,15 @@ export class PositionExitEvaluator {
     }
 
     // Confirmation SL : exiger N évaluations consécutives ET une fenêtre minimale.
-    const slConfirmationTicks = risk.slConfirmationTicks ?? 1;
+    const algoKind = getAlgoKindForPosition(pos);
+    let slConfirmationTicks: number;
+    if (algoKind === 'copy') {
+      slConfirmationTicks = (algoConfig as CopyConfig).slConfirmationTicks ?? 1;
+    } else if (algoKind === 'crypto') {
+      slConfirmationTicks = (algoConfig as CryptoConfig).cryptoAlgoSlConfirmationTicks ?? 1;
+    } else {
+      slConfirmationTicks = (algoConfig as WeatherConfig).weatherAlgoSlConfirmationTicks ?? 1;
+    }
     if (closeReason === 'SL' && slConfirmationTicks > 1) {
       const prev = this.slConfirmations.get(pos.id);
       const state: SlConfirmationState = prev ?? { count: 0, firstAt: now };
@@ -415,7 +436,7 @@ export class PositionExitEvaluator {
         }
       }
 
-      const gate = this.forcedEmitGate(pos, closeReason, risk, mode, now);
+      const gate = this.forcedEmitGate(pos, closeReason, globalConfig, algoConfig, mode, now);
       if (!gate.ok) {
         await this.noteBlock(
           pos,

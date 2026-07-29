@@ -3,7 +3,7 @@ import {
   resolveSlQuotaCacheTtlSeconds,
   resolveSlQuotaEnabled,
   resolveSlQuotaPerMarket,
-  type RiskConfig,
+  type CryptoConfig,
   type TradingMode,
 } from '@polywatch/core';
 
@@ -129,7 +129,7 @@ export async function resolveSlQuotaEntryBlock(params: {
   ds: DataSource;
   conditionId: string;
   mode: TradingMode;
-  risk: RiskConfig;
+  risk: CryptoConfig;
   nowMs?: number;
   cache?: Map<string, SlQuotaState>;
 }): Promise<string | null> {

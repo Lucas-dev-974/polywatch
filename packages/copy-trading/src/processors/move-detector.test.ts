@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MoveDetector } from './move-detector.js';
 import type { DataSource } from 'typeorm';
-import { RiskService, type RedisQueue, type MoveEventDto } from '@polywatch/core';
+import { CopyConfigService, type RedisQueue, type MoveEventDto } from '@polywatch/core';
 
 vi.mock('@polywatch/core', async () => {
   const actual = await vi.importActual('@polywatch/core');
   return {
     ...actual,
-    RiskService: vi.fn().mockImplementation(() => ({
+    CopyConfigService: vi.fn().mockImplementation(() => ({
       isAnyCopyTradingEnabled: vi.fn().mockResolvedValue(true),
     })),
     PollCycleService: vi.fn().mockImplementation(() => ({
@@ -45,8 +45,8 @@ describe('MoveDetector', () => {
   beforeEach(() => {
     ds = {} as DataSource;
     moveQueue = { enqueue: vi.fn() } as unknown as RedisQueue<MoveEventDto>;
-    const riskService = new RiskService(ds);
-    detector = new MoveDetector(ds, moveQueue, riskService);
+    const copyConfigService = new CopyConfigService(ds);
+    detector = new MoveDetector(ds, moveQueue, copyConfigService);
   });
 
   describe('recoverOrphanMoves', () => {

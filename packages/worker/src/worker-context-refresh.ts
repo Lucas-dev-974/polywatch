@@ -6,7 +6,7 @@ import {
   clearTradingContextCache,
   refreshTradingContext,
 } from './clob/trading-context.js';
-import { RiskService, WatchlistService } from '@polywatch/core';
+import { GlobalConfigService, CopyConfigService, CryptoConfigService, WeatherConfigService, WatchlistService } from '@polywatch/core';
 import type { StrategyProcessing } from './processors/strategy-processing.js';
 
 export interface WorkerContextRefreshOptions {
@@ -37,7 +37,10 @@ export async function refreshWorkerContext(
 
   if (invalidateConfigCache) {
     WatchlistService.invalidateCache();
-    RiskService.invalidateConfigCache();
+    GlobalConfigService.invalidateConfigCache();
+    CopyConfigService.invalidateConfigCache();
+    CryptoConfigService.invalidateConfigCache();
+    WeatherConfigService.invalidateConfigCache();
   }
 
   const ctx = await refreshTradingContext();

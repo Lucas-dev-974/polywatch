@@ -290,6 +290,6 @@ whipsaw SL, buckets d'entree, leviers et recommandations `crypto_algo_*`.
 - **Preview live** : `GET /api/algo/optimize-report` (dialog Crypto Algo, non persiste).
 - **Hub persiste** : page **Rapports** + `POST /api/reports/generate` — voir [`rapports-analyse.md`](./rapports-analyse.md).
 - **Builder** : `loadCryptoAlgoOptimizeReport` -> `buildCryptoAlgoOptimizeReport` (`@polywatch/core`).
-- **Apply** : `buildRecommendedCryptoAlgoConfig` + `PUT /risk-config` avec garde fingerprint.
+- **Apply** : `buildRecommendedCryptoAlgoConfig` + `PUT /api/config/crypto` avec garde fingerprint.
 
 Distinct des snapshots simulation (etat global portefeuille vs analyse algo typee).

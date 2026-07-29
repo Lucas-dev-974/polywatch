@@ -9,6 +9,11 @@ export function getRedis(): ReturnType<typeof createRedis> {
   return redis;
 }
 
-export async function publishConfigChanged(): Promise<void> {
-  await getRedis().publish('config-changed', JSON.stringify({ at: Date.now() }));
+export async function publishConfigChanged(
+  kind?: 'global' | 'copy' | 'crypto' | 'weather',
+): Promise<void> {
+  await getRedis().publish(
+    'config-changed',
+    JSON.stringify({ at: Date.now(), kind }),
+  );
 }

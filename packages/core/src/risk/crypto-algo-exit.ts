@@ -1,4 +1,5 @@
 import type { CopiedPosition } from '../entities/CopiedPosition.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { MarketLifecycleState } from '../market/lifecycle.js';
 import { getPositionMarkPrice } from '../positions/mark.js';
@@ -15,7 +16,6 @@ import {
   resolvePreCloseSecondsByInterval,
 } from './crypto-algo-tunables.js';
 import {
-  getModePreCloseParams,
   isExitLegEnabled,
   type ModePreCloseParams,
 } from './policy.js';
@@ -127,22 +127,22 @@ function pickAlgoBidPointsThreshold(
  * override (including 0 = disabled) → interval table → null.
  */
 export function resolveAlgoEntryExitParams(
-  risk: RiskConfig,
+  cfg: CryptoConfig,
   mode: 'sim' | 'real',
   interval?: string | null,
 ): AlgoEntryExitParams {
-  const algo = getCryptoAlgoExitParams(risk);
+  const algo = getCryptoAlgoExitParams(cfg);
   const byInterval = normalizeCryptoInterval(interval);
 
   const intervalDefaults = byInterval != null
-    ? resolveExitDefaultsByInterval(risk, byInterval) ??
+    ? resolveExitDefaultsByInterval(cfg, byInterval) ??
       CRYPTO_INTERVAL_EXIT_DEFAULTS[byInterval]
     : undefined;
 
   // Only return bid points if interval is recognized (binary market).
   // `0` and negative values are treated as disabled (null).
   const slBidPoints =
-    isExitLegEnabled(risk.cryptoAlgoSlEnabled) && byInterval != null
+    isExitLegEnabled(cfg.cryptoAlgoSlEnabled) && byInterval != null
       ? pickAlgoBidPointsThreshold(
           algo.cryptoAlgoSlBidPoints,
           intervalDefaults?.slBidPoints ??
@@ -150,7 +150,7 @@ export function resolveAlgoEntryExitParams(
         )
       : null;
   const tpBidPoints =
-    isExitLegEnabled(risk.cryptoAlgoTpEnabled) && byInterval != null
+    isExitLegEnabled(cfg.cryptoAlgoTpEnabled) && byInterval != null
       ? pickAlgoBidPointsThreshold(
           algo.cryptoAlgoTpBidPoints,
           intervalDefaults?.tpBidPoints ??
@@ -158,7 +158,7 @@ export function resolveAlgoEntryExitParams(
         )
       : null;
 
-  const trailingEnabled = isExitLegEnabled(risk.cryptoAlgoTrailingEnabled);
+  const trailingEnabled = isExitLegEnabled(cfg.cryptoAlgoTrailingEnabled);
 
   return {
     trailingBidPoints: trailingEnabled
@@ -228,7 +228,7 @@ export function resolveMarketInterval(
  * Explicit override → interval table → mode defaults.
  */
 export function resolveCryptoAlgoPreCloseSeconds(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   interval?: string | null,
 ): number {
   const overrides = getCryptoAlgoPreCloseParams(risk);
@@ -244,10 +244,8 @@ export function resolveCryptoAlgoPreCloseSeconds(
     );
   }
 
-  return Math.max(
-    risk.simPreCloseEnabled ? risk.simPreCloseSeconds : 0,
-    risk.realPreCloseEnabled ? risk.realPreCloseSeconds : 0,
-  );
+  // No interval context — crypto-algo has no sim/real mode split.
+  return 0;
 }
 
 /**
@@ -255,7 +253,7 @@ export function resolveCryptoAlgoPreCloseSeconds(
  * Null override → preClose(interval) + buffer.
  */
 export function resolveCryptoAlgoMinTimeToClose(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   interval?: string | null,
 ): number {
   if (risk.cryptoAlgoMinTimeToClose != null) {
@@ -266,26 +264,33 @@ export function resolveCryptoAlgoMinTimeToClose(
   return preClose + resolveMinTimeToCloseBufferSeconds(risk);
 }
 
-export function getAlgoPositionPreCloseParams(
-  risk: RiskConfig,
+export function getCryptoPositionPreCloseParams(
+  cfg: CryptoConfig,
   mode: 'sim' | 'real',
-  positionReason: string | null | undefined,
   interval?: string | null,
 ): ModePreCloseParams {
-  if (!isAlgoPositionReason(positionReason)) {
-    return getModePreCloseParams(risk, mode);
-  }
-
-  const overrides = getCryptoAlgoPreCloseParams(risk);
-  const preCloseSeconds = resolveCryptoAlgoPreCloseSeconds(risk, interval);
+  const overrides = getCryptoAlgoPreCloseParams(cfg);
+  const preCloseSeconds = resolveCryptoAlgoPreCloseSeconds(cfg, interval);
 
   return {
     preCloseEnabled:
-      overrides.preCloseEnabled ?? getModePreCloseParams(risk, mode).preCloseEnabled,
+      overrides.preCloseEnabled ?? false,
     preCloseSeconds,
     keepEnabled: overrides.preCloseKeepEnabled ?? false,
     keepBidThreshold: overrides.preCloseKeepBidThreshold ?? 0.80,
   };
+}
+
+/** @deprecated Use the per-algo dispatch in getPositionPreCloseParams. */
+export function getAlgoPositionPreCloseParams(
+  _cfg: CryptoConfig,
+  _mode: 'sim' | 'real',
+  _positionReason: string | null | undefined,
+  _interval?: string | null,
+): ModePreCloseParams {
+  throw new Error(
+    'getAlgoPositionPreCloseParams is no longer type-safe; use getPositionPreCloseParams with a typed config',
+  );
 }
 
 export function isLastCloseableBidFresh(

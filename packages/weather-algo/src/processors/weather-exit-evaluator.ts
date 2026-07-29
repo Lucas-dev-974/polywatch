@@ -2,7 +2,7 @@ import type { DataSource } from 'typeorm';
 import pino from 'pino';
 import {
   type OrderSignal,
-  type RiskConfig,
+  type WeatherConfig,
   type RedisQueue,
   type IPolymarketConnectionManager,
   type MarketService,
@@ -22,7 +22,7 @@ const log = pino({ name: 'weather-algo:exit-evaluator' });
 export interface WeatherExitEvaluatorParams {
   ds: DataSource;
   watchlistId: number;
-  risk: RiskConfig;
+  risk: WeatherConfig;
   forecastService: WeatherForecastService;
   positionForecastService: WeatherPositionForecastService;
   marketService: MarketService;
@@ -31,13 +31,13 @@ export interface WeatherExitEvaluatorParams {
 }
 
 export class WeatherExitEvaluator {
-  private risk: RiskConfig;
+  private risk: WeatherConfig;
 
   constructor(private readonly params: WeatherExitEvaluatorParams) {
     this.risk = params.risk;
   }
 
-  updateRiskConfig(risk: RiskConfig): void {
+  updateRiskConfig(risk: WeatherConfig): void {
     this.risk = risk;
   }
 
@@ -69,7 +69,7 @@ export class WeatherExitEvaluator {
 
   private async evaluatePosition(
     pos: CopiedPosition,
-    risk: RiskConfig,
+    risk: WeatherConfig,
   ): Promise<void> {
     if (pos.status !== 'open') return;
 

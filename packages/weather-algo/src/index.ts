@@ -3,7 +3,8 @@ import {
   assertDatabaseExists,
   createDataSource,
   initializeDataSource,
-  RiskService,
+  WeatherConfigService,
+  GlobalConfigService,
   createWeatherSelectionServices,
   WeatherAutoTrackService,
   WeatherForecastService,
@@ -45,7 +46,8 @@ async function main() {
   const watchlistId = await seedWeatherAlgoWatchlistEntry(ds);
   log.info({ watchlistId }, 'weather-algo watchlist entry ready');
 
-  const riskService = new RiskService(ds);
+  const weatherConfigService = new WeatherConfigService(ds);
+  const globalConfigService = new GlobalConfigService(ds);
   const { selectionService } = createWeatherSelectionServices(ds);
   const forecastService = new WeatherForecastService(ds);
   const positionForecastService = new WeatherPositionForecastService(ds);
@@ -84,17 +86,18 @@ async function main() {
     log.warn({ err }, 'backend-ready signal not received within timeout — continuing anyway');
   }
 
-  let riskConfig = await riskService.getConfig();
-  if (!riskConfig.weatherAlgoEnabled) {
-    log.warn('weather-algo is disabled in risk config — starting in standby mode');
+  let weatherConfig = await weatherConfigService.getConfig();
+  let globalConfig = await globalConfigService.getConfig();
+  if (!weatherConfig.weatherAlgoEnabled) {
+    log.warn('weather-algo is disabled in weather config — starting in standby mode');
   } else {
-    log.info('weather-algo enabled in risk config');
+    log.info('weather-algo enabled in weather config');
   }
 
   const exitEvaluator = new WeatherExitEvaluator({
     ds,
     watchlistId,
-    risk: riskConfig,
+    risk: weatherConfig,
     forecastService,
     positionForecastService,
     marketService,
@@ -105,7 +108,8 @@ async function main() {
   const onSignal = async (signal: WeatherSignal): Promise<boolean> => {
     const result = await runWeatherEntryPipeline({
       signal,
-      risk: riskConfig,
+      risk: weatherConfig,
+      globalConfig,
       watchlistId,
       connectionManager,
       reservationService,
@@ -149,8 +153,7 @@ async function main() {
     runtimeStatus,
     exitEvaluator,
   });
-  strategyRunner.setRiskConfig(riskConfig);
-
+  strategyRunner.setRiskConfig(weatherConfig);
   const runAutoTrackTick = async (): Promise<void> => {
     try {
       const { added } = await runWeatherAutoTrackJanitorCycle(
@@ -195,14 +198,16 @@ async function main() {
 
   redisSub.on('message', (channel: string) => {
     if (channel !== CONFIG_CHANGED_CHANNEL) return;
-    log.info('config-changed received — reloading risk config');
+    log.info('config-changed received — reloading weather config');
     void (async () => {
       try {
-        RiskService.invalidateConfigCache();
-        riskConfig = await riskService.getConfig();
-        log.info({ weatherAlgoEnabled: riskConfig.weatherAlgoEnabled }, 'risk config reloaded');
-        strategyRunner.setRiskConfig(riskConfig);
-        exitEvaluator.updateRiskConfig(riskConfig);
+        WeatherConfigService.invalidateConfigCache();
+        GlobalConfigService.invalidateConfigCache();
+        weatherConfig = await weatherConfigService.getConfig();
+        globalConfig = await globalConfigService.getConfig();
+        log.info({ weatherAlgoEnabled: weatherConfig.weatherAlgoEnabled }, 'weather config reloaded');
+        strategyRunner.setRiskConfig(weatherConfig);
+        exitEvaluator.updateRiskConfig(weatherConfig);
       } catch (err) {
         log.error({ err }, 'failed to reload on config-changed');
       }

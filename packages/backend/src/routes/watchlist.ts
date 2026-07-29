@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { DataSource } from 'typeorm';
 import {
   WatchlistService,
-  RiskService,
+  CopyConfigService,
   MIN_MOVE_DETECTOR_INTERVAL_MS,
   MAX_MOVE_DETECTOR_INTERVAL_MS,
 } from '@polywatch/core';
@@ -41,14 +41,14 @@ const detectorSettingsSchema = z.object({
 export function createWatchlistRouter(ds: DataSource): Router {
   const router = Router();
   const service = new WatchlistService(ds);
-  const riskService = new RiskService(ds);
+  const copyConfigService = new CopyConfigService(ds);
 
   router.get('/', requireJwt, async (_req, res) => {
     res.json(await service.loadAll());
   });
 
   router.get('/settings', requireJwt, async (_req, res) => {
-    const config = await riskService.getConfig();
+    const config = await copyConfigService.getConfig();
     res.json({ moveDetectorIntervalMs: config.moveDetectorIntervalMs });
   });
 
@@ -63,8 +63,8 @@ export function createWatchlistRouter(ds: DataSource): Router {
       });
       return;
     }
-    const updated = await riskService.updateConfig(parsed.data);
-    await publishConfigChanged();
+    const updated = await copyConfigService.updateConfig(parsed.data);
+    await publishConfigChanged('copy');
     res.json({ moveDetectorIntervalMs: updated.moveDetectorIntervalMs });
   });
 

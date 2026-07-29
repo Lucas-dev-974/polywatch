@@ -27,3 +27,34 @@ export function algoKindFromReason(
     return 'copy';
   return 'crypto'; // ALGO_OPEN, ALGO_INCREASE, SL, TP, TRAILING, PRE_CLOSE_*, MANUAL, KILL_SWITCH, REDEMPTION
 }
+
+/**
+ * Resolve algoKind from a CopiedPosition's opening reason.
+ * This is the SAFE way to determine which algo a position belongs to,
+ * because exit reasons (SL/TP/TRAILING) are shared across algos and
+ * algoKindFromReason('SL') would incorrectly return 'crypto'.
+ *
+ * Use this in the worker when loading algo-specific config for close signals.
+ */
+export function getAlgoKindForPosition(
+  position: { reason: string | null | undefined } | null | undefined,
+): SimAlgoKind {
+  if (!position?.reason) return 'crypto';
+  return algoKindFromReason(position.reason);
+}
+
+/**
+ * List of CopiedPosition opening reasons that belong to a given algoKind.
+ * Use this to scope SQL queries (e.g. daily PnL for kill-switch) to one algo.
+ */
+export function openingReasonsForAlgoKind(algoKind: SimAlgoKind): string[] {
+  switch (algoKind) {
+    case 'copy':
+      return ['COPY_OPEN', 'COPY_INCREASE'];
+    case 'weather':
+      return ['WEATHER_OPEN', 'WEATHER_FORECAST_CHANGE'];
+    case 'crypto':
+    default:
+      return ['ALGO_OPEN', 'ALGO_INCREASE'];
+  }
+}

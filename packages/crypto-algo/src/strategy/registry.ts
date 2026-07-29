@@ -3,7 +3,7 @@ import type { CryptoAlgoStrategy } from './strategy.js';
 /**
  * Registry of available crypto-algo strategies. Strategies are registered once
  * at bootstrap; callers filter to the active subset via `getActiveStrategies`
- * using the enabledIds from `RiskConfig.cryptoAlgoStrategies`.
+ * using the enabledIds from `CryptoConfig.cryptoAlgoStrategies`.
  */
 export class StrategyRegistry {
   private readonly strategies = new Map<string, CryptoAlgoStrategy>();

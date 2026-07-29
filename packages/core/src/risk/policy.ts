@@ -1,4 +1,8 @@
 import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { GlobalConfig } from '../entities/GlobalConfig.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
+import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import {
   isMarketTagAllowed,
   parseAllowedMarketTags,
@@ -41,6 +45,8 @@ export interface ModeExitParams {
   trailingBidPoints?: number;
   trailingActivationBidPoints?: number;
 }
+
+// ─── Legacy getters (RiskConfig merged) ───────────────────────────────
 
 export function getModeSizingParams(
   risk: RiskConfig,
@@ -101,44 +107,6 @@ export interface CopyEntryExitParams {
   trailingActivationBidPoints: number | null;
 }
 
-/**
- * Resolve exit params for copy trading entries — bid points only.
- *
- * Copy trading on binary markets uses absolute bid points (not percentages)
- * because percent-based SL/TP is ill-suited to the [0,1] price range.
- *
- * SL, TP and trailing are gated independently via `*SlEnabled`, `*TpEnabled`
- * and `*TrailingEnabled`.
- */
-export function resolveCopyEntryExitParams(
-  risk: RiskConfig,
-  mode: TradingMode,
-): CopyEntryExitParams {
-  const slEnabled = isExitLegEnabled(
-    pickModeValue<boolean>(risk, mode, 'SlEnabled'),
-  );
-  const tpEnabled = isExitLegEnabled(
-    pickModeValue<boolean>(risk, mode, 'TpEnabled'),
-  );
-  const trailingEnabled = isExitLegEnabled(
-    pickModeValue<boolean>(risk, mode, 'TrailingEnabled'),
-  );
-  return {
-    slBidPoints: slEnabled
-      ? pickModeValue<number>(risk, mode, 'SlBidPoints')
-      : null,
-    tpBidPoints: tpEnabled
-      ? pickModeValue<number>(risk, mode, 'TpBidPoints')
-      : null,
-    trailingBidPoints: trailingEnabled
-      ? pickModeValue<number>(risk, mode, 'TrailingBidPoints')
-      : null,
-    trailingActivationBidPoints: trailingEnabled
-      ? pickModeValue<number>(risk, mode, 'TrailingActivationBidPoints')
-      : null,
-  };
-}
-
 function pickModeValue<T>(
   risk: RiskConfig,
   mode: TradingMode,
@@ -146,6 +114,8 @@ function pickModeValue<T>(
 ): T {
   return risk[`${mode}${suffix}` as keyof RiskConfig] as T;
 }
+
+// ─── Legacy friction getters (RiskConfig merged) ──────────────────────
 
 export function getModeMaxOpenPositions(
   risk: RiskConfig,
@@ -196,10 +166,6 @@ export function getModeEntryDepthRetryDelayMs(
   return pickModeValue<number>(risk, mode, 'EntryDepthRetryDelayMs');
 }
 
-/**
- * Gate copy entries when the executable bid VWAP is too far below the ask
- * VWAP for the target quantity. A ratio of `0` disables the check.
- */
 export function isEntryBidAskRatioAcceptable(
   bidVwap: number,
   askVwap: number,
@@ -219,16 +185,6 @@ export function getModeMomentumFilterEnabled(
 
 export type MomentumDecision = 'pass' | 'block' | 'skip_no_avg';
 
-/**
- * Momentum entry gate. Returns:
- * - `'pass'`        : entry allowed (price >= trader avg, or filter disabled)
- * - `'block'`       : entry rejected (price strictly below trader avg)
- * - `'skip_no_avg'` : trader avg price (or quote) unavailable → fail-open (do not block)
- *
- * The three-state return (instead of a boolean) keeps the `skip_no_avg` case
- * observable: when the trader avg price is not yet consolidated, the filter is
- * silently short-circuited rather than blocking, and that must be measurable.
- */
 export function evaluateMomentumEntry(
   entryAskVwap: number,
   traderAvgPrice: number | null | undefined,
@@ -273,6 +229,24 @@ export function getModePreCloseParams(
   };
 }
 
+export function getCopyPreCloseParams(cfg: CopyConfig, mode: TradingMode): ModePreCloseParams {
+  return {
+    preCloseEnabled: mode === 'sim' ? cfg.simPreCloseEnabled : cfg.realPreCloseEnabled,
+    preCloseSeconds: mode === 'sim' ? cfg.simPreCloseSeconds : cfg.realPreCloseSeconds,
+    keepEnabled: mode === 'sim' ? cfg.simPreCloseKeepEnabled : cfg.realPreCloseKeepEnabled,
+    keepBidThreshold: mode === 'sim' ? cfg.simPreCloseKeepBidThreshold : cfg.realPreCloseKeepBidThreshold,
+  };
+}
+
+export function getWeatherPreCloseParams(cfg: WeatherConfig, mode: TradingMode): ModePreCloseParams {
+  return {
+    preCloseEnabled: cfg.weatherAlgoPreCloseEnabled,
+    preCloseSeconds: cfg.weatherAlgoPreCloseSeconds,
+    keepEnabled: false,
+    keepBidThreshold: 0.80,
+  };
+}
+
 export function getModeSlCloseMaxRetries(
   risk: RiskConfig,
   mode: TradingMode,
@@ -280,53 +254,37 @@ export function getModeSlCloseMaxRetries(
   return mode === 'sim' ? risk.simSlCloseMaxRetries : risk.realSlCloseMaxRetries;
 }
 
-export function isAnyPreCloseEnabled(risk: RiskConfig): boolean {
-  if (risk.simPreCloseEnabled || risk.realPreCloseEnabled) return true;
-  if (risk.cryptoAlgoPreCloseEnabled === true) return true;
+export interface PreCloseCheckSource {
+  simPreCloseEnabled?: boolean;
+  realPreCloseEnabled?: boolean;
+  simPreCloseSeconds?: number;
+  realPreCloseSeconds?: number;
+  cryptoAlgoPreCloseEnabled?: boolean | null;
+  cryptoAlgoPreCloseSeconds?: number | null;
+}
+
+export function isAnyPreCloseEnabled(cfg: PreCloseCheckSource): boolean {
+  if (cfg.simPreCloseEnabled || cfg.realPreCloseEnabled) return true;
+  if (cfg.cryptoAlgoPreCloseEnabled === true) return true;
   return false;
 }
 
-export function getMaxPreCloseSeconds(risk: RiskConfig): number {
+export function getMaxPreCloseSeconds(cfg: PreCloseCheckSource): number {
   const modeMax = Math.max(
-    risk.simPreCloseEnabled ? risk.simPreCloseSeconds : 0,
-    risk.realPreCloseEnabled ? risk.realPreCloseSeconds : 0,
+    cfg.simPreCloseEnabled ? cfg.simPreCloseSeconds ?? 0 : 0,
+    cfg.realPreCloseEnabled ? cfg.realPreCloseSeconds ?? 0 : 0,
   );
-  /** Crypto interval table max (1d/4h) — keep in sync with crypto-algo-exit.ts */
   const cryptoIntervalMax = 600;
-  if (risk.cryptoAlgoPreCloseEnabled === false) {
+  const cryptoEnabled = cfg.cryptoAlgoPreCloseEnabled;
+  if (cryptoEnabled === false) {
     return Math.max(modeMax, 0);
   }
   const algoSeconds =
-    risk.cryptoAlgoPreCloseSeconds ??
-    (risk.cryptoAlgoPreCloseEnabled === true ||
-    risk.cryptoAlgoPreCloseEnabled == null
+    cfg.cryptoAlgoPreCloseSeconds ??
+    (cryptoEnabled === true || cryptoEnabled == null
       ? cryptoIntervalMax
       : 0);
   return Math.max(modeMax, algoSeconds);
-}
-
-export function isCopyMoveAllowed(
-  moveType: MoveEventType,
-  risk: RiskConfig,
-  mode: TradingMode,
-): boolean {
-  if (moveType === 'INCREASED') {
-    return pickModeValue<boolean>(risk, mode, 'CopyIncreaseEnabled');
-  }
-  if (moveType === 'DECREASED') {
-    return pickModeValue<boolean>(risk, mode, 'CopyDecreaseEnabled');
-  }
-  return true;
-}
-
-export function isIncreaseAllowed(
-  increaseCount: number,
-  risk: RiskConfig,
-  mode: TradingMode,
-): boolean {
-  const max = pickModeValue<number>(risk, mode, 'MaxIncreasesPerPosition');
-  if (max <= 0) return true;
-  return increaseCount < max;
 }
 
 export function getModeCopyIncreaseSlProximityEnabled(
@@ -350,15 +308,6 @@ export interface CopyIncreaseSlProximityResult {
   thresholdPercent?: number;
 }
 
-/**
- * Gate COPY_INCREASE when the existing position is already close to its SL.
- *
- * Uses the configured SL bid points and a proximity ratio (0..100). When enabled,
- * an increase is rejected if the position's closure PnL percent has breached
- * `proximityPercent %` of the SL threshold.
- *
- * Example: SL=-100%, proximity=80% => block increases when closure <= -80%.
- */
 export function evaluateCopyIncreaseSlProximity(input: {
   enabled: boolean;
   slBidPoints: number | null | undefined;
@@ -370,7 +319,6 @@ export function evaluateCopyIncreaseSlProximity(input: {
   if (!enabled) return { allowed: true, reason: null };
   if (slBidPoints == null || slBidPoints <= 0 || entryBidVwap == null || entryBidVwap <= 0) return { allowed: true, reason: null };
   if (proximityPercent <= 0) return { allowed: true, reason: null };
-  // Convert bid points to percent of entry for proximity check
   const slPercent = (slBidPoints / entryBidVwap) * 100;
   const threshold = -slPercent * Math.min(100, proximityPercent) / 100;
   if (closurePnlPercent <= threshold) {
@@ -400,16 +348,6 @@ export function isMarketTagAllowedForMode(
   return isMarketTagAllowed(marketSlugs, getModeAllowedMarketTags(risk, mode));
 }
 
-/**
- * Whether the trailing stop is armed, i.e. allowed to trigger a close.
- *
- * The trailing stays disarmed until the current bid has reached the activation
- * threshold above the entry bid VWAP at least once. Because the peak bid is
- * monotonic (max over the position lifetime), once armed the trailing stays armed.
- *
- * A `null` or `undefined` activation means "no activation gate": the trailing
- * is armed from the moment the position opens (legacy behaviour).
- */
 export function isTrailingArmed(
   currentBid: number,
   entryBidVwap: number,
@@ -419,36 +357,14 @@ export function isTrailingArmed(
   return currentBid >= entryBidVwap + activationBidPoints;
 }
 
-/**
- * Evaluate stop-loss / take-profit / trailing-stop close signals for a single
- * position tick. Uses absolute bid points for SL/TP/trailing on binary markets.
- *
- * Priority order is fixed: **SL → TP → TRAILING**. The trailing only fires once
- * {@link isTrailingArmed} returns true (peak bid has crossed the activation
- * threshold) *and* the drawdown from the peak bid reaches `trailingBidPoints`.
- *
- * Returns `null` when no exit condition is met.
- */
 export function evaluateSlTpTrailing(input: {
-  /** Trailing drawdown from peak bid (bid points). `null`/`0` disables trailing. */
   trailingBidPoints: number | null;
-  /**
-   * Bid points above entry that the peak bid must have reached at least once
-   * before the trailing stop arms. `null`/`undefined` means the trailing is
-   * active immediately (legacy behaviour).
-   */
   trailingActivationBidPoints?: number | null;
-  /** Market-move PnL (bid vs entryBidVwap) — base for SL/TP/trigger. */
   effectiveTrigger: number;
-  /** Economic PnL including fees (bid vs entryPrice) — base for hybrid SL/closure. */
   effectiveClosure: number;
-  /** Peak bid VWAP for trailing activation and drawdown. */
   peakBidVwap: number;
-  /** Stop-loss in bid points (absolute) for binary markets. */
   slBidPoints?: number | null;
-  /** Take-profit in bid points (absolute) for binary markets. */
   tpBidPoints?: number | null;
-  /** Entry bid VWAP for computing absolute thresholds. */
   entryBidVwap?: number;
 }): Extract<OrderReason, 'SL' | 'TP' | 'TRAILING'> | null {
   const {
@@ -462,7 +378,6 @@ export function evaluateSlTpTrailing(input: {
     entryBidVwap,
   } = input;
 
-  // SL in bid points (binary markets)
   if (slBidPoints != null && entryBidVwap != null && entryBidVwap > 0) {
     const slBidAbsolute = entryBidVwap - slBidPoints;
     const impliedBid = entryBidVwap * (1 + effectiveTrigger / 100);
@@ -471,17 +386,14 @@ export function evaluateSlTpTrailing(input: {
     }
   }
 
-  // TP in bid points (binary markets)
   if (tpBidPoints != null && entryBidVwap != null && entryBidVwap > 0) {
     const tpBidAbsolute = Math.min(entryBidVwap + tpBidPoints, BINARY_TP_BID_CAP);
     const impliedBid = entryBidVwap * (1 + effectiveTrigger / 100);
-    // TP requires both bid threshold met AND non-negative closure PnL (fee guard)
     if (effectiveTrigger >= 0 && impliedBid >= tpBidAbsolute && effectiveClosure >= 0) {
       return 'TP';
     }
   }
 
-  // Trailing: Uses bid-based peak and drawdown
   if (
     trailingBidPoints != null && trailingBidPoints > 0 &&
     entryBidVwap != null && entryBidVwap > 0
@@ -505,17 +417,331 @@ export type PreCloseScopeInput = {
   acceptingOrders?: boolean | null;
 };
 
-/** Market is within the pre-close monitoring window (before or after endDate). */
 export function isPreCloseMonitoringScope(input: PreCloseScopeInput): boolean {
   if (!input.preCloseEnabled) return false;
   return input.timeToEndMs <= input.preCloseSeconds * 1000;
 }
 
-/** Market matches a pre-close CLOB exit trigger. */
 export function isPreCloseExitScope(
   input: PreCloseScopeInput & { acceptingOrders: boolean | null },
 ): boolean {
   if (!isPreCloseMonitoringScope(input)) return false;
   if (input.timeToEndMs > 0) return true;
   return input.acceptingOrders === true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// NEW: Per-algo friction getters (for use with isolated configs)
+// ═══════════════════════════════════════════════════════════════════════
+
+// ─── Copy getters ─────────────────────────────────────────────────────
+
+export function getCopyMaxOpenPositions(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simMaxOpenPositions : cfg.realMaxOpenPositions;
+}
+
+export function getCopyMaxPositionSizeUsdc(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simMaxPositionSizeUsdc : cfg.realMaxPositionSizeUsdc;
+}
+
+export function getCopyMaxExposureUsdc(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simMaxExposureUsdc : cfg.realMaxExposureUsdc;
+}
+
+export function getCopyMaxDailyLossUsdc(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simMaxDailyLossUsdc : cfg.realMaxDailyLossUsdc;
+}
+
+export function getCopyEntryDepthRetryMax(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simEntryDepthRetryMax : cfg.realEntryDepthRetryMax;
+}
+
+export function getCopyEntryDepthRetryDelayMs(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simEntryDepthRetryDelayMs : cfg.realEntryDepthRetryDelayMs;
+}
+
+export function getCopySlCloseMaxRetries(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simSlCloseMaxRetries : cfg.realSlCloseMaxRetries;
+}
+
+export function getCopyKillSwitchAction(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): string {
+  return mode === 'sim' ? cfg.simKillSwitchAction : cfg.realKillSwitchAction;
+}
+
+export function getCopyMinBidToAskRatio(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.simMinBidToAskRatio : cfg.realMinBidToAskRatio;
+}
+
+export function getCopySlConfirmationTicks(cfg: CopyConfig): number {
+  return cfg.slConfirmationTicks;
+}
+
+// ── Copy-specific sizing ─────────────────────────────────────────
+export function getCopySizingParams(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): ModeSizingParams {
+  if (mode === 'sim') {
+    return {
+      sizingMode: cfg.simSizingMode as SizingMode,
+      copyRatio: cfg.simCopyRatio,
+      fixedUsdcAmount: cfg.simEntryUsdcAmount,
+      fixedShareCount: cfg.simEntryShareCount,
+      kellyFraction: cfg.simKellyFraction,
+      riskBudgetUsdc: cfg.simRiskBudgetUsdc,
+      defaultWinProbability: cfg.simDefaultWinProbability,
+      signalScoreSizingEnabled: cfg.simSignalScoreSizingEnabled,
+    };
+  }
+  return {
+    sizingMode: cfg.realSizingMode as SizingMode,
+    copyRatio: cfg.realCopyRatio,
+    fixedUsdcAmount: cfg.realEntryUsdcAmount,
+    fixedShareCount: cfg.realEntryShareCount,
+    kellyFraction: cfg.realKellyFraction,
+    riskBudgetUsdc: cfg.realRiskBudgetUsdc,
+    defaultWinProbability: cfg.realDefaultWinProbability,
+    signalScoreSizingEnabled: cfg.realSignalScoreSizingEnabled,
+  };
+}
+
+// ── Copy-specific exit params ────────────────────────────────────
+export function resolveCopyEntryExitParams(
+  cfg: CopyConfig,
+  mode: TradingMode,
+): CopyEntryExitParams {
+  const slEnabled = isExitLegEnabled(
+    mode === 'sim' ? cfg.simSlEnabled : cfg.realSlEnabled,
+  );
+  const tpEnabled = isExitLegEnabled(
+    mode === 'sim' ? cfg.simTpEnabled : cfg.realTpEnabled,
+  );
+  const trailingEnabled = isExitLegEnabled(
+    mode === 'sim' ? cfg.simTrailingEnabled : cfg.realTrailingEnabled,
+  );
+  return {
+    slBidPoints: slEnabled
+      ? (mode === 'sim' ? cfg.simSlBidPoints : cfg.realSlBidPoints)
+      : null,
+    tpBidPoints: tpEnabled
+      ? (mode === 'sim' ? cfg.simTpBidPoints : cfg.realTpBidPoints)
+      : null,
+    trailingBidPoints: trailingEnabled
+      ? (mode === 'sim' ? cfg.simTrailingBidPoints : cfg.realTrailingBidPoints)
+      : null,
+    trailingActivationBidPoints: trailingEnabled
+      ? (mode === 'sim' ? cfg.simTrailingActivationBidPoints : cfg.realTrailingActivationBidPoints)
+      : null,
+  };
+}
+
+// ── Copy-specific helpers ────────────────────────────────────────
+export function getCopyMomentumFilterEnabled(cfg: CopyConfig, mode: TradingMode): boolean {
+  return mode === 'sim' ? cfg.simMomentumFilterEnabled : cfg.realMomentumFilterEnabled;
+}
+
+export function getCopyMinTimeToClose(cfg: CopyConfig, mode: TradingMode): number {
+  return mode === 'sim' ? cfg.simMinTimeToClose : cfg.realMinTimeToClose;
+}
+
+export function getCopyAllowedMarketTags(cfg: CopyConfig, mode: TradingMode): string[] {
+  const json = mode === 'sim' ? cfg.simAllowedMarketTags : cfg.realAllowedMarketTags;
+  try { return JSON.parse(json); } catch { return []; }
+}
+
+export function getCopyCopyIncreaseSlProximityEnabled(cfg: CopyConfig, mode: TradingMode): boolean {
+  return mode === 'sim' ? cfg.simCopyIncreaseSlProximityEnabled : cfg.realCopyIncreaseSlProximityEnabled;
+}
+
+export function getCopyCopyIncreaseSlProximityPercent(cfg: CopyConfig, mode: TradingMode): number {
+  return mode === 'sim' ? cfg.simCopyIncreaseSlProximityPercent : cfg.realCopyIncreaseSlProximityPercent;
+}
+
+export function isCopyMoveAllowed(
+  moveType: MoveEventType,
+  cfg: CopyConfig,
+  mode: TradingMode,
+): boolean {
+  if (moveType === 'INCREASED') {
+    return mode === 'sim' ? cfg.simCopyIncreaseEnabled : cfg.realCopyIncreaseEnabled;
+  }
+  if (moveType === 'DECREASED') {
+    return mode === 'sim' ? cfg.simCopyDecreaseEnabled : cfg.realCopyDecreaseEnabled;
+  }
+  return true;
+}
+
+export function isIncreaseAllowed(
+  increaseCount: number,
+  cfg: CopyConfig,
+  mode: TradingMode,
+): boolean {
+  const max = mode === 'sim' ? cfg.simMaxIncreasesPerPosition : cfg.realMaxIncreasesPerPosition;
+  if (max <= 0) return true;
+  return increaseCount < max;
+}
+
+// ─── Crypto getters ───────────────────────────────────────────────────
+
+export function getCryptoMaxOpenPositions(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoMaxOpenPositions : cfg.cryptoAlgoMaxOpenPositions;
+}
+
+export function getCryptoMaxPositionSizeUsdc(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoMaxPositionSizeUsdc : cfg.cryptoAlgoMaxPositionSizeUsdc;
+}
+
+export function getCryptoMaxExposureUsdc(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoMaxExposureUsdc : cfg.cryptoAlgoMaxExposureUsdc;
+}
+
+export function getCryptoMaxDailyLossUsdc(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoMaxDailyLossUsdc : cfg.cryptoAlgoMaxDailyLossUsdc;
+}
+
+export function getCryptoEntryDepthRetryMax(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoEntryDepthRetryMax : cfg.cryptoAlgoEntryDepthRetryMax;
+}
+
+export function getCryptoEntryDepthRetryDelayMs(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoEntryDepthRetryDelayMs : cfg.cryptoAlgoEntryDepthRetryDelayMs;
+}
+
+export function getCryptoSlCloseMaxRetries(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoSlCloseMaxRetries : cfg.cryptoAlgoSlCloseMaxRetries;
+}
+
+export function getCryptoKillSwitchAction(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): string {
+  return mode === 'sim' ? cfg.cryptoAlgoKillSwitchAction : cfg.cryptoAlgoKillSwitchAction;
+}
+
+export function getCryptoMinBidToAskRatio(
+  cfg: CryptoConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.cryptoAlgoMinBidToAskRatio : cfg.cryptoAlgoMinBidToAskRatio;
+}
+
+export function getCryptoSlConfirmationTicks(cfg: CryptoConfig): number {
+  return cfg.cryptoAlgoSlConfirmationTicks;
+}
+
+// ─── Weather getters ──────────────────────────────────────────────────
+
+export function getWeatherMaxOpenPositions(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoMaxOpenPositions : cfg.weatherAlgoMaxOpenPositions;
+}
+
+export function getWeatherMaxPositionSizeUsdc(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoMaxPositionSizeUsdc : cfg.weatherAlgoMaxPositionSizeUsdc;
+}
+
+export function getWeatherMaxExposureUsdc(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoMaxExposureUsdc : cfg.weatherAlgoMaxExposureUsdc;
+}
+
+export function getWeatherMaxDailyLossUsdc(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoMaxDailyLossUsdc : cfg.weatherAlgoMaxDailyLossUsdc;
+}
+
+export function getWeatherEntryDepthRetryMax(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoEntryDepthRetryMax : cfg.weatherAlgoEntryDepthRetryMax;
+}
+
+export function getWeatherEntryDepthRetryDelayMs(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoEntryDepthRetryDelayMs : cfg.weatherAlgoEntryDepthRetryDelayMs;
+}
+
+export function getWeatherSlCloseMaxRetries(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoSlCloseMaxRetries : cfg.weatherAlgoSlCloseMaxRetries;
+}
+
+export function getWeatherKillSwitchAction(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): string {
+  return mode === 'sim' ? cfg.weatherAlgoKillSwitchAction : cfg.weatherAlgoKillSwitchAction;
+}
+
+export function getWeatherMinBidToAskRatio(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+): number {
+  return mode === 'sim' ? cfg.weatherAlgoMinBidToAskRatio : cfg.weatherAlgoMinBidToAskRatio;
+}
+
+export function getWeatherSlConfirmationTicks(cfg: WeatherConfig): number {
+  return cfg.weatherAlgoSlConfirmationTicks;
 }

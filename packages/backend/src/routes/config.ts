@@ -5,6 +5,7 @@ import {
   ClobCredentials,
   RiskConfig,
   RiskService,
+  CryptoConfigService,
   RiskConfigRevisionService,
   computeCryptoAlgoConfigFingerprint,
   presentRiskConfigForApi,
@@ -257,14 +258,18 @@ export const riskConfigUpdateSchema = z
 export function createConfigRouter(ds: DataSource): Router {
   const router = Router();
   const riskService = new RiskService(ds);
+  const cryptoConfigService = new CryptoConfigService(ds);
   const revisionService = new RiskConfigRevisionService(ds);
   const rotationService = new SessionRotationService(ds);
 
+  // TODO: remove after all callers migrate to /api/config/*
+  // Legacy alias — kept for backward compat during migration.
   router.get('/risk-config', requireJwt, async (_req, res) => {
     const config = await riskService.getConfig();
+    const cryptoCfg = await cryptoConfigService.getConfig();
     res.json({
       ...presentRiskConfigForApi(config),
-      cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(config),
+      cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(cryptoCfg),
     });
   });
 
@@ -272,6 +277,7 @@ export function createConfigRouter(ds: DataSource): Router {
     res.json(await fetchSimExecutionStats(ds));
   });
 
+  // TODO: remove after all callers migrate to /api/config/*
   router.put('/risk-config', requireJwt, async (req, res) => {
     const raw = req.body as Record<string, unknown>;
     const expectedFingerprint =
@@ -305,7 +311,7 @@ export function createConfigRouter(ds: DataSource): Router {
     }
     try {
       if (expectedFingerprint) {
-        const current = await riskService.getConfig();
+        const current = await cryptoConfigService.getConfig();
         const currentFingerprint = computeCryptoAlgoConfigFingerprint(current);
         if (currentFingerprint !== expectedFingerprint) {
           res.status(409).json({
@@ -338,9 +344,10 @@ export function createConfigRouter(ds: DataSource): Router {
       const rotation = await rotationService.rotateOnConfigChange(before, updated);
 
       await publishConfigChanged();
+      const updatedCryptoCfg = await cryptoConfigService.getConfig();
       res.json({
         ...presentRiskConfigForApi(updated),
-        cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(updated),
+        cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(updatedCryptoCfg),
         sessionRotation: rotation.sim || rotation.real ? {
           sim: rotation.sim ?? null,
           real: rotation.real ?? null,

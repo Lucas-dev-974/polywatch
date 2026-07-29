@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { ClobLatencySample, RiskService, ShadowFill } from '@polywatch/core';
+import { ClobLatencySample, GlobalConfigService, ShadowFill } from '@polywatch/core';
 import { resolveSimExecutionTunables } from '@polywatch/core';
 import pino from 'pino';
 import { safeInterval } from '../helpers.js';
@@ -10,8 +10,8 @@ export class SimRealismJanitor {
   constructor(private readonly ds: DataSource) {}
 
   async run(): Promise<void> {
-    const risk = await new RiskService(this.ds).getConfig();
-    const tunables = resolveSimExecutionTunables(risk);
+    const global = await new GlobalConfigService(this.ds).getConfig();
+    const tunables = resolveSimExecutionTunables(global);
     const days = tunables.shadowSampleRetentionDays;
     const cutoff = new Date(Date.now() - days * 86_400_000);
 

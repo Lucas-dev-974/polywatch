@@ -73,7 +73,7 @@ export async function updateAnalysisReportMeta(
 }
 
 export async function fetchCurrentCryptoAlgoConfigFingerprint(): Promise<string> {
-  const cfg = await api<{ cryptoAlgoConfigFingerprint: string }>('/risk-config');
+  const cfg = await api<{ cryptoAlgoConfigFingerprint: string }>('/config/crypto');
   return cfg.cryptoAlgoConfigFingerprint;
 }
 
@@ -84,7 +84,7 @@ export async function applyRecommendedCryptoAlgoConfig(
   if (!report.recommendedConfig.applicable) {
     throw new Error('Aucun paramètre recommandé applicable');
   }
-  await api('/risk-config', {
+  await api('/config/crypto', {
     method: 'PUT',
     body: JSON.stringify({
       ...report.recommendedConfig.patch,

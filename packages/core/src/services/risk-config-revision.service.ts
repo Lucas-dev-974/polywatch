@@ -1,38 +1,69 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { AnalysisReport } from '../entities/AnalysisReport.js';
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
+import type { GlobalConfig } from '../entities/GlobalConfig.js';
+import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import {
   RiskConfigRevision,
   type RiskConfigRevisionSource,
 } from '../entities/RiskConfigRevision.js';
-import { presentRiskConfigForApi } from '../risk/risk-config-api.js';
 import { computeCryptoAlgoConfigFingerprint } from '../crypto-algo/config-fingerprint.js';
+
+export type ConfigKind = 'global' | 'copy' | 'crypto' | 'weather';
 
 export class RiskConfigRevisionService {
   constructor(private readonly ds: DataSource) {}
 
   async recordRevision(
-    config: RiskConfig,
+    config: GlobalConfig | CopyConfig | CryptoConfig | WeatherConfig,
     options: {
       source?: RiskConfigRevisionSource;
       patch?: Record<string, unknown> | null;
       manager?: EntityManager;
+      kind?: ConfigKind;
     } = {},
   ): Promise<RiskConfigRevision> {
     const repo = (options.manager ?? this.ds.manager).getRepository(RiskConfigRevision);
-    const presented = presentRiskConfigForApi(config);
+    const kind = options.kind ?? 'global';
+
+    let configJson: string;
+    let fingerprint: string | null;
+
+    if (kind === 'crypto' && 'cryptoAlgoEnabled' in config) {
+      // CryptoConfig: present as-is (fingerprint on crypto fields only)
+      configJson = JSON.stringify(config);
+      fingerprint = computeCryptoAlgoConfigFingerprint(config as CryptoConfig);
+    } else if (kind === 'global' && 'maxSlippagePercent' in config) {
+      // GlobalConfig: just serialize
+      configJson = JSON.stringify(config);
+      fingerprint = null;
+    } else if (kind === 'copy' && 'simCopyTradingEnabled' in config) {
+      configJson = JSON.stringify(config);
+      fingerprint = null;
+    } else if (kind === 'weather' && 'weatherAlgoEnabled' in config) {
+      configJson = JSON.stringify(config);
+      fingerprint = null;
+    } else {
+      // Fallback for unknown/legacy shapes
+      configJson = JSON.stringify(config);
+      fingerprint = null;
+    }
+
     const row = repo.create({
       source: options.source ?? 'api',
       patchJson: options.patch ? JSON.stringify(options.patch) : null,
-      configJson: JSON.stringify(presented),
-      configFingerprint: computeCryptoAlgoConfigFingerprint(config),
+      configJson,
+      configFingerprint: fingerprint,
+      configKind: kind,
     });
     return repo.save(row);
   }
 
-  async getLatestFingerprint(): Promise<string | null> {
+  async getLatestFingerprint(kind?: ConfigKind): Promise<string | null> {
+    const where = kind ? { configKind: kind } : {};
     const row = await this.ds.getRepository(RiskConfigRevision).findOne({
-      where: {},
+      where,
       order: { createdAt: 'DESC' },
     });
     return row?.configFingerprint ?? null;

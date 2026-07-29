@@ -60,7 +60,7 @@ export function normalizeInterval(interval: string): ValidInterval | null {
 
 /**
  * Get maximum allowed absolute spread (probability points) for a given interval.
- * When `spreadByInterval` is provided (from RiskConfig tunables), uses merged table.
+ * When `spreadByInterval` is provided (from CryptoConfig tunables), uses merged table.
  */
 export function getMaxSpreadAbsForInterval(
   interval: string | undefined,

@@ -113,7 +113,7 @@ export class CryptoAlgoPriceFeed {
     this.onMarketResolved = cb;
   }
 
-  /** Configure WS evaluation debounce (from RiskConfig). */
+  /** Configure WS evaluation debounce (from CryptoConfig). */
   setDebounceMs(ms: number): void {
     this.debounceMs = ms;
   }

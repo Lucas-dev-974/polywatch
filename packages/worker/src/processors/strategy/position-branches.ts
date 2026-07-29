@@ -11,7 +11,7 @@ import {
   type LiquidityStatus,
   type TradingMode,
 } from '@polywatch/core';
-import type { RiskConfig } from '@polywatch/core';
+import type { GlobalConfig } from '@polywatch/core';
 import type { CopiedPositionService } from '@polywatch/core';
 import type { PolymarketConnectionManager } from '../../polymarket/connection-manager.js';
 import {
@@ -65,7 +65,7 @@ export interface PositionExitContext {
 export function buildPositionExitContext(params: {
   pos: CopiedPosition;
   market: Market | undefined;
-  risk: RiskConfig;
+  globalConfig: GlobalConfig;
   bookPrices: BookPrices;
   lifecycle: ReturnType<typeof resolveMarkState>['lifecycle'];
   wsBestBid?: number;
@@ -77,11 +77,10 @@ export function buildPositionExitContext(params: {
   closure: number;
   peakClosure: number;
 }): PositionExitContext {
-  const { pos, market, risk, bookPrices, lifecycle, wsBestBid, now, marketInterval, lastTradePrice, lastTradeTimestamp, trigger, closure, peakClosure } = params;
+  const { pos, market, globalConfig, bookPrices, lifecycle, wsBestBid, now, marketInterval, lastTradePrice, lastTradeTimestamp, trigger, closure, peakClosure } = params;
 
   const timeToEndMs = resolveTimeToEndMs(market, now);
-  const preClose = getPositionPreCloseParams(
-    risk,
+  const preClose = getPositionPreCloseParams(globalConfig as any,
     pos.mode as TradingMode,
     pos.reason,
     marketInterval,
@@ -94,7 +93,7 @@ export function buildPositionExitContext(params: {
     preCloseSeconds: preClose.preCloseSeconds,
     liquidityStatus: bookPrices.liquidityStatus,
   });
-  const lastCloseableBidMaxAgeMs = resolveLastCloseableBidMaxAgeMs(risk);
+  const lastCloseableBidMaxAgeMs = resolveLastCloseableBidMaxAgeMs(globalConfig as any);
   const exitMark = resolveExitDecisionMarkPrice(
     pos,
     bookPrices.executableBidVwap,
@@ -196,7 +195,8 @@ export function buildPositionExitContext(params: {
 async function runOpenPositionExitEval(params: {
   pos: CopiedPosition;
   market: Market | undefined;
-  risk: RiskConfig;
+  globalConfig: GlobalConfig;
+  algoConfig: any;
   exitEvaluator: PositionExitEvaluator;
   ctx: PositionExitContext;
   bookPrices: BookPrices;
@@ -210,7 +210,8 @@ async function runOpenPositionExitEval(params: {
   const {
     pos,
     market,
-    risk,
+    globalConfig,
+    algoConfig,
     exitEvaluator,
     ctx,
     bookPrices,
@@ -228,7 +229,8 @@ async function runOpenPositionExitEval(params: {
   await exitEvaluator.evaluateCloseLogic(
     pos,
     market,
-    risk,
+    globalConfig,
+    algoConfig,
     ctx.exitSnap.trigger,
     ctx.exitSnap.closure,
     ctx.peakClosure,
@@ -248,7 +250,8 @@ async function runOpenPositionExitEval(params: {
 export async function evaluateIlliquidPosition(params: {
   pos: CopiedPosition;
   market: Market | undefined;
-  risk: RiskConfig;
+  globalConfig: GlobalConfig;
+  algoConfig: any;
   connectionManager: PolymarketConnectionManager;
   positionService: CopiedPositionService;
   pnlPublisher: PnlTickPublisher;
@@ -269,7 +272,8 @@ export async function evaluateIlliquidPosition(params: {
   const {
     pos,
     market,
-    risk,
+    globalConfig,
+    algoConfig,
     connectionManager,
     positionService,
     pnlPublisher,
@@ -304,7 +308,7 @@ export async function evaluateIlliquidPosition(params: {
       const ctx = buildPositionExitContext({
         pos,
         market,
-        risk,
+        globalConfig,
         bookPrices,
         lifecycle,
         wsBestBid,
@@ -320,7 +324,8 @@ export async function evaluateIlliquidPosition(params: {
       await runOpenPositionExitEval({
         pos,
         market,
-        risk,
+        globalConfig,
+        algoConfig,
         exitEvaluator,
         ctx,
         bookPrices,
@@ -339,7 +344,7 @@ export async function evaluateIlliquidPosition(params: {
   const ctx = buildPositionExitContext({
     pos,
     market,
-    risk,
+    globalConfig,
     bookPrices,
     lifecycle,
     wsBestBid,
@@ -362,7 +367,8 @@ export async function evaluateIlliquidPosition(params: {
   await runOpenPositionExitEval({
     pos,
     market,
-    risk,
+    globalConfig,
+    algoConfig,
     exitEvaluator,
     ctx,
     bookPrices,
@@ -391,7 +397,8 @@ export async function evaluateIlliquidPosition(params: {
 export async function evaluateLiquidPosition(params: {
   pos: CopiedPosition;
   market: Market | undefined;
-  risk: RiskConfig;
+  globalConfig: GlobalConfig;
+  algoConfig: any;
   pnlPublisher: PnlTickPublisher;
   exitEvaluator: PositionExitEvaluator;
   bookPrices: BookPrices;
@@ -409,7 +416,8 @@ export async function evaluateLiquidPosition(params: {
   const {
     pos,
     market,
-    risk,
+    globalConfig,
+    algoConfig,
     pnlPublisher,
     exitEvaluator,
     bookPrices,
@@ -447,7 +455,7 @@ export async function evaluateLiquidPosition(params: {
   const ctx = buildPositionExitContext({
     pos,
     market,
-    risk,
+    globalConfig,
     bookPrices,
     lifecycle,
     wsBestBid,
@@ -463,7 +471,8 @@ export async function evaluateLiquidPosition(params: {
   await runOpenPositionExitEval({
     pos,
     market,
-    risk,
+    globalConfig,
+    algoConfig,
     exitEvaluator,
     ctx,
     bookPrices,

@@ -1,5 +1,6 @@
 export { User } from './User.js';
 export { WatchlistEntry } from './Watchlist.js';
+// TODO: remove after 0088 migration runs — RiskConfig table is being dropped
 export { RiskConfig } from './RiskConfig.js';
 export { ClobCredentials } from './ClobCredentials.js';
 export { IntegrationSettings } from './IntegrationSettings.js';
@@ -65,3 +66,7 @@ export { WeatherMarketSelection } from './WeatherMarketSelection.js';
 export { WeatherAutoTrackRule } from './WeatherAutoTrackRule.js';
 export { WeatherForecastCache } from './WeatherForecastCache.js';
 export { WeatherPositionForecast } from './WeatherPositionForecast.js';
+export { GlobalConfig } from './GlobalConfig.js';
+export { CopyConfig } from './CopyConfig.js';
+export { CryptoConfig } from './CryptoConfig.js';
+export { WeatherConfig } from './WeatherConfig.js';

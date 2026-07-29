@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { RiskService } from '../services/risk.service.js';
+import { CryptoConfigService } from '../services/crypto-config.service.js';
 import { SimulationService } from '../services/simulation.service.js';
 import {
   buildCryptoAlgoOptimizeReport,
@@ -106,7 +106,7 @@ export async function loadCryptoAlgoOptimizeReport(
   ds: DataSource,
   filters: CryptoAlgoOptimizeReportFilters = {},
 ): Promise<CryptoAlgoOptimizeReportWithMeta> {
-  const riskService = new RiskService(ds);
+  const cryptoService = new CryptoConfigService(ds);
   const simulationService = new SimulationService(ds);
   const { positionSql, exitSql, params } = buildPeriodClause(filters);
 
@@ -150,7 +150,7 @@ export async function loadCryptoAlgoOptimizeReport(
         `,
       params,
     ),
-    riskService.getConfig(),
+    cryptoService.getConfig(),
     simulationService.getSnapshot('crypto'),
   ]);
 
@@ -184,14 +184,14 @@ export async function loadCryptoAlgoOptimizeReport(
     cryptoAlgoPreCloseSeconds: config.cryptoAlgoPreCloseSeconds ?? null,
     cryptoAlgoPreCloseKeepEnabled: config.cryptoAlgoPreCloseKeepEnabled ?? null,
     cryptoAlgoPreCloseKeepBidThreshold: config.cryptoAlgoPreCloseKeepBidThreshold ?? null,
-    slConfirmationTicks: config.slConfirmationTicks ?? null,
+    slConfirmationTicks: config.cryptoAlgoSlConfirmationTicks ?? null,
     cryptoAlgoBaseThreshold: config.cryptoAlgoBaseThreshold ?? null,
     cryptoAlgoSizingMode: config.cryptoAlgoSizingMode,
     cryptoAlgoEntryUsdcAmount: config.cryptoAlgoEntryUsdcAmount,
     cryptoAlgoEntryShareCount: config.cryptoAlgoEntryShareCount ?? null,
-    simEntryUsdcAmount: config.simEntryUsdcAmount,
-    simEntryShareCount: config.simEntryShareCount,
-    simSizingMode: config.simSizingMode,
+    simEntryUsdcAmount: 0,
+    simEntryShareCount: 0,
+    simSizingMode: 'fixed_usdc',
   };
 
   const report = buildCryptoAlgoOptimizeReport({

@@ -10,9 +10,9 @@ import {
   RealSessionService,
   RealPortfolioService,
   RealPeriodArchiveService,
-  extractRealConfigSnapshot,
   realRotationChanged,
   resolveSimRotationTargets,
+  resolveSimRotationTargetsFromConfigs,
   collectSimRedisPurgeHints,
   purgeSimExecutionRedisState,
   publishSimulationReset,
@@ -22,6 +22,10 @@ import {
   getSimInitialCapital,
   algoKindFromReason,
   type SimAlgoKind,
+  type GlobalConfig,
+  type CopyConfig,
+  type CryptoConfig,
+  type WeatherConfig,
 } from '@polywatch/core';
 import type { RiskConfig } from '@polywatch/core';
 import { fetchObservedWalletCash } from '../polymarket/observed-wallet-cash.js';
@@ -69,25 +73,52 @@ export class SessionRotationService {
   }
 
   async rotateOnConfigChange(
-    before: RiskConfig,
-    after: RiskConfig,
+    before: RiskConfig | { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
+    after: RiskConfig | { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
   ): Promise<RotationResult> {
+    const beforeRisk = this.asRiskConfig(before);
+    const afterRisk = this.asRiskConfig(after);
+
     const result: RotationResult = {};
 
-    const simTargets = resolveSimRotationTargets(before, after);
+    const simTargets = Array.isArray((before as any).global)
+      ? resolveSimRotationTargetsFromConfigs(
+          before as { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
+          after as { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
+        )
+      : resolveSimRotationTargets(beforeRisk, afterRisk);
+
     if (simTargets.length > 0) {
-      result.sim = await this.performSimHardRotate(before, after, simTargets);
+      result.sim = await this.performSimHardRotate(afterRisk, simTargets);
     }
 
-    if (realRotationChanged(before, after)) {
-      result.real = await this.performRealSoftRotate(after);
+    if (realRotationChanged(beforeRisk, afterRisk)) {
+      result.real = await this.performRealSoftRotate(afterRisk);
     }
 
     return result;
   }
 
+  private asRiskConfig(
+    cfg: RiskConfig | { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
+  ): RiskConfig {
+    if ('id' in cfg) return cfg as RiskConfig;
+    const { global, copy, crypto, weather } = cfg as {
+      global: GlobalConfig;
+      copy: CopyConfig;
+      crypto: CryptoConfig;
+      weather: WeatherConfig;
+    };
+    return {
+      ...global,
+      ...copy,
+      ...crypto,
+      ...weather,
+      id: 0,
+    } as unknown as RiskConfig;
+  }
+
   private async performSimHardRotate(
-    _before: RiskConfig,
     after: RiskConfig,
     targets: SimAlgoKind[],
   ): Promise<SimRotationResult | null> {

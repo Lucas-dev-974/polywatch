@@ -4,12 +4,16 @@ import {
   ExecutionService,
   isTotalCloseSignal,
   ReservationService,
-  RiskService,
+  GlobalConfigService,
+  CopyConfigService,
+  CryptoConfigService,
+  WeatherConfigService,
   computeTakerFee,
   resolveSimExecutionTunables,
   simulateFakFill,
+  getAlgoKindForPosition,
 } from '@polywatch/core';
-import type { ExecutionResult, OrderSignal } from '@polywatch/core';
+import type { ExecutionResult, OrderSignal, GlobalConfig, CopyConfig, CryptoConfig, WeatherConfig } from '@polywatch/core';
 import type { TickSize } from '@polymarket/clob-client-v2';
 import pino from 'pino';
 import type { PolymarketConnectionManager } from '../polymarket/connection-manager.js';
@@ -49,7 +53,10 @@ export class Executor {
   private executionService: ExecutionService;
   private positionService: CopiedPositionService;
   private reservationService: ReservationService;
-  private riskService: RiskService;
+  private globalConfigService: GlobalConfigService;
+  private copyConfigService: CopyConfigService;
+  private cryptoConfigService: CryptoConfigService;
+  private weatherConfigService: WeatherConfigService;
   private realExecutor: RealExecutor;
 
   constructor(
@@ -62,7 +69,10 @@ export class Executor {
     this.executionService = new ExecutionService(ds);
     this.positionService = new CopiedPositionService(ds);
     this.reservationService = new ReservationService(ds);
-    this.riskService = new RiskService(ds);
+    this.globalConfigService = new GlobalConfigService(ds);
+    this.copyConfigService = new CopyConfigService(ds);
+    this.cryptoConfigService = new CryptoConfigService(ds);
+    this.weatherConfigService = new WeatherConfigService(ds);
     this.realExecutor = new RealExecutor(ds);
   }
 
@@ -320,22 +330,38 @@ export class Executor {
 
   private async isRealEntryBlocked(signal: OrderSignal): Promise<boolean> {
     if (signal.mode !== 'real' || signal.side !== 'BUY') return false;
-    const enabled = await this.riskService.isRealTradingEnabled();
-    return !enabled;
+    const global = await this.globalConfigService.getConfig();
+    if (!global.realTradingEnabled) return true;
+    const algoKind = getAlgoKindForPosition({ reason: signal.reason });
+    if (algoKind === 'copy') {
+      const copy = await this.copyConfigService.getConfig();
+      return !copy.realCopyTradingEnabled;
+    }
+    if (algoKind === 'crypto') {
+      const crypto = await this.cryptoConfigService.getConfig();
+      return !crypto.cryptoAlgoEnabled;
+    }
+    if (algoKind === 'weather') {
+      const weather = await this.weatherConfigService.getConfig();
+      return !weather.weatherAlgoRealEnabled;
+    }
+    return false;
   }
 
   private async isSimCopyEntryBlocked(signal: OrderSignal): Promise<boolean> {
     if (signal.mode !== 'sim' || signal.side !== 'BUY') return false;
     if (signal.reason !== 'COPY_OPEN' && signal.reason !== 'COPY_INCREASE') return false;
-    const enabled = await this.riskService.isSimCopyTradingEnabled();
-    return !enabled;
+    const copy = await this.copyConfigService.getConfig();
+    return !copy.simCopyTradingEnabled;
   }
 
   private async isRealCopyEntryBlocked(signal: OrderSignal): Promise<boolean> {
     if (signal.mode !== 'real' || signal.side !== 'BUY') return false;
     if (signal.reason !== 'COPY_OPEN' && signal.reason !== 'COPY_INCREASE') return false;
-    const enabled = await this.riskService.isRealCopyTradingEnabled();
-    return !enabled;
+    const global = await this.globalConfigService.getConfig();
+    if (!global.realTradingEnabled) return true;
+    const copy = await this.copyConfigService.getConfig();
+    return !copy.realCopyTradingEnabled;
   }
 
   private isEntryBuySignal(signal: OrderSignal): boolean {
@@ -408,8 +434,8 @@ export class Executor {
       return failedExecution(signal, 'position_lock_timeout');
     }
 
-    const risk = await this.riskService.getConfig();
-    const tunables = resolveSimExecutionTunables(risk);
+    const global = await this.globalConfigService.getConfig();
+    const tunables = resolveSimExecutionTunables(global);
 
     const preparedResult = await prepareFakMarketOrder(
       signal,

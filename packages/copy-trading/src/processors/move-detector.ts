@@ -7,7 +7,7 @@ import {
   MoveEventService,
   PollCycleService,
   resolveOutcomeLabel,
-  RiskService,
+  CopyConfigService,
   TraderSnapshot,
   WatchlistService,
   type MoveEventDto,
@@ -48,7 +48,7 @@ export class MoveDetector {
   constructor(
     private readonly ds: DataSource,
     private readonly moveQueue: RedisQueue<MoveEventDto>,
-    private readonly riskService: RiskService,
+    private readonly copyConfigService: CopyConfigService,
   ) {
     this.pollService = new PollCycleService(ds);
     this.moveEventService = new MoveEventService(ds);
@@ -213,7 +213,8 @@ export class MoveDetector {
 
     let enabled: boolean;
     try {
-      enabled = await this.riskService.isAnyCopyTradingEnabled();
+      const cfg = await this.copyConfigService.getConfig();
+      enabled = cfg.simCopyTradingEnabled || cfg.realCopyTradingEnabled;
     } catch (err) {
       log.error({ err }, 'failed to read copy-trading enabled state — skipping cycle');
       enabled = false;

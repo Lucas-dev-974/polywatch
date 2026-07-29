@@ -62,7 +62,7 @@ export class PriceTickRecorder {
     this.surveillanceService = new AlgoSurveillanceService(ds);
   }
 
-  /** Hot-reload tick interval, retention and refQty from RiskConfig. */
+  /** Hot-reload tick interval, retention and refQty from CryptoConfig. */
   configure(opts: {
     tickIntervalMs?: number;
     retentionHours?: number;

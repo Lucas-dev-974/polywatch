@@ -2,7 +2,7 @@ import type { DataSource } from 'typeorm';
 import {
   ExecutionService,
   ReservationService,
-  RiskConfig,
+  GlobalConfig,
   createBackendClient,
   BACKEND_HTTP_TIMEOUT_MS,
 } from '@polywatch/core';
@@ -20,12 +20,12 @@ export async function fetchAvailableRealCash(ds: DataSource): Promise<number | u
   let balance: number | undefined;
 
   try {
-    const riskConfig = await ds.getRepository(RiskConfig).findOne({ where: {} });
-    if (riskConfig?.realCashOverride != null) {
-      balance = riskConfig.realCashOverride;
+    const globalConfig = await ds.getRepository(GlobalConfig).findOne({ where: {} });
+    if (globalConfig?.realCashOverride != null) {
+      balance = globalConfig.realCashOverride;
     }
   } catch (err) {
-    log.warn({ err }, 'failed to read RiskConfig.realCashOverride — falling back to backend');
+    log.warn({ err }, 'failed to read GlobalConfig.realCashOverride — falling back to backend');
   }
 
   if (balance === undefined) {

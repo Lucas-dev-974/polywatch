@@ -3,7 +3,8 @@ import {
   MarketService,
   MoveEventService,
   ReservationService,
-  RiskService,
+  CopyConfigService,
+  GlobalConfigService,
   SimulationService,
   WatchlistService,
   type IPolymarketConnectionManager,
@@ -31,7 +32,8 @@ export class CopyProcessor {
   private reservationService: ReservationService;
   private watchlistService: WatchlistService;
   private moveEventService: MoveEventService;
-  private riskService: RiskService;
+  private copyConfigService: CopyConfigService;
+  private globalConfigService: GlobalConfigService;
   private simulationService: SimulationService;
   private marketService: MarketService;
 
@@ -43,7 +45,8 @@ export class CopyProcessor {
     this.reservationService = new ReservationService(ds);
     this.watchlistService = new WatchlistService(ds);
     this.moveEventService = new MoveEventService(ds);
-    this.riskService = new RiskService(ds);
+    this.copyConfigService = new CopyConfigService(ds);
+    this.globalConfigService = new GlobalConfigService(ds);
     this.simulationService = new SimulationService(ds);
     this.marketService = new MarketService(ds);
   }
@@ -60,8 +63,11 @@ export class CopyProcessor {
       return;
     }
 
-    const risk = await this.riskService.getConfig();
-    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, risk);
+    const [copyConfig, globalConfig] = await Promise.all([
+      this.copyConfigService.getConfig(),
+      this.globalConfigService.getConfig(),
+    ]);
+    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, copyConfig, globalConfig);
     const skipReasons: MoveSkipReasonsUpdate = {};
     const recordSkip = (mode: TradingMode, reason: string) => {
       if (!skipReasons[mode]) skipReasons[mode] = reason;
@@ -72,7 +78,7 @@ export class CopyProcessor {
     }
 
     for (const mode of modes) {
-      const modeResult = await this.processMode(move, entry, mode, risk);
+      const modeResult = await this.processMode(move, entry, mode, copyConfig, globalConfig);
       if (modeResult.kind === 'skip') {
         recordSkip(mode, modeResult.reason);
       }
@@ -86,7 +92,8 @@ export class CopyProcessor {
     move: MoveEventDto,
     entry: NonNullable<Awaited<ReturnType<WatchlistService['findByTraderAddress']>>>,
     mode: TradingMode,
-    risk: Awaited<ReturnType<RiskService['getConfig']>>,
+    copyConfig: Awaited<ReturnType<CopyConfigService['getConfig']>>,
+    globalConfig: Awaited<ReturnType<GlobalConfigService['getConfig']>>,
   ): Promise<{ kind: 'ok' } | { kind: 'skip'; reason: string }> {
     const isEntry = move.type === 'OPENED' || move.type === 'INCREASED';
     const isExit = move.type === 'DECREASED' || move.type === 'CLOSED';
@@ -96,15 +103,15 @@ export class CopyProcessor {
       move,
       entry,
       mode,
-      risk,
-      this.riskService,
+      copyConfig,
+      globalConfig,
     );
     if (!gate.allowed) {
       return { kind: 'skip', reason: gate.reason };
     }
 
     if (isEntry) {
-      return this.processEntry(move, entry, mode, risk);
+      return this.processEntry(move, entry, mode, copyConfig, globalConfig);
     }
     if (isExit) {
       return this.processExit(move, entry, mode);
@@ -116,12 +123,13 @@ export class CopyProcessor {
     move: MoveEventDto,
     entry: NonNullable<Awaited<ReturnType<WatchlistService['findByTraderAddress']>>>,
     mode: TradingMode,
-    risk: Awaited<ReturnType<RiskService['getConfig']>>,
+    copyConfig: Awaited<ReturnType<CopyConfigService['getConfig']>>,
+    globalConfig: Awaited<ReturnType<GlobalConfigService['getConfig']>>,
   ): Promise<{ kind: 'ok' } | { kind: 'skip'; reason: string }> {
-    if (!(await passesMarketTagFilter(this.marketService, move.conditionId, risk, mode))) {
+    if (!(await passesMarketTagFilter(this.marketService, move.conditionId, copyConfig, mode))) {
       return { kind: 'skip', reason: 'Tag marché non autorisé' };
     }
-    const entryCheck = await canHandleEntry(this.ds, move, entry, mode, risk);
+    const entryCheck = await canHandleEntry(this.ds, move, entry, mode, copyConfig, globalConfig);
     if (!entryCheck.ok) {
       return { kind: 'skip', reason: entryCheck.reason };
     }
@@ -132,7 +140,7 @@ export class CopyProcessor {
         move,
         entry,
         mode,
-        risk,
+        copyConfig,
         connectionManager: this.connectionManager,
         marketService: this.marketService,
         reservationService: this.reservationService,

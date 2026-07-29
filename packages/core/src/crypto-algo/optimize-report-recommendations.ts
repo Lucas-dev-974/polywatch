@@ -12,7 +12,7 @@ export interface OptimizeReportRecommendedChange {
 export interface OptimizeReportRecommendedConfig {
   applicable: boolean;
   changes: OptimizeReportRecommendedChange[];
-  /** Partial PATCH body (camelCase) for PUT /api/risk-config */
+  /** Partial PATCH body (camelCase) for PUT /api/config/crypto */
   patch: Record<string, unknown>;
 }
 

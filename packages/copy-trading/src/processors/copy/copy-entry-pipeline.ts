@@ -2,18 +2,18 @@ import {
   computeSignalScore,
   hashCopyOrderSignalId,
   resolveCopyEntryExitParams,
-  getModeMaxPositionSizeUsdc,
-  getModeSizingParams,
-  getModeMinBidToAskRatio,
-  getModeMinTimeToClose,
-  getModeMomentumFilterEnabled,
+  getCopyMaxPositionSizeUsdc,
+  getCopySizingParams,
+  getCopyMinBidToAskRatio,
+  getCopyMinTimeToClose,
+  getCopyMomentumFilterEnabled,
   evaluateMomentumEntry,
   isEntryBidAskRatioAcceptable,
   Market,
   MarketService,
   ReservationService,
-  RiskConfig,
   SimulationService,
+  type CopyConfig,
   computeEntryTargetQuantity,
   resolveEntryBalances,
   resumeEntryFromReservation,
@@ -21,8 +21,8 @@ import {
   effectiveEntryMos,
   resolveEntryMinOrderSharesDetailed,
   fetchEntryAskLiquidityWithRetries,
-  getModeEntryDepthRetryMax,
-  getModeEntryDepthRetryDelayMs,
+  getCopyEntryDepthRetryMax,
+  getCopyEntryDepthRetryDelayMs,
   MIN_ORDER_SHARES,
   MIN_ORDER_USDC,
   type IPolymarketConnectionManager,
@@ -57,7 +57,7 @@ export async function runCopyEntryPipeline(params: {
   move: MoveEventDto;
   entry: WatchlistEntry;
   mode: TradingMode;
-  risk: RiskConfig;
+  copyConfig: CopyConfig;
   connectionManager: IPolymarketConnectionManager;
   marketService: MarketService;
   reservationService: ReservationService;
@@ -69,7 +69,7 @@ export async function runCopyEntryPipeline(params: {
     move,
     entry,
     mode,
-    risk,
+    copyConfig,
     connectionManager,
     marketService,
     reservationService,
@@ -78,8 +78,8 @@ export async function runCopyEntryPipeline(params: {
     ds,
   } = params;
 
-  const sizing = getModeSizingParams(risk, mode);
-  const exit = resolveCopyEntryExitParams(risk, mode);
+  const sizing = getCopySizingParams(copyConfig, mode);
+  const exit = resolveCopyEntryExitParams(copyConfig, mode);
   const reason = move.type === 'OPENED' ? 'COPY_OPEN' : 'COPY_INCREASE';
   const signalId = hashCopyOrderSignalId({
     moveEventId: move.id,
@@ -159,7 +159,7 @@ export async function runCopyEntryPipeline(params: {
     return 'Valeur portefeuille trader nulle';
   }
 
-  const minTimeToClose = getModeMinTimeToClose(risk, mode);
+  const minTimeToClose = getCopyMinTimeToClose(copyConfig, mode);
   const market = markets.get(move.conditionId);
   if (minTimeToClose > 0 && market?.endDate) {
     const timeToEndMs = market.endDate.getTime() - Date.now();
@@ -214,7 +214,7 @@ export async function runCopyEntryPipeline(params: {
     previousTraderSize: move.previousTraderSize,
     balances,
     traderPortfolioValue: portfolio.ok ? portfolio.value : undefined,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(copyConfig, mode),
     signalScore: entrySignalScore,
     stopDistance,
   };
@@ -269,7 +269,7 @@ export async function runCopyEntryPipeline(params: {
     targetQty,
     askVwap,
     cash: balances.cash,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(copyConfig, mode),
     conditionId: move.conditionId,
     assetId: move.assetId,
     clobApi: config.clobApi,
@@ -300,8 +300,8 @@ export async function runCopyEntryPipeline(params: {
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId: move.assetId,
     targetQty: finalQty,
-    maxRetries: getModeEntryDepthRetryMax(risk, mode),
-    delayMs: getModeEntryDepthRetryDelayMs(risk, mode),
+    maxRetries: getCopyEntryDepthRetryMax(copyConfig, mode),
+    delayMs: getCopyEntryDepthRetryDelayMs(copyConfig, mode),
     connectionManager,
   });
   if (!depthResult.ok) {
@@ -336,7 +336,7 @@ export async function runCopyEntryPipeline(params: {
     return `Montant cible inférieur au minimum live (${MIN_ORDER_USDC} USDC)`;
   }
 
-  const minBidToAskRatio = getModeMinBidToAskRatio(risk, mode);
+  const minBidToAskRatio = getCopyMinBidToAskRatio(copyConfig, mode);
   if (
     !isEntryBidAskRatioAcceptable(
       entryBidVwap,
@@ -360,7 +360,7 @@ export async function runCopyEntryPipeline(params: {
     return 'Ratio bid/ask insuffisant';
   }
 
-  const momentumRejection = applyMomentumGate({ move, risk, mode, entryAskVwap });
+  const momentumRejection = applyMomentumGate({ move, copyConfig, mode, entryAskVwap });
   if (momentumRejection) return momentumRejection;
 
   let reserved = false;
@@ -447,12 +447,12 @@ function mapReservationError(message: string): string | null {
 
 function applyMomentumGate(params: {
   move: MoveEventDto;
-  risk: RiskConfig;
+  copyConfig: CopyConfig;
   mode: TradingMode;
   entryAskVwap: number;
 }): string | null {
-  const { move, risk, mode, entryAskVwap } = params;
-  const enabled = getModeMomentumFilterEnabled(risk, mode);
+  const { move, copyConfig, mode, entryAskVwap } = params;
+  const enabled = getCopyMomentumFilterEnabled(copyConfig, mode);
   const decision = evaluateMomentumEntry(
     entryAskVwap,
     move.traderAvgPrice,

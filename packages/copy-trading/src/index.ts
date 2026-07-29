@@ -3,7 +3,8 @@ import {
   assertDatabaseExists,
   createDataSource,
   initializeDataSource,
-  RiskService,
+  CopyConfigService,
+  GlobalConfigService,
   WatchlistService,
   createRedis,
   safeInterval,
@@ -42,7 +43,8 @@ async function main() {
   const ds = await initializeDataSource(createDataSource());
   await assertDatabaseExists(ds);
 
-  const riskService = new RiskService(ds);
+  const copyConfigService = new CopyConfigService(ds);
+  const globalConfigService = new GlobalConfigService(ds);
   const watchlistService = new WatchlistService(ds);
 
   const redisCmd = createRedis();
@@ -67,7 +69,7 @@ async function main() {
     async () => {},
   );
 
-  const moveDetector = new MoveDetector(ds, moveQueue, riskService);
+  const moveDetector = new MoveDetector(ds, moveQueue, copyConfigService);
   const copyProcessor = new CopyProcessor(ds, connectionManager, orderQueue);
 
   const moveQueueConsumer = new RedisQueue<MoveEventDto>(
@@ -102,8 +104,8 @@ async function main() {
   }
 
   try {
-    const riskConfig = await riskService.getConfig();
-    moveDetector.setIntervalMs(riskConfig.moveDetectorIntervalMs);
+    const copyConfig = await copyConfigService.getConfig();
+    moveDetector.setIntervalMs(copyConfig.moveDetectorIntervalMs);
   } catch (err) {
     log.warn({ err }, 'failed to load move detector interval — using default');
   }
@@ -140,20 +142,22 @@ async function main() {
   redisSub.on('message', (channel, message) => {
     if (shuttingDown) return;
     if (channel === 'config-changed') {
-      log.info('config changed — reloading watchlist flags & risk config');
+      log.info('config changed — reloading watchlist flags & copy config');
       void (async () => {
         WatchlistService.invalidateCache();
-        RiskService.invalidateConfigCache();
+        CopyConfigService.invalidateConfigCache();
+        GlobalConfigService.invalidateConfigCache();
 
         try {
-          const riskConfig = await riskService.getConfig();
-          moveDetector.setIntervalMs(riskConfig.moveDetectorIntervalMs);
+          const copyConfig = await copyConfigService.getConfig();
+          moveDetector.setIntervalMs(copyConfig.moveDetectorIntervalMs);
         } catch (err) {
           log.warn({ err }, 'failed to reload move detector interval');
         }
 
         try {
-          const copyTradingEnabled = await riskService.isAnyCopyTradingEnabled();
+          const copyConfig = await copyConfigService.getConfig();
+          const copyTradingEnabled = copyConfig.simCopyTradingEnabled || copyConfig.realCopyTradingEnabled;
           if (copyTradingEnabled && !moveDetector.isRunning()) {
             log.info('copy trading re-enabled — restarting move detector polling');
             moveDetector.startPolling();

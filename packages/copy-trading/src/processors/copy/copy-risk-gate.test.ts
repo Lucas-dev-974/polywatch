@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { evaluateCopyMoveGate, resolveCopyModesWithReasons } from './copy-risk-gate.js';
-import type { MoveEventDto, RiskConfig, WatchlistEntry } from '@polywatch/core';
-import { RiskService } from '@polywatch/core';
+import type { MoveEventDto, CopyConfig, GlobalConfig, WatchlistEntry } from '@polywatch/core';
 import type { DataSource } from 'typeorm';
 
 function makeEntry(overrides: Partial<WatchlistEntry> = {}): WatchlistEntry {
@@ -16,15 +15,21 @@ function makeEntry(overrides: Partial<WatchlistEntry> = {}): WatchlistEntry {
   } as WatchlistEntry;
 }
 
-function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
+function makeCopyConfig(overrides: Partial<CopyConfig> = {}): CopyConfig {
   return {
     simCopyTradingEnabled: true,
     realCopyTradingEnabled: true,
     simCopyIncreaseEnabled: true,
     simCopyDecreaseEnabled: true,
+    ...overrides,
+  } as CopyConfig;
+}
+
+function makeGlobalConfig(overrides: Partial<GlobalConfig> = {}): GlobalConfig {
+  return {
     realTradingEnabled: true,
     ...overrides,
-  } as RiskConfig;
+  } as GlobalConfig;
 }
 
 function makeMove(type: MoveEventDto['type']): MoveEventDto {
@@ -40,19 +45,6 @@ function makeMove(type: MoveEventDto['type']): MoveEventDto {
   } as MoveEventDto;
 }
 
-function makeRiskService(): RiskService {
-  return {
-    checkKillSwitch: vi.fn().mockResolvedValue({
-      killSwitchTriggered: false,
-      blockEntries: false,
-      action: 'block_entries',
-    }),
-    shouldBlockEntry: () => false,
-    shouldForceCloseAll: () => false,
-    shouldBlockAndNotify: () => false,
-  } as unknown as RiskService;
-}
-
 describe('evaluateCopyMoveGate', () => {
   it('blocks sim OPENED when simCopyTradingEnabled is false', async () => {
     const result = await evaluateCopyMoveGate(
@@ -60,8 +52,8 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('OPENED'),
       makeEntry(),
       'sim',
-      makeRisk({ simCopyTradingEnabled: false }),
-      makeRiskService(),
+      makeCopyConfig({ simCopyTradingEnabled: false }),
+      makeGlobalConfig(),
     );
     expect(result).toEqual({
       allowed: false,
@@ -75,8 +67,8 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('INCREASED'),
       makeEntry(),
       'sim',
-      makeRisk({ simCopyTradingEnabled: false }),
-      makeRiskService(),
+      makeCopyConfig({ simCopyTradingEnabled: false }),
+      makeGlobalConfig(),
     );
     expect(result).toEqual({
       allowed: false,
@@ -90,8 +82,8 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('CLOSED'),
       makeEntry(),
       'sim',
-      makeRisk({ simCopyTradingEnabled: false }),
-      makeRiskService(),
+      makeCopyConfig({ simCopyTradingEnabled: false }),
+      makeGlobalConfig(),
     );
     expect(result).toEqual({ allowed: true });
   });
@@ -102,8 +94,8 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('DECREASED'),
       makeEntry(),
       'sim',
-      makeRisk({ simCopyTradingEnabled: false }),
-      makeRiskService(),
+      makeCopyConfig({ simCopyTradingEnabled: false }),
+      makeGlobalConfig(),
     );
     expect(result).toEqual({ allowed: true });
   });
@@ -114,8 +106,8 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('OPENED'),
       makeEntry(),
       'real',
-      makeRisk({ realCopyTradingEnabled: false }),
-      makeRiskService(),
+      makeCopyConfig({ realCopyTradingEnabled: false }),
+      makeGlobalConfig(),
     );
     expect(result).toEqual({
       allowed: false,
@@ -129,8 +121,8 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('INCREASED'),
       makeEntry(),
       'real',
-      makeRisk({ realCopyTradingEnabled: false }),
-      makeRiskService(),
+      makeCopyConfig({ realCopyTradingEnabled: false }),
+      makeGlobalConfig(),
     );
     expect(result).toEqual({
       allowed: false,
@@ -144,8 +136,8 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('CLOSED'),
       makeEntry(),
       'real',
-      makeRisk({ realCopyTradingEnabled: false }),
-      makeRiskService(),
+      makeCopyConfig({ realCopyTradingEnabled: false }),
+      makeGlobalConfig(),
     );
     expect(result).toEqual({ allowed: true });
   });
@@ -154,32 +146,36 @@ describe('evaluateCopyMoveGate', () => {
 describe('resolveCopyModesWithReasons', () => {
   it('returns both modes when both are enabled', () => {
     const entry = makeEntry({ simEnabled: true, realEnabled: true });
-    const risk = makeRisk({ realTradingEnabled: true });
-    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, risk);
+    const copyConfig = makeCopyConfig();
+    const globalConfig = makeGlobalConfig({ realTradingEnabled: true });
+    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, copyConfig, globalConfig);
     expect(modes).toEqual(['sim', 'real']);
     expect(skippedRealReason).toBeUndefined();
   });
 
   it('returns sim only when real is disabled in entry', () => {
     const entry = makeEntry({ simEnabled: true, realEnabled: false });
-    const risk = makeRisk({ realTradingEnabled: true });
-    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, risk);
+    const copyConfig = makeCopyConfig();
+    const globalConfig = makeGlobalConfig({ realTradingEnabled: true });
+    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, copyConfig, globalConfig);
     expect(modes).toEqual(['sim']);
     expect(skippedRealReason).toBeUndefined();
   });
 
   it('returns sim only when real is disabled in config and provides skip reason', () => {
     const entry = makeEntry({ simEnabled: true, realEnabled: true });
-    const risk = makeRisk({ realTradingEnabled: false });
-    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, risk);
+    const copyConfig = makeCopyConfig();
+    const globalConfig = makeGlobalConfig({ realTradingEnabled: false });
+    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, copyConfig, globalConfig);
     expect(modes).toEqual(['sim']);
     expect(skippedRealReason).toBe('Trading réel désactivé (config)');
   });
 
   it('returns empty modes when nothing is enabled', () => {
     const entry = makeEntry({ simEnabled: false, realEnabled: false });
-    const risk = makeRisk({ realTradingEnabled: false });
-    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, risk);
+    const copyConfig = makeCopyConfig();
+    const globalConfig = makeGlobalConfig({ realTradingEnabled: false });
+    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, copyConfig, globalConfig);
     expect(modes).toEqual([]);
     expect(skippedRealReason).toBeUndefined();
   });

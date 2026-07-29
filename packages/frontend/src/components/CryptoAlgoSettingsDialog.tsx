@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, on, Show } from 'solid-js';
-import { api } from '../api';
+import { fetchCryptoConfig, updateCryptoConfig } from '../api';
 import { loadAutoTrackRules } from '../stores/autoTrackStore';
 import { CryptoAlgoSettingsAutotrackTab } from './CryptoAlgoSettingsAutotrackTab';
 import { CryptoAlgoSettingsExitTab } from './CryptoAlgoSettingsExitTab';
@@ -70,8 +70,8 @@ export function CryptoAlgoSettingsDialog(props: CryptoAlgoSettingsDialogProps) {
 
   async function load() {
     try {
-      const full = await api<EnvSettings>('/risk-config');
-      setConfig(pickCryptoAlgoFields(full));
+      const full = await fetchCryptoConfig();
+      setConfig(pickCryptoAlgoFields(full as unknown as EnvSettings));
       setError(null);
       jsonValidity.clear();
       setJsonInvalidCount(0);
@@ -117,11 +117,8 @@ export function CryptoAlgoSettingsDialog(props: CryptoAlgoSettingsDialogProps) {
     setSaving(true);
     setError(null);
     try {
-      const updated = await api<EnvSettings>('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify(current),
-      });
-      setConfig(pickCryptoAlgoFields(updated));
+      const updated = await updateCryptoConfig(current as unknown as Record<string, unknown>);
+      setConfig(pickCryptoAlgoFields(updated as unknown as EnvSettings));
       props.onClose();
     } catch (err) {
       setError(

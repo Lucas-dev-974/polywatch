@@ -1,5 +1,5 @@
 import { createEffect, createSignal, on, Show } from 'solid-js';
-import { api } from '../api';
+import { fetchGlobalConfig, updateGlobalConfig } from '../api';
 import type { EnvSettings } from './env-settings-types';
 import { Dialog } from './Dialog';
 import { SimAutoSnapshotSection } from './settings-fields';
@@ -24,7 +24,7 @@ export function SimSnapshotSettingsDialog(props: Props) {
 
   async function load() {
     try {
-      const config = await api<EnvSettings>('/risk-config');
+      const config = await fetchGlobalConfig();
       setSettings({
         simAutoSnapshotEnabled: config.simAutoSnapshotEnabled,
         simAutoSnapshotIntervalSeconds: config.simAutoSnapshotIntervalSeconds,
@@ -60,10 +60,7 @@ export function SimSnapshotSettingsDialog(props: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api<EnvSettings>('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify(current),
-      });
+      await updateGlobalConfig(current as unknown as Record<string, unknown>);
       props.onClose();
     } catch (err) {
       setError(

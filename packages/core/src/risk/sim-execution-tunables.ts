@@ -1,3 +1,4 @@
+import type { GlobalConfig } from '../entities/GlobalConfig.js';
 import type { RiskConfig } from '../entities/RiskConfig.js';
 
 export type SimExecLatencyMode = 'fixed' | 'calibrated';
@@ -27,31 +28,33 @@ export interface SimExecutionTunables {
   recordLatencySamples: boolean;
 }
 
-export function resolveSimExecutionTunables(risk: RiskConfig): SimExecutionTunables {
+export function resolveSimExecutionTunables(
+  cfg: RiskConfig | GlobalConfig,
+): SimExecutionTunables {
   const latencyMode: SimExecLatencyMode =
-    risk.simExecLatencyMode === 'calibrated' ? 'calibrated' : 'fixed';
+    cfg.simExecLatencyMode === 'calibrated' ? 'calibrated' : 'fixed';
   const fixedLatencyMs =
-    risk.simExecLatencyMs != null && risk.simExecLatencyMs >= 0
-      ? risk.simExecLatencyMs
+    cfg.simExecLatencyMs != null && cfg.simExecLatencyMs >= 0
+      ? cfg.simExecLatencyMs
       : resolveEnvSimExecutionLatencyMs();
 
-  const shadowLoggingEnabled = risk.simShadowLoggingEnabled === true;
+  const shadowLoggingEnabled = cfg.simShadowLoggingEnabled === true;
   const recordLatencySamples =
     latencyMode === 'calibrated' || shadowLoggingEnabled;
 
   return {
     latencyMode,
     fixedLatencyMs,
-    selfImpactEnabled: risk.simSelfImpactEnabled === true,
+    selfImpactEnabled: cfg.simSelfImpactEnabled === true,
     selfImpactTtlSeconds:
-      risk.simSelfImpactTtlSeconds != null && risk.simSelfImpactTtlSeconds >= 1
-        ? risk.simSelfImpactTtlSeconds
+      cfg.simSelfImpactTtlSeconds != null && cfg.simSelfImpactTtlSeconds >= 1
+        ? cfg.simSelfImpactTtlSeconds
         : DEFAULT_SIM_SELF_IMPACT_TTL_SECONDS,
-    walletPreflightEnabled: risk.simWalletPreflightEnabled === true,
+    walletPreflightEnabled: cfg.simWalletPreflightEnabled === true,
     shadowLoggingEnabled,
     shadowSampleRetentionDays:
-      risk.shadowSampleRetentionDays != null && risk.shadowSampleRetentionDays >= 1
-        ? risk.shadowSampleRetentionDays
+      cfg.shadowSampleRetentionDays != null && cfg.shadowSampleRetentionDays >= 1
+        ? cfg.shadowSampleRetentionDays
         : DEFAULT_SHADOW_SAMPLE_RETENTION_DAYS,
     recordLatencySamples,
   };

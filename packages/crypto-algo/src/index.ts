@@ -4,7 +4,8 @@ import {
   assertDatabaseExists,
   createDataSource,
   initializeDataSource,
-  RiskService,
+  CryptoConfigService,
+  GlobalConfigService,
   MarketService,
   AlgoAutoTrackService,
   createAlgoSelectionServices,
@@ -27,7 +28,8 @@ import {
   resolvePriceTickRefQty,
   resolveTickIntervalMs,
   resolveTickRetentionHours,
-  type RiskConfig,
+  type CryptoConfig,
+  type GlobalConfig,
   WORKER_QUEUES,
 } from '@polywatch/core';
 import { config } from './config.js';
@@ -54,18 +56,18 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 const BACKEND_READY_TIMEOUT_MS = 60_000;
 
 function applyCryptoAlgoRiskTunables(
-  risk: RiskConfig,
+  cryptoConfig: CryptoConfig,
   strategyRunner: StrategyRunner,
   priceFeed: CryptoAlgoPriceFeed,
   priceTickRecorder: PriceTickRecorder,
 ): void {
-  strategyRunner.applyRiskTunables(risk);
-  strategyRunner.reconfigurePollMs(resolvePollMs(risk, config.pollMs));
-  priceFeed.setDebounceMs(resolveWsDebounceMs(risk));
+  strategyRunner.applyRiskTunables(cryptoConfig);
+  strategyRunner.reconfigurePollMs(resolvePollMs(cryptoConfig, config.pollMs));
+  priceFeed.setDebounceMs(resolveWsDebounceMs(cryptoConfig));
   priceTickRecorder.configure({
-    tickIntervalMs: resolveTickIntervalMs(risk),
-    retentionHours: resolveTickRetentionHours(risk),
-    refQty: resolvePriceTickRefQty(risk),
+    tickIntervalMs: resolveTickIntervalMs(cryptoConfig),
+    retentionHours: resolveTickRetentionHours(cryptoConfig),
+    refQty: resolvePriceTickRefQty(cryptoConfig),
   });
 }
 
@@ -81,7 +83,8 @@ async function main() {
   log.info({ watchlistId }, 'crypto-algo watchlist entry ready');
 
   // 4. Create services
-  const riskService = new RiskService(ds);
+  const cryptoConfigService = new CryptoConfigService(ds);
+  const globalConfigService = new GlobalConfigService(ds);
   const { marketService, selectionService: algoSelectionService } =
     createAlgoSelectionServices(ds);
   const autoTrackService = new AlgoAutoTrackService(ds);
@@ -127,12 +130,12 @@ async function main() {
     );
   }
 
-  // 12. Load RiskConfig and check crypto-algo kill switch
-  const riskConfig = await riskService.getConfig();
-  if (!riskConfig.cryptoAlgoEnabled) {
-    log.warn('crypto-algo is disabled in risk config — starting in standby mode');
+  // 12. Load CryptoConfig and check crypto-algo kill switch
+  const cryptoConfig = await cryptoConfigService.getConfig();
+  if (!cryptoConfig.cryptoAlgoEnabled) {
+    log.warn('crypto-algo is disabled in crypto config — starting in standby mode');
   } else {
-    log.info('crypto-algo enabled in risk config');
+    log.info('crypto-algo enabled in crypto config');
   }
 
   // 13. Load selections, subscribe to config changes, start periodic refresh
@@ -160,10 +163,12 @@ async function main() {
 
   // 14. Create the onSignal callback that runs the entry pipeline
   const onSignal = async (signal: AlgoSignal): Promise<boolean> => {
-    const risk = await riskService.getConfig();
+    const cryptoConfig = await cryptoConfigService.getConfig();
+    const globalConfig = await globalConfigService.getConfig();
     const result = await runAlgoEntryPipeline({
       signal,
-      risk,
+      risk: cryptoConfig,
+      realTradingEnabled: globalConfig.realTradingEnabled,
       watchlistId,
       connectionManager,
       reservationService,
@@ -197,7 +202,7 @@ async function main() {
   const strategyRunner = new StrategyRunner(
     selectionLoader,
     registry,
-    riskService,
+    cryptoConfigService,
     marketService,
     ds,
     algoSelectionService,
@@ -213,7 +218,7 @@ async function main() {
     signalRegistry.recordAbstain(conditionId, reason, detail);
   });
 
-  applyCryptoAlgoRiskTunables(riskConfig, strategyRunner, priceFeed, priceTickRecorder);
+  applyCryptoAlgoRiskTunables(cryptoConfig, strategyRunner, priceFeed, priceTickRecorder);
 
   // 16b. Create percent publisher for live market updates
   const percentPublisher = new AlgoMarketPercentPublisher(
@@ -272,8 +277,8 @@ async function main() {
   }
 
   // 18. Start the strategy evaluation loop (polling fallback)
-  strategyRunner.start(resolvePollMs(riskConfig, config.pollMs));
-  log.info({ pollMs: resolvePollMs(riskConfig, config.pollMs) }, 'strategy runner started');
+  strategyRunner.start(resolvePollMs(cryptoConfig, config.pollMs));
+  log.info({ pollMs: resolvePollMs(cryptoConfig, config.pollMs) }, 'strategy runner started');
 
   let marketJanitorTimer: NodeJS.Timeout | null = null;
 
@@ -364,22 +369,22 @@ async function main() {
   // never arrives, with fallback to the local markets table.
   const stopSurveillanceJanitor = startSurveillanceJanitor(ds);
 
-  // 19c. Price tick cleanup: configurable via RiskConfig
+  // 19c. Price tick cleanup: configurable via CryptoConfig
   let priceTickCleanupTimer: NodeJS.Timeout | null = null;
 
-  if (riskConfig.cryptoAlgoPriceTickCleanupEnabled) {
-    const intervalMs = (riskConfig.cryptoAlgoPriceTickCleanupIntervalMinutes ?? 60) * 60 * 1000;
+  if (cryptoConfig.cryptoAlgoPriceTickCleanupEnabled) {
+    const intervalMs = (cryptoConfig.cryptoAlgoPriceTickCleanupIntervalMinutes ?? 60) * 60 * 1000;
     priceTickCleanupTimer = safeInterval(
       () => priceTickRecorder.cleanupOldTicks(),
       intervalMs,
       'crypto-algo:price-tick-cleanup',
     );
     log.info(
-      { intervalMinutes: riskConfig.cryptoAlgoPriceTickCleanupIntervalMinutes ?? 60 },
+      { intervalMinutes: cryptoConfig.cryptoAlgoPriceTickCleanupIntervalMinutes ?? 60 },
       'price tick cleanup started',
     );
   } else {
-    log.info('price tick cleanup disabled via risk config');
+    log.info('price tick cleanup disabled via crypto config');
   }
 
   const positionContextRefreshTimer = safeInterval(
@@ -459,7 +464,7 @@ async function main() {
     }
 
     if (channel !== 'config-changed') return;
-    log.info('config-changed received — reloading selection loader and risk config');
+    log.info('config-changed received — reloading selection loader and crypto config');
     void (async () => {
       try {
         await selectionLoader.reload();
@@ -478,11 +483,11 @@ async function main() {
         log.error({ err }, 'failed to reload selection loader on config-changed');
       }
       try {
-        RiskService.invalidateConfigCache();
-        const refreshed = await riskService.getConfig();
+        CryptoConfigService.invalidateConfigCache();
+        const refreshed = await cryptoConfigService.getConfig();
         log.info(
           { cryptoAlgoEnabled: refreshed.cryptoAlgoEnabled },
-          'risk config reloaded',
+          'crypto config reloaded',
         );
 
         applyCryptoAlgoRiskTunables(
@@ -512,7 +517,7 @@ async function main() {
           log.info('price tick cleanup disabled via config-changed');
         }
       } catch (err) {
-        log.warn({ err }, 'failed to reload risk config on config-changed');
+        log.warn({ err }, 'failed to reload crypto config on config-changed');
       }
     })();
   });

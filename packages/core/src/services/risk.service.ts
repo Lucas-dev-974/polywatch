@@ -1,9 +1,26 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { canEnableRealTrading } from '../config/secrets.js';
+import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Execution } from '../entities/Execution.js';
 import { RiskConfig } from '../entities/RiskConfig.js';
-import { getModeKillSwitchAction, getModeMaxDailyLossUsdc } from '../risk/policy.js';
+import { GlobalConfig } from '../entities/GlobalConfig.js';
+import { CopyConfig } from '../entities/CopyConfig.js';
+import { CryptoConfig } from '../entities/CryptoConfig.js';
+import { WeatherConfig } from '../entities/WeatherConfig.js';
+import { GlobalConfigService } from './global-config.service.js';
+import { CopyConfigService } from './copy-config.service.js';
+import { CryptoConfigService } from './crypto-config.service.js';
+import { WeatherConfigService } from './weather-config.service.js';
+import {
+  getCopyMaxDailyLossUsdc,
+  getCopyKillSwitchAction,
+  getCryptoMaxDailyLossUsdc,
+  getCryptoKillSwitchAction,
+  getWeatherMaxDailyLossUsdc,
+  getWeatherKillSwitchAction,
+} from '../risk/policy.js';
 import type { KillSwitchAction, TradingMode } from '../types/index.js';
+import type { SimAlgoKind } from '../simulation/algo-kind.js';
 
 export interface RiskCheckResult {
   killSwitchTriggered: boolean;
@@ -33,6 +50,8 @@ export class RiskService {
     RiskService.configCache = null;
   }
 
+  // ─── Legacy merged config (rétro-compat facade over isolated tables) ─
+
   async getConfig(options?: GetRiskConfigOptions): Promise<RiskConfig> {
     const bypassCache = options?.bypassCache === true || options?.manager != null;
     if (!bypassCache) {
@@ -42,76 +61,24 @@ export class RiskService {
       }
     }
 
-    const repo = (options?.manager ?? this.ds.manager).getRepository(RiskConfig);
-    const config = await repo.findOne({ where: {} });
-    if (!config) throw new Error('Risk config not found');
+    const [global, copy, crypto, weather] = await Promise.all([
+      this.getGlobalConfig(options),
+      this.getCopyConfig(options),
+      this.getCryptoConfig(options),
+      this.getWeatherConfig(options),
+    ]);
+
+    // Compose a RiskConfig-shaped object from the four isolated tables so that
+    // legacy callers (and the few remaining legacy getters) keep working.
+    const composed = this.composeRiskConfig(global, copy, crypto, weather);
+
     if (!bypassCache) {
       RiskService.configCache = {
-        config,
+        config: composed,
         expiresAt: Date.now() + CONFIG_CACHE_TTL_MS,
       };
     }
-    return config;
-  }
-
-  /**
-   * Live check of whether real trading is currently enabled. Call sites should
-   * prefer this over cached config values when guarding execution of real BUY
-   * signals, because the flag can be toggled while signals are in flight.
-   */
-  async isRealTradingEnabled(): Promise<boolean> {
-    const config = await this.getConfig();
-    return RiskService.isRealTradingEnabledForConfig(config);
-  }
-
-  /**
-   * Pure helper shared by all real-mode guards so the rule "real trading must be
-   * enabled" is expressed in exactly one place.
-   */
-  static isRealTradingEnabledForConfig(risk: RiskConfig): boolean {
-    return risk.realTradingEnabled;
-  }
-
-  /**
-   * Live check of whether sim copy trading entries are enabled. Prefer over
-   * cached config when guarding in-flight sim COPY BUY signals.
-   */
-  async isSimCopyTradingEnabled(): Promise<boolean> {
-    const config = await this.getConfig();
-    return RiskService.isSimCopyTradingEnabledForConfig(config);
-  }
-
-  /** Pure helper for sim copy entry guards (COPY_OPEN / COPY_INCREASE only). */
-  static isSimCopyTradingEnabledForConfig(risk: RiskConfig): boolean {
-    return risk.simCopyTradingEnabled;
-  }
-
-  /**
-   * Live check of whether real copy trading entries are enabled. Prefer over
-   * cached config when guarding in-flight real COPY BUY signals.
-   */
-  async isRealCopyTradingEnabled(): Promise<boolean> {
-    const config = await this.getConfig();
-    return RiskService.isRealCopyTradingEnabledForConfig(config);
-  }
-
-  /** Pure helper for real copy entry guards (COPY_OPEN / COPY_INCREASE only). */
-  static isRealCopyTradingEnabledForConfig(risk: RiskConfig): boolean {
-    return risk.realCopyTradingEnabled;
-  }
-
-  /**
-   * Live check of whether any copy-trading mode (sim or real) is enabled.
-   * Used by the move detector to decide whether to poll watched addresses.
-   */
-  async isAnyCopyTradingEnabled(): Promise<boolean> {
-    const config = await this.getConfig();
-    return RiskService.isAnyCopyTradingEnabledForConfig(config);
-  }
-
-  /** Pure helper — true if sim OR real copy trading entries are enabled. */
-  static isAnyCopyTradingEnabledForConfig(risk: RiskConfig): boolean {
-    return risk.simCopyTradingEnabled || risk.realCopyTradingEnabled;
+    return composed;
   }
 
   async updateConfig(partial: Partial<RiskConfig>): Promise<RiskConfig> {
@@ -124,37 +91,319 @@ export class RiskService {
         throw new Error('insecure_secrets_real_trading_blocked');
       }
     }
-    const repo = this.ds.getRepository(RiskConfig);
-    const config = await this.getUncachedConfig();
-    Object.assign(config, partial);
+
+    // Dual-write: dispatch to the 4 new tables
+    await this.dualWriteConfig(partial);
+
+    // Invalidate every isolated config cache so consumers pick up the change.
     RiskService.invalidateConfigCache();
-    return repo.save(config);
+    GlobalConfigService.invalidateConfigCache();
+    CopyConfigService.invalidateConfigCache();
+    CryptoConfigService.invalidateConfigCache();
+    WeatherConfigService.invalidateConfigCache();
+
+    return this.getConfig({ bypassCache: true });
   }
 
-  private async getUncachedConfig(): Promise<RiskConfig> {
-    const config = await this.ds.getRepository(RiskConfig).findOne({
-      where: {},
-    });
-    if (!config) throw new Error('Risk config not found');
+  /**
+   * Dual-write the partial update to the new isolated tables.
+   * Each field is mapped to its target table.
+   */
+  private async dualWriteConfig(partial: Partial<RiskConfig>): Promise<void> {
+    const globalRepo = this.ds.getRepository(GlobalConfig);
+    const copyRepo = this.ds.getRepository(CopyConfig);
+    const cryptoRepo = this.ds.getRepository(CryptoConfig);
+    const weatherRepo = this.ds.getRepository(WeatherConfig);
+
+    // Global fields
+    const globalFields: (keyof GlobalConfig)[] = [
+      'maxSlippagePercent', 'exitSlippageGuardPercent', 'realTradingEnabled', 'realCashOverride',
+      'simExecLatencyMode', 'simExecLatencyMs', 'simSelfImpactEnabled', 'simSelfImpactTtlSeconds',
+      'simWalletPreflightEnabled', 'simShadowLoggingEnabled', 'shadowSampleRetentionDays',
+      'simAutoSnapshotEnabled', 'simAutoSnapshotIntervalSeconds', 'simSnapshotMaxCount',
+      'simSnapshotRetentionDays', 'simAutoSnapshotEmptySession', 'simSnapshotDecisionWindowHours',
+      'realAutoSnapshotEnabled', 'realAutoSnapshotIntervalSeconds', 'realSnapshotMaxCount',
+      'realSnapshotRetentionDays', 'realSnapshotDecisionWindowHours',
+    ];
+    const globalPatch: Partial<GlobalConfig> = {};
+    for (const key of globalFields) {
+      if (key in partial) {
+        (globalPatch as Record<string, unknown>)[key] = (partial as Record<string, unknown>)[key];
+      }
+    }
+    if (Object.keys(globalPatch).length > 0) {
+      const globalConfig = await globalRepo.findOne({ where: {} });
+      if (globalConfig) {
+        Object.assign(globalConfig, globalPatch);
+        await globalRepo.save(globalConfig);
+      }
+    }
+
+    // Copy fields
+    const copyFields: (keyof CopyConfig)[] = [
+      'simCopyTradingEnabled', 'realCopyTradingEnabled', 'simCopyRatio', 'simEntryUsdcAmount',
+      'simEntryShareCount', 'simKellyFraction', 'simRiskBudgetUsdc', 'simDefaultWinProbability',
+      'simSizingMode', 'realSizingMode', 'simMaxOpenPositions', 'realMaxOpenPositions',
+      'simMaxPositionSizeUsdc', 'realMaxPositionSizeUsdc', 'simMaxExposureUsdc', 'realMaxExposureUsdc',
+      'simMaxDailyLossUsdc', 'realMaxDailyLossUsdc', 'simSlBidPoints', 'realSlBidPoints',
+      'simTpBidPoints', 'realTpBidPoints', 'simTrailingBidPoints', 'realTrailingBidPoints',
+      'simTrailingActivationBidPoints', 'realTrailingActivationBidPoints',
+      'simSlEnabled', 'simTpEnabled', 'simTrailingEnabled', 'realSlEnabled', 'realTpEnabled', 'realTrailingEnabled',
+      'simKillSwitchAction', 'realKillSwitchAction', 'simMinBidToAskRatio', 'realMinBidToAskRatio',
+      'simEntryDepthRetryMax', 'realEntryDepthRetryMax', 'simEntryDepthRetryDelayMs', 'realEntryDepthRetryDelayMs',
+      'simSlCloseMaxRetries', 'realSlCloseMaxRetries',
+      'preCloseEnabled', 'preCloseSeconds', 'simPreCloseEnabled', 'realPreCloseEnabled',
+      'simPreCloseSeconds', 'realPreCloseSeconds', 'simMinTimeToClose', 'realMinTimeToClose',
+      'simPreCloseKeepEnabled', 'realPreCloseKeepEnabled', 'simPreCloseKeepBidThreshold', 'realPreCloseKeepBidThreshold',
+      'simAllowedMarketTags', 'realAllowedMarketTags', 'simSignalScoreSizingEnabled', 'realSignalScoreSizingEnabled',
+      'copyIncreaseEnabled', 'copyDecreaseEnabled', 'maxIncreasesPerPosition',
+      'simCopyIncreaseEnabled', 'realCopyIncreaseEnabled', 'simCopyDecreaseEnabled', 'realCopyDecreaseEnabled',
+      'simMaxIncreasesPerPosition', 'realMaxIncreasesPerPosition',
+      'simCopyIncreaseSlProximityEnabled', 'realCopyIncreaseSlProximityEnabled',
+      'simCopyIncreaseSlProximityPercent', 'realCopyIncreaseSlProximityPercent',
+      'moveDetectorIntervalMs', 'simInitialCapitalCopy', 'slConfirmationTicks',
+      'simMomentumFilterEnabled', 'realMomentumFilterEnabled',
+    ];
+    const copyPatch: Partial<CopyConfig> = {};
+    for (const key of copyFields) {
+      if (key in partial) {
+        (copyPatch as Record<string, unknown>)[key] = (partial as Record<string, unknown>)[key];
+      }
+    }
+    if (Object.keys(copyPatch).length > 0) {
+      const copyConfig = await copyRepo.findOne({ where: {} });
+      if (copyConfig) {
+        Object.assign(copyConfig, copyPatch);
+        await copyRepo.save(copyConfig);
+      }
+    }
+
+    // Crypto fields
+    const cryptoFields: (keyof CryptoConfig)[] = [
+      'cryptoAlgoEnabled', 'cryptoAlgoStrategies', 'cryptoAlgoSlEnabled', 'cryptoAlgoTpEnabled',
+      'cryptoAlgoTrailingEnabled', 'cryptoAlgoSlBidPoints', 'cryptoAlgoTpBidPoints',
+      'cryptoAlgoTrailingBidPoints', 'cryptoAlgoTrailingActivationBidPoints',
+      'cryptoAlgoPreCloseEnabled', 'cryptoAlgoPreCloseSeconds', 'cryptoAlgoPreCloseKeepEnabled',
+      'cryptoAlgoPreCloseKeepBidThreshold', 'cryptoAlgoMinTimeToClose',
+      'cryptoAlgoReentryWindowMs', 'cryptoAlgoMaxEntriesPerWindow',
+      'cryptoAlgoBaseThreshold', 'cryptoAlgoSpreadAdjustmentFactor',
+      'cryptoAlgoMinSpreadAbsForAdjustment', 'cryptoAlgoMaxSpreadAbs',
+      'cryptoAlgoPriceSumTolerance', 'cryptoAlgoWarnPriceDeviation',
+      'cryptoAlgoMaxBookAgeMs', 'cryptoAlgoGammaCacheTtlShortMs', 'cryptoAlgoGammaCacheTtlDefaultMs',
+      'cryptoAlgoGammaStaleOnErrorFactor', 'cryptoAlgoWsDebounceMs', 'cryptoAlgoPollMs',
+      'cryptoAlgoTickIntervalMs', 'cryptoAlgoTickRetentionHours', 'cryptoAlgoPriceTickRefQty',
+      'cryptoAlgoPriceTickCleanupEnabled', 'cryptoAlgoPriceTickCleanupIntervalMinutes',
+      'cryptoAlgoMinTimeToCloseBufferSeconds', 'cryptoAlgoLastCloseableBidMaxAgeMs',
+      'cryptoAlgoSpreadAbsByInterval', 'cryptoAlgoExitDefaultsByInterval', 'cryptoAlgoPreCloseSecondsByInterval',
+      'cryptoAlgoSlQuotaEnabled', 'cryptoAlgoSlQuotaPerMarket', 'cryptoAlgoSlQuotaCacheTtlSeconds',
+      'cryptoAlgoEntryPriceMin', 'cryptoAlgoEntryPriceMax', 'cryptoAlgoEntryPriceBandEnabled',
+      'cryptoAlgoCurveFilterEnabled', 'cryptoAlgoCurveLookbackMs', 'cryptoAlgoCurveMinDelta',
+      'cryptoAlgoSizingMode', 'cryptoAlgoEntryUsdcAmount', 'cryptoAlgoEntryShareCount',
+      'cryptoAlgoMaxOpenPositions', 'cryptoAlgoMaxExposureUsdc', 'cryptoAlgoMaxDailyLossUsdc',
+      'cryptoAlgoMaxPositionSizeUsdc', 'cryptoAlgoKillSwitchAction', 'cryptoAlgoMinBidToAskRatio',
+      'cryptoAlgoEntryDepthRetryMax', 'cryptoAlgoEntryDepthRetryDelayMs', 'cryptoAlgoSlCloseMaxRetries',
+      'cryptoAlgoAllowedMarketTags', 'cryptoAlgoSignalScoreSizingEnabled', 'cryptoAlgoSlConfirmationTicks',
+      'simInitialCapitalCrypto',
+    ];
+    const cryptoPatch: Partial<CryptoConfig> = {};
+    for (const key of cryptoFields) {
+      if (key in partial) {
+        (cryptoPatch as Record<string, unknown>)[key] = (partial as Record<string, unknown>)[key];
+      }
+    }
+    if (Object.keys(cryptoPatch).length > 0) {
+      const cryptoConfig = await cryptoRepo.findOne({ where: {} });
+      if (cryptoConfig) {
+        Object.assign(cryptoConfig, cryptoPatch);
+        await cryptoRepo.save(cryptoConfig);
+      }
+    }
+
+    // Weather fields
+    const weatherFields: (keyof WeatherConfig)[] = [
+      'weatherAlgoEnabled', 'weatherAlgoSimEnabled', 'weatherAlgoRealEnabled',
+      'weatherAlgoMinEdge', 'weatherAlgoMaxForecastStd', 'weatherAlgoSizingMode',
+      'weatherAlgoEntryUsdc', 'weatherAlgoSelectionMode', 'weatherAlgoMaxSignalsPerEvent',
+      'weatherAlgoForecastChangeThreshold', 'weatherAlgoCloseBeforeResolutionHours',
+      'weatherAlgoPollMs', 'weatherAlgoCityFollowSwitchMode',
+      'weatherAlgoMaxOpenPositions', 'weatherAlgoMaxExposureUsdc', 'weatherAlgoMaxDailyLossUsdc',
+      'weatherAlgoMaxPositionSizeUsdc', 'weatherAlgoSlBidPoints', 'weatherAlgoTpBidPoints',
+      'weatherAlgoTrailingBidPoints', 'weatherAlgoTrailingActivationBidPoints',
+      'weatherAlgoPreCloseSeconds', 'weatherAlgoPreCloseEnabled', 'weatherAlgoSlEnabled',
+      'weatherAlgoTpEnabled', 'weatherAlgoTrailingEnabled',
+      'weatherAlgoKillSwitchAction', 'weatherAlgoMinBidToAskRatio',
+      'weatherAlgoEntryDepthRetryMax', 'weatherAlgoEntryDepthRetryDelayMs', 'weatherAlgoSlCloseMaxRetries',
+      'weatherAlgoMinTimeToClose', 'weatherAlgoAllowedMarketTags', 'weatherAlgoSignalScoreSizingEnabled',
+      'weatherAlgoSlConfirmationTicks',
+      'simInitialCapitalWeather',
+    ];
+    const weatherPatch: Partial<WeatherConfig> = {};
+    for (const key of weatherFields) {
+      if (key in partial) {
+        (weatherPatch as Record<string, unknown>)[key] = (partial as Record<string, unknown>)[key];
+      }
+    }
+    if (Object.keys(weatherPatch).length > 0) {
+      const weatherConfig = await weatherRepo.findOne({ where: {} });
+      if (weatherConfig) {
+        Object.assign(weatherConfig, weatherPatch);
+        await weatherRepo.save(weatherConfig);
+      }
+    }
+  }
+
+  private composeRiskConfig(
+    global: GlobalConfig,
+    copy: CopyConfig,
+    crypto: CryptoConfig,
+    weather: WeatherConfig,
+  ): RiskConfig {
+    return {
+      ...global,
+      ...copy,
+      ...crypto,
+      ...weather,
+      id: 0,
+    } as unknown as RiskConfig;
+  }
+
+  // ─── New per-algo getters ─────────────────────────────────────────────
+
+  async getGlobalConfig(options?: GetRiskConfigOptions): Promise<GlobalConfig> {
+    const repo = (options?.manager ?? this.ds.manager).getRepository(GlobalConfig);
+    const config = await repo.findOne({ where: {} });
+    if (!config) throw new Error('Global config not found');
     return config;
   }
 
-  async checkKillSwitch(mode: TradingMode): Promise<RiskCheckResult> {
+  async getCopyConfig(options?: GetRiskConfigOptions): Promise<CopyConfig> {
+    const repo = (options?.manager ?? this.ds.manager).getRepository(CopyConfig);
+    const config = await repo.findOne({ where: {} });
+    if (!config) throw new Error('Copy config not found');
+    return config;
+  }
+
+  async getCryptoConfig(options?: GetRiskConfigOptions): Promise<CryptoConfig> {
+    const repo = (options?.manager ?? this.ds.manager).getRepository(CryptoConfig);
+    const config = await repo.findOne({ where: {} });
+    if (!config) throw new Error('Crypto config not found');
+    return config;
+  }
+
+  async getWeatherConfig(options?: GetRiskConfigOptions): Promise<WeatherConfig> {
+    const repo = (options?.manager ?? this.ds.manager).getRepository(WeatherConfig);
+    const config = await repo.findOne({ where: {} });
+    if (!config) throw new Error('Weather config not found');
+    return config;
+  }
+
+  /**
+   * Load the algo-specific config for a given algoKind.
+   * Used by the worker to load the right config for close signals.
+   */
+  async getConfigForAlgo(algoKind: SimAlgoKind): Promise<CopyConfig | CryptoConfig | WeatherConfig> {
+    switch (algoKind) {
+      case 'copy':
+        return this.getCopyConfig();
+      case 'crypto':
+        return this.getCryptoConfig();
+      case 'weather':
+        return this.getWeatherConfig();
+      default:
+        throw new Error(`Unsupported algoKind: ${algoKind}`);
+    }
+  }
+
+  // ─── Legacy guards (rétro-compat, now compose from isolated tables) ──
+
+  async isRealTradingEnabled(): Promise<boolean> {
     const config = await this.getConfig();
+    return RiskService.isRealTradingEnabledForConfig(config);
+  }
+
+  static isRealTradingEnabledForConfig(risk: RiskConfig): boolean {
+    return risk.realTradingEnabled;
+  }
+
+  async isSimCopyTradingEnabled(): Promise<boolean> {
+    const config = await this.getConfig();
+    return RiskService.isSimCopyTradingEnabledForConfig(config);
+  }
+
+  static isSimCopyTradingEnabledForConfig(risk: RiskConfig): boolean {
+    return risk.simCopyTradingEnabled;
+  }
+
+  async isRealCopyTradingEnabled(): Promise<boolean> {
+    const config = await this.getConfig();
+    return RiskService.isRealCopyTradingEnabledForConfig(config);
+  }
+
+  static isRealCopyTradingEnabledForConfig(risk: RiskConfig): boolean {
+    return risk.realCopyTradingEnabled;
+  }
+
+  async isAnyCopyTradingEnabled(): Promise<boolean> {
+    const config = await this.getConfig();
+    return RiskService.isAnyCopyTradingEnabledForConfig(config);
+  }
+
+  static isAnyCopyTradingEnabledForConfig(risk: RiskConfig): boolean {
+    return risk.simCopyTradingEnabled || risk.realCopyTradingEnabled;
+  }
+
+  // ─── New per-algo real trading guards ────────────────────────────────
+
+  async isRealCryptoTradingEnabled(): Promise<boolean> {
+    const [global, crypto] = await Promise.all([
+      this.getGlobalConfig(),
+      this.getCryptoConfig(),
+    ]);
+    return global.realTradingEnabled && crypto.cryptoAlgoEnabled;
+  }
+
+  async isRealWeatherTradingEnabled(): Promise<boolean> {
+    const [global, weather] = await Promise.all([
+      this.getGlobalConfig(),
+      this.getWeatherConfig(),
+    ]);
+    return global.realTradingEnabled && weather.weatherAlgoRealEnabled;
+  }
+
+  // ─── Kill switch ────────────────────────────────────────────────────
+
+  async checkKillSwitch(algoKind: SimAlgoKind, mode: TradingMode): Promise<RiskCheckResult> {
+    const config = await this.getConfigForAlgo(algoKind);
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
+    // Sum realized PnL only for executions whose opening position belongs to
+    // the requested algoKind. Exit reasons (SL/TP/TRAILING) are shared across
+    // algos, so we scope via the parent CopiedPosition.reason.
     const result = await this.ds
       .getRepository(Execution)
       .createQueryBuilder('e')
       .select('COALESCE(SUM(e.realized_pnl), 0)', 'total')
+      .innerJoin(CopiedPosition, 'p', 'p.id = e.copied_position_id')
       .where('e.mode = :mode', { mode })
       .andWhere('e.executed_at >= :start', { start: startOfDay })
+      .andWhere('p.reason IN (:...reasons)', { reasons: openingReasonsForAlgoKind(algoKind) })
       .getRawOne<{ total: number }>();
 
     const dailyNet = result?.total ?? 0;
-    const triggered = dailyNet < 0 && Math.abs(dailyNet) >= getModeMaxDailyLossUsdc(config, mode);
-    const action = getModeKillSwitchAction(config, mode) as KillSwitchAction;
+
+    let triggered: boolean;
+    let action: KillSwitchAction;
+    if (algoKind === 'copy') {
+      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getCopyMaxDailyLossUsdc(config as CopyConfig, mode);
+      action = getCopyKillSwitchAction(config as CopyConfig, mode) as KillSwitchAction;
+    } else if (algoKind === 'crypto') {
+      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getCryptoMaxDailyLossUsdc(config as CryptoConfig, mode);
+      action = getCryptoKillSwitchAction(config as CryptoConfig, mode) as KillSwitchAction;
+    } else {
+      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getWeatherMaxDailyLossUsdc(config as WeatherConfig, mode);
+      action = getWeatherKillSwitchAction(config as WeatherConfig, mode) as KillSwitchAction;
+    }
 
     return {
       killSwitchTriggered: triggered,
@@ -175,5 +424,20 @@ export class RiskService {
 
   shouldBlockAndNotify(killSwitch: RiskCheckResult): boolean {
     return killSwitch.killSwitchTriggered && killSwitch.action === 'block_and_notify';
+  }
+
+  private async getUncachedConfig(): Promise<RiskConfig> {
+    return this.getConfig({ bypassCache: true });
+  }
+}
+
+function openingReasonsForAlgoKind(algoKind: SimAlgoKind): string[] {
+  switch (algoKind) {
+    case 'copy':
+      return ['COPY_OPEN', 'COPY_INCREASE'];
+    case 'crypto':
+      return ['ALGO_OPEN', 'ALGO_INCREASE'];
+    case 'weather':
+      return ['WEATHER_OPEN', 'WEATHER_FORECAST_CHANGE'];
   }
 }

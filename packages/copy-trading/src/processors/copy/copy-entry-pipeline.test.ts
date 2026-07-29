@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { MoveEventDto, OrderSignal, TradingMode, RiskConfig, RedisQueue, IPolymarketConnectionManager } from '@polywatch/core';
+import type { MoveEventDto, OrderSignal, TradingMode, CopyConfig, RedisQueue, IPolymarketConnectionManager } from '@polywatch/core';
 import type { DataSource } from 'typeorm';
 
 vi.mock('../../sizing/resolve-trader-portfolio.js', () => ({
@@ -64,7 +64,7 @@ function makeConnectionManager(ask = 0.5, bid = 0.48) {
   } as unknown as IPolymarketConnectionManager;
 }
 
-function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
+function makeCopyConfig(overrides: Partial<CopyConfig> = {}): CopyConfig {
   return {
     simSizingMode: 'fixed_usdc',
     simFixedUsdcAmount: 10,
@@ -119,7 +119,7 @@ function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
     simAutoSnapshotEnabled: false,
     simAutoSnapshotIntervalSeconds: 300,
     ...overrides,
-  } as RiskConfig;
+  } as CopyConfig;
 }
 
 describe('runCopyEntryPipeline', () => {
@@ -130,7 +130,7 @@ describe('runCopyEntryPipeline', () => {
 
     const move = makeMove();
     const entry = makeEntry();
-    const risk = makeRisk();
+    const copyConfig = makeCopyConfig();
     const orderQueue = {
       enqueue: vi.fn().mockRejectedValue(new Error('Redis connection refused')),
       enqueueUnique: vi.fn().mockRejectedValue(new Error('Redis connection refused')),
@@ -160,7 +160,7 @@ describe('runCopyEntryPipeline', () => {
         move,
         entry: entry as any,
         mode: 'sim' as TradingMode,
-        risk,
+        copyConfig,
         connectionManager,
         marketService,
         reservationService,
@@ -178,7 +178,7 @@ describe('runCopyEntryPipeline', () => {
 
     const move = makeMove();
     const entry = makeEntry();
-    const risk = makeRisk();
+    const copyConfig = makeCopyConfig();
     const orderQueue = {
       enqueue: vi.fn().mockResolvedValue(undefined),
       enqueueUnique: vi.fn().mockResolvedValue(undefined),
@@ -202,7 +202,7 @@ describe('runCopyEntryPipeline', () => {
       move,
       entry: entry as any,
       mode: 'sim' as TradingMode,
-      risk,
+      copyConfig,
       connectionManager,
       marketService,
       reservationService,
@@ -220,7 +220,7 @@ describe('runCopyEntryPipeline', () => {
 
     const move = makeMove();
     const entry = makeEntry();
-    const risk = makeRisk({ simCopyTradingEnabled: false });
+    const copyConfig = makeCopyConfig({ simCopyTradingEnabled: false });
     const orderQueue = {
       enqueue: vi.fn().mockResolvedValue(undefined),
       enqueueUnique: vi.fn().mockResolvedValue(undefined),
@@ -244,7 +244,7 @@ describe('runCopyEntryPipeline', () => {
       move,
       entry: entry as any,
       mode: 'sim' as TradingMode,
-      risk,
+      copyConfig,
       connectionManager,
       marketService,
       reservationService,
@@ -264,7 +264,7 @@ describe('runCopyEntryPipeline', () => {
 
     const move = makeMove();
     const entry = makeEntry();
-    const risk = makeRisk();
+    const copyConfig = makeCopyConfig();
     const orderQueue = {
       enqueue: vi.fn().mockResolvedValue(undefined),
       enqueueUnique: vi.fn().mockResolvedValue(undefined),
@@ -288,7 +288,7 @@ describe('runCopyEntryPipeline', () => {
       move,
       entry: entry as any,
       mode: 'real' as TradingMode,
-      risk,
+      copyConfig,
       connectionManager,
       marketService,
       reservationService,
@@ -306,7 +306,7 @@ describe('runCopyEntryPipeline', () => {
 
     const move = makeMove();
     const entry = makeEntry();
-    const risk = makeRisk({ simMinBidToAskRatio: 0.99 });
+    const copyConfig = makeCopyConfig({ simMinBidToAskRatio: 0.99 });
     const orderQueue = {
       enqueue: vi.fn().mockResolvedValue(undefined),
       enqueueUnique: vi.fn().mockResolvedValue(false),
@@ -335,7 +335,7 @@ describe('runCopyEntryPipeline', () => {
       move,
       entry: entry as any,
       mode: 'sim' as TradingMode,
-      risk,
+      copyConfig,
       connectionManager,
       marketService,
       reservationService,

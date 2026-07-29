@@ -1,4 +1,4 @@
-// Type local — évite d'importer l'entité TypeORM (qui ferait bundle typeorm dans Vite)
+// Type local pour les champs d'exécution simulation (provenant de GlobalConfig via /api/config/global).
 export interface RiskConfig {
   simExecLatencyMode: string | null;
   simExecLatencyMs: number | null;

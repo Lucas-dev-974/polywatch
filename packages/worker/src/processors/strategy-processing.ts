@@ -13,10 +13,14 @@ import {
   MarketService,
   resolveLiveCloseableBid,
   resolveMarketInterval,
-  RiskService,
+  GlobalConfigService,
+  CopyConfigService,
+  CryptoConfigService,
+  WeatherConfigService,
+  getAlgoKindForPosition,
   OPEN_LIKE_POSITION_STATUSES,
 } from '@polywatch/core';
-import type { OrderSignal, PnlTick, MarketTick, LiquidityStatus } from '@polywatch/core';
+import type { OrderSignal, PnlTick, MarketTick, LiquidityStatus, GlobalConfig, CopyConfig, CryptoConfig, WeatherConfig } from '@polywatch/core';
 import type { PolymarketConnectionManager } from '../polymarket/connection-manager.js';
 import type { RedisQueue } from '../queue/redis-queue.js';
 import { safeInterval } from '../helpers.js';
@@ -47,7 +51,10 @@ const log = pino({ name: 'strategy-processing' });
 export class StrategyProcessing {
   private positionService: CopiedPositionService;
   private marketService: MarketService;
-  private riskService: RiskService;
+  private globalConfigService: GlobalConfigService;
+  private copyConfigService: CopyConfigService;
+  private cryptoConfigService: CryptoConfigService;
+  private weatherConfigService: WeatherConfigService;
   private killSwitchMonitor: KillSwitchMonitor;
   private pnlPublisher: PnlTickPublisher;
   private marketTickPublisher: MarketTickPublisher;
@@ -74,12 +81,17 @@ export class StrategyProcessing {
     this.onCycleComplete = onCycleComplete;
     this.positionService = new CopiedPositionService(ds);
     this.marketService = new MarketService(ds);
-    this.riskService = new RiskService(ds);
+    this.globalConfigService = new GlobalConfigService(ds);
+    this.copyConfigService = new CopyConfigService(ds);
+    this.cryptoConfigService = new CryptoConfigService(ds);
+    this.weatherConfigService = new WeatherConfigService(ds);
     this.killSwitchMonitor = new KillSwitchMonitor(
       ds,
       connectionManager,
       closeQueue,
-      this.riskService,
+      this.copyConfigService,
+      this.cryptoConfigService,
+      this.weatherConfigService,
     );
     this.pnlPublisher = new PnlTickPublisher(
       this.positionService,
@@ -156,18 +168,30 @@ export class StrategyProcessing {
     if (positions.length === 0) return;
 
     const conditionIds = [...new Set(positions.map((p) => p.conditionId))];
-    const risk = await this.riskService.getConfig();
-    const markets = await this.refreshMarketsNearEnd(conditionIds, risk);
+    const [global, copy, crypto, weather] = await Promise.all([
+      this.globalConfigService.getConfig(),
+      this.copyConfigService.getConfig(),
+      this.cryptoConfigService.getConfig(),
+      this.weatherConfigService.getConfig(),
+    ]);
+    const markets = await this.refreshMarketsNearEnd(conditionIds, global, copy, crypto, weather);
 
     const ticks: PnlTick[] = [];
     const marketTicks: MarketTick[] = [];
     const seenAssets = new Set<string>();
 
     for (const pos of positions) {
+      const algoKind = getAlgoKindForPosition(pos);
+      let algoConfig: any;
+      if (algoKind === 'copy') algoConfig = copy;
+      else if (algoKind === 'crypto') algoConfig = crypto;
+      else algoConfig = weather;
+
       const tick = await this.evaluatePosition(
         pos,
         markets.get(pos.conditionId),
-        risk,
+        global,
+        algoConfig,
       );
       if (tick) ticks.push(tick);
 
@@ -229,12 +253,31 @@ export class StrategyProcessing {
 
   private async refreshMarketsNearEnd(
     conditionIds: string[],
-    risk: Awaited<ReturnType<RiskService['getConfig']>>,
+    globalConfig: GlobalConfig,
+    copyConfig: CopyConfig,
+    cryptoConfig: CryptoConfig,
+    weatherConfig: WeatherConfig,
   ): Promise<Map<string, Market>> {
     const markets = await this.marketService.loadByConditionIds(conditionIds);
-    if (!isAnyPreCloseEnabled(risk)) return markets;
+    const preCloseSource = {
+      simPreCloseEnabled: copyConfig.simPreCloseEnabled || cryptoConfig.cryptoAlgoPreCloseEnabled === true || weatherConfig.weatherAlgoPreCloseEnabled,
+      realPreCloseEnabled: copyConfig.realPreCloseEnabled || cryptoConfig.cryptoAlgoPreCloseEnabled === true || weatherConfig.weatherAlgoPreCloseEnabled,
+      simPreCloseSeconds: Math.max(
+        copyConfig.simPreCloseSeconds ?? 0,
+        cryptoConfig.cryptoAlgoPreCloseSeconds ?? 0,
+        weatherConfig.weatherAlgoPreCloseSeconds ?? 0,
+      ),
+      realPreCloseSeconds: Math.max(
+        copyConfig.realPreCloseSeconds ?? 0,
+        cryptoConfig.cryptoAlgoPreCloseSeconds ?? 0,
+        weatherConfig.weatherAlgoPreCloseSeconds ?? 0,
+      ),
+      cryptoAlgoPreCloseEnabled: cryptoConfig.cryptoAlgoPreCloseEnabled,
+      cryptoAlgoPreCloseSeconds: cryptoConfig.cryptoAlgoPreCloseSeconds,
+    };
+    if (!isAnyPreCloseEnabled(preCloseSource)) return markets;
 
-    const maxPreCloseSeconds = getMaxPreCloseSeconds(risk);
+    const maxPreCloseSeconds = getMaxPreCloseSeconds(preCloseSource);
 
     const now = Date.now();
     let refreshed = false;
@@ -269,7 +312,8 @@ export class StrategyProcessing {
   private async evaluatePosition(
     pos: CopiedPosition,
     market: Market | undefined,
-    risk: Awaited<ReturnType<RiskService['getConfig']>>,
+    globalConfig: GlobalConfig,
+    algoConfig: any,
   ): Promise<PnlTick | null> {
     const { lifecycle, settled } = resolveMarkState(pos, market);
 
@@ -334,7 +378,8 @@ export class StrategyProcessing {
       return evaluateIlliquidPosition({
         pos,
         market,
-        risk,
+        globalConfig,
+        algoConfig,
         connectionManager: this.connectionManager,
         positionService: this.positionService,
         pnlPublisher: this.pnlPublisher,
@@ -353,7 +398,8 @@ export class StrategyProcessing {
     return evaluateLiquidPosition({
       pos,
       market,
-      risk,
+      globalConfig,
+      algoConfig,
       pnlPublisher: this.pnlPublisher,
       exitEvaluator: this.exitEvaluator,
       bookPrices: { ...bookPrices, sizedBestBid },

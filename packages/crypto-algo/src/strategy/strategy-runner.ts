@@ -9,8 +9,8 @@ import {
   resolveGammaCacheTtlMs,
   resolveGammaStaleOnErrorFactor,
   type MarketService,
-  type RiskService,
-  type RiskConfig,
+  type CryptoConfigService,
+  type CryptoConfig,
   type Market,
   type MarketListItemDto,
   type AlgoMarketSelectionService,
@@ -106,7 +106,7 @@ interface CachedGammaMarket {
  *      WebSocket is disconnected or events are missed.
  *
  * On each evaluation:
- *   1. Reads the kill-switch (`RiskConfig.cryptoAlgoEnabled`).
+ *   1. Reads the kill-switch (`CryptoConfig.cryptoAlgoEnabled`).
  *   2. Resolves the enabled strategy ids and the active strategies.
  *   3. Fetches live outcome prices from Gamma API.
  *   4. Enriches context with WebSocket top-of-book data if available.
@@ -126,7 +126,7 @@ export class StrategyRunner {
   private priceFeed: CryptoAlgoPriceFeed | null = null;
   private wsConnected = false;
   private pollMs = DEFAULT_POLL_MS;
-  private currentRisk: RiskConfig | null = null;
+  private currentCryptoConfig: CryptoConfig | null = null;
   private onSelectionResolved?: (conditionId: string) => Promise<void>;
   private onAbstain?: (
     conditionId: string,
@@ -137,7 +137,7 @@ export class StrategyRunner {
   constructor(
     private readonly selectionLoader: SelectionLoader,
     private readonly registry: StrategyRegistry,
-    private readonly riskService: RiskService,
+    private readonly cryptoConfigService: CryptoConfigService,
     private readonly marketService: MarketService,
     private readonly dataSource: DataSource,
     private readonly algoSelectionService: AlgoMarketSelectionService,
@@ -258,16 +258,16 @@ export class StrategyRunner {
       return;
     }
 
-    const risk = this.currentRisk;
-    if (!risk) {
-      log.warn({ conditionId }, 'ignored re-entry fill — risk config not loaded');
+    const cryptoConfig = this.currentCryptoConfig;
+    if (!cryptoConfig) {
+      log.warn({ conditionId }, 'ignored re-entry fill — crypto config not loaded');
       return;
     }
 
     const selection = this.selectionLoader
       .getActiveSelections()
       .find((s) => s.conditionId === conditionId);
-    const reentryParams = resolveCryptoAlgoReentryParams(risk, selection?.interval);
+    const reentryParams = resolveCryptoAlgoReentryParams(cryptoConfig, selection?.interval);
     const reEntryKey = buildReEntryKey(conditionId, normalized);
 
     recordReEntrySuccess(this.reentry, reEntryKey, nowMs, reentryParams.windowMs);
@@ -284,11 +284,11 @@ export class StrategyRunner {
   }
 
   /** Apply risk tunables to strategies and gamma cache settings. */
-  applyRiskTunables(risk: RiskConfig): void {
-    this.currentRisk = risk;
+  applyRiskTunables(cryptoConfig: CryptoConfig): void {
+    this.currentCryptoConfig = cryptoConfig;
     const naive = this.registry.getStrategy('naive-momentum');
     if (naive instanceof NaiveMomentumStrategy) {
-      const tunables = resolveNaiveMomentumConfig(risk);
+      const tunables = resolveNaiveMomentumConfig(cryptoConfig);
       naive.setConfig({
         baseThreshold: tunables.baseThreshold,
         maxSpreadAbs: tunables.maxSpreadAbs,
@@ -366,14 +366,14 @@ export class StrategyRunner {
     conditionId: string,
     now: number,
     interval?: string | null,
-    risk?: RiskConfig,
+    cryptoConfig?: CryptoConfig,
   ): Promise<GammaMarket | null> {
-    const effectiveRisk = risk ?? this.currentRisk;
-    const ttlMs = effectiveRisk
-      ? resolveGammaCacheTtlMs(effectiveRisk, interval)
+    const effectiveCfg = cryptoConfig ?? this.currentCryptoConfig;
+    const ttlMs = effectiveCfg
+      ? resolveGammaCacheTtlMs(effectiveCfg, interval)
       : gammaCacheTtlFallback(interval);
-    const staleFactor = effectiveRisk
-      ? resolveGammaStaleOnErrorFactor(effectiveRisk)
+    const staleFactor = effectiveCfg
+      ? resolveGammaStaleOnErrorFactor(effectiveCfg)
       : GAMMA_STALE_ON_ERROR_TTL_FACTOR;
     const cached = this.gammaCache.get(conditionId);
     if (cached && now - cached.fetchedAt < ttlMs) {
@@ -527,23 +527,23 @@ export class StrategyRunner {
   private async evaluateSelectionUnlocked(
     selection: { conditionId: string; enabled: boolean; question?: string | null; cryptoSymbol?: string | null; interval?: string | null; slug?: string | null },
   ): Promise<boolean> {
-    let risk: RiskConfig;
+    let cryptoConfig: CryptoConfig;
     try {
-      risk = await this.riskService.getConfig();
+      cryptoConfig = await this.cryptoConfigService.getConfig();
     } catch (err) {
-      log.error({ err }, 'failed to load risk config — skipping evaluation');
+      log.error({ err }, 'failed to load crypto config — skipping evaluation');
       this.runtimeStatus?.recordSkip('échec chargement config risque', selection.conditionId);
       return false;
     }
 
-    if (!risk.cryptoAlgoEnabled) {
+    if (!cryptoConfig.cryptoAlgoEnabled) {
       this.runtimeStatus?.recordSkip('algo désactivé dans la config', selection.conditionId);
       return false;
     }
 
-    this.applyRiskTunables(risk);
+    this.applyRiskTunables(cryptoConfig);
 
-    const enabledIds = getCryptoAlgoStrategies(risk);
+    const enabledIds = getCryptoAlgoStrategies(cryptoConfig);
     if (enabledIds.length === 0) {
       this.runtimeStatus?.recordSkip('aucune stratégie activée', selection.conditionId);
       return false;
@@ -587,14 +587,14 @@ export class StrategyRunner {
         selection.conditionId,
         now.getTime(),
         selection.interval,
-        risk,
+        cryptoConfig,
       );
     } catch (err) {
       log.warn({ err, conditionId: selection.conditionId }, 'failed to fetch Gamma market');
     }
 
     const books = this.priceFeed?.getOutcomeBooks(selection.conditionId);
-    const tunables = resolveNaiveMomentumConfig(risk);
+    const tunables = resolveNaiveMomentumConfig(cryptoConfig);
     const midHistory = tunables.curveFilterEnabled
       ? this.priceFeed?.getOutcomeMidHistory(
           selection.conditionId,
@@ -673,7 +673,7 @@ export class StrategyRunner {
     const throttleDisabled = this.reEntryWindowMs === 0;
 
     if (!throttleDisabled) {
-      const reentryParams = resolveCryptoAlgoReentryParams(risk, selection.interval);
+      const reentryParams = resolveCryptoAlgoReentryParams(cryptoConfig, selection.interval);
       const state = this.reentry.get(reEntryKey);
 
       if (shouldSuppressReEntry(state, nowMs, reentryParams.maxEntries)) {
@@ -746,11 +746,11 @@ export class StrategyRunner {
       return;
     }
 
-    let risk: RiskConfig;
+    let cryptoConfig: CryptoConfig;
     try {
-      risk = await this.riskService.getConfig();
+      cryptoConfig = await this.cryptoConfigService.getConfig();
     } catch (err) {
-      log.error({ err }, 'failed to load risk config — skipping tick');
+      log.error({ err }, 'failed to load crypto config — skipping tick');
       await this.runtimeStatus?.publish({
         enabledSelections: enabled.length,
         evaluableSelections: 0,
@@ -759,7 +759,7 @@ export class StrategyRunner {
       return;
     }
 
-    if (!risk.cryptoAlgoEnabled) {
+    if (!cryptoConfig.cryptoAlgoEnabled) {
       log.warn('crypto-algo kill-switch is off — skipping tick');
       this.runtimeStatus?.recordSkip('algo désactivé dans la config');
       await this.runtimeStatus?.publish({

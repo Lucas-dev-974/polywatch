@@ -3,7 +3,7 @@ import type { Redis } from 'ioredis';
 import pino from 'pino';
 import {
   type OrderSignal,
-  type RiskConfig,
+  type WeatherConfig,
   type RedisQueue,
   type IPolymarketConnectionManager,
   type MarketService,
@@ -15,24 +15,25 @@ import {
   hashAlgoLogicalKey,
   hashAlgoOrderSignalId,
   computeEntryTargetQuantity,
-  getModeMaxPositionSizeUsdc,
+  getWeatherMaxPositionSizeUsdc,
   resolveEntryBalances,
   applyEntryMosGate,
   fetchEntryAskLiquidityWithRetries,
-  getModeEntryDepthRetryMax,
-  getModeEntryDepthRetryDelayMs,
+  getWeatherEntryDepthRetryMax,
+  getWeatherEntryDepthRetryDelayMs,
   enqueueEntrySignal,
   resolveEntryEnqueueBlocked,
   hasAlgoEntryCooldown,
   MIN_ORDER_SHARES,
   resumeEntryFromReservation,
   ExecutionService,
-  resolveAlgoEntryExitParams,
+  resolveWeatherEntryExitParams,
   effectiveEntryMos,
   resolveEntryMinOrderSharesDetailed,
   WeatherForecastService,
   WeatherPositionForecastService,
 } from '@polywatch/core';
+import type { GlobalConfig } from '@polywatch/core';
 import type { WeatherSignal } from '../strategy/strategy.js';
 import { fetchAvailableRealCash } from '../real-cash.js';
 import { resolvedClobApi } from '../config.js';
@@ -46,7 +47,8 @@ const log = pino({ name: 'weather-algo:entry-pipeline' });
 
 export interface WeatherEntryPipelineParams {
   signal: WeatherSignal;
-  risk: RiskConfig;
+  risk: WeatherConfig;
+  globalConfig: GlobalConfig;
   watchlistId: number;
   connectionManager: IPolymarketConnectionManager;
   reservationService: ReservationService;
@@ -73,6 +75,7 @@ export async function runWeatherEntryPipeline(
   const {
     signal,
     risk,
+    globalConfig,
     watchlistId,
     connectionManager,
     reservationService,
@@ -128,13 +131,14 @@ export async function runWeatherEntryPipeline(
 
   for (const mode of modes) {
     if (mode === 'sim' && !risk.weatherAlgoSimEnabled) continue;
-    if (mode === 'real' && (!risk.weatherAlgoRealEnabled || !risk.realTradingEnabled)) continue;
+    if (mode === 'real' && (!risk.weatherAlgoRealEnabled || !globalConfig.realTradingEnabled)) continue;
 
     let modeResult: string | null = null;
     try {
       modeResult = await runMode({
         signal,
         risk,
+        globalConfig,
         watchlistId,
         mode,
         roughAskVwap,
@@ -167,7 +171,8 @@ export async function runWeatherEntryPipeline(
 
 async function runMode(args: {
   signal: WeatherSignal;
-  risk: RiskConfig;
+  risk: WeatherConfig;
+  globalConfig: GlobalConfig;
   watchlistId: number;
   mode: TradingMode;
   roughAskVwap: number;
@@ -185,6 +190,7 @@ async function runMode(args: {
   const {
     signal,
     risk,
+    globalConfig,
     watchlistId,
     mode,
     roughAskVwap,
@@ -203,7 +209,7 @@ async function runMode(args: {
     return 'Cooldown exécution actif';
   }
 
-  const exit: AlgoEntryExitParams = resolveAlgoEntryExitParams(risk, mode, null);
+  const exit: AlgoEntryExitParams = resolveWeatherEntryExitParams(risk, mode, null);
 
   const algoKeyParams = {
     conditionId: signal.conditionId,
@@ -310,7 +316,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk, mode),
     signalScore,
     stopDistance: undefined,
   });
@@ -338,7 +344,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk, mode),
     signalScore,
     stopDistance: undefined,
   });
@@ -353,7 +359,7 @@ async function runMode(args: {
     targetQty,
     askVwap,
     cash: balances.cash,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk, mode),
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     clobApi: CLOB_API,
@@ -380,8 +386,8 @@ async function runMode(args: {
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId: signal.assetId,
     targetQty: finalQty,
-    maxRetries: getModeEntryDepthRetryMax(risk, mode),
-    delayMs: getModeEntryDepthRetryDelayMs(risk, mode),
+    maxRetries: getWeatherEntryDepthRetryMax(risk, mode),
+    delayMs: getWeatherEntryDepthRetryDelayMs(risk, mode),
     connectionManager,
   });
   if (!depthResult.ok) {

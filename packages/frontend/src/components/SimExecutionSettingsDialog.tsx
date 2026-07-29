@@ -1,5 +1,5 @@
 import { createEffect, createSignal, on, onCleanup, Show } from 'solid-js';
-import { api } from '../api';
+import { fetchGlobalConfig, updateGlobalConfig } from '../api';
 import { Dialog } from './Dialog';
 import { NullableNumberField, ToggleField } from './settings-fields';
 import { SimExecutionStatsPanel } from './SimExecutionStatsPanel';
@@ -29,7 +29,7 @@ export function SimExecutionSettingsDialog(props: Props) {
 
   async function loadSettings() {
     try {
-      const config = await api<RiskConfig>('/risk-config');
+      const config = await fetchGlobalConfig();
       setSettings(pickSimExecutionFields(config));
       setError(null);
     } catch {
@@ -90,10 +90,7 @@ export function SimExecutionSettingsDialog(props: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api<RiskConfig>('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify(current),
-      });
+      await updateGlobalConfig(current as unknown as Record<string, unknown>);
       props.onClose();
     } catch (err) {
       setError(

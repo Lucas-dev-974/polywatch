@@ -1,23 +1,27 @@
 import {
   closurePnlPercent,
   evaluateCopyIncreaseSlProximity,
-  getModeAllowedMarketTags,
-  getModeCopyIncreaseSlProximityEnabled,
-  getModeCopyIncreaseSlProximityPercent,
+  getCopyAllowedMarketTags,
+  getCopyCopyIncreaseSlProximityEnabled,
+  getCopyCopyIncreaseSlProximityPercent,
   isCopyMoveAllowed,
   isIncreaseAllowed,
-  isMarketTagAllowedForMode,
-  MarketService,
-  RiskConfig,
-  RiskService,
+  isMarketTagAllowed,
+  getCopyKillSwitchAction,
+  getCopyMaxDailyLossUsdc,
   WatchlistService,
+  type MarketService,
+  type CopyConfig,
+  type GlobalConfig,
   type MoveEventDto,
   type TradingMode,
+  type KillSwitchAction,
 } from '@polywatch/core';
+import { Execution } from '@polywatch/core';
+import type { DataSource } from 'typeorm';
 import pino from 'pino';
 import { hasBlockingActivePosition, findOpenPosition } from './copy-position-lookup.js';
 import { postBackendAlert } from '../../backend-client.js';
-import type { DataSource } from 'typeorm';
 
 const log = pino({ name: 'copy-risk-gate' });
 
@@ -27,13 +31,14 @@ export type WatchlistEntry = NonNullable<
 
 export function resolveCopyModesWithReasons(
   entry: WatchlistEntry,
-  risk: RiskConfig,
+  copyConfig: CopyConfig,
+  globalConfig: GlobalConfig,
 ): { modes: TradingMode[]; skippedRealReason?: string } {
   const modes: TradingMode[] = [];
   let skippedRealReason: string | undefined;
   if (entry.simEnabled) modes.push('sim');
   if (entry.realEnabled) {
-    if (RiskService.isRealTradingEnabledForConfig(risk)) {
+    if (globalConfig.realTradingEnabled) {
       modes.push('real');
     } else {
       skippedRealReason = 'Trading réel désactivé (config)';
@@ -42,23 +47,31 @@ export function resolveCopyModesWithReasons(
   return { modes, skippedRealReason };
 }
 
+function isCopyMarketTagAllowed(
+  marketSlugs: string[],
+  copyConfig: CopyConfig,
+  mode: TradingMode,
+): boolean {
+  return isMarketTagAllowed(marketSlugs, getCopyAllowedMarketTags(copyConfig, mode));
+}
+
 export async function passesMarketTagFilter(
   marketService: MarketService,
   conditionId: string,
-  risk: RiskConfig,
+  copyConfig: CopyConfig,
   mode: TradingMode,
 ): Promise<boolean> {
-  if (getModeAllowedMarketTags(risk, mode).length === 0) return true;
+  if (getCopyAllowedMarketTags(copyConfig, mode).length === 0) return true;
 
   const tagSlugs = await marketService.resolveTagSlugs(conditionId);
-  if (isMarketTagAllowedForMode(tagSlugs, risk, mode)) return true;
+  if (isCopyMarketTagAllowed(tagSlugs, copyConfig, mode)) return true;
 
   log.info(
     {
       mode,
       conditionId,
       tagSlugs,
-      allowedTags: getModeAllowedMarketTags(risk, mode),
+      allowedTags: getCopyAllowedMarketTags(copyConfig, mode),
     },
     'market tag filter blocks entry',
   );
@@ -70,8 +83,8 @@ export async function evaluateCopyMoveGate(
   move: MoveEventDto,
   entry: WatchlistEntry,
   mode: TradingMode,
-  risk: RiskConfig,
-  riskService: RiskService,
+  copyConfig: CopyConfig,
+  globalConfig: GlobalConfig,
 ): Promise<{ allowed: true } | { allowed: false; reason: string }> {
   const isEntry = move.type === 'OPENED' || move.type === 'INCREASED';
 
@@ -82,7 +95,7 @@ export async function evaluateCopyMoveGate(
   if (
     isEntry &&
     mode === 'sim' &&
-    !RiskService.isSimCopyTradingEnabledForConfig(risk)
+    !copyConfig.simCopyTradingEnabled
   ) {
     return { allowed: false, reason: 'Copy trading sim désactivé (config)' };
   }
@@ -90,12 +103,12 @@ export async function evaluateCopyMoveGate(
   if (
     isEntry &&
     mode === 'real' &&
-    !RiskService.isRealCopyTradingEnabledForConfig(risk)
+    !copyConfig.realCopyTradingEnabled
   ) {
     return { allowed: false, reason: 'Copy trading réel désactivé (config)' };
   }
 
-  if (!isCopyMoveAllowed(move.type, risk, mode)) {
+  if (!isCopyMoveAllowed(move.type, copyConfig, mode)) {
     const label =
       move.type === 'INCREASED'
         ? 'Recopie des augmentations désactivée'
@@ -105,19 +118,19 @@ export async function evaluateCopyMoveGate(
     return { allowed: false, reason: label };
   }
 
-  const killSwitch = await riskService.checkKillSwitch(mode);
-  if (isEntry && riskService.shouldBlockEntry(killSwitch)) {
+  const killSwitch = await checkCopyKillSwitch(ds, copyConfig, mode);
+  if (isEntry && shouldBlockEntry(killSwitch)) {
     log.warn({ mode }, 'kill switch blocks entry');
     return { allowed: false, reason: 'Kill-switch bloque les entrées' };
   }
-  if (riskService.shouldForceCloseAll(killSwitch)) {
+  if (shouldForceCloseAll(killSwitch)) {
     log.warn({ mode }, 'kill switch force_close_all — skipping all signals');
     return {
       allowed: false,
       reason: 'Kill-switch force la fermeture de toutes les positions',
     };
   }
-  if (riskService.shouldBlockAndNotify(killSwitch)) {
+  if (shouldBlockAndNotify(killSwitch)) {
     log.warn({ mode }, 'kill switch blocks entry (block_and_notify)');
     // Notify backend regardless of entry/exit — the action name promises notification.
     postBackendAlert('/api/internal/kill-switch-alert', {
@@ -133,12 +146,63 @@ export async function evaluateCopyMoveGate(
   return { allowed: true };
 }
 
+// ─── Inline kill switch helpers (using CopyConfig instead of RiskService) ───
+
+type CopyKillSwitchResult = {
+  killSwitchTriggered: boolean;
+  blockEntries: boolean;
+  action: KillSwitchAction;
+};
+
+async function checkCopyKillSwitch(
+  ds: DataSource,
+  copyConfig: CopyConfig,
+  mode: TradingMode,
+): Promise<CopyKillSwitchResult> {
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const result = await ds
+    .getRepository(Execution)
+    .createQueryBuilder('e')
+    .select('COALESCE(SUM(e.realized_pnl), 0)', 'total')
+    .where('e.mode = :mode', { mode })
+    .andWhere('e.executed_at >= :start', { start: startOfDay })
+    .getRawOne<{ total: number }>();
+
+  const dailyNet = result?.total ?? 0;
+  const maxDailyLoss = getCopyMaxDailyLossUsdc(copyConfig, mode);
+  const triggered = dailyNet < 0 && Math.abs(dailyNet) >= maxDailyLoss;
+  const action = getCopyKillSwitchAction(copyConfig, mode) as KillSwitchAction;
+
+  return {
+    killSwitchTriggered: triggered,
+    blockEntries:
+      triggered &&
+      (action === 'block_entries' || action === 'block_and_notify'),
+    action: triggered ? action : 'block_entries',
+  };
+}
+
+function shouldBlockEntry(killSwitch: CopyKillSwitchResult): boolean {
+  return killSwitch.blockEntries;
+}
+
+function shouldForceCloseAll(killSwitch: CopyKillSwitchResult): boolean {
+  return killSwitch.killSwitchTriggered && killSwitch.action === 'force_close_all';
+}
+
+function shouldBlockAndNotify(killSwitch: CopyKillSwitchResult): boolean {
+  return killSwitch.killSwitchTriggered && killSwitch.action === 'block_and_notify';
+}
+
 export async function canHandleEntry(
   ds: DataSource,
   move: MoveEventDto,
   entry: WatchlistEntry,
   mode: TradingMode,
-  risk: RiskConfig,
+  copyConfig: CopyConfig,
+  globalConfig: GlobalConfig,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   if (move.type === 'OPENED') {
     const blocking = await hasBlockingActivePosition(
@@ -168,7 +232,7 @@ export async function canHandleEntry(
     return { ok: false, reason: 'Aucune position ouverte à augmenter' };
   }
 
-  if (!isIncreaseAllowed(openPos.increaseCount, risk, mode)) {
+  if (!isIncreaseAllowed(openPos.increaseCount, copyConfig, mode)) {
     log.warn(
       { moveId: move.id, mode, increaseCount: openPos.increaseCount },
       'increase skipped — max increases reached',
@@ -198,10 +262,10 @@ export async function canHandleEntry(
     openPos.entryQuantityRemaining ?? openPos.quantity,
   );
   const slProximity = evaluateCopyIncreaseSlProximity({
-    enabled: getModeCopyIncreaseSlProximityEnabled(risk, mode),
+    enabled: getCopyCopyIncreaseSlProximityEnabled(copyConfig, mode),
     slBidPoints: openPos.slBidPoints,
     entryBidVwap: openPos.entryBidVwap,
-    proximityPercent: getModeCopyIncreaseSlProximityPercent(risk, mode),
+    proximityPercent: getCopyCopyIncreaseSlProximityPercent(copyConfig, mode),
     closurePnlPercent: closure,
   });
   if (!slProximity.allowed) {

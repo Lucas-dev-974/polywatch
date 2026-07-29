@@ -3,13 +3,15 @@ import { z } from 'zod';
 import pino from 'pino';
 import type { DataSource } from 'typeorm';
 import {
-  RiskService,
   SimulationArchiveService,
   SimulationSessionService,
   SimulationService,
   SimulationResetArchiveService,
   resolveSimResetAmount,
-  getSimInitialCapital,
+  GlobalConfigService,
+  CopyConfigService,
+  CryptoConfigService,
+  WeatherConfigService,
   algoKindFromReason,
   CopiedPosition,
   type SimAlgoKind,
@@ -47,7 +49,16 @@ export function createSimulationRouter(ds: DataSource): Router {
   const archiveService = new SimulationArchiveService(ds);
   const sessionService = new SimulationSessionService(ds);
   const resetArchiveService = new SimulationResetArchiveService(ds);
-  const riskService = new RiskService(ds);
+
+  async function getSimInitialCapitalForAlgoKind(algoKind: SimAlgoKind): Promise<number> {
+    if (algoKind === 'copy') {
+      return (await new CopyConfigService(ds).getConfig()).simInitialCapitalCopy;
+    }
+    if (algoKind === 'crypto') {
+      return (await new CryptoConfigService(ds).getConfig()).simInitialCapitalCrypto;
+    }
+    return (await new WeatherConfigService(ds).getConfig()).simInitialCapitalWeather;
+  }
 
   const resetBodySchema = z
     .object({
@@ -304,11 +315,10 @@ export function createSimulationRouter(ds: DataSource): Router {
       return;
     }
     try {
-      const risk = await riskService.getConfig();
       const algoKind = body.algoKind;
       const amount = resolveSimResetAmount(
         body.amount,
-        getSimInitialCapital(risk, algoKind),
+        await getSimInitialCapitalForAlgoKind(algoKind),
       );
 
       const before = await simulationService.getSnapshot(algoKind);
@@ -374,8 +384,11 @@ export function createSimulationRouter(ds: DataSource): Router {
           newSessionLabel: body.newSessionLabel ?? null,
         });
       });
-      // resetWithManager may have updated simInitialCapital — drop stale cache.
-      RiskService.invalidateConfigCache();
+      // resetWithManager may have updated simInitialCapital — drop stale caches.
+      GlobalConfigService.invalidateConfigCache();
+      CopyConfigService.invalidateConfigCache();
+      CryptoConfigService.invalidateConfigCache();
+      WeatherConfigService.invalidateConfigCache();
 
       const snapshot = await simulationService.getSnapshot(algoKind);
 

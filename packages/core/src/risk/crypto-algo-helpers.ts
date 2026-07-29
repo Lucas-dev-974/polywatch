@@ -1,7 +1,18 @@
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
+import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import type { TradingMode } from '../types/index.js';
 import { parseIntervalToMs } from '../services/algo-surveillance-helpers.js';
-import { getModePreCloseParams, type ModePreCloseParams } from './policy.js';
+import {
+  getCopyPreCloseParams,
+  getWeatherPreCloseParams,
+  type ModePreCloseParams,
+} from './policy.js';
+import {
+  getCryptoPositionPreCloseParams,
+  resolveCryptoAlgoPreCloseSeconds,
+} from './crypto-algo-exit.js';
+import { algoKindFromReason } from '../simulation/algo-kind.js';
 
 /** Default re-entry window when interval and risk override are unavailable. */
 export const CRYPTO_ALGO_DEFAULT_REENTRY_WINDOW_MS = 60 * 60 * 1000;
@@ -20,7 +31,7 @@ export interface CryptoAlgoReentryParams {
  * Max entries: risk override → 1.
  */
 export function resolveCryptoAlgoReentryParams(
-  risk: RiskConfig,
+  risk: CryptoConfig,
   interval: string | null | undefined,
 ): CryptoAlgoReentryParams {
   const windowMs =
@@ -36,7 +47,7 @@ export function resolveCryptoAlgoReentryParams(
  * Parse the JSON array of enabled crypto-algo strategy ids from the risk
  * config. Falls back to an empty array when the column is unset/invalid.
  */
-export function getCryptoAlgoStrategies(risk: RiskConfig): string[] {
+export function getCryptoAlgoStrategies(risk: CryptoConfig): string[] {
   try {
     const parsed = JSON.parse(risk.cryptoAlgoStrategies) as unknown;
     if (Array.isArray(parsed) && parsed.every((s) => typeof s === 'string')) {
@@ -71,7 +82,7 @@ export function isAlgoPositionReason(reason: string | null | undefined): boolean
  * Null = not overridden (resolved at entry via {@link resolveAlgoEntryExitParams}).
  * Zero = explicitly disabled.
  */
-export function getCryptoAlgoExitParams(risk: RiskConfig): CryptoAlgoExitParams {
+export function getCryptoAlgoExitParams(risk: CryptoConfig): CryptoAlgoExitParams {
   return {
     trailingBidPoints: risk.cryptoAlgoTrailingBidPoints,
     trailingActivationBidPoints: risk.cryptoAlgoTrailingActivationBidPoints,
@@ -81,7 +92,7 @@ export function getCryptoAlgoExitParams(risk: RiskConfig): CryptoAlgoExitParams 
 }
 
 /** Read nullable crypto-algo pre-close overrides from the risk config. */
-export function getCryptoAlgoPreCloseParams(risk: RiskConfig): CryptoAlgoPreCloseParams {
+export function getCryptoAlgoPreCloseParams(risk: CryptoConfig): CryptoAlgoPreCloseParams {
   return {
     preCloseEnabled: risk.cryptoAlgoPreCloseEnabled,
     preCloseSeconds: risk.cryptoAlgoPreCloseSeconds,
@@ -90,32 +101,33 @@ export function getCryptoAlgoPreCloseParams(risk: RiskConfig): CryptoAlgoPreClos
   };
 }
 
-/** Whether crypto-algo pre-close is active (explicitly or via mode inheritance). */
-export function isCryptoAlgoPreCloseEnabled(risk: RiskConfig): boolean {
-  if (risk.cryptoAlgoPreCloseEnabled === true) return true;
-  if (risk.cryptoAlgoPreCloseEnabled === false) return false;
-  return risk.simPreCloseEnabled || risk.realPreCloseEnabled;
+/** Whether crypto-algo pre-close is active. */
+export function isCryptoAlgoPreCloseEnabled(risk: CryptoConfig): boolean {
+  return risk.cryptoAlgoPreCloseEnabled === true;
 }
 
 /**
- * Resolve pre-close settings for a position. ALGO_* positions may override the
- * sim/real defaults via the crypto-algo columns; copy positions keep mode params.
+ * Resolve pre-close settings for a position using the per-algo config.
+ * Copy positions use copy-config pre-close columns; weather positions use
+ * weather-config pre-close; crypto/algo positions use crypto-config overrides.
  */
 export function getPositionPreCloseParams(
-  risk: RiskConfig,
+  cfg: CopyConfig | CryptoConfig | WeatherConfig,
   mode: TradingMode,
   positionReason: string | null | undefined,
   interval?: string | null,
 ): ModePreCloseParams {
-  return getAlgoPositionPreCloseParams(risk, mode, positionReason, interval);
+  const algoKind = algoKindFromReason(positionReason);
+  if (algoKind === 'copy') {
+    return getCopyPreCloseParams(cfg as CopyConfig, mode);
+  }
+  if (algoKind === 'weather') {
+    return getWeatherPreCloseParams(cfg as WeatherConfig, mode);
+  }
+  return getCryptoPositionPreCloseParams(cfg as CryptoConfig, mode, interval);
 }
 
 /** Effective pre-close window for crypto-algo market refresh heuristics. */
-export function getCryptoAlgoEffectivePreCloseSeconds(risk: RiskConfig): number {
+export function getCryptoAlgoEffectivePreCloseSeconds(risk: CryptoConfig): number {
   return resolveCryptoAlgoPreCloseSeconds(risk, null);
 }
-
-import {
-  getAlgoPositionPreCloseParams,
-  resolveCryptoAlgoPreCloseSeconds,
-} from './crypto-algo-exit.js';

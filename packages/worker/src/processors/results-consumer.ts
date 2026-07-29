@@ -3,10 +3,15 @@ import type { Redis } from 'ioredis';
 import {
   ExecutionService,
   MarketService,
-  RiskService,
+  CopyConfigService,
+  CryptoConfigService,
+  WeatherConfigService,
   buildSlCloseRetrySignal,
   effectiveCloseRetryAttempt,
-  getModeSlCloseMaxRetries,
+  getCopySlCloseMaxRetries,
+  getCryptoSlCloseMaxRetries,
+  getWeatherSlCloseMaxRetries,
+  getAlgoKindForPosition,
   isMarketAwaitingRedemptionExit,
   marketLifecycleFromEntity,
   setAlgoEntryCooldown,
@@ -41,7 +46,9 @@ const log = pino({ name: 'results-consumer' });
 
 export class ResultsConsumer {
   private executionService: ExecutionService;
-  private riskService: RiskService;
+  private copyConfigService: CopyConfigService;
+  private cryptoConfigService: CryptoConfigService;
+  private weatherConfigService: WeatherConfigService;
   private marketService: MarketService;
   private onPositionClosed?: (positionId: number) => void;
 
@@ -55,7 +62,9 @@ export class ResultsConsumer {
     private readonly marketTickRecorder?: MarketTickRecorder,
   ) {
     this.executionService = new ExecutionService(ds);
-    this.riskService = new RiskService(ds);
+    this.copyConfigService = new CopyConfigService(ds);
+    this.cryptoConfigService = new CryptoConfigService(ds);
+    this.weatherConfigService = new WeatherConfigService(ds);
     this.marketService = new MarketService(ds);
   }
 
@@ -183,10 +192,26 @@ export class ResultsConsumer {
       return;
     }
 
-    const risk = await this.riskService.getConfig();
+    const algoKind = getAlgoKindForPosition(pos);
+    let configService: CopyConfigService | CryptoConfigService | WeatherConfigService;
+    if (algoKind === 'copy') {
+      configService = this.copyConfigService;
+    } else if (algoKind === 'crypto') {
+      configService = this.cryptoConfigService;
+    } else {
+      configService = this.weatherConfigService;
+    }
+    const algoConfig = await configService.getConfig();
     const mode = pos.mode as 'sim' | 'real';
     const typedExitReason = exitReason as TotalCloseReason | undefined;
-    const maxRetries = getModeSlCloseMaxRetries(risk, mode);
+    let maxRetries: number;
+    if (algoKind === 'copy') {
+      maxRetries = getCopySlCloseMaxRetries(algoConfig as any, mode);
+    } else if (algoKind === 'crypto') {
+      maxRetries = getCryptoSlCloseMaxRetries(algoConfig as any, mode);
+    } else {
+      maxRetries = getWeatherSlCloseMaxRetries(algoConfig as any, mode);
+    }
 
     if ((pos.forcedExitFailedAttempts ?? 0) >= maxRetries) {
       log.info(

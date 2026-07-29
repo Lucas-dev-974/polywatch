@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, on, Show } from 'solid-js';
-import { api } from '../api';
+import { fetchEnvSettings, updateEnvSettings } from '../api';
 import {
   ENV_MODE_LABELS,
   pickModeFields,
@@ -55,7 +55,7 @@ export function EnvSettingsDialog(props: EnvSettingsDialogProps) {
 
   async function load() {
     try {
-      setConfig(await api<EnvSettings>('/risk-config'));
+      setConfig(await fetchEnvSettings());
       setError(null);
     } catch (err) {
       const msg =
@@ -91,10 +91,7 @@ export function EnvSettingsDialog(props: EnvSettingsDialogProps) {
     setError(null);
     try {
       const modeFields = pickModeFields(current, props.mode);
-      const updated = await api<EnvSettings>('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify(modeFields),
-      });
+      const updated = await updateEnvSettings(modeFields as Partial<EnvSettings>);
       setConfig(updated);
       props.onClose();
     } catch (err) {

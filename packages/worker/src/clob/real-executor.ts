@@ -1,7 +1,7 @@
 import { Side, OrderType } from '@polymarket/clob-client-v2';
 import type { CreateOrderOptions } from '@polymarket/clob-client-v2';
 import type { OrderSignal, ExecutionResult } from '@polywatch/core';
-import { computeTakerFee, ExecutionService, RiskService, resolveSimExecutionTunables } from '@polywatch/core';
+import { computeTakerFee, ExecutionService, GlobalConfigService, resolveSimExecutionTunables } from '@polywatch/core';
 import type { DataSource } from 'typeorm';
 import type { PolymarketConnectionManager } from '../polymarket/connection-manager.js';
 import { failedExecution } from './execution-result.js';
@@ -87,8 +87,8 @@ export class RealExecutor {
 
     let tunables = null as ReturnType<typeof resolveSimExecutionTunables> | null;
     if (this.ds) {
-      const risk = await new RiskService(this.ds).getConfig();
-      tunables = resolveSimExecutionTunables(risk);
+      const global = await new GlobalConfigService(this.ds).getConfig();
+      tunables = resolveSimExecutionTunables(global);
     }
 
     const clobOrderType =

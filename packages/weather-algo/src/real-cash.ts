@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { RiskConfig, createBackendClient, BACKEND_HTTP_TIMEOUT_MS } from '@polywatch/core';
+import { GlobalConfig, createBackendClient, BACKEND_HTTP_TIMEOUT_MS } from '@polywatch/core';
 import pino from 'pino';
 
 const log = pino({ name: 'weather-algo:real-cash' });
@@ -14,16 +14,16 @@ export async function fetchAvailableRealCash(
   serviceToken: string,
 ): Promise<number | undefined> {
   try {
-    const riskConfig = await ds.getRepository(RiskConfig).findOne({ where: {} });
-    if (riskConfig?.realCashOverride != null) {
+    const globalConfig = await ds.getRepository(GlobalConfig).findOne({ where: {} });
+    if (globalConfig?.realCashOverride != null) {
       log.info(
-        { realCashOverride: riskConfig.realCashOverride },
-        'using realCashOverride from RiskConfig',
+        { realCashOverride: globalConfig.realCashOverride },
+        'using realCashOverride from GlobalConfig',
       );
-      return riskConfig.realCashOverride;
+      return globalConfig.realCashOverride;
     }
   } catch (err) {
-    log.warn({ err }, 'failed to read RiskConfig.realCashOverride — falling back to backend');
+    log.warn({ err }, 'failed to read GlobalConfig.realCashOverride — falling back to backend');
   }
 
   const { getBackendJson } = createBackendClient({ backendUrl, serviceToken });

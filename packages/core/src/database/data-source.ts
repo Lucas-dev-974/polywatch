@@ -47,6 +47,10 @@ import {
   WeatherAutoTrackRule,
   WeatherForecastCache,
   WeatherPositionForecast,
+  GlobalConfig,
+  CopyConfig,
+  CryptoConfig,
+  WeatherConfig,
 } from '../entities/index.js';
 import { getDatabaseUrl } from '../config/env.js';
 import { Baseline1700000000000 } from '../migrations/Baseline1700000000000.js';
@@ -120,6 +124,8 @@ import { AddWeatherAlgoModeToggles1700000000083 } from '../migrations/AddWeather
 import { SimBalancePerAlgoKind1700000000084 } from '../migrations/SimBalancePerAlgoKind1700000000084.js';
 import { SimSessionsPerAlgoKind1700000000085 } from '../migrations/SimSessionsPerAlgoKind1700000000085.js';
 import { AddSimInitialCapitalPerAlgoKind1700000000086 } from '../migrations/AddSimInitialCapitalPerAlgoKind1700000000086.js';
+import { SplitRiskConfigPerAlgoKind1700000000087 } from '../migrations/SplitRiskConfigPerAlgoKind1700000000087.js';
+import { DropLegacyRiskConfig1700000000088 } from '../migrations/DropLegacyRiskConfig1700000000088.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -196,6 +202,8 @@ export const migrations = [
   SimBalancePerAlgoKind1700000000084,
   SimSessionsPerAlgoKind1700000000085,
   AddSimInitialCapitalPerAlgoKind1700000000086,
+  SplitRiskConfigPerAlgoKind1700000000087,
+  DropLegacyRiskConfig1700000000088,
 ];
 
 export const entities = [
@@ -246,6 +254,10 @@ export const entities = [
   WeatherAutoTrackRule,
   WeatherForecastCache,
   WeatherPositionForecast,
+  GlobalConfig,
+  CopyConfig,
+  CryptoConfig,
+  WeatherConfig,
 ];
 
 /**

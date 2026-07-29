@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import type { OptimizeReportConfigInput } from './optimize-report.js';
 
 /** Fields that affect crypto algo exit/entry behavior — used for apply guard. */
@@ -30,7 +30,7 @@ const CRYPTO_ALGO_FINGERPRINT_KEYS = [
   'cryptoAlgoEntryShareCount',
 ] as const;
 
-type FingerprintSource = RiskConfig | OptimizeReportConfigInput;
+type FingerprintSource = CryptoConfig | OptimizeReportConfigInput;
 
 function pickFingerprintFields(source: FingerprintSource): Record<string, unknown> {
   const out: Record<string, unknown> = {};

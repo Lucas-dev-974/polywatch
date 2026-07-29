@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { api } from '../api';
+import { fetchWeatherConfig, updateWeatherConfig } from '../api';
 
 export function WeatherAlgoSettingsTab() {
   const [config, setConfig] = createSignal<Record<string, unknown> | null>(null);
@@ -8,7 +8,7 @@ export function WeatherAlgoSettingsTab() {
 
   async function loadConfig() {
     try {
-      setConfig(await api<Record<string, unknown>>('/risk-config'));
+      setConfig(await fetchWeatherConfig() as unknown as Record<string, unknown>);
     } catch { /* ignore */ }
     setLoaded(true);
   }
@@ -18,23 +18,20 @@ export function WeatherAlgoSettingsTab() {
     if (!c) return;
     setSaving(true);
     try {
-      await api('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify({
-          weatherAlgoEnabled: c.weatherAlgoEnabled,
-          weatherAlgoSimEnabled: c.weatherAlgoSimEnabled,
-          weatherAlgoRealEnabled: c.weatherAlgoRealEnabled,
-          weatherAlgoMinEdge: c.weatherAlgoMinEdge,
-          weatherAlgoMaxForecastStd: c.weatherAlgoMaxForecastStd,
-          weatherAlgoSizingMode: c.weatherAlgoSizingMode,
-          weatherAlgoEntryUsdc: c.weatherAlgoEntryUsdc,
-          weatherAlgoSelectionMode: c.weatherAlgoSelectionMode,
-          weatherAlgoMaxSignalsPerEvent: c.weatherAlgoMaxSignalsPerEvent,
-          weatherAlgoForecastChangeThreshold: c.weatherAlgoForecastChangeThreshold,
-          weatherAlgoCloseBeforeResolutionHours: c.weatherAlgoCloseBeforeResolutionHours,
-          weatherAlgoPollMs: c.weatherAlgoPollMs,
-          weatherAlgoCityFollowSwitchMode: c.weatherAlgoCityFollowSwitchMode,
-        }),
+      await updateWeatherConfig({
+        weatherAlgoEnabled: c.weatherAlgoEnabled as boolean,
+        weatherAlgoSimEnabled: c.weatherAlgoSimEnabled as boolean,
+        weatherAlgoRealEnabled: c.weatherAlgoRealEnabled as boolean,
+        weatherAlgoMinEdge: c.weatherAlgoMinEdge as number,
+        weatherAlgoMaxForecastStd: c.weatherAlgoMaxForecastStd as number | null,
+        weatherAlgoSizingMode: c.weatherAlgoSizingMode as string,
+        weatherAlgoEntryUsdc: c.weatherAlgoEntryUsdc as number,
+        weatherAlgoSelectionMode: c.weatherAlgoSelectionMode as string,
+        weatherAlgoMaxSignalsPerEvent: c.weatherAlgoMaxSignalsPerEvent as number,
+        weatherAlgoForecastChangeThreshold: c.weatherAlgoForecastChangeThreshold as number,
+        weatherAlgoCloseBeforeResolutionHours: c.weatherAlgoCloseBeforeResolutionHours as number,
+        weatherAlgoPollMs: c.weatherAlgoPollMs as number,
+        weatherAlgoCityFollowSwitchMode: c.weatherAlgoCityFollowSwitchMode as string,
       });
     } catch { /* ignore */ }
     setSaving(false);

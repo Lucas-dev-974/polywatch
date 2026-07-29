@@ -1,6 +1,6 @@
 import {
   computeEntryTargetQuantity,
-  getModeMaxPositionSizeUsdc,
+  getCryptoMaxPositionSizeUsdc,
   getCryptoAlgoSizingParams,
   hashAlgoLogicalKey,
   hashAlgoOrderSignalId,
@@ -22,12 +22,12 @@ import {
   effectiveEntryMos,
   resolveEntryMinOrderSharesDetailed,
   fetchEntryAskLiquidityWithRetries,
-  getModeEntryDepthRetryMax,
-  getModeEntryDepthRetryDelayMs,
+  getCryptoEntryDepthRetryMax,
+  getCryptoEntryDepthRetryDelayMs,
   gateAlgoEntryAskLiquidity,
   type AlgoEntryExitParams,
   type OrderSignal,
-  type RiskConfig,
+  type CryptoConfig,
   type TradingMode,
   type RedisQueue,
   type IPolymarketConnectionManager,
@@ -48,7 +48,7 @@ const CLOB_API = process.env.POLYMARKET_CLOB_API ?? 'https://clob.polymarket.com
  */
 export interface AlgoEntryPipelineParams {
   signal: AlgoSignal;
-  risk: RiskConfig;
+  risk: CryptoConfig;
   watchlistId: number;
   connectionManager: IPolymarketConnectionManager;
   reservationService: ReservationService;
@@ -57,8 +57,10 @@ export interface AlgoEntryPipelineParams {
   orderQueue: RedisQueue<OrderSignal>;
   /** Redis command connection for entry cooldown checks. */
   redisCmd: Pick<Redis, 'exists'>;
-  /** DataSource for reading RiskConfig.realCashOverride. Required for real mode. */
+  /** DataSource for reading GlobalConfig.realCashOverride. Required for real mode. */
   ds: DataSource;
+  /** Whether real trading is enabled (from GlobalConfig). */
+  realTradingEnabled: boolean;
   /** Backend URL for fetching on-chain balance. Required for real mode. */
   backendUrl: string;
   /** Service token for backend auth. Required for real mode. */
@@ -73,7 +75,7 @@ export interface AlgoEntryPipelineParams {
  * bailed out before enqueuing any order.
  *
  * Mode handling mirrors the copy entry pipeline: `'sim'` always runs, `'real'`
- * only runs when `risk.realTradingEnabled` is true. Each mode is independent —
+ * only runs when `globalConfig.realTradingEnabled` is true. Each mode is independent —
  * a skip in one mode does not abort the other.
  */
 export async function runAlgoEntryPipeline(
@@ -92,6 +94,7 @@ export async function runAlgoEntryPipeline(
     redisCmd,
     backendUrl,
     serviceToken,
+    realTradingEnabled,
   } = params;
 
   if (!risk.cryptoAlgoEnabled) {
@@ -164,7 +167,7 @@ export async function runAlgoEntryPipeline(
   let anyModeEnqueued = false;
 
   for (const mode of modes) {
-    if (mode === 'real' && !risk.realTradingEnabled) {
+    if (mode === 'real' && !realTradingEnabled) {
       continue;
     }
 
@@ -230,7 +233,7 @@ export async function runAlgoEntryPipeline(
  */
 async function runMode(args: {
   signal: AlgoSignal;
-  risk: RiskConfig;
+  risk: CryptoConfig;
   watchlistId: number;
   mode: TradingMode;
   marketInterval: string | null;
@@ -367,7 +370,7 @@ async function runMode(args: {
 
   // --- Balances ------------------------------------------------------------
   // For sim mode, use simulation service. For real mode, fetch from backend
-  // (or use override from RiskConfig).
+  // (or use override from GlobalConfig).
   const realCashOverride =
     mode === 'real'
       ? await fetchAvailableRealCash(ds, backendUrl, serviceToken)
@@ -402,7 +405,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk, mode),
     signalScore: undefined,
     stopDistance: undefined,
   });
@@ -437,7 +440,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk, mode),
     signalScore: undefined,
     stopDistance: undefined,
   });
@@ -454,7 +457,7 @@ async function runMode(args: {
     targetQty,
     askVwap,
     cash: balances.cash,
-    maxPositionSizeUsdc: getModeMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk, mode),
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     clobApi: CLOB_API,
@@ -491,8 +494,8 @@ async function runMode(args: {
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId: signal.assetId,
     targetQty: finalQty,
-    maxRetries: getModeEntryDepthRetryMax(risk, mode),
-    delayMs: getModeEntryDepthRetryDelayMs(risk, mode),
+    maxRetries: getCryptoEntryDepthRetryMax(risk, mode),
+    delayMs: getCryptoEntryDepthRetryDelayMs(risk, mode),
     connectionManager,
   });
   if (!depthResult.ok) {

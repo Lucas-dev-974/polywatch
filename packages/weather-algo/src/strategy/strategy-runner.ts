@@ -3,7 +3,7 @@ import type { DataSource } from 'typeorm';
 import type { Redis } from 'ioredis';
 import {
   type MarketListItemDto,
-  type RiskConfig,
+  type WeatherConfig,
   type WeatherMarketSelection,
   type WeatherMarketSelectionService,
   type WeatherForecastService,
@@ -57,7 +57,7 @@ export class WeatherStrategyRunner {
   private readonly onSignal: (signal: WeatherSignal) => Promise<boolean>;
   private pollMs: number;
   private readonly forecastCacheTtlMs: number;
-  private risk: RiskConfig | null = null;
+  private risk: WeatherConfig | null = null;
   private runtimeStatus?: WeatherAlgoRuntimeStatusPublisher;
   private exitEvaluator?: WeatherExitEvaluator;
 
@@ -75,7 +75,7 @@ export class WeatherStrategyRunner {
     this.exitEvaluator = params.exitEvaluator;
   }
 
-  setRiskConfig(risk: RiskConfig): void {
+  setRiskConfig(risk: WeatherConfig): void {
     this.risk = risk;
     if (risk.weatherAlgoPollMs && risk.weatherAlgoPollMs > 0) {
       this.pollMs = risk.weatherAlgoPollMs;

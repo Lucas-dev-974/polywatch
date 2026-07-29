@@ -1,5 +1,9 @@
+import type { DataSource } from 'typeorm';
 import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { SimAlgoKind } from './algo-kind.js';
+import { CryptoConfigService } from '../services/crypto-config.service.js';
+import { WeatherConfigService } from '../services/weather-config.service.js';
+import { CopyConfigService } from '../services/copy-config.service.js';
 import { DEFAULT_SIM_BALANCE } from './constants.js';
 
 export type SimInitialCapitalRisk = Pick<
@@ -24,6 +28,7 @@ export function getSimInitialCapital(
   }
 }
 
+/** @deprecated Use per-algo functions (setCryptoSimInitialCapital etc.) instead. */
 export function setSimInitialCapital(
   risk: RiskConfig,
   algoKind: SimAlgoKind,
@@ -40,4 +45,21 @@ export function setSimInitialCapital(
       risk.simInitialCapitalCrypto = amount;
       break;
   }
+}
+
+// ─── Per-algo async update functions (preferred API) ─────────────────
+
+export async function setCryptoSimInitialCapital(ds: DataSource, amount: number): Promise<void> {
+  const service = new CryptoConfigService(ds);
+  await service.updateConfig({ simInitialCapitalCrypto: amount });
+}
+
+export async function setWeatherSimInitialCapital(ds: DataSource, amount: number): Promise<void> {
+  const service = new WeatherConfigService(ds);
+  await service.updateConfig({ simInitialCapitalWeather: amount });
+}
+
+export async function setCopySimInitialCapital(ds: DataSource, amount: number): Promise<void> {
+  const service = new CopyConfigService(ds);
+  await service.updateConfig({ simInitialCapitalCopy: amount });
 }

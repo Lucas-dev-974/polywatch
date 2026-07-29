@@ -20,7 +20,7 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `CopiedPosition` | `copied_positions` | Positions repliquees par Polywatch |
 | `Execution` | `executions` | Ordres executes (claim -> fill) |
 | `PositionReservation` | `position_reservations` | Reservations de capital (TTL 180 s) |
-| `SimulationBalance` | `simulation_balances` | Solde pUSD du mode simulation (`session_started_at`, `current_session_id`) |
+| `SimulationBalance` | `simulation_balances` | Solde pUSD sim **par `algoKind`** (`crypto` / `weather` / `copy`, unique) + `session_started_at`, `current_session_id` |
 | `SimulationSession` | `simulation_sessions` | Sessions de simulation entre deux resets (voir [`snapshots-simulation.md`](./snapshots-simulation.md)) |
 | `RealSession` | `real_sessions` | Periodes de trading reel entre deux clotures (voir [`snapshots-real.md`](./snapshots-real.md)) |
 | `RealSessionState` | `real_session_state` | Pointeur singleton vers la periode active (sans montant wallet) |
@@ -94,7 +94,9 @@ Singleton de configuration. Couvre :
   `realKillSwitchAction`.
 - **Sizing copy trading** par mode (`sim*` / `real*`) : `sizingMode`
   (`fixed_ratio` | `fixed_usdc` | `fixed_shares` | `proportional_capital` | `kelly_fractional` | `risk_based`),
-  `copyRatio`, `entryUsdcAmount`, `entryShareCount`, `simInitialCapital`, `kellyFraction`, `riskBudgetUsdc`,
+  `copyRatio`, `entryUsdcAmount`, `entryShareCount`, `simInitialCapitalCrypto`,
+  `simInitialCapitalWeather`, `simInitialCapitalCopy` (`simInitialCapital` déprécié,
+  alias lecture = crypto), `kellyFraction`, `riskBudgetUsdc`,
   `defaultWinProbability`.
 - **Sizing crypto-algo** : `cryptoAlgoSizingMode` (`fixed_usdc` | `fixed_shares`),
   `cryptoAlgoEntryUsdcAmount`, `cryptoAlgoEntryShareCount`.
@@ -171,19 +173,21 @@ Singleton de configuration. Couvre :
 ### `SimulationStateSnapshot` (`simulation_state_snapshots`)
 
 Archive immuable de l'etat simulation. Colonnes agreegees (equity, PnL, compteurs,
-`source`, `label`, `session_id`) + JSON (`config_json`, `traders_json`, `positions_json`,
-`executions_json`, `exit_attempts_json`, `move_events_json`, `decision_summary_json`).
-Sources : `manual`, `auto`, `reset`. Service : `SimulationArchiveService`.
+`source`, `label`, `session_id`, **`algo_kind`**) + JSON (`config_json`, `traders_json`,
+`positions_json`, `executions_json`, `exit_attempts_json`, `move_events_json`,
+`decision_summary_json`). Sources : `manual`, `auto`, `reset`.
+Service : `SimulationArchiveService` (create / list filtrés par `algoKind`).
 
 ### `SimulationSession` (`simulation_sessions`)
 
-Regroupe les snapshots d'une course de simulation entre deux resets. Champs :
-`status` (`active` | `closed`), `started_at`, `ended_at`, `label`, `notes`,
-agregats (`snapshot_count`, `peak_equity`, `trough_equity`, `ending_equity`,
-`ending_session_pnl`, `baseline_capital`, `archive_summary_json` (resume archivage).
-Une seule session `active` a la fois.
+Regroupe les snapshots d'une course de simulation entre deux resets **d'un même
+`algoKind`**. Champs : `algo_kind` (`crypto` | `weather` | `copy`), `status`
+(`active` | `closed`), `started_at`, `ended_at`, `label`, `notes`, agregats
+(`snapshot_count`, `peak_equity`, `trough_equity`, `ending_equity`,
+`ending_session_pnl`, `baseline_capital`, `archive_summary_json`).
+**Une seule session `active` par `algo_kind`** (unique partiel).
 Service : `SimulationSessionService` ; archivage reset :
-`SimulationResetArchiveService`.
+`SimulationResetArchiveService` (purge / archive scopées au kind).
 
 ### `RealSession` (`real_sessions`)
 
@@ -262,8 +266,10 @@ Donnees sensibles du trading reel. Les champs `*_enc` sont **chiffres**
 `signerPkEnc`, `signatureType`, `isPrimary`).
 
 ### `SimulationBalance` (`simulation_balances`)
-Solde virtuel `pUSD` du mode simulation, initialise a `DEFAULT_SIM_BALANCE`,
-reinitialisable via l'API.
+Solde virtuel `pUSD` **par périmètre** `algo_kind` (`crypto` | `weather` | `copy`,
+contrainte unique). Initialise au seed (3 lignes) ; reinitialisable via
+`POST /api/simulation-balance/reset` avec `algoKind`. Champs : `amount`,
+`baseline_capital`, `session_started_at`, `current_session_id`.
 
 ### `RiskConfigRevision` (`risk_config_revisions`)
 Journal append-only des mises a jour `risk_config` (migration `0047`). Champs :

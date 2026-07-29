@@ -80,7 +80,10 @@ pour la liste complete. Parametres notables et leurs effets :
 | `simKellyFraction` / `realKellyFraction` | Fraction de Kelly pour le sizing (defaut 0.25) |
 | `simRiskBudgetUsdc` / `realRiskBudgetUsdc` | Budget de risque en USDC (mode `risk_based`) |
 | `simDefaultWinProbability` / `realDefaultWinProbability` | Probabilite de gain par defaut (mode Kelly, defaut 0.55) |
-| `simInitialCapital` | Capital initial de simulation (pUSD). Préremplit le dialog de réinitialisation ; mis à jour automatiquement avec le montant utilisé lors d'un reset. |
+| `simInitialCapitalCrypto` | Capital initial sim **crypto** (pUSD). Préremplit le dialog de reset crypto ; mis à jour au reset de ce kind. |
+| `simInitialCapitalWeather` | Capital initial sim **weather** (pUSD). Idem pour le périmètre weather. |
+| `simInitialCapitalCopy` | Capital initial sim **copy** (pUSD). Idem pour le périmètre copy. |
+| `simInitialCapital` | **Déprécié** (compat DB) — alias lecture API = `simInitialCapitalCrypto`. Préférer les trois champs ci-dessus. |
 | `realCashOverride` | Surcharge manuelle du cash reel disponible (null = fetch on-chain) |
 | `*SlBidPoints` / `*TpBidPoints` / `*TrailingBidPoints` | Declencheurs de sortie SL/TP/trailing en points de bid absolus. En marche illiquide, le dernier prix trade connu (`last_trade_price` du canal WS CLOB) est utilise comme reference conservatrice pour que le SL/trailing/kill-switch puisse se declencher meme si le bid affiche est un niveau fige. |
 | `simSlEnabled` / `realSlEnabled` | Active/desactive le stop-loss pour le mode |

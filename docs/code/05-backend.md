@@ -31,8 +31,8 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 | POST | `/api/auth/refresh` | Renouvellement des tokens (rotation single-use via `jti` Redis) |
 | GET/PUT | `/api/risk-config` | Lecture / mise à jour de la config risque (`simAllowedMarketTags` / `realAllowedMarketTags` sérialisés en `string[]`) |
 | GET | `/api/market-tags` | Tags marché pour l'UI (`nav` + `tags` avec `?search=`, proxy Gamma) |
-| GET | `/api/simulation-balance` | Snapshot simulation (cash + equity) |
-| POST | `/api/simulation-balance/reset` | Reset simulation (archive auto si activité, purge Redis sim post-commit). **Lock Redis `sim:reset:lock`** (SET NX PX 10 s) contre les resets concurrents → 409 si déjà en cours, 503 si Redis injoignable. Side-effects post-commit (purge Redis, WS emit, pub/sub) chacun dans un `try/catch` dédié ; échecs accumulés dans `warnings[]` retournés au client. Réponse inclut `archiveSummary`, `redisPurge` (ou `null` si purge échoué), `warnings`. |
+| GET | `/api/simulation-balance` | Snapshot simulation (cash + equity) — query **`algoKind`** (défaut `crypto`) |
+| POST | `/api/simulation-balance/reset` | Reset **d'un** périmètre (`algoKind` requis dans le body). Archive / wipe / purge Redis **scopés** au kind. **Lock Redis `sim:reset:lock:${algoKind}`** (SET NX PX 10 s) → 409 si déjà en cours, 503 si Redis injoignable. Side-effects post-commit isolés ; réponse : `archiveSummary`, `redisPurge`, `warnings`. |
 | GET/POST/GET/:id/DELETE | `/api/simulation-snapshots` | Archives d'état simulation — voir [`snapshots-simulation.md`](../snapshots-simulation.md) |
 | GET/POST/DELETE | `/api/clob-credentials(/status)` | Statut / enregistrement chiffré / suppression des credentials CLOB |
 | GET | `/api/executions` | Liste des exécutions (filtre mode) |

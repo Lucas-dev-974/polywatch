@@ -25,7 +25,7 @@ move events). Ils servent à **comparer** l'évolution de la session dans le tem
 |--------|-------|------------------|---------------|
 | `manual` | Bouton **Snapshot** dans le hero sim ou **Nouveau snapshot** dans la page Snapshots (onglet Simulation) | Label optionnel saisi par l'utilisateur | non |
 | `auto` | Boucle backend si activée dans la config | `Automatique` | oui — sauf si `simAutoSnapshotEmptySession` est activé |
-| `reset` | Avant `POST /api/simulation-balance/reset` | `Avant réinitialisation` | oui — sauf si `simAutoSnapshotEmptySession` est activé |
+| `reset` | Avant `POST /api/simulation-balance/reset` (**scopé au `algoKind` du body**) | `Avant réinitialisation` | oui — sauf si `simAutoSnapshotEmptySession` est activé |
 
 La création passe par `SimulationArchiveService.createSnapshot()` dans
 `packages/core/src/services/simulation-archive.service.ts`.
@@ -37,27 +37,35 @@ le même `EntityManager`.
 ## Sessions snapshot
 
 Une **session** regroupe tous les snapshots d'une course de simulation, entre
-deux réinitialisations.
+deux réinitialisations **d'un même périmètre algo**.
+
+Les trois périmètres `crypto` / `weather` / `copy` sont **indépendants** : chacun a
+sa propre balance (`simulation_balances.algo_kind`), sa propre session `active`,
+son capital initial (`simInitialCapitalCrypto|Weather|Copy`), et son reset isolé.
 
 | Concept | Règle |
 |---------|--------|
-| Ouverture | Seed / premier snapshot (`ensureActiveSession`) |
-| Attache | Chaque snapshot porte `session_id` |
-| Clôture | Au reset : snapshot `reset` (si créé) → close session → wipe → open nouvelle session |
+| Périmètre | `algoKind` ∈ `{ crypto, weather, copy }` |
+| Ouverture | Seed / premier snapshot (`ensureActiveSession(algoKind)`) |
+| Attache | Chaque snapshot porte `session_id` + `algo_kind` |
+| Clôture | Au reset **du kind** : snapshot `reset` (si créé) → close session → wipe **du kind** → open nouvelle session |
 | Snapshot `reset` | Appartient à la session **qui se termine** |
+| Isolation | Reset crypto ne touche ni cash, ni positions, ni Redis des kinds weather/copy |
 
 ### Table `simulation_sessions`
 
-- `status` : `active` \| `closed` (une seule active)
+- `algo_kind` : `crypto` \| `weather` \| `copy`
+- `status` : `active` \| `closed` (**une seule active par `algo_kind`**, unique partiel)
 - Agrégats : `snapshot_count`, `peak_equity`, `trough_equity`, `ending_equity`, `ending_session_pnl`
 - Métadonnées : `label`, `notes` (éditables)
-- Lien : `simulation_balances.current_session_id`
+- Lien : `simulation_balances.current_session_id` (une ligne balance **par** kind)
 - `archive_summary_json` : compteurs archivés au reset (positions, exécutions, bougies, …)
 
 ### Archivage par session (reset)
 
-Lors d'un `POST /api/simulation-balance/reset` avec `archive: true` (défaut), la session
-active est archivée **avant** le wipe dans des tables `sim_archive_*` :
+Lors d'un `POST /api/simulation-balance/reset` avec `archive: true` (défaut) et
+**`algoKind` requis**, seule la session active **du kind** est archivée **avant**
+le wipe dans des tables `sim_archive_*` :
 
 | Table | Contenu |
 |-------|---------|
@@ -67,26 +75,42 @@ active est archivée **avant** le wipe dans des tables `sim_archive_*` :
 | `sim_archive_surveillance` | `algo_surveillance_snapshots` |
 | `sim_archive_price_candles` | Bougies OHLC 1 min (algo / market / position ticks) |
 
-`deepClean: true` purge ensuite ticks marché, surveillance terminée, exit attempts sim,
-et réinitialise `market_price_history_sync` (sans toucher aux lignes surveillance **live**).
+`deepClean: true` purge ensuite ticks marché / surveillance / exit attempts **liés
+aux conditions du kind** (pas un wipe marché global), et réinitialise
+`market_price_history_sync` pour ces conditions (sans toucher aux lignes
+surveillance **live** hors périmètre).
 
 #### Hygiène Redis (après wipe DB)
 
-Après le commit transactionnel du reset, le backend appelle `purgeSimExecutionRedisState` :
+Après le commit transactionnel du reset, le backend appelle
+`purgeSimExecutionRedisState(hints, algoKind)` :
 
-1. **Avant** delete DB : `collectSimRedisPurgeHints` (réservations sim, pending algo, clés logiques).
-2. **Après** commit : retrait des jobs `mode:sim` des files (`algo-order-signals`, `order-signals`, `execution-results`, `close-signals` + `:processing`) via `LREM` ; suppression ciblée des marqueurs dedup/retry **sim** ; `SCAN` + `DEL` sur `algo-entry-cooldown:*:sim`.
-3. Le trading **réel** (`mode:real`) et ses marqueurs Redis ne sont **pas** touchés.
+1. **Avant** delete DB : `collectSimRedisPurgeHints(ds, algoKind)` —
+   réservations + **toutes** les positions sim du kind (tous statuts) →
+   `copiedPositionIds` / `copySignalIds` / clés logiques.
+2. **Après** commit :
+   - queues d'**entrée** dédiées uniquement (`algo-order-signals` /
+     `weather-order-signals` / `order-signals` + `:processing`) : jobs `mode:sim`
+     dont la raison d'entrée mappe au kind ;
+   - **`close-signals`** : jobs `mode:sim` dont `copiedPositionId ∈ hints.copiedPositionIds`
+     (jamais classer un `SL`/`TP` via `algoKindFromReason` — ces raisons retombent
+     sur `crypto`) ;
+   - **`execution-results`** : match par `orderSignalId` (réservations ou closes
+     retirés) **ou** raison **spécifique** au kind (`ALGO_*` / `COPY_*` /
+     `WEATHER_*` après gate) — jamais SL/TP/TRAILING/MANUAL via mapping raison ;
+   - marqueurs dedup/retry et `algo-entry-cooldown:${logicalKey}:sim` du périmètre.
+3. Les autres kinds et le trading **réel** (`mode:real`) ne sont **pas** touchés.
 
-Réponse API : champ `redisPurge` (compteurs). Pub/sub `simulation-reset` notifie crypto-algo et worker.
+Réponse API : champ `redisPurge` (compteurs). Pub/sub `simulation-reset` inclut
+`algoKind` pour que le FE / workers filtrent.
 
 > Pour un incident worker-down (file saturée, worker arrêté), `tools/flush-redis-queues.ts` reste l'outil manuel ; le reset sim ne remplace pas une purge globale d'urgence.
 
 Voir [`plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](./plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md).
 
-UI : `NewSessionResetDialog` après apply de recommandations rapport algo ; même dialog
-pour le reset manuel (`SimHero`). Consultation : bouton **Archive** sur session fermée
-(`SimSessionArchiveDialog`).
+UI : `NewSessionResetDialog` (prop `algoKind`, forcé `crypto` après apply rapport
+algo) ; reset manuel depuis `SimHero` sur le kind affiché. Consultation : bouton
+**Archive** sur session fermée (`SimSessionArchiveDialog`).
 
 #### UI archives — périmètre actuel et évolutions possibles
 
@@ -107,16 +131,20 @@ pour le reset manuel (`SimHero`). Consultation : bouton **Archive** sur session 
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/simulation-sessions` | Liste paginée (`status`, `label`, `from`, `to`) |
-| GET | `/api/simulation-sessions/current` | Session active |
-| GET | `/api/simulation-sessions/:id` | Détail (inclut `archiveSummary`) |
+| GET | `/api/simulation-sessions` | Liste paginée — **`algoKind` requis** + `status`, `label`, `from`, `to` |
+| GET | `/api/simulation-sessions/current` | Session active — **`algoKind` requis** |
+| GET | `/api/simulation-sessions/:id` | Détail (inclut `archiveSummary`) — **`algoKind` requis** ; 404 si mismatch kind |
 | GET | `/api/simulation-sessions/:id/archive` | Archive paginée (`type`, `limit`, `offset`) |
 | PATCH | `/api/simulation-sessions/:id` | `{ label?, notes? }` |
-| DELETE | `/api/simulation-sessions/:id` | Session fermée uniquement (`?deleteSnapshots=true`) |
+| DELETE | `/api/simulation-sessions/:id` | Session fermée — **`algoKind` requis** (`?deleteSnapshots=true`) |
+| DELETE | `/api/simulation-sessions/closed` | Toutes les sessions fermées du kind — **`algoKind` requis** |
 
-`GET /api/simulation-snapshots` accepte aussi `sessionId`.
+`GET /api/simulation-snapshots` exige aussi **`algoKind`** (et accepte `sessionId`).
 
 ### UI
+
+Onglets **Crypto / Weather / Copy** dans `SimulationSnapshotsPanel` et `SimHero`
+pour basculer le périmètre (sessions, snapshots, balance, reset).
 
 Page nav **Snapshots** → onglet **Simulation** (`SnapshotsPage` → `SimulationSnapshotsPanel`) :
 
@@ -259,8 +287,8 @@ Routes montées dans `packages/backend/src/routes/simulation.ts`.
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/simulation-snapshots` | Liste paginée + filtres |
-| POST | `/api/simulation-snapshots` | Création manuelle `{ label?: string }` |
+| GET | `/api/simulation-snapshots` | Liste paginée — **`algoKind` requis** + filtres |
+| POST | `/api/simulation-snapshots` | Création manuelle `{ algoKind, label?: string }` |
 | GET | `/api/simulation-snapshots/:id` | Détail complet |
 | DELETE | `/api/simulation-snapshots` | Supprime **tous** les snapshots (`{ deleted: number }`) |
 
@@ -268,6 +296,7 @@ Routes montées dans `packages/backend/src/routes/simulation.ts`.
 
 | Param | Type | Description |
 |-------|------|-------------|
+| `algoKind` | `crypto` \| `weather` \| `copy` | **Requis** — périmètre |
 | `limit` | number | Défaut 50, max 200 |
 | `offset` | number | Défaut 0 |
 | `source` | `manual` \| `auto` \| `reset` | Filtre par source |
@@ -283,7 +312,7 @@ Réponse : `{ items: SimStateSnapshotSummary[], total: number }`.
 | Événement | Déclencheur | Usage frontend |
 |-----------|-------------|----------------|
 | `simulation_snapshot_created` | Création manuelle, auto ou reset (**si** snapshot créé) | Rafraîchit la liste dans l'onglet Snapshots |
-| `simulation_reset` | Après reset sim | Rafraîchit liste + balance |
+| `simulation_reset` | Après reset sim (payload inclut `algoKind`) | Rafraîchit liste + balance ; `SimHero` filtre par kind affiché |
 
 Le frontend écoute ces événements dans `useSimulationSnapshots` et `SimHero`.
 
@@ -293,9 +322,9 @@ Boucle `startSimAutoSnapshotLoop()` (`packages/backend/src/simulation/auto-snaps
 
 - Tick toutes les **30 s** ; vérifie `simAutoSnapshotEnabled` dans `RiskConfig`.
 - Intervalle utilisateur : `simAutoSnapshotIntervalSeconds` (minimum **60 s**).
-- Ne crée un snapshot que si l'intervalle est écoulé depuis le dernier snapshot
-  `source=auto` (garde en mémoire + base pour éviter les rafales).
-- `skipIfEmpty: true` par défaut : pas de snapshot si la session n'a ni position ni
+- `createAutoSnapshotIfDue` boucle les **trois** kinds (`crypto`, `weather`, `copy`)
+  avec cooldown **par kind** (dernier `source=auto` filtré par `algo_kind`).
+- `skipIfEmpty: true` par défaut : pas de snapshot si le kind n'a ni position ni
   exécution sim, **sauf** si `simAutoSnapshotEmptySession` est activé (snapshot config-only).
 
 Configuration dans l'UI : dialog **Configurer** (onglet Snapshots) ou champs
@@ -337,15 +366,16 @@ Page nav **Snapshots** → onglet **Simulation** (`SnapshotsPage.tsx` → `Simul
 
 ### Reset avec archive
 
-1. L'utilisateur confirme **Réinitialiser** dans le hero.
-2. Le backend crée un snapshot `reset` si la session a de l'activité (ou si
-   `simAutoSnapshotEmptySession` est activé).
-3. Puis `SimulationService.reset()` remet cash, positions et historique sim à zéro,
-   met à jour `session_started_at`, **clôture** la session courante et **ouvre** une
-   nouvelle session active (`SimulationSessionService.rotateAfterReset`).
-4. Le montant de capital utilisé est persisté dans `simInitialCapital` (préremplissage
-   des prochains resets). Les autres paramètres (watchlist, sizing, risque) **ne
-   sont pas** modifiés.
+1. L'utilisateur choisit le kind (onglets hero) et confirme **Réinitialiser**.
+2. Le backend crée un snapshot `reset` **pour ce kind** si le périmètre a de
+   l'activité (ou si `simAutoSnapshotEmptySession` est activé).
+3. Puis `SimulationService.resetWithManager(algoKind, …)` remet cash / positions /
+   historique **du kind** à zéro, **clôture** la session du kind et **ouvre** une
+   nouvelle session active (`SimulationSessionService.rotateAfterReset(algoKind, …)`).
+4. Le montant de capital utilisé est persisté dans
+   `simInitialCapitalCrypto|Weather|Copy` selon le kind (préremplissage des
+   prochains resets de ce kind uniquement). Les autres kinds et le reste de la
+   config **ne sont pas** modifiés.
 
 ## Déploiement
 
@@ -361,6 +391,9 @@ Migrations concernées :
 |-----------|--------|
 | `AddSnapshotSystemV2170000000045` | JSON décisionnel, `session_started_at`, `exit_attempt_events.mode`, champs risk config snapshot |
 | `AddSimulationSessions1700000000046` | Table `simulation_sessions`, `session_id` sur snapshots, `current_session_id` sur balance |
+| `SimBalancePerAlgoKind…` (0084) | Partition `simulation_balances` par `algo_kind` |
+| `SimSessionsPerAlgoKind1700000000085` | `algo_kind` sur sessions + snapshots ; une session active **par** kind |
+| `AddSimInitialCapitalPerAlgoKind1700000000086` | `sim_initial_capital_{crypto,weather,copy}` sur `risk_config` |
 
 ## Fichiers sources
 
@@ -376,7 +409,9 @@ Migrations concernées :
 | Routes | `packages/backend/src/routes/simulation.ts` |
 | Auto-loop | `packages/backend/src/simulation/auto-snapshot-loop.ts` |
 | Timing | `packages/core/src/simulation/auto-snapshot-timing.ts` |
-| Migration | `packages/core/src/migrations/AddSnapshotSystemV2170000000045.ts`, `AddSimulationSessions1700000000046.ts` |
+| Migration | `packages/core/src/migrations/AddSnapshotSystemV2170000000045.ts`, `AddSimulationSessions1700000000046.ts`, `SimSessionsPerAlgoKind1700000000085.ts`, `AddSimInitialCapitalPerAlgoKind1700000000086.ts` |
+| Capital / rotation | `packages/core/src/simulation/sim-initial-capital.ts`, `packages/core/src/risk/sim-rotation-targets.ts` |
+| Redis hygiene | `packages/core/src/redis/sim-reset-redis-hygiene.ts` |
 | API client | `packages/frontend/src/lib/simulation-snapshots.ts`, `simulation-sessions.ts` |
 | Compare snapshots | `packages/frontend/src/lib/sim-snapshot-compare.ts` |
 | Compare sessions | `packages/frontend/src/lib/sim-session-compare.ts` |

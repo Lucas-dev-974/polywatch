@@ -236,6 +236,6 @@ Documentées dans la skill `polywatch-frontend-ui`
 | Évolution PnL | `pnl_tick` met à jour le signal `pnlMap` de `PositionCard` ; les lignes lisent le tick via des accesseurs réactifs (`OpenPositionRow`) |
 | PnL — secours | À défaut de `pnl_tick`, `PositionCard` recharge les positions ouvertes en REST toutes les **30 s** (valeurs persistées en base) |
 | Clôture manuelle | `POST /api/copied-positions/:id/close` → `position_update` (`closing`) |
-| Reset simulation | `POST /api/simulation-balance/reset` → purge Redis sim + `simulation_reset` (WS) + `simulation-reset` (Redis) + `config-changed` |
+| Reset simulation | `POST /api/simulation-balance/reset` (`algoKind` requis) → purge Redis **scopée** + `simulation_reset` (WS + `algoKind`) + `simulation-reset` (Redis) + `config-changed` |
 | Toggle copy trading | `PUT /api/risk-config` → DB + `config-changed` (Redis) → le worker `copy-trading` relance la surveillance si elle était arrêtée |
 | Kill switch / book down | `alert` → `AlertBanner` |

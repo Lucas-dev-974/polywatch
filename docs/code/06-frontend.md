@@ -90,7 +90,7 @@ Header permanent : `WatchlistEditor` + déconnexion. `AlertBanner` (max 10 alert
 1. **Login** : `POST /auth/login` → tokens → `connectSocket()`.
 2. **Watchlist** : dialog CRUD + toggles `active`/`simEnabled`/`realEnabled` ; ajout direct depuis le leaderboard.
 3. **Suivi des positions** : chargement au mount, refresh sur `position_update`, métriques à la volée sur `pnl_tick`, poll de secours 30 s.
-4. **Reset simulation** : confirmation → `POST /simulation-balance/reset` → purge Redis sim (`purgeSimExecutionRedisState`) → événements `simulation_reset` (WebSocket) + canal Redis `simulation-reset` (crypto-algo / worker).
+4. **Reset simulation** : confirmation → `POST /simulation-balance/reset` avec **`algoKind`** (crypto / weather / copy) → purge Redis **scopée au kind** (`purgeSimExecutionRedisState`) → `simulation_reset` (WS, payload avec `algoKind`) + canal Redis `simulation-reset` (crypto-algo / worker).
 5. **Setup mode réel** : credentials CLOB (chiffrés serveur) → wallet accounts (clé signer validée localement) → approbations CLOB automatiques côté worker → toggle « trading réel ».
 6. **Dépôt** : MetaMask direct (pUSD Polygon) ou bridge multi-chain (adresses générées + suivi).
 7. **Retrait** : selon le type de signature du compte — serveur (EOA/relayer) ou MetaMask (signature EIP-712 du batch deposit wallet).

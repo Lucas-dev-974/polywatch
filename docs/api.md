@@ -50,18 +50,19 @@ Montées sous `/api` (`createConfigRouter`).
 | GET | `/api/risk-config` | Configuration de risque courante (inclut `simAllowedMarketTags` / `realAllowedMarketTags` : `string[]` de slugs Gamma, et `cryptoAlgoConfigFingerprint` pour la garde apply des rapports algo) |
 | PUT | `/api/risk-config` | Met à jour la configuration de risque ; accepte en plus `expectedCryptoAlgoConfigFingerprint` (409 si mismatch) et `revisionSource` (`api` \| `report_apply` \| `system`) ; append une ligne `risk_config_revisions` |
 | GET | `/api/market-tags` | Catalogue des types de marché pour le picker UI : `nav` (catégories principales) + `tags` (recherche optionnelle `?search=`) + `cryptoTags` (tags crypto-algo) |
-| GET | `/api/simulation-balance` | Solde pUSD simulé |
-| POST | `/api/simulation-balance/reset` | Réinitialise la simulation : body `{ amount?, archive?: true, deepClean?: false, newSessionLabel? }` — **lock Redis `sim:reset:lock`** (SET NX PX 10 s) contre resets concurrents (409 si en cours, 503 si Redis injoignable) ; snapshot `reset` puis archivage session (défaut), purge marché optionnelle, wipe sim DB, **persist le `amount` résolu dans `risk_config.simInitialCapital`** (préremplissage des prochains resets), **purge Redis sim** (jobs `mode:sim`, marqueurs dedup ciblés, `algo-entry-cooldown:*:sim`), rotation session, pub/sub `simulation-reset` ; side-effects post-commit (purge Redis, WS emit, pub/sub) chacun dans un `try/catch` dédié ; réponse inclut `archiveSummary`, `redisPurge` (compteurs ou `null` si échec), `warnings[]` (codes d'échecs partiels : `redis_purge_failed`, `ws_emit_failed`, `publish_reset_failed`, `publish_config_failed`) |
-| GET | `/api/simulation-snapshots` | Liste des snapshots simulation (pagination, filtres, `sessionId`) |
-| POST | `/api/simulation-snapshots` | Crée un snapshot manuel `{ label?: string }` |
+| GET | `/api/simulation-balance` | Solde pUSD simulé pour un périmètre — query **`algoKind`** (`crypto` \| `weather` \| `copy`, défaut `crypto`) |
+| POST | `/api/simulation-balance/reset` | Réinitialise **un** périmètre sim : body `{ algoKind: 'crypto'\|'weather'\|'copy', amount?, archive?: true, deepClean?: false, newSessionLabel? }` — **`algoKind` requis** ; lock Redis `sim:reset:lock:${algoKind}` (SET NX PX 10 s) ; snapshot `reset` + archivage session **du kind** (défaut), purge marché **scopée** aux conditions du kind, wipe positions/exécutions/réservations **du kind**, persist `amount` dans `risk_config.simInitialCapital{Crypto\|Weather\|Copy}`, purge Redis **scopée** (queues d'entrée du kind + close/results matchés par position/signal IDs ou raisons `ALGO_`/`COPY_`/`WEATHER_`), rotation session du kind, pub/sub `simulation-reset` avec `algoKind` ; réponse : `archiveSummary`, `redisPurge`, `warnings[]` |
+| GET | `/api/simulation-snapshots` | Liste des snapshots — query **`algoKind` requis** + pagination / filtres (`source`, `sessionId`, `label`, `from`, `to`) |
+| POST | `/api/simulation-snapshots` | Crée un snapshot manuel `{ algoKind: 'crypto'\|'weather'\|'copy', label?: string }` — **`algoKind` requis** |
 | GET | `/api/simulation-snapshots/:id` | Détail d'un snapshot |
 | DELETE | `/api/simulation-snapshots` | Supprime tous les snapshots |
-| GET | `/api/simulation-sessions` | Liste des sessions simulation (pagination, filtres `status`, `label`, `from`, `to`) |
-| GET | `/api/simulation-sessions/current` | Session active (ou `null`) |
-| GET | `/api/simulation-sessions/:id` | Détail d'une session (inclut `archiveSummary` si archivée) |
+| GET | `/api/simulation-sessions` | Liste des sessions — query **`algoKind` requis** + `status`, `label`, `from`, `to` |
+| GET | `/api/simulation-sessions/current` | Session active du kind — query **`algoKind` requis** (ou `null`) |
+| GET | `/api/simulation-sessions/:id` | Détail d'une session (query **`algoKind` requis**) — **404** si la session n'existe pas ou si `session.algoKind !== algoKind` |
 | GET | `/api/simulation-sessions/:id/archive` | Archive requêtable d'une session close : `?type=positions\|executions\|exit_attempts\|surveillance\|candles` + pagination |
 | PATCH | `/api/simulation-sessions/:id` | Met à jour `{ label?, notes? }` |
-| DELETE | `/api/simulation-sessions/:id` | Supprime une session **fermée** (`?deleteSnapshots=true` pour supprimer aussi ses snapshots) |
+| DELETE | `/api/simulation-sessions/:id` | Supprime une session **fermée** — query **`algoKind` requis** ; `?deleteSnapshots=true` pour supprimer aussi ses snapshots |
+| DELETE | `/api/simulation-sessions/closed` | Supprime toutes les sessions fermées du kind — query **`algoKind` requis** |
 | GET | `/api/real-snapshots` | Liste des snapshots réel (pagination, filtres, `sessionId`) |
 | POST | `/api/real-snapshots` | Crée un snapshot manuel `{ label?: string }` (cash wallet requis) |
 | GET | `/api/real-snapshots/:id` | Détail d'un snapshot réel |

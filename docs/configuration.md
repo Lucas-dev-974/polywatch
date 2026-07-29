@@ -361,3 +361,47 @@ Un script de sauvegarde de la base est fourni : `scripts/backup-db.sh`
   sizing, risk policy, accounting, poll-cycle, reservation…) et dans `backend`
   (crypto, wallet, relayer, ramp).
 - **E2E** (Playwright) : `e2e/tests/login.spec.ts`.
+
+## 8. Scripts d'exploitation (`tools/`)
+
+Scripts d'investigation et de maintenance. Aucun n'est exposé comme route API ;
+ils attaquent directement PostgreSQL / Redis. Pré-requis commun : `DATABASE_URL`
+(chargé via `loadMonorepoEnv`), sauf indications contraires. Lancer avec `tsx tools/<script>.ts`.
+
+> Seul `detect-stale-entry-timestamps.ts` est exposé dans `package.json`
+> (`npm run audit:stale-entries`). Les autres se lancent en direct via `tsx`.
+
+### Scripts réutilisables (diagnostic / maintenance)
+
+| Script | Rôle | Dépendances |
+|--------|------|-------------|
+| `detect-stale-entry-timestamps.ts` | Détecte les positions algo dont le prix d'entrée ne correspond pas au carnet live à `opened_at` (flags `--hours`, `--min-lag-sec`, `--position`, `--json`). **Exposé via `npm run audit:stale-entries`** | PostgreSQL |
+| `verify-sim-cash.ts` | Vérifie la cohérence du cash simulé en rejouant `replaySimCashDelta` depuis l'historique des exécutions vs `simulation_balances` (tolérance 0.01) — crypto/weather/copy | PostgreSQL + build `packages/core/dist` |
+| `flush-redis-queues.ts` | Vide les files Redis worker (`order-signals`, `algo-order-signals`, `execution-results`). Dry-run par défaut, `--confirm` pour purger, `--release-reservations` en option | Redis + PostgreSQL |
+| `backfill-close-reason-reservation-released.ts` | Rétro-tag des positions `ALGO_OPEN` annulées sans `close_reason` en `reservation_released` (dry-run par défaut, `--confirm` pour appliquer) | PostgreSQL |
+| `audit-crypto-algo-exits.ts` | Audit analytique des positions fermées crypto-algo (joint markets, PnL, SL/TP, durée) | PostgreSQL |
+| `audit-crypto-algo-exits-detail.ts` | Détail des positions `REDEMPTION` (sim, ALGO_OPEN) avec exécutions et timing vs `end_date` | PostgreSQL |
+| `audit-summary.ts` | Synthèse simulation : cash, capital initial, positions groupées par statut, PnL réalisé/latent, mark-to-market | PostgreSQL |
+| `analyze-config.ts` | Affiche la `risk_config` courante et analyse la distribution du sizing pour entrées réussies vs échouées | PostgreSQL |
+| `analyze-performance.ts` | Agrège les raisons d'échec d'exécution et échantillonne les exécutions failed (sim) | PostgreSQL |
+| `audit-db-direct.ts` | Dump complet PostgreSQL : balances, copied_positions, exécutions (JSON par ligne) — vue brute de la DB | PostgreSQL |
+
+### Scripts ponctuels (investigation ciblée, IDs codés en dur)
+
+Ces scripts contiennent des identifiants ou `condition_id` codés en dur — à éditer
+avant réutilisation ou à supprimer une fois le diagnostic terminé.
+
+| Script | Cible | Dépendances |
+|--------|-------|-------------|
+| `audit-position-28455.ts` / `audit-position-28455-pg.ts` | Dump position #28455 (variantes TypeORM/SQLite et PostgreSQL direct) | SQLite `data/polywatch.db` / PostgreSQL |
+| `audit-algo-tick-timestamps.ts` | 5 derniers ticks `algo_price_ticks` pour un `condition_id` codé en dur | PostgreSQL (localhost hardcodé) |
+| `audit-redemption-sl-miss.ts` | Positions REDEMPTION de perte (IDs 16029, 16036) — prix d'entrée, SL, peak PnL | PostgreSQL |
+| `audit-failed.ts` | Distribution des tailles d'ordre `below_min_order_size` (COPY_OPEN sim) | PostgreSQL |
+| `analyze-db.ts` | Distribution des échecs `below_min_order_size` (min/max/avg qty) | PostgreSQL |
+| `optimization-report.ts` | Rapport comparatif avant/après optimisation (stats figées, aucune lecture DB) | Aucune |
+
+### Variantes legacy SQLite
+
+`audit-position-28455.ts` et `audit-db.ts` utilisent SQLite (`./data/polywatch.db`)
+via TypeORM — variantes antérieures à la migration PostgreSQL. Préférer les versions
+`*-pg.ts` / `*-direct.ts` qui attaquent PostgreSQL directement.

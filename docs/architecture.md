@@ -1,5 +1,9 @@
 # Architecture
 
+> Vue d'ensemble détaillée des processus applicatifs, files Redis, persistance et
+> observabilité. Pour une vue synthétique (topologie runtime, communication
+> inter-services, modes de trading), voir [`code/01-architecture.md`](./code/01-architecture.md).
+
 ## 1. Organisation du monorepo
 
 Polywatch est un monorepo npm (`workspaces: ["packages/*"]`) composé de sept

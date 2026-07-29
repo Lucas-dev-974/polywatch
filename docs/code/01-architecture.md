@@ -1,5 +1,9 @@
 # Architecture générale
 
+> Vue synthétique : monorepo, topologie runtime, communication inter-services, modes
+> de trading. Pour le détail des processus applicatifs (démarrage, composants internes,
+> files Redis, persistance, observabilité), voir [`../architecture.md`](../architecture.md).
+
 ## Monorepo
 
 ```

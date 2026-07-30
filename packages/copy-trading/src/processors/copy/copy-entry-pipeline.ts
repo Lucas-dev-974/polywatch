@@ -23,6 +23,8 @@ import {
   fetchEntryAskLiquidityWithRetries,
   getCopyEntryDepthRetryMax,
   getCopyEntryDepthRetryDelayMs,
+  enqueueEntrySignal,
+  resolveEntryEnqueueBlocked,
   MIN_ORDER_SHARES,
   MIN_ORDER_USDC,
   type IPolymarketConnectionManager,
@@ -203,9 +205,11 @@ export async function runCopyEntryPipeline(params: {
   }
   const entrySignalScore = applySignalScore ? signalScore : undefined;
 
+  // Absolute bid-point distance (same unit as strategy SL: entryBid − slBidPoints).
+  // Do not multiply by ask — computeRiskBasedSpend uses quantity = budget / stopDistance.
   const stopDistance =
     exit.slBidPoints != null && exit.slBidPoints > 0
-      ? roughAskVwap * exit.slBidPoints
+      ? exit.slBidPoints
       : undefined;
 
   const sizingInputBase = {
@@ -382,20 +386,42 @@ export async function runCopyEntryPipeline(params: {
     });
     reserved = true;
 
-    await orderQueue.enqueue({
-      id: signalId,
-      copiedPositionId: reservation.copiedPositionId,
-      reservationId: reservation.reservationId,
-      conditionId: move.conditionId,
-      assetId: move.assetId,
-      side: 'BUY',
-      quantity: finalQty,
-      usdcAmount: targetNotionalUsdc,
-      orderType: 'FAK',
-      referenceVwap: entryAskVwap,
-      reason,
-      mode,
+    const enqueueTtlSeconds = Math.max(
+      1,
+      Math.ceil((reservation.expiresAt.getTime() - Date.now()) / 1000),
+    );
+    const enqueued = await enqueueEntrySignal({
+      orderQueue,
+      dedupeKey: signalId,
+      ttlSeconds: enqueueTtlSeconds,
+      job: {
+        id: signalId,
+        copiedPositionId: reservation.copiedPositionId,
+        reservationId: reservation.reservationId,
+        conditionId: move.conditionId,
+        assetId: move.assetId,
+        side: 'BUY',
+        quantity: finalQty,
+        usdcAmount: targetNotionalUsdc,
+        orderType: 'FAK',
+        referenceVwap: entryAskVwap,
+        reason,
+        mode,
+      },
     });
+
+    const enqueueBlocked = await resolveEntryEnqueueBlocked({
+      enqueued,
+      orderQueue,
+      dedupeKey: signalId,
+      orderSignalId: signalId,
+      reservationService,
+      blockedReason: 'Enqueue file bloqué',
+    });
+    if (enqueueBlocked) {
+      reserved = false; // release already handled by resolveEntryEnqueueBlocked
+      return enqueueBlocked;
+    }
   } catch (err) {
     if (reserved) {
       await reservationService.release(signalId).catch((releaseErr) =>

@@ -8,7 +8,10 @@ vi.mock('@polywatch/core', async () => {
   return {
     ...actual,
     CopyConfigService: vi.fn().mockImplementation(() => ({
-      isAnyCopyTradingEnabled: vi.fn().mockResolvedValue(true),
+      getConfig: vi.fn().mockResolvedValue({
+        simCopyTradingEnabled: true,
+        realCopyTradingEnabled: true,
+      }),
     })),
     PollCycleService: vi.fn().mockImplementation(() => ({
       runPollCycle: vi.fn().mockResolvedValue([]),
@@ -105,8 +108,11 @@ describe('MoveDetector', () => {
 
   describe('runCycle copy-trading toggle', () => {
     it('stops polling when copy trading is disabled', async () => {
-      const riskService = (detector as any).riskService;
-      riskService.isAnyCopyTradingEnabled.mockResolvedValue(false);
+      const copyConfigService = (detector as any).copyConfigService;
+      copyConfigService.getConfig.mockResolvedValue({
+        simCopyTradingEnabled: false,
+        realCopyTradingEnabled: false,
+      });
 
       detector.startPolling();
       // Wait for the async cycle to complete.

@@ -162,6 +162,29 @@ describe('computeTargetQuantity', () => {
     expect(computeTargetQuantity({ ...base, executableAskVwap: 0.3 })).toBe(5);
     expect(computeTargetQuantity({ ...base, executableAskVwap: 0.8 })).toBe(5);
   });
+
+  it('applies risk_based using absolute stopDistance (not ask × points)', () => {
+    // quantity = budget / stopDistance → spend = quantity × ask
+    // stopDistance=0.05, ask=0.5, budget=10 → qty=200, spend=100 (capped by max/cash)
+    const qty = computeTargetQuantity({
+      sizingMode: 'risk_based',
+      copyRatio: 1,
+      fixedUsdcAmount: null,
+      riskBudgetUsdc: 10,
+      stopDistance: 0.05,
+      traderDeltaSize: 0,
+      traderSizeBeforeMove: 0,
+      ourQuantity: 0,
+      executableAskVwap: 0.5,
+      userBalance: 10_000,
+      maxPositionSizeUsdc: 10_000,
+    });
+    expect(qty).toBeCloseTo(200, 5);
+
+    // Buggy ask×sl would use stopDistance=0.025 → qty=400; assert we are not that path.
+    const buggyWouldBe = 10 / (0.5 * 0.05) / 0.5; // = 400
+    expect(qty).not.toBeCloseTo(buggyWouldBe, 0);
+  });
 });
 
 describe('computeSellQuantity', () => {

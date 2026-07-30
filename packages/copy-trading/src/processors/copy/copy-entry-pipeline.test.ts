@@ -134,6 +134,7 @@ describe('runCopyEntryPipeline', () => {
     const orderQueue = {
       enqueue: vi.fn().mockRejectedValue(new Error('Redis connection refused')),
       enqueueUnique: vi.fn().mockRejectedValue(new Error('Redis connection refused')),
+      hasDedupeMarker: vi.fn().mockResolvedValue(false),
     } as unknown as RedisQueue<OrderSignal>;
     const connectionManager = makeConnectionManager();
     const marketService = {
@@ -311,6 +312,7 @@ describe('runCopyEntryPipeline', () => {
       enqueue: vi.fn().mockResolvedValue(undefined),
       enqueueUnique: vi.fn().mockResolvedValue(false),
       acquireBoundedRetrySlot: vi.fn().mockResolvedValue(true),
+      hasDedupeMarker: vi.fn().mockResolvedValue(false),
     } as unknown as RedisQueue<OrderSignal>;
     const connectionManager = makeConnectionManager(0.5, 0.1);
     const marketService = {

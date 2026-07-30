@@ -21,6 +21,10 @@ function makeCopyConfig(overrides: Partial<CopyConfig> = {}): CopyConfig {
     realCopyTradingEnabled: true,
     simCopyIncreaseEnabled: true,
     simCopyDecreaseEnabled: true,
+    simMaxDailyLossUsdc: 100,
+    simKillSwitchAction: 'block_entries',
+    realMaxDailyLossUsdc: 100,
+    realKillSwitchAction: 'block_entries',
     ...overrides,
   } as CopyConfig;
 }
@@ -45,10 +49,35 @@ function makeMove(type: MoveEventDto['type']): MoveEventDto {
   } as MoveEventDto;
 }
 
+/** Chainable TypeORM query-builder mock for checkCopyKillSwitch. */
+function makeKillSwitchDs(dailyNet = 0): {
+  ds: DataSource;
+  lastAndWhere: Array<{ clause: string; params?: Record<string, unknown> }>;
+} {
+  const lastAndWhere: Array<{ clause: string; params?: Record<string, unknown> }> = [];
+  const qb = {
+    select: vi.fn().mockReturnThis(),
+    innerJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockImplementation((clause: string, params?: Record<string, unknown>) => {
+      lastAndWhere.push({ clause, params });
+      return qb;
+    }),
+    getRawOne: vi.fn().mockResolvedValue({ total: dailyNet }),
+  };
+  const ds = {
+    getRepository: vi.fn().mockReturnValue({
+      createQueryBuilder: vi.fn().mockReturnValue(qb),
+    }),
+  } as unknown as DataSource;
+  return { ds, lastAndWhere };
+}
+
 describe('evaluateCopyMoveGate', () => {
   it('blocks sim OPENED when simCopyTradingEnabled is false', async () => {
+    const { ds } = makeKillSwitchDs();
     const result = await evaluateCopyMoveGate(
-      {} as DataSource,
+      ds,
       makeMove('OPENED'),
       makeEntry(),
       'sim',
@@ -62,8 +91,9 @@ describe('evaluateCopyMoveGate', () => {
   });
 
   it('blocks sim INCREASED when simCopyTradingEnabled is false', async () => {
+    const { ds } = makeKillSwitchDs();
     const result = await evaluateCopyMoveGate(
-      {} as DataSource,
+      ds,
       makeMove('INCREASED'),
       makeEntry(),
       'sim',
@@ -77,8 +107,9 @@ describe('evaluateCopyMoveGate', () => {
   });
 
   it('allows sim CLOSED when simCopyTradingEnabled is false', async () => {
+    const { ds } = makeKillSwitchDs();
     const result = await evaluateCopyMoveGate(
-      {} as DataSource,
+      ds,
       makeMove('CLOSED'),
       makeEntry(),
       'sim',
@@ -89,8 +120,9 @@ describe('evaluateCopyMoveGate', () => {
   });
 
   it('allows sim DECREASED when simCopyTradingEnabled is false', async () => {
+    const { ds } = makeKillSwitchDs();
     const result = await evaluateCopyMoveGate(
-      {} as DataSource,
+      ds,
       makeMove('DECREASED'),
       makeEntry(),
       'sim',
@@ -101,8 +133,9 @@ describe('evaluateCopyMoveGate', () => {
   });
 
   it('blocks real OPENED when realCopyTradingEnabled is false', async () => {
+    const { ds } = makeKillSwitchDs();
     const result = await evaluateCopyMoveGate(
-      {} as DataSource,
+      ds,
       makeMove('OPENED'),
       makeEntry(),
       'real',
@@ -116,8 +149,9 @@ describe('evaluateCopyMoveGate', () => {
   });
 
   it('blocks real INCREASED when realCopyTradingEnabled is false', async () => {
+    const { ds } = makeKillSwitchDs();
     const result = await evaluateCopyMoveGate(
-      {} as DataSource,
+      ds,
       makeMove('INCREASED'),
       makeEntry(),
       'real',
@@ -131,12 +165,79 @@ describe('evaluateCopyMoveGate', () => {
   });
 
   it('allows real CLOSED when realCopyTradingEnabled is false', async () => {
+    const { ds } = makeKillSwitchDs();
     const result = await evaluateCopyMoveGate(
-      {} as DataSource,
+      ds,
       makeMove('CLOSED'),
       makeEntry(),
       'real',
       makeCopyConfig({ realCopyTradingEnabled: false }),
+      makeGlobalConfig(),
+    );
+    expect(result).toEqual({ allowed: true });
+  });
+
+  it('scopes kill-switch PnL query to copy opening reasons', async () => {
+    const { ds, lastAndWhere } = makeKillSwitchDs(-500);
+    await evaluateCopyMoveGate(
+      ds,
+      makeMove('OPENED'),
+      makeEntry(),
+      'sim',
+      makeCopyConfig({ simMaxDailyLossUsdc: 100, simKillSwitchAction: 'block_entries' }),
+      makeGlobalConfig(),
+    );
+    const reasonsClause = lastAndWhere.find((c) => c.clause.includes('p.reason IN'));
+    expect(reasonsClause?.params?.reasons).toEqual(['COPY_OPEN', 'COPY_INCREASE']);
+  });
+
+  it('blocks OPENED when copy kill switch force_close_all is triggered', async () => {
+    const { ds } = makeKillSwitchDs(-500);
+    const result = await evaluateCopyMoveGate(
+      ds,
+      makeMove('OPENED'),
+      makeEntry(),
+      'sim',
+      makeCopyConfig({
+        simMaxDailyLossUsdc: 100,
+        simKillSwitchAction: 'force_close_all',
+      }),
+      makeGlobalConfig(),
+    );
+    expect(result).toEqual({
+      allowed: false,
+      reason: 'Kill-switch force la fermeture de toutes les positions',
+    });
+  });
+
+  it('allows CLOSED when copy kill switch force_close_all is triggered', async () => {
+    const { ds } = makeKillSwitchDs(-500);
+    const result = await evaluateCopyMoveGate(
+      ds,
+      makeMove('CLOSED'),
+      makeEntry(),
+      'sim',
+      makeCopyConfig({
+        simMaxDailyLossUsdc: 100,
+        simKillSwitchAction: 'force_close_all',
+      }),
+      makeGlobalConfig(),
+    );
+    expect(result).toEqual({ allowed: true });
+  });
+
+  it('allows DECREASED when copy kill switch force_close_all is triggered', async () => {
+    const { ds } = makeKillSwitchDs(-500);
+    const result = await evaluateCopyMoveGate(
+      ds,
+      makeMove('DECREASED'),
+      makeEntry(),
+      'sim',
+      makeCopyConfig({
+        simMaxDailyLossUsdc: 100,
+        simKillSwitchAction: 'force_close_all',
+        simCopyDecreaseEnabled: true,
+      }),
       makeGlobalConfig(),
     );
     expect(result).toEqual({ allowed: true });

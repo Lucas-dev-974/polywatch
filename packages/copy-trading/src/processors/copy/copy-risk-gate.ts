@@ -1,5 +1,6 @@
 import {
   closurePnlPercent,
+  CopiedPosition,
   evaluateCopyIncreaseSlProximity,
   getCopyAllowedMarketTags,
   getCopyCopyIncreaseSlProximityEnabled,
@@ -9,6 +10,7 @@ import {
   isMarketTagAllowed,
   getCopyKillSwitchAction,
   getCopyMaxDailyLossUsdc,
+  openingReasonsForAlgoKind,
   WatchlistService,
   type MarketService,
   type CopyConfig,
@@ -16,8 +18,8 @@ import {
   type MoveEventDto,
   type TradingMode,
   type KillSwitchAction,
+  Execution,
 } from '@polywatch/core';
-import { Execution } from '@polywatch/core';
 import type { DataSource } from 'typeorm';
 import pino from 'pino';
 import { hasBlockingActivePosition, findOpenPosition } from './copy-position-lookup.js';
@@ -123,8 +125,8 @@ export async function evaluateCopyMoveGate(
     log.warn({ mode }, 'kill switch blocks entry');
     return { allowed: false, reason: 'Kill-switch bloque les entrées' };
   }
-  if (shouldForceCloseAll(killSwitch)) {
-    log.warn({ mode }, 'kill switch force_close_all — skipping all signals');
+  if (isEntry && shouldForceCloseAll(killSwitch)) {
+    log.warn({ mode }, 'kill switch force_close_all — blocking entries');
     return {
       allowed: false,
       reason: 'Kill-switch force la fermeture de toutes les positions',
@@ -162,12 +164,19 @@ async function checkCopyKillSwitch(
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
 
+  // Scope PnL to copy positions only — exit reasons (SL/TP/…) are shared across
+  // algos, so filter via the parent CopiedPosition opening reason (same as
+  // RiskService.checkKillSwitch / KillSwitchMonitor.getDailyNetForAlgo).
   const result = await ds
     .getRepository(Execution)
     .createQueryBuilder('e')
     .select('COALESCE(SUM(e.realized_pnl), 0)', 'total')
+    .innerJoin(CopiedPosition, 'p', 'p.id = e.copied_position_id')
     .where('e.mode = :mode', { mode })
     .andWhere('e.executed_at >= :start', { start: startOfDay })
+    .andWhere('p.reason IN (:...reasons)', {
+      reasons: openingReasonsForAlgoKind('copy'),
+    })
     .getRawOne<{ total: number }>();
 
   const dailyNet = result?.total ?? 0;

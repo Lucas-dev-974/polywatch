@@ -754,7 +754,13 @@ export class RiskConfig {
   @Column({ type: 'integer', name: 'weather_algo_poll_ms', default: 1800000 })
   weatherAlgoPollMs!: number;
 
-  /** City-follow switch mode: close_and_reenter | hold | add_position. */
+  /** City-follow switch mode: close_and_reenter | hold. */
   @Column({ type: 'text', name: 'weather_algo_city_follow_switch_mode', default: 'close_and_reenter' })
   weatherAlgoCityFollowSwitchMode!: string;
+
+  @Column({ type: 'integer', name: 'weather_algo_bucket_hysteresis_polls', default: 2 })
+  weatherAlgoBucketHysteresisPolls!: number;
+
+  @Column({ type: 'integer', name: 'weather_algo_reentry_throttle_ms', default: 1800000 })
+  weatherAlgoReentryThrottleMs!: number;
 }

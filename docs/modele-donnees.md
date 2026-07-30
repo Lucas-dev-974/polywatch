@@ -50,10 +50,11 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `MarketSyncConfig` | `market_sync_config` | Configuration de synchronisation des marches (intervalles, backoff, concurrency) |
 | `E2eTestRun` | `e2e_test_runs` | Runs de tests E2E (suite, statut, duree, logs, triggeredBy, errorMessage) |
 | `E2eRunPosition` | `e2e_run_positions` | Positions d'un run E2E (conditionId, cryptoSymbol, interval, prix d'entree, PnL, statut) |
-| `WeatherMarketSelection` | `weather_market_selections` | Marchés météo sélectionnés pour le trading weather-algo (conditionId, city, metric, targetValue, eventSlug) — **actif** |
-| `WeatherAutoTrackRule` | `weather_auto_track_rules` | Règles auto-track (city, metric, lookAheadDays, mode) — sync périodique vers sélections (expand) ou sélection à runtime (city_follow) |
+| `WeatherMarketSelection` | `weather_market_selections` | **Legacy** — anciennes sélections par `conditionId` ; désactivées en city-first (cleanup janitor) |
+| `WeatherAutoTrackRule` | `weather_auto_track_rules` | **Sélection active** : ville surveillée (`city`, `metric=highest_temp`, `lookAheadDays`, `mode=city_follow`) |
+| `WeatherConfig` | `weather_config` | Config weather-algo (edge, switch mode, hysteresis, throttle, capital sim…) — API `GET/PUT /api/config/weather` |
 | `WeatherForecastCache` | `weather_forecast_cache` | Cache Open-Meteo — **actif** |
-| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture — **actif** (index unique `copied_position_id`). Colonnes `entry_bucket_comparison` + `entry_bucket_bounds` pour le mode city-follow. |
+| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture — **actif** (index unique `copied_position_id`). Colonnes `entry_bucket_comparison` + `entry_bucket_bounds` pour bucket-exit. |
 
 ## Relations conceptuelles
 

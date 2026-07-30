@@ -24,6 +24,7 @@ import {
   enqueueEntrySignal,
   resolveEntryEnqueueBlocked,
   hasAlgoEntryCooldown,
+  hasWeatherReentryThrottle,
   MIN_ORDER_SHARES,
   resumeEntryFromReservation,
   ExecutionService,
@@ -209,6 +210,11 @@ async function runMode(args: {
     return 'Cooldown exécution actif';
   }
 
+  if (await hasWeatherReentryThrottle(redisCmd, signal.city, mode)) {
+    log.debug({ city: signal.city, mode }, 'entry skipped — city re-entry throttle active');
+    return 'Throttle re-entry ville actif';
+  }
+
   const exit: AlgoEntryExitParams = resolveWeatherEntryExitParams(risk, mode, null);
 
   const algoKeyParams = {
@@ -226,6 +232,7 @@ async function runMode(args: {
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     mode,
+    reason: 'WEATHER_OPEN',
   });
 
   if (existingReservation) {
@@ -425,6 +432,15 @@ async function runMode(args: {
 
   await reservationService.updateOrderSignalId(reservation.reservationId, orderSignalId);
 
+  // Persist city snapshot ASAP so the 1-pos-per-city gate sees pending positions
+  await persistEntryForecastSnapshot({
+    ds,
+    signal,
+    copiedPositionId: reservation.copiedPositionId,
+    forecastService: args.forecastService,
+    positionForecastService: args.positionForecastService,
+  });
+
   // --- Enqueue signal ---------------------------------------------------------
   const orderSignal: OrderSignal = {
     id: orderSignalId,
@@ -474,13 +490,6 @@ async function runMode(args: {
       },
       'weather entry signal enqueued',
     );
-    await persistEntryForecastSnapshot({
-      ds,
-      signal,
-      copiedPositionId: reservation.copiedPositionId,
-      forecastService: args.forecastService,
-      positionForecastService: args.positionForecastService,
-    });
     return null;
   }
 

@@ -56,10 +56,11 @@ core/src/
 | `Market` | `markets` | tokenIdYes/No, endDate, negRisk, `feeRate`/`feeExponent` (frais CLOB dynamiques), lifecycle (active/resolved/closed/acceptingOrders/winningTokenId), `category`, `tagSlugs` (cache filtre copie), `marketType` |
 | `AlgoAutoTrackRule` | `algo_auto_track_rules` | Règle auto-track `(cryptoSymbol, interval)` unique, flag `enabled` |
 | `AlgoMarketSelection` | `algo_market_selections` | Marché sélectionné pour crypto-algo (`conditionId`, `cryptoSymbol`, `interval`, `slug`, `enabled`) |
-| `WeatherMarketSelection` | `weather_market_selections` | Marché sélectionné pour weather-algo (`conditionId`, city, metric, targetDate, eventSlug) |
-| `WeatherAutoTrackRule` | `weather_auto_track_rules` | Règle auto-track météo (city, metric, lookAheadDays) |
+| `WeatherMarketSelection` | `weather_market_selections` | **Legacy** — anciennes sélections par `conditionId` (désactivées en city-first) |
+| `WeatherAutoTrackRule` | `weather_auto_track_rules` | **Sélection active** : ville (`city`, `highest_temp`, `lookAheadDays`, `mode=city_follow`) |
+| `WeatherConfig` | `weather_config` | Config weather-algo (edge, switch mode, hysteresis, throttle…) |
 | `WeatherForecastCache` | `weather_forecast_cache` | Cache prévisions Open-Meteo (city, date, metric, mean, stdDev) |
-| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture d'une position weather |
+| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast + bounds de bucket à l'ouverture |
 | `AlgoSurveillanceSnapshot` | `algo_surveillance_snapshots` | Snapshot OHLC surveillance (open/close up/down, `marketStartAt`/`EndAt`, `unresolvedAt`) — `UNIQUE(conditionId)` |
 | `AlgoPriceTick` | `algo_price_ticks` | Ticks UP/DOWN 1 Hz (`PriceTickRecorder`) + métriques enrichies ; purge > 24 h ; chart API |
 | `IntegrationSettings` | `integration_settings` | Paramètres d'intégration tiers (clé API Polygonscan chiffrée, singleton) |

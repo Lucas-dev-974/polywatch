@@ -19,7 +19,7 @@ pour restaurer l'access token en mémoire.
 | `markets` | `MarketsPage` : liste des marchés Gamma avec filtres (`MarketsCryptoFilterBar`, `MarketsIntervalSidebar`, `MarketsTagBar`), métriques (`MarketMetricsPanel`, `MarketCard`) |
 | `wallet` | `WalletPage` (comptes, dépôt/retrait, credentials CLOB, historique) |
 | `crypto-algo` | `CryptoAlgoPage` : marchés sélectionnés par l'algo, surveillance, settings (`CryptoAlgoSettingsDialog`), notifications (`CryptoAlgoNotificationsDialog`), auto-track |
-| `weather-algo` | `WeatherAlgoPage` : marchés / discovery / forecast, positions, auto-track, paramètres (voir [`../weather-algo.md`](../weather-algo.md)) |
+| `weather-algo` | `WeatherAlgoPage` : villes surveillées + discovery (« Surveiller cette ville »), positions, paramètres switch/hysteresis/throttle (voir [`../weather-algo.md`](../weather-algo.md)) |
 | `e2e-tests` | `E2eTestsPage` : lancement et suivi des runs de tests E2E (via `/api/e2e-runs`) |
 
 Header permanent : `WatchlistEditor` + déconnexion. `AlertBanner` (max 10 alertes Socket.IO).

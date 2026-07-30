@@ -103,6 +103,7 @@ async function main() {
     marketService,
     connectionManager,
     closeQueue,
+    redisCmd,
   });
 
   const onSignal = async (signal: WeatherSignal): Promise<boolean> => {

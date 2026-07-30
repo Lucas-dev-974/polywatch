@@ -8,9 +8,11 @@ import { emitAlgoMarketsChanged } from '../websocket.js';
 
 const createRuleSchema = z.object({
   city: z.string().min(1),
-  metric: z.enum(['highest_temp', 'lowest_temp']),
   lookAheadDays: z.number().int().min(1).max(30).optional(),
-  mode: z.enum(['expand', 'city_follow']).optional(),
+  /** @deprecated Ignored — city-first always uses highest_temp. */
+  metric: z.enum(['highest_temp', 'lowest_temp']).optional(),
+  /** @deprecated Ignored — city-first always uses city_follow. */
+  mode: z.enum(['city_follow']).optional(),
 });
 
 const patchRuleSchema = z.object({
@@ -36,8 +38,13 @@ export function createWeatherAlgoAutoTrackRouter(ds: DataSource): Router {
       });
       return;
     }
-    const { city, metric, lookAheadDays, mode } = parsed.data;
-    const rule = await autoTrackService.addRule(city, metric, lookAheadDays ?? 1, mode);
+    const { city, lookAheadDays } = parsed.data;
+    const rule = await autoTrackService.addRule(
+      city,
+      'highest_temp',
+      lookAheadDays ?? 1,
+      'city_follow',
+    );
     await publishConfigChanged();
     emitAlgoMarketsChanged();
     res.status(201).json(rule);

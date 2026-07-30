@@ -2,22 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { DataSource } from 'typeorm';
 import pino from 'pino';
-import { createWeatherSelectionServices } from '@polywatch/core';
+import { createWeatherSelectionServices, WeatherAutoTrackService } from '@polywatch/core';
 import { requireJwt, requireServiceToken } from '../middleware/auth.js';
 import { publishConfigChanged, getRedis } from '../redis.js';
 import { emitAlgoMarketsChanged } from '../websocket.js';
 
 const log = pino({ name: 'weather-algo:routes' });
-
-const createSelectionSchema = z.object({
-  conditionId: z.string().min(1),
-  question: z.string().optional(),
-  eventSlug: z.string().optional(),
-  city: z.string().optional(),
-  targetDate: z.string().optional(),
-  metric: z.string().optional(),
-  targetValue: z.number().optional(),
-});
 
 const patchSelectionSchema = z.object({
   enabled: z.boolean(),
@@ -33,9 +23,8 @@ interface WeatherRuntimeStatus {
 export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
   const router = Router();
   const { selectionService: service } = createWeatherSelectionServices(ds);
+  const autoTrackService = new WeatherAutoTrackService(ds);
 
-  // Static routes must be registered BEFORE parameterized routes to avoid
-  // Express matching `/:conditionId` for paths like `/status` or `/notify-changed`.
   router.get('/', requireJwt, async (_req, res) => {
     res.json(await service.loadAll());
   });
@@ -44,20 +33,27 @@ export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
     let heartbeatValue: string | null = null;
     let runtimeRaw: string | null = null;
     let counts: { enabledSelections: number; selectionsWithMarket: number };
+    let watchedCities = 0;
 
     try {
       const redis = getRedis();
-      [heartbeatValue, runtimeRaw, counts] = await Promise.all([
+      const [hb, rt, c, rules] = await Promise.all([
         redis.get('weather-algo:heartbeat'),
         redis.get('weather-algo:runtime-status'),
         service.getStatusCounts(),
+        autoTrackService.loadAllEnabled(),
       ]);
+      heartbeatValue = hb;
+      runtimeRaw = rt;
+      counts = c;
+      watchedCities = rules.length;
     } catch (err) {
       log.warn({ err }, 'status endpoint degraded — using DB counts only');
       counts = await service.getStatusCounts().catch(() => ({
         enabledSelections: 0,
         selectionsWithMarket: 0,
       }));
+      watchedCities = (await autoTrackService.loadAllEnabled().catch(() => [])).length;
     }
 
     let alive = false;
@@ -84,8 +80,8 @@ export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
       lastSeenAt,
       enabledSelections: counts.enabledSelections,
       selectionsWithMarket: counts.selectionsWithMarket,
-      evaluableSelections:
-        runtime?.evaluableSelections ?? counts.enabledSelections,
+      watchedCities,
+      evaluableSelections: runtime?.evaluableSelections ?? watchedCities,
       lastEvaluatedAt: runtime?.lastEvaluatedAt
         ? new Date(runtime.lastEvaluatedAt)
         : null,
@@ -94,36 +90,19 @@ export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
     });
   });
 
-  /**
-   * Internal endpoint for weather-algo worker to notify of market changes.
-   * Protected by the inter-service token.
-   */
   router.post('/notify-changed', requireServiceToken, async (_req, res) => {
     await publishConfigChanged();
     emitAlgoMarketsChanged();
     res.status(200).json({ ok: true });
   });
 
-  router.post('/', requireJwt, async (req, res) => {
-    const parsed = createSelectionSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        error: 'invalid_body',
-        message: parsed.error.issues
-          .map((i) => `${i.path.join('.')}: ${i.message}`)
-          .join('; '),
-      });
-      return;
-    }
-    const { conditionId, ...meta } = parsed.data;
-    const normalizedMeta = {
-      ...meta,
-      targetDate: meta.targetDate ? new Date(meta.targetDate) : null,
-    };
-    const selection = await service.addSelection(conditionId, normalizedMeta);
-    await publishConfigChanged();
-    emitAlgoMarketsChanged();
-    res.status(201).json(selection);
+  /** Per-market selection is deprecated — use /weather-algo-auto-track (city watch). */
+  router.post('/', requireJwt, async (_req, res) => {
+    res.status(410).json({
+      error: 'deprecated',
+      message:
+        'La sélection par sous-marché est retirée. Surveillez une ville via POST /weather-algo-auto-track.',
+    });
   });
 
   router.delete('/:conditionId', requireJwt, async (req, res) => {

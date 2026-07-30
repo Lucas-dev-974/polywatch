@@ -290,10 +290,13 @@ export {
   shouldCloseForForecastDrift,
   shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
+  shouldEmitBucketExit,
+  resolveCityFollowSwitchMode,
   isForecastInBucket,
   normalizeWeatherCity,
   buildLookAheadTargetDates,
   type BucketBounds,
+  type WeatherCityFollowSwitchMode,
 } from './weather/weather-exit-helpers.js';
 export {
   selectForecastAlignedBucket,
@@ -322,6 +325,17 @@ export {
   hasAlgoEntryCooldown,
   setAlgoEntryCooldown,
 } from './redis/algo-entry-cooldown.js';
+export {
+  weatherReentryThrottleKey,
+  setWeatherReentryThrottle,
+  hasWeatherReentryThrottle,
+} from './redis/weather-reentry-throttle.js';
+export {
+  weatherBucketHysteresisKey,
+  incrementWeatherBucketHysteresis,
+  resetWeatherBucketHysteresis,
+  getWeatherBucketHysteresis,
+} from './redis/weather-bucket-hysteresis.js';
 export {
   ALGO_SELECTIONS_CHANGED_CHANNEL,
   publishAlgoSelectionsChanged,

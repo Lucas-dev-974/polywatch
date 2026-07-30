@@ -27,7 +27,7 @@ export const SYSTEM_PAGE_TABS = ['overview', 'reports', 'snapshots', 'e2e-tests'
 | **Trader Insight** | `TraderProfilePage` : profil trader Polymarket avec statistiques, timeline d'activité (`TraderActivityTimelineChart`), évolution du capital (`TraderCapitalEvolutionChart`), répartition par marché (`TraderMarketBreakdownChart`), PnL (`TraderPnlEvolutionChart`), analyse de financement (`TraderFundingSection`) |
 | **Portefeuille** | `WalletPage` |
 | **Crypto-Algo** | `CryptoAlgoPage` : marchés sélectionnés par l'algo, surveillance OHLC (`SurveillanceHistoryCard`), settings (`CryptoAlgoSettingsDialog`), **Rapport** (dialog preview) + lien **Hub** → onglet Rapports |
-| **Weather Algo** | `WeatherAlgoPage` : onglets Marchés, Positions, Auto-track (sync active), Paramètres (drift + pre-close actifs). Voir [`weather-algo.md`](./weather-algo.md). |
+| **Weather Algo** | `WeatherAlgoPage` : onglets **Marchés** (villes surveillées + découverte « Surveiller cette ville »), **Positions**, **Villes**, **Paramètres** (edge, switch `close_and_reenter`/`hold`, hysteresis, throttle re-entry). Sélection = ville (`highest_temp`) ; 1 position max / ville ; BUY YES sur palier forecast. Voir [`weather-algo.md`](./weather-algo.md). |
 | **Système** | `SystemPage` : onglets **Overview** (`SystemOverviewPage` — health checks, heartbeats services), **Rapports** (`ReportsPage` — bibliothèque, génération auto-enregistrée, comparaison A/B, viewer `CryptoAlgoReportViewer`), **Snapshots** (`SnapshotsPage`), **E2E Tests** (`E2eTestsPage`), **Metrics** (`MetricsDashboardPage`) |
 
 L'en-tête contient la marque, la navigation, et les actions globales

@@ -19,16 +19,14 @@ const log = pino({ name: 'weather-algo:forecast-strategy' });
  * Weather forecast strategy: compares the forecast-implied probability
  * of a temperature outcome with the market price.
  *
- * For "or below" markets, YES = P(temp <= target).
- * For "or above" markets, YES = P(temp >= target).
- * For "exact" markets, YES = P(target - 0.5 < temp <= target + 0.5).
- *
- * If the market underprices the outcome, emit a BUY signal for that outcome.
+ * City-first mode (`yesOnly`): only BUY YES on the forecast-aligned bucket.
  */
 export class WeatherForecastStrategy implements WeatherStrategy {
   readonly id = 'weather-forecast';
   private minEdge: number = 0.10;
   private maxForecastStd: number | null = null;
+  /** When true, only emit BUY YES (city-follow thesis). */
+  private yesOnly: boolean = true;
 
   setMinEdge(edge: number): void {
     this.minEdge = edge;
@@ -36,6 +34,10 @@ export class WeatherForecastStrategy implements WeatherStrategy {
 
   setMaxForecastStd(maxStd: number | null): void {
     this.maxForecastStd = maxStd;
+  }
+
+  setYesOnly(yesOnly: boolean): void {
+    this.yesOnly = yesOnly;
   }
 
   async evaluate(
@@ -51,7 +53,6 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       return { kind: 'abstain', reason: 'unrecognized_question' };
     }
 
-    // Compute forecast-implied YES and NO probabilities from the question semantics.
     const { yesProb: forecastYesProb, noProb: forecastNoProb } =
       computeMarketImpliedProbabilities(
         parsed.targetValue,
@@ -70,8 +71,6 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       };
     }
 
-    // Skip markets where forecast uncertainty is too high (BUG-2 fix:
-    // weatherAlgoMaxForecastStd was never checked)
     if (this.maxForecastStd != null && ctx.forecastStdDev > this.maxForecastStd) {
       return {
         kind: 'abstain',
@@ -80,7 +79,6 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       };
     }
 
-    // Get market prices
     if (!market.outcomePrices || market.outcomePrices.length < 2) {
       return { kind: 'abstain', reason: 'no_market_prices' };
     }
@@ -92,12 +90,9 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       return { kind: 'abstain', reason: 'zero_prices' };
     }
 
-    // Edge = forecast probability - market price
-    // Positive edge means the market underprices that outcome.
     const yesEdge = calculateEdge(forecastYesProb, yesPrice);
     const noEdge = calculateEdge(forecastNoProb, noPrice);
 
-    // Dynamic threshold based on uncertainty and time to resolution
     const hoursToResolution = market.endDate
       ? Math.max(0, (new Date(market.endDate).getTime() - Date.now()) / 3_600_000)
       : 24;
@@ -109,7 +104,11 @@ export class WeatherForecastStrategy implements WeatherStrategy {
 
     let candidate: { outcome: 'YES' | 'NO'; edge: number; marketPrice: number; forecastProb: number } | null = null;
 
-    if (yesEdge > dynamicThreshold && yesEdge >= noEdge) {
+    if (this.yesOnly) {
+      if (yesEdge > dynamicThreshold) {
+        candidate = { outcome: 'YES', edge: yesEdge, marketPrice: yesPrice, forecastProb: forecastYesProb };
+      }
+    } else if (yesEdge > dynamicThreshold && yesEdge >= noEdge) {
       candidate = { outcome: 'YES', edge: yesEdge, marketPrice: yesPrice, forecastProb: forecastYesProb };
     } else if (noEdge > dynamicThreshold) {
       candidate = { outcome: 'NO', edge: noEdge, marketPrice: noPrice, forecastProb: forecastNoProb };
@@ -119,7 +118,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       return {
         kind: 'abstain',
         reason: 'insufficient_edge',
-        detail: `yesEdge=${yesEdge.toFixed(4)} noEdge=${noEdge.toFixed(4)} threshold=${dynamicThreshold.toFixed(4)}`,
+        detail: `yesEdge=${yesEdge.toFixed(4)} noEdge=${noEdge.toFixed(4)} threshold=${dynamicThreshold.toFixed(4)} yesOnly=${this.yesOnly}`,
       };
     }
 
@@ -137,10 +136,6 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       outcome: candidate.outcome,
       side: 'BUY',
       confidence: Math.min(1, Math.abs(candidate.edge) * 2),
-      // confidence = edge × 2, capped at 1.0
-      // An edge of 0.50 (50% underpriced) maps to confidence 1.0.
-      // Edge of 0.10 maps to confidence 0.20. The ×2 factor amplifies
-      // small edges into meaningful confidence scores for sizing.
       reasons: [
         `forecast=${parsed.metric}:${parsed.targetValue ?? `${parsed.targetValueLow}-${parsed.targetValueHigh}`}°C`,
         `comparison=${parsed.comparison}`,

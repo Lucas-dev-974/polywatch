@@ -231,7 +231,7 @@ const cryptoConfigUpdateSchema = z.object({
 
 // ─── Weather config schema ───────────────────────────────────────────
 
-const weatherSelectionMode = z.enum(['single', 'multi', 'spread']);
+const weatherSelectionMode = z.enum(['single', 'multi']);
 
 const weatherConfigUpdateSchema = z.object({
   weatherAlgoMaxOpenPositions: nonNegInt,
@@ -267,7 +267,9 @@ const weatherConfigUpdateSchema = z.object({
   weatherAlgoForecastChangeThreshold: z.number().finite().min(0.5).max(20),
   weatherAlgoCloseBeforeResolutionHours: z.number().finite().min(0.5).max(168),
   weatherAlgoPollMs: z.number().int().min(60_000).max(86_400_000),
-  weatherAlgoCityFollowSwitchMode: z.enum(['close_and_reenter', 'hold', 'add_position']),
+  weatherAlgoCityFollowSwitchMode: z.enum(['close_and_reenter', 'hold']),
+  weatherAlgoBucketHysteresisPolls: z.number().int().min(1).max(10),
+  weatherAlgoReentryThrottleMs: z.number().int().min(0).max(86_400_000),
   simInitialCapitalWeather: nonNegNumber,
 }).partial().strict();
 

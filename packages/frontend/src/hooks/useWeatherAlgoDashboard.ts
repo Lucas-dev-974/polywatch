@@ -20,6 +20,7 @@ export interface WeatherStatus {
   lastSeenAt: string | null;
   enabledSelections: number;
   selectionsWithMarket: number;
+  watchedCities?: number;
   evaluableSelections: number;
   wsConnected: boolean | null;
   lastEvaluatedAt: string | null;
@@ -63,7 +64,7 @@ export interface AutoTrackRule {
   metric: string;
   lookAheadDays: number;
   enabled: boolean;
-  mode: 'expand' | 'city_follow' | null;
+  mode: 'city_follow' | string | null;
 }
 
 const STATUS_POLL_MS = 10_000;
@@ -161,12 +162,8 @@ export function useWeatherAlgoDashboard() {
     }
   }
 
-  async function addMarket(conditionId: string, question: string, eventSlug: string | null) {
-    await api('/weather-algo-markets', {
-      method: 'POST',
-      body: JSON.stringify({ conditionId, question, eventSlug }),
-    });
-    await refreshSelections();
+  async function addMarket(_conditionId: string, _question: string, _eventSlug: string | null) {
+    // Deprecated: per-market follow removed — use watchCity
   }
 
   async function toggleSelection(conditionId: string, enabled: boolean) {
@@ -182,12 +179,16 @@ export function useWeatherAlgoDashboard() {
     await refreshSelections();
   }
 
-  async function addAutoTrackRule(city: string, metric: string, lookAheadDays: number, mode?: 'expand' | 'city_follow') {
+  async function watchCity(city: string, lookAheadDays: number = 1) {
     await api('/weather-algo-auto-track', {
       method: 'POST',
-      body: JSON.stringify({ city, metric, lookAheadDays, mode }),
+      body: JSON.stringify({ city, lookAheadDays }),
     });
     await refreshAutoTrackRules();
+  }
+
+  async function addAutoTrackRule(city: string, lookAheadDays: number) {
+    await watchCity(city, lookAheadDays);
   }
 
   async function removeAutoTrackRule(id: number) {
@@ -201,6 +202,12 @@ export function useWeatherAlgoDashboard() {
       body: JSON.stringify({ enabled }),
     });
     await refreshAutoTrackRules();
+  }
+
+  function watchedCitySet(): Set<string> {
+    return new Set(
+      autoTrackRules().map((r) => r.city.trim().toLowerCase()),
+    );
   }
 
   onMount(() => {
@@ -233,8 +240,8 @@ export function useWeatherAlgoDashboard() {
   return {
     selections, status, discoverGroups, discoverLoading, autoTrackRules,
     discoverMarkets, addMarket, toggleSelection, removeSelection,
-    addAutoTrackRule, removeAutoTrackRule, toggleAutoTrackRule,
-    refreshSelections, refreshStatus,
+    watchCity, watchedCitySet, addAutoTrackRule, removeAutoTrackRule, toggleAutoTrackRule,
+    refreshSelections, refreshStatus, refreshAutoTrackRules,
     capital, realTradingEnabled, weatherAlgoSimEnabled, weatherAlgoRealEnabled,
     loadCapital, loadRiskFlags, toggleRealTrading,
   };

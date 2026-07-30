@@ -71,6 +71,29 @@ export function shouldCloseForBucketExit(
   return !isForecastInBucket(currentMean, entryComparison, entryBounds);
 }
 
+export type WeatherCityFollowSwitchMode = 'close_and_reenter' | 'hold';
+
+/** Normalize config value; unknown / add_position → close_and_reenter. */
+export function resolveCityFollowSwitchMode(raw: string | null | undefined): WeatherCityFollowSwitchMode {
+  return raw === 'hold' ? 'hold' : 'close_and_reenter';
+}
+
+/**
+ * Whether bucket-leave should trigger a close under the configured switch mode.
+ * Hysteresis is applied by the caller (consecutive polls out of bucket).
+ */
+export function shouldEmitBucketExit(
+  switchMode: WeatherCityFollowSwitchMode,
+  leftBucket: boolean,
+  consecutiveOutPolls: number,
+  hysteresisPolls: number,
+): boolean {
+  if (!leftBucket) return false;
+  if (switchMode === 'hold') return false;
+  const need = Math.max(1, hysteresisPolls);
+  return consecutiveOutPolls >= need;
+}
+
 export function normalizeWeatherCity(city: string): string {
   return city.trim().toLowerCase();
 }

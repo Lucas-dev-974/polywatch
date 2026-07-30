@@ -1,4 +1,5 @@
 import type { DataSource } from 'typeorm';
+import type { Redis } from 'ioredis';
 import pino from 'pino';
 import {
   type OrderSignal,
@@ -14,6 +15,11 @@ import {
   shouldCloseForForecastDrift,
   shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
+  shouldEmitBucketExit,
+  resolveCityFollowSwitchMode,
+  setWeatherReentryThrottle,
+  incrementWeatherBucketHysteresis,
+  resetWeatherBucketHysteresis,
   type BucketBounds,
 } from '@polywatch/core';
 
@@ -28,6 +34,7 @@ export interface WeatherExitEvaluatorParams {
   marketService: MarketService;
   connectionManager: IPolymarketConnectionManager;
   closeQueue: RedisQueue<OrderSignal>;
+  redisCmd: Redis;
 }
 
 export class WeatherExitEvaluator {
@@ -112,12 +119,50 @@ export class WeatherExitEvaluator {
         );
 
         if (!drift && snapshot.entryBucketComparison && snapshot.entryBucketBounds) {
-          const bounds = JSON.parse(snapshot.entryBucketBounds) as BucketBounds;
-          bucketExit = shouldCloseForBucketExit(
-            snapshot.entryBucketComparison as 'exact' | 'between' | 'or_below' | 'or_above',
-            bounds,
-            current.forecastMean,
-          );
+          let bounds: BucketBounds | null = null;
+          try {
+            bounds = JSON.parse(snapshot.entryBucketBounds) as BucketBounds;
+          } catch (err) {
+            log.warn(
+              { err, positionId: pos.id },
+              'weather exit — invalid entryBucketBounds JSON; skipping bucket exit',
+            );
+          }
+          if (bounds) {
+            const leftBucket = shouldCloseForBucketExit(
+              snapshot.entryBucketComparison as 'exact' | 'between' | 'or_below' | 'or_above',
+              bounds,
+              current.forecastMean,
+            );
+            const switchMode = resolveCityFollowSwitchMode(risk.weatherAlgoCityFollowSwitchMode);
+            const hysteresisPolls = risk.weatherAlgoBucketHysteresisPolls ?? 2;
+
+            if (!leftBucket) {
+              await resetWeatherBucketHysteresis(this.params.redisCmd, pos.id);
+            } else {
+              const consecutive = await incrementWeatherBucketHysteresis(
+                this.params.redisCmd,
+                pos.id,
+              );
+              bucketExit = shouldEmitBucketExit(
+                switchMode,
+                true,
+                consecutive,
+                hysteresisPolls,
+              );
+              if (leftBucket && switchMode === 'hold') {
+                log.debug(
+                  { positionId: pos.id, consecutive },
+                  'bucket left but switch mode=hold — not closing',
+                );
+              } else if (leftBucket && !bucketExit) {
+                log.debug(
+                  { positionId: pos.id, consecutive, hysteresisPolls },
+                  'bucket left — waiting for hysteresis',
+                );
+              }
+            }
+          }
         }
       }
     }
@@ -163,16 +208,32 @@ export class WeatherExitEvaluator {
       bidVwap,
     });
 
-    await this.params.closeQueue.enqueue(signal);
+    await this.params.closeQueue.enqueueUnique(
+      signal,
+      `weather-close:${pos.id}:${reason}`,
+      120,
+    );
+
+    if (reason === 'WEATHER_BUCKET_EXIT' || reason === 'WEATHER_FORECAST_CHANGE') {
+      const throttleMs = risk.weatherAlgoReentryThrottleMs ?? 1_800_000;
+      await setWeatherReentryThrottle(
+        this.params.redisCmd,
+        snapshot.city,
+        fresh.mode as 'sim' | 'real',
+        throttleMs,
+      );
+      await resetWeatherBucketHysteresis(this.params.redisCmd, pos.id);
+    }
+
     log.info(
       {
         positionId: pos.id,
         reason,
         hoursToEnd: Number.isFinite(hoursToEnd) ? hoursToEnd.toFixed(2) : null,
         bidVwap,
+        city: snapshot.city,
       },
       'weather exit close signal enqueued',
     );
   }
-
 }

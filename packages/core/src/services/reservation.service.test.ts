@@ -12,6 +12,8 @@ import { seedDefaults } from '../seed/defaults.js';
 import { CopyConfigService } from './copy-config.service.js';
 import { CryptoConfigService } from './crypto-config.service.js';
 import { GlobalConfigService } from './global-config.service.js';
+import { WeatherConfig } from '../entities/WeatherConfig.js';
+import { WeatherConfigService } from './weather-config.service.js';
 import { ReservationService } from './reservation.service.js';
 import { RiskService } from './risk.service.js';
 
@@ -20,6 +22,7 @@ function invalidateConfigCaches(): void {
   GlobalConfigService.invalidateConfigCache();
   CopyConfigService.invalidateConfigCache();
   CryptoConfigService.invalidateConfigCache();
+  WeatherConfigService.invalidateConfigCache();
 }
 
 describe('ReservationService', () => {
@@ -167,6 +170,31 @@ describe('ReservationService', () => {
       outcome: 'Yes',
     });
     expect(result.copiedPositionId).toBeGreaterThan(0);
+  });
+
+  it('creates pending position for WEATHER_OPEN', async () => {
+    const weatherRepo = ds.getRepository(WeatherConfig);
+    const weather = (await weatherRepo.findOne({ where: {} }))!;
+    weather.weatherAlgoEnabled = true;
+    await weatherRepo.save(weather);
+    invalidateConfigCaches();
+
+    const result = await service.reserve({
+      orderSignalId: 'sig-weather',
+      watchlistId: 1,
+      conditionId: 'c-weather',
+      assetId: 'a-weather',
+      mode: 'sim',
+      notionalUsdc: 10,
+      reason: 'WEATHER_OPEN',
+      outcome: 'Yes',
+    });
+    expect(result.copiedPositionId).toBeGreaterThan(0);
+    const pos = await ds.getRepository(CopiedPosition).findOne({
+      where: { id: result.copiedPositionId },
+    });
+    expect(pos?.status).toBe('pending');
+    expect(pos?.reason).toBe('WEATHER_OPEN');
   });
 
   it('allows sim ALGO_OPEN above copy max position size when under crypto max', async () => {

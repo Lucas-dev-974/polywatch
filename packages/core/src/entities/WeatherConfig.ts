@@ -149,6 +149,14 @@ export class WeatherConfig {
   @Column({ type: 'text', name: 'weather_algo_city_follow_switch_mode', default: 'close_and_reenter' })
   weatherAlgoCityFollowSwitchMode!: string;
 
+  /** Consecutive out-of-bucket polls before WEATHER_BUCKET_EXIT (close_and_reenter). */
+  @Column({ type: 'integer', name: 'weather_algo_bucket_hysteresis_polls', default: 2 })
+  weatherAlgoBucketHysteresisPolls!: number;
+
+  /** Pause after bucket/drift close before re-entering the same city. */
+  @Column({ type: 'integer', name: 'weather_algo_reentry_throttle_ms', default: 1800000 })
+  weatherAlgoReentryThrottleMs!: number;
+
   // ── Sim initial capital (weather) ─────────────────────────────────
 
   @Column({

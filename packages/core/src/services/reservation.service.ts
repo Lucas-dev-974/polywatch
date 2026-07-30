@@ -205,7 +205,11 @@ export class ReservationService {
       const expiresAt = new Date(now.getTime() + RESERVATION_TTL_MS);
       let copiedPositionId: number;
 
-      if (input.reason === 'COPY_OPEN' || input.reason === 'ALGO_OPEN') {
+      if (
+        input.reason === 'COPY_OPEN' ||
+        input.reason === 'ALGO_OPEN' ||
+        input.reason === 'WEATHER_OPEN'
+      ) {
         const blocking = await posRepo.findOne({
           where: {
             watchlistId: input.watchlistId,
@@ -298,12 +302,14 @@ export class ReservationService {
     return this.toReserveResult(reservation);
   }
 
-  /** Active ALGO_OPEN reservation for a pending entry on this market leg. */
+  /** Active ALGO_OPEN or WEATHER_OPEN reservation for a pending entry on this market leg. */
   async findActiveAlgoReservation(params: {
     watchlistId: number;
     conditionId: string;
     assetId: string;
     mode: 'sim' | 'real';
+    /** Defaults to ALGO_OPEN; weather-algo passes WEATHER_OPEN. */
+    reason?: 'ALGO_OPEN' | 'WEATHER_OPEN';
   }): Promise<ReserveResult | null> {
     const reservation = await this.ds
       .getRepository(PositionReservation)
@@ -313,7 +319,7 @@ export class ReservationService {
       .andWhere('r.condition_id = :conditionId', { conditionId: params.conditionId })
       .andWhere('r.asset_id = :assetId', { assetId: params.assetId })
       .andWhere('r.mode = :mode', { mode: params.mode })
-      .andWhere('r.reason = :reason', { reason: 'ALGO_OPEN' })
+      .andWhere('r.reason = :reason', { reason: params.reason ?? 'ALGO_OPEN' })
       .andWhere('r.expires_at >= :now', { now: new Date() })
       .andWhere('p.status = :status', { status: 'pending' })
       .orderBy('r.id', 'DESC')
@@ -374,7 +380,11 @@ export class ReservationService {
         return;
       }
 
-      if (reservation.reason === 'COPY_OPEN' || reservation.reason === 'ALGO_OPEN') {
+      if (
+        reservation.reason === 'COPY_OPEN' ||
+        reservation.reason === 'ALGO_OPEN' ||
+        reservation.reason === 'WEATHER_OPEN'
+      ) {
         const pos = await posRepo.findOne({
           where: { id: reservation.copiedPositionId, status: 'pending' },
         });
@@ -401,7 +411,11 @@ export class ReservationService {
         .getMany();
 
       for (const r of expired) {
-        if (r.reason === 'COPY_OPEN' || r.reason === 'ALGO_OPEN') {
+        if (
+          r.reason === 'COPY_OPEN' ||
+          r.reason === 'ALGO_OPEN' ||
+          r.reason === 'WEATHER_OPEN'
+        ) {
           const pos = await posRepo.findOne({
             where: { id: r.copiedPositionId, status: 'pending' },
           });

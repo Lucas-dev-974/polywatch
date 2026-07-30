@@ -127,21 +127,25 @@ pour la liste complete. Parametres notables et leurs effets :
 
 #### Weather Algo (`weatherAlgo*`)
 
-Parametres du trading algorithmique meteo, stockes dans `risk_config` et modifiables via `PUT /api/risk-config` (UI : page Weather Algo → onglet Parametres). Voir aussi [`weather-algo.md`](./weather-algo.md).
+Parametres du trading algorithmique meteo, stockes dans `weather_config` et modifiables via `GET/PUT /api/config/weather` (UI : page Weather Algo → onglet Parametres ; le legacy `PUT /api/risk-config` peut encore relayer certains champs). Voir aussi [`weather-algo.md`](./weather-algo.md).
 
 | Parametre | Defaut | Effet |
 |-----------|--------|-------|
-| `weatherAlgoEnabled` | `false` | Active/desactive les **entrees** weather-algo (les sorties drift/pre-close restent evaluees pour les positions ouvertes) |
+| `weatherAlgoEnabled` | `false` | Active/desactive les **entrees** weather-algo (les sorties drift / bucket / pre-close restent evaluees pour les positions ouvertes) |
+| `weatherAlgoSimEnabled` | `true` | Autorise les entrees en mode simulation |
+| `weatherAlgoRealEnabled` | `false` | Autorise les entrees en mode reel (requiert aussi `realTradingEnabled`) |
 | `weatherAlgoMinEdge` | `0.10` | Edge de base (forecast prob - market price) ; le seuil effectif est dynamique (`resolveDynamicMinEdge`) |
 | `weatherAlgoMaxForecastStd` | `null` | Std dev max des modeles pour autoriser l'entree (°C, null = illimite) |
 | `weatherAlgoSizingMode` | `fixed_usdc` | Mode de sizing (actuellement `fixed_usdc` uniquement) |
 | `weatherAlgoEntryUsdc` | `10` | Montant fixe d'entree en USDC par position weather-algo |
-| `weatherAlgoSelectionMode` | `single` | Mode de selection : `single` (meilleur edge), `multi` (top N), `spread` (meilleur YES + meilleur NO) |
-| `weatherAlgoMaxSignalsPerEvent` | `3` | Max signaux par event en mode `multi` |
+| `weatherAlgoSelectionMode` | `single` | Mode de selection entre **villes** : `single` (meilleure ville), `multi` (top N villes). `spread` n'est plus supporté. |
+| `weatherAlgoMaxSignalsPerEvent` | `3` | Max villes en mode `multi` |
 | `weatherAlgoForecastChangeThreshold` | `2` | Drift du forecast mean (°C) → close `WEATHER_FORECAST_CHANGE` |
 | `weatherAlgoCloseBeforeResolutionHours` | `1` | Gate d'entrée + auto-close `WEATHER_PRE_CLOSE` dans cette fenêtre |
 | `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min) ; surcharge aussi via env `WEATHER_ALGO_POLL_MS` au demarrage |
-| `weatherAlgoCityFollowSwitchMode` | `close_and_reenter` | Comportement si la prévision change de bucket (city-follow) : `close_and_reenter` (fermer et re-entrer), `hold` (seuil drift uniquement), `add_position` (ouvrir une position additionnelle, requiert mode multi) |
+| `weatherAlgoCityFollowSwitchMode` | `close_and_reenter` | Si la prevision change de palier : `close_and_reenter` (fermer puis re-entrer) ou `hold` (garder ; drift/pre-close restent actifs). `add_position` est coerce vers `close_and_reenter`. |
+| `weatherAlgoBucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
+| `weatherAlgoReentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree sur la meme ville |
 
 #### Bande d'entree crypto-algo (`cryptoAlgoEntryPrice*`)
 

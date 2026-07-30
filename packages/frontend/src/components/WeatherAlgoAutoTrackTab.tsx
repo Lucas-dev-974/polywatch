@@ -3,57 +3,75 @@ import type { AutoTrackRule } from '../hooks/useWeatherAlgoDashboard';
 
 export interface WeatherAlgoAutoTrackTabProps {
   rules: AutoTrackRule[];
-  onAdd: (city: string, metric: string, lookAheadDays: number, mode: 'expand' | 'city_follow') => void;
+  onAdd: (city: string, lookAheadDays: number) => void;
   onRemove: (id: number) => void;
   onToggle: (id: number, enabled: boolean) => void;
 }
 
 export function WeatherAlgoAutoTrackTab(props: WeatherAlgoAutoTrackTabProps) {
   const [city, setCity] = createSignal('');
-  const [metric, setMetric] = createSignal('highest_temp');
   const [lookAhead, setLookAhead] = createSignal(1);
-  const [mode, setMode] = createSignal<'expand' | 'city_follow'>('city_follow');
 
   return (
     <section class="algo-panel">
       <div class="algo-panel-header">
-        <h2 class="algo-panel-title">Auto-track rules</h2>
+        <h2 class="algo-panel-title">Villes surveillées</h2>
       </div>
       <p class="form-hint weather-autotrack-note">
-        Les règles activées ajoutent automatiquement les marchés correspondants aux sélections (sync périodique).
-        Le mode "Suivre la ville" sélectionne automatiquement le bon marché selon la prévision météo.
+        Surveillez une ville : l’algo choisit automatiquement le palier de température
+        (température max) aligné sur la prévision Open-Meteo, puis achète YES si l’edge est suffisant.
+        Une seule position ouverte par ville.
       </p>
       <div class="weather-autotrack-form">
-        <input type="text" placeholder="Ville (ex: Jinan)" value={city()}
-          onInput={(e) => setCity(e.currentTarget.value)} />
-        <select value={metric()} onChange={(e) => setMetric(e.currentTarget.value)}>
-          <option value="highest_temp">Temp max</option>
-          <option value="lowest_temp">Temp min</option>
-        </select>
-        <input type="number" min="1" max="30" value={lookAhead()}
-          onInput={(e) => setLookAhead(Number(e.currentTarget.value) || 1)} />
-        <select value={mode()} onChange={(e) => setMode(e.currentTarget.value as 'expand' | 'city_follow')}>
-          <option value="city_follow">Suivre la ville (auto-sélection du marché)</option>
-          <option value="expand">Suivre tous les marchés</option>
-        </select>
-        <button class="btn btn-sm btn-primary" onClick={() => {
-          if (city().trim()) { props.onAdd(city().trim(), metric(), lookAhead(), mode()); setCity(''); }
-        }}>+ Ajouter</button>
+        <input
+          type="text"
+          placeholder="Ville (ex: Paris)"
+          value={city()}
+          onInput={(e) => setCity(e.currentTarget.value)}
+        />
+        <label class="weather-autotrack-lookahead">
+          Horizon (jours)
+          <input
+            type="number"
+            min="1"
+            max="30"
+            value={lookAhead()}
+            onInput={(e) => setLookAhead(Number(e.currentTarget.value) || 1)}
+          />
+        </label>
+        <button
+          class="btn btn-sm btn-primary"
+          onClick={() => {
+            if (city().trim()) {
+              props.onAdd(city().trim(), lookAhead());
+              setCity('');
+            }
+          }}
+        >
+          + Surveiller
+        </button>
       </div>
       <Show when={props.rules.length === 0}>
-        <div class="algo-empty">Aucune règle auto-track.</div>
+        <div class="algo-empty">Aucune ville surveillée.</div>
       </Show>
       <For each={props.rules}>
         {(rule) => (
-          <div class="weather-autotrack-row" classList={{ 'weather-autotrack-row--disabled': !rule.enabled }}>
+          <div
+            class="weather-autotrack-row"
+            classList={{ 'weather-autotrack-row--disabled': !rule.enabled }}
+          >
             <span>{rule.city}</span>
-            <span>{rule.metric}</span>
+            <span>Temp max</span>
             <span>J+{rule.lookAheadDays}</span>
-            <span class="weather-autotrack-mode">{rule.mode === 'city_follow' ? 'Ville' : 'Tous'}</span>
-            <button class="btn btn-sm btn-ghost" onClick={() => props.onToggle(rule.id, !rule.enabled)}>
+            <button
+              class="btn btn-sm btn-ghost"
+              onClick={() => props.onToggle(rule.id, !rule.enabled)}
+            >
               {rule.enabled ? 'Désactiver' : 'Activer'}
             </button>
-            <button class="btn btn-sm btn-ghost" onClick={() => props.onRemove(rule.id)}>Supprimer</button>
+            <button class="btn btn-sm btn-ghost" onClick={() => props.onRemove(rule.id)}>
+              Supprimer
+            </button>
           </div>
         )}
       </For>

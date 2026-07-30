@@ -8289,6 +8289,23 @@ body.is-resizing-columns .position-market-split-handle::after {
   margin-bottom: .5rem;
 }
 
+.weather-city-group__header-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--bg-elevated);
+}
+
+.weather-city-group__header-row .weather-city-group__header {
+  flex: 1;
+  min-width: 0;
+}
+
+.weather-city-group__actions {
+  flex-shrink: 0;
+  padding-right: .75rem;
+}
+
 .weather-city-group__header {
   display: flex;
   align-items: center;
@@ -8296,7 +8313,7 @@ body.is-resizing-columns .position-market-split-handle::after {
   width: 100%;
   padding: .625rem .75rem;
   border: none;
-  background: var(--bg-elevated);
+  background: transparent;
   color: var(--text);
   font-family: var(--font);
   font-size: .8125rem;

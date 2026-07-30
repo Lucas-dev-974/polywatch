@@ -1,15 +1,16 @@
 import pino from 'pino';
-import type { DataSource } from 'typeorm';
+import { In, type DataSource } from 'typeorm';
 import type { Redis } from 'ioredis';
 import {
   type MarketListItemDto,
   type WeatherConfig,
-  type WeatherMarketSelection,
   type WeatherMarketSelectionService,
   type WeatherForecastService,
   type WeatherAutoTrackService,
   type WeatherAutoTrackRule,
   type ParsedWeatherQuestion,
+  CopiedPosition,
+  WeatherPositionForecast,
   discoverWeatherMarkets,
   safeInterval,
   parseWeatherQuestion,
@@ -29,6 +30,7 @@ const log = pino({ name: 'weather-algo:strategy-runner' });
 
 export interface StrategyRunnerParams {
   ds: DataSource;
+  /** @deprecated Expand selections retired; kept for wiring compatibility. */
   selectionService: WeatherMarketSelectionService;
   autoTrackService: WeatherAutoTrackService;
   forecastService: WeatherForecastService;
@@ -41,15 +43,10 @@ export interface StrategyRunnerParams {
   exitEvaluator?: WeatherExitEvaluator;
 }
 
-interface EventGroup {
-  eventSlug: string;
-  selections: WeatherMarketSelection[];
-}
-
 export class WeatherStrategyRunner {
   private timer: NodeJS.Timeout | null = null;
   private readonly ds: DataSource;
-  private readonly selectionService: WeatherMarketSelectionService;
+  private readonly selectionService: WeatherMarketSelectionService; // retained for API compat; unused in city-first path
   private readonly autoTrackService: WeatherAutoTrackService;
   private readonly forecastService: WeatherForecastService;
   private readonly registry: WeatherStrategyRegistry;
@@ -80,11 +77,11 @@ export class WeatherStrategyRunner {
     if (risk.weatherAlgoPollMs && risk.weatherAlgoPollMs > 0) {
       this.pollMs = risk.weatherAlgoPollMs;
     }
-    // Propagate minEdge and maxForecastStd to the forecast strategy
     for (const strategy of this.registry.getAll()) {
       if (strategy instanceof WeatherForecastStrategy) {
         strategy.setMinEdge(risk.weatherAlgoMinEdge);
         strategy.setMaxForecastStd(risk.weatherAlgoMaxForecastStd);
+        strategy.setYesOnly(true);
       }
     }
   }
@@ -99,7 +96,6 @@ export class WeatherStrategyRunner {
       this.pollMs,
       'weather-algo:strategy-runner',
     );
-    // Run immediately on start
     void this.runEvaluationCycle().catch((err) =>
       log.error({ err }, 'weather strategy initial evaluation failed'),
     );
@@ -127,118 +123,134 @@ export class WeatherStrategyRunner {
         return;
       }
 
-      if (this.risk.weatherAlgoEnabled) {
-        const selections = await this.selectionService.loadAllEnabled();
-        status.evaluableSelections = selections.length;
-
-        // Single discovery snapshot shared between expand and city-follow paths
-        const discovery = await discoverWeatherMarkets({ limit: 100 });
-        const marketByConditionId = new Map<string, MarketListItemDto>();
-        for (const m of discovery.temperatureMarkets) {
-          marketByConditionId.set(m.conditionId, m);
-        }
-
-        const minHoursToClose = this.risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
-        const allSignals: WeatherSignal[] = [];
-
-        // --- Path 1: Expand selections (existing behaviour) ---
-        if (selections.length > 0) {
-          const groups = this.groupSelectionsByEvent(selections, marketByConditionId);
-          log.info(
-            {
-              eventCount: groups.length,
-              totalSelections: selections.length,
-              marketsFound: marketByConditionId.size,
-            },
-            'evaluating weather markets (expand)',
-          );
-
-          for (const group of groups) {
-            try {
-              const signals = await this.evaluateEventGroup(group, marketByConditionId, minHoursToClose);
-              allSignals.push(...signals);
-            } catch (err) {
-              log.error({ err, eventSlug: group.eventSlug }, 'failed to evaluate event group');
-            }
-          }
-        }
-
-        // --- Path 2: City-follow rules ---
-        const cityFollowRules = await this.loadCityFollowRules();
-        if (cityFollowRules.length > 0) {
-          log.info({ ruleCount: cityFollowRules.length }, 'evaluating city-follow rules');
-          const citySignals = await this.evaluateCityFollowRules(
-            cityFollowRules,
-            discovery.temperatureMarkets,
-            minHoursToClose,
-          );
-          allSignals.push(...citySignals);
-        }
-
-        // Apply selection mode across all signals
-        const selectedSignals = this.applySelectionMode(allSignals);
-
-        // Emit signals
-        for (const signal of selectedSignals) {
-          try {
-            const accepted = await this.onSignal(signal);
-            if (accepted) {
-              log.info(
-                { conditionId: signal.conditionId, eventSlug: signal.eventSlug, edge: signal.edge },
-                'weather signal accepted',
-              );
-            }
-          } catch (err) {
-            log.error({ err, conditionId: signal.conditionId }, 'weather signal dispatch failed');
-          }
-        }
-
-        status.lastEvaluatedAt = Date.now();
-      } else {
-        status.lastSkipReason = 'disabled';
-        status.lastSkipAt = Date.now();
-        log.debug('weather-algo disabled — skipping entry evaluation');
-      }
-    } catch (err) {
-      log.error({ err }, 'weather strategy evaluation cycle failed');
-      status.lastSkipReason = 'cycle_error';
-      status.lastSkipAt = Date.now();
-    } finally {
-      if (this.exitEvaluator && this.risk) {
+      // 1. Exits first — avoids opening a new bucket before closing the old one
+      if (this.exitEvaluator) {
         try {
           await this.exitEvaluator.evaluateOpenPositions();
         } catch (err) {
           log.error({ err }, 'weather exit evaluation failed');
         }
       }
+
+      if (!this.risk.weatherAlgoEnabled) {
+        status.lastSkipReason = 'disabled';
+        status.lastSkipAt = Date.now();
+        log.debug('weather-algo disabled — skipping entry evaluation');
+        return;
+      }
+
+      const cityFollowRules = await this.loadCityFollowRules();
+      status.evaluableSelections = cityFollowRules.length;
+
+      if (cityFollowRules.length === 0) {
+        status.lastSkipReason = 'no_city_rules';
+        status.lastSkipAt = Date.now();
+        status.lastEvaluatedAt = Date.now();
+        return;
+      }
+
+      const discovery = await discoverWeatherMarkets({ limit: 100 });
+      const minHoursToClose = this.risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+      const openCities = await this.loadOpenWeatherCities();
+
+      log.info({ ruleCount: cityFollowRules.length, openCities: [...openCities] }, 'evaluating city-follow rules');
+
+      const allSignals = await this.evaluateCityFollowRules(
+        cityFollowRules,
+        discovery.temperatureMarkets,
+        minHoursToClose,
+        openCities,
+      );
+
+      const selectedSignals = this.applySelectionMode(allSignals);
+
+      // Enforce one open position per city across the emitted batch
+      const seenCities = new Set<string>(openCities);
+      for (const signal of selectedSignals) {
+        const cityKey = normalizeWeatherCity(signal.city);
+        if (seenCities.has(cityKey)) {
+          log.debug({ city: signal.city, conditionId: signal.conditionId }, 'skip signal — city already has open/pending position');
+          continue;
+        }
+        try {
+          const accepted = await this.onSignal(signal);
+          if (accepted) {
+            seenCities.add(cityKey);
+            log.info(
+              { conditionId: signal.conditionId, eventSlug: signal.eventSlug, edge: signal.edge, city: signal.city },
+              'weather signal accepted',
+            );
+          }
+        } catch (err) {
+          log.error({ err, conditionId: signal.conditionId }, 'weather signal dispatch failed');
+        }
+      }
+
+      status.lastEvaluatedAt = Date.now();
+    } catch (err) {
+      log.error({ err }, 'weather strategy evaluation cycle failed');
+      status.lastSkipReason = 'cycle_error';
+      status.lastSkipAt = Date.now();
+    } finally {
       await this.publishStatus(status);
     }
   }
 
-  private async loadCityFollowRules(): Promise<WeatherAutoTrackRule[]> {
-    const all = await this.autoTrackService.loadAllEnabled();
-    return all.filter((r) => r.mode === 'city_follow');
+  /**
+   * Cities that already have a WEATHER_OPEN position in flight or open.
+   * Includes pending (reserved, not filled) and closing (exit enqueued / in progress)
+   * so we never open a second thesis for the same city.
+   */
+  private async loadOpenWeatherCities(): Promise<Set<string>> {
+    const positions = await this.ds.getRepository(CopiedPosition).find({
+      where: {
+        reason: 'WEATHER_OPEN',
+        status: In(['pending', 'open', 'closing']),
+      },
+    });
+    const active = positions.filter(
+      (p) => p.status === 'pending' || p.status === 'closing' || p.quantity > 0,
+    );
+    if (active.length === 0) return new Set();
+
+    const cities = new Set<string>();
+    const forecastRepo = this.ds.getRepository(WeatherPositionForecast);
+    const ids = active.map((p) => p.id);
+    const snaps = await forecastRepo.find({
+      where: { copiedPositionId: In(ids) },
+    });
+    for (const snap of snaps) {
+      if (snap.city) cities.add(normalizeWeatherCity(snap.city));
+    }
+    return cities;
   }
 
-  /**
-   * Evaluate city-follow rules: for each rule, find the forecast-aligned bucket
-   * and emit a single BUY YES signal if edge clears the threshold.
-   */
+  private async loadCityFollowRules(): Promise<WeatherAutoTrackRule[]> {
+    // City-first: every enabled auto-track rule is a watched city
+    return this.autoTrackService.loadAllEnabled();
+  }
+
   private async evaluateCityFollowRules(
     rules: WeatherAutoTrackRule[],
     temperatureMarkets: MarketListItemDto[],
     minHoursToClose: number,
+    openCities: Set<string>,
   ): Promise<WeatherSignal[]> {
     const signals: WeatherSignal[] = [];
     const strategies = this.registry.getAll();
 
     for (const rule of rules) {
+      const cityKey = normalizeWeatherCity(rule.city);
+      if (openCities.has(cityKey)) {
+        log.debug({ city: rule.city }, 'city-follow: skip — open position already exists for city');
+        continue;
+      }
+
       const targetDates = buildLookAheadTargetDates(rule.lookAheadDays ?? 1);
       const targetDateStrs = new Set(
         targetDates.map((d) => d.toISOString().slice(0, 10)),
       );
 
-      // Build target month-day strings for question date matching
       const targetMonthDays = new Set(
         [...targetDateStrs].map((dateStr) => {
           const d = new Date(`${dateStr}T12:00:00Z`);
@@ -246,16 +258,15 @@ export class WeatherStrategyRunner {
         }),
       );
 
-      // Filter markets matching this rule, storing parsed result to avoid double-parse
+      const metric = (rule.metric || 'highest_temp') as 'highest_temp' | 'lowest_temp';
       const matching: Array<{ market: MarketListItemDto; parsed: ParsedWeatherQuestion }> = [];
       for (const market of temperatureMarkets) {
         if (!market.question) continue;
         const parsed = parseWeatherQuestion(market.question);
         if (!parsed) continue;
-        if (normalizeWeatherCity(parsed.city) !== normalizeWeatherCity(rule.city)) continue;
-        if (parsed.metric !== rule.metric) continue;
+        if (normalizeWeatherCity(parsed.city) !== cityKey) continue;
+        if (parsed.metric !== metric) continue;
 
-        // Date matching: question dateString or endDate
         const dateMatch = targetMonthDays.has(parsed.dateString) ||
           (market.endDate ? targetDateStrs.has(new Date(market.endDate).toISOString().slice(0, 10)) : false);
         if (!dateMatch) continue;
@@ -264,11 +275,10 @@ export class WeatherStrategyRunner {
       }
 
       if (matching.length === 0) {
-        log.debug({ city: rule.city, metric: rule.metric }, 'city-follow: no matching markets found');
+        log.debug({ city: rule.city, metric }, 'city-follow: no matching markets found');
         continue;
       }
 
-      // Group by target date (each date = one event)
       const byDate = new Map<string, MarketListItemDto[]>();
       for (const { market, parsed } of matching) {
         const dateKey: string = market.endDate
@@ -279,30 +289,33 @@ export class WeatherStrategyRunner {
         else byDate.set(dateKey, [market]);
       }
 
+      const citySignals: WeatherSignal[] = [];
       for (const [dateKey, markets] of byDate) {
         try {
           const signal = await this.evaluateCityFollowDateGroup(
             rule.city,
-            rule.metric as 'highest_temp' | 'lowest_temp',
+            metric,
             dateKey,
             markets,
             strategies,
             minHoursToClose,
           );
-          if (signal) signals.push(signal);
+          if (signal) citySignals.push(signal);
         } catch (err) {
           log.error({ err, city: rule.city, dateKey }, 'city-follow date group evaluation failed');
         }
+      }
+
+      // At most one candidate per city (best YES edge among look-ahead dates)
+      if (citySignals.length > 0) {
+        const best = citySignals.reduce((a, b) => (b.edge > a.edge ? b : a));
+        signals.push(best);
       }
     }
 
     return signals;
   }
 
-  /**
-   * For a single city+metric+date group, fetch forecast, select aligned bucket,
-   * evaluate edge, and return a signal if eligible.
-   */
   private async evaluateCityFollowDateGroup(
     city: string,
     metric: 'highest_temp' | 'lowest_temp',
@@ -311,17 +324,14 @@ export class WeatherStrategyRunner {
     strategies: WeatherStrategy[],
     minHoursToClose: number,
   ): Promise<WeatherSignal | null> {
-    // Resolve target date
     const targetDate = new Date(`${dateKey}T12:00:00Z`);
 
-    // Fetch forecast (cache or Open-Meteo)
     const forecast = await this.forecastService.getOrFetch(city, targetDate, metric, this.forecastCacheTtlMs);
     if (!forecast) {
       log.warn({ city, targetDate, metric }, 'city-follow: forecast unavailable — skipping');
       return null;
     }
 
-    // Build bucket candidates
     const buckets: BucketCandidate[] = [];
     for (const market of markets) {
       if (!isMarketActiveForWeather(market, minHoursToClose)) continue;
@@ -337,7 +347,6 @@ export class WeatherStrategyRunner {
       return null;
     }
 
-    // Select forecast-aligned bucket
     const selected = selectForecastAlignedBucket(forecast.forecastMean, buckets);
     if (!selected) {
       log.debug(
@@ -359,7 +368,6 @@ export class WeatherStrategyRunner {
       'city-follow: selected bucket aligned with forecast',
     );
 
-    // Evaluate edge on the selected bucket
     const ctx = {
       forecastMean: forecast.forecastMean,
       forecastStdDev: forecast.forecastStdDev,
@@ -390,116 +398,32 @@ export class WeatherStrategyRunner {
     }
   }
 
-  private groupSelectionsByEvent(
-    selections: WeatherMarketSelection[],
-    marketByConditionId: Map<string, MarketListItemDto>,
-  ): EventGroup[] {
-    const map = new Map<string, WeatherMarketSelection[]>();
-    for (const sel of selections) {
-      const market = marketByConditionId.get(sel.conditionId);
-      const key = sel.eventSlug ?? market?.eventSlug ?? sel.conditionId;
-      const arr = map.get(key);
-      if (arr) arr.push(sel);
-      else map.set(key, [sel]);
-    }
-    return Array.from(map.entries()).map(([eventSlug, sels]) => ({ eventSlug, selections: sels }));
-  }
-
-  private async evaluateEventGroup(
-    group: EventGroup,
-    marketByConditionId: Map<string, MarketListItemDto>,
-    minHoursToClose: number,
-  ): Promise<WeatherSignal[]> {
-    if (group.selections.length === 0) return [];
-
-    const first = group.selections[0]!;
-    if (!first.city || !first.metric) {
-      log.warn({ eventSlug: group.eventSlug }, 'missing city or metric — skipping event');
-      return [];
-    }
-
-    const targetDate = first.targetDate ?? new Date();
-    const metric = first.metric as 'highest_temp' | 'lowest_temp';
-
-    const forecast = await this.forecastService.getOrFetch(first.city, targetDate, metric, this.forecastCacheTtlMs);
-    if (!forecast) {
-      log.warn({ city: first.city, targetDate }, 'forecast unavailable — skipping event');
-      return [];
-    }
-
-    const ctx = {
-      forecastMean: forecast.forecastMean,
-      forecastStdDev: forecast.forecastStdDev,
-      tempDistribution: new Map<number, number>(),
-    };
-
-    const strategies = this.registry.getAll();
-    const allSignals: WeatherSignal[] = [];
-
-    for (const sel of group.selections) {
-      const market = marketByConditionId.get(sel.conditionId);
-      if (!market) {
-        log.warn({ conditionId: sel.conditionId }, 'market not found in discovery snapshot — skipping');
-        continue;
-      }
-
-      if (!isMarketActiveForWeather(market, minHoursToClose)) {
-        log.debug({ conditionId: sel.conditionId }, 'market not active — skipping');
-        continue;
-      }
-
-      for (const strategy of strategies) {
-        const result = await strategy.evaluate(market, ctx);
-        if (result.kind === 'signal') {
-          allSignals.push(result.signal);
-        }
-      }
-    }
-
-    return allSignals;
-  }
-
   private applySelectionMode(signals: WeatherSignal[]): WeatherSignal[] {
     if (signals.length === 0) return [];
     if (!this.risk) return signals;
 
-    const mode = this.risk.weatherAlgoSelectionMode ?? 'single';
+    let mode = this.risk.weatherAlgoSelectionMode ?? 'single';
+    if (mode === 'spread') {
+      log.info('weather selection mode spread ignored in city-first — using single');
+      mode = 'single';
+    }
 
     if (mode === 'single') {
-      const best = signals.reduce((a, b) => (Math.abs(b.edge) > Math.abs(a.edge) ? b : a));
+      const best = signals.reduce((a, b) => (b.edge > a.edge ? b : a));
       return [best];
     }
 
     if (mode === 'multi') {
       const maxN = this.risk.weatherAlgoMaxSignalsPerEvent ?? 3;
-      const sorted = [...signals].sort((a, b) => Math.abs(b.edge) - Math.abs(a.edge));
+      const sorted = [...signals].sort((a, b) => b.edge - a.edge);
       const seen = new Set<string>();
       const selected: WeatherSignal[] = [];
       for (const sig of sorted) {
-        const key = `${sig.eventSlug}:${sig.outcome}`;
+        const key = normalizeWeatherCity(sig.city);
         if (seen.has(key)) continue;
         seen.add(key);
         selected.push(sig);
         if (selected.length >= maxN) break;
-      }
-      return selected;
-    }
-
-    if (mode === 'spread') {
-      // Spread mode: select the best YES and best NO signal regardless of edge threshold.
-      // This is a coverage strategy (not edge-hunting) — it takes both sides even if edge ≈ 0,
-      // to capture the spread between market price and forecast probability on both outcomes.
-      const yesSignals = signals.filter((s) => s.outcome === 'YES');
-      const noSignals = signals.filter((s) => s.outcome === 'NO');
-      const selected: WeatherSignal[] = [];
-
-      if (yesSignals.length > 0) {
-        const bestYes = yesSignals.reduce((a, b) => (b.edge > a.edge ? b : a));
-        selected.push(bestYes);
-      }
-      if (noSignals.length > 0) {
-        const bestNo = noSignals.reduce((a, b) => (b.edge > a.edge ? b : a));
-        selected.push(bestNo);
       }
       return selected;
     }

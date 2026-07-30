@@ -3,6 +3,8 @@ import {
   shouldCloseForForecastDrift,
   shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
+  shouldEmitBucketExit,
+  resolveCityFollowSwitchMode,
   isForecastInBucket,
   normalizeWeatherCity,
   buildLookAheadTargetDates,
@@ -67,6 +69,27 @@ describe('weather-exit-helpers', () => {
 
     it('returns false when forecast stays in the bucket', () => {
       expect(shouldCloseForBucketExit('between', { low: 30, high: 32 }, 31.5)).toBe(false);
+    });
+  });
+
+  describe('resolveCityFollowSwitchMode', () => {
+    it('maps hold and defaults everything else to close_and_reenter', () => {
+      expect(resolveCityFollowSwitchMode('hold')).toBe('hold');
+      expect(resolveCityFollowSwitchMode('close_and_reenter')).toBe('close_and_reenter');
+      expect(resolveCityFollowSwitchMode('add_position')).toBe('close_and_reenter');
+      expect(resolveCityFollowSwitchMode(null)).toBe('close_and_reenter');
+    });
+  });
+
+  describe('shouldEmitBucketExit', () => {
+    it('never emits in hold mode', () => {
+      expect(shouldEmitBucketExit('hold', true, 10, 2)).toBe(false);
+    });
+
+    it('respects hysteresis for close_and_reenter', () => {
+      expect(shouldEmitBucketExit('close_and_reenter', true, 1, 2)).toBe(false);
+      expect(shouldEmitBucketExit('close_and_reenter', true, 2, 2)).toBe(true);
+      expect(shouldEmitBucketExit('close_and_reenter', false, 5, 2)).toBe(false);
     });
   });
 });

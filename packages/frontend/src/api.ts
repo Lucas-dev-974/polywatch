@@ -591,6 +591,8 @@ export interface WeatherConfig {
   weatherAlgoCloseBeforeResolutionHours: number;
   weatherAlgoPollMs: number;
   weatherAlgoCityFollowSwitchMode: string;
+  weatherAlgoBucketHysteresisPolls: number;
+  weatherAlgoReentryThrottleMs: number;
   weatherAlgoMaxOpenPositions: number;
   weatherAlgoMaxExposureUsdc: number;
   weatherAlgoMaxDailyLossUsdc: number;

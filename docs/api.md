@@ -49,6 +49,8 @@ Montées sous `/api` (`createConfigRouter`).
 |---------|-------|-------------|
 | GET | `/api/risk-config` | Configuration de risque courante (inclut `simAllowedMarketTags` / `realAllowedMarketTags` : `string[]` de slugs Gamma, et `cryptoAlgoConfigFingerprint` pour la garde apply des rapports algo) |
 | PUT | `/api/risk-config` | Met à jour la configuration de risque ; accepte en plus `expectedCryptoAlgoConfigFingerprint` (409 si mismatch) et `revisionSource` (`api` \| `report_apply` \| `system`) ; append une ligne `risk_config_revisions` |
+| GET | `/api/config/weather` | Config weather-algo (`weather_config`) |
+| PUT | `/api/config/weather` | Met à jour la config weather-algo |
 | GET | `/api/market-tags` | Catalogue des types de marché pour le picker UI : `nav` (catégories principales) + `tags` (recherche optionnelle `?search=`) + `cryptoTags` (tags crypto-algo) |
 | GET | `/api/simulation-balance` | Solde pUSD simulé pour un périmètre — query **`algoKind`** (`crypto` \| `weather` \| `copy`, défaut `crypto`) |
 | POST | `/api/simulation-balance/reset` | Réinitialise **un** périmètre sim : body `{ algoKind: 'crypto'\|'weather'\|'copy', amount?, archive?: true, deepClean?: false, newSessionLabel? }` — **`algoKind` requis** ; lock Redis `sim:reset:lock:${algoKind}` (SET NX PX 10 s) ; snapshot `reset` + archivage session **du kind** (défaut), purge marché **scopée** aux conditions du kind, wipe positions/exécutions/réservations **du kind**, persist `amount` dans `risk_config.simInitialCapital{Crypto\|Weather\|Copy}`, purge Redis **scopée** (queues d'entrée du kind + close/results matchés par position/signal IDs ou raisons `ALGO_`/`COPY_`/`WEATHER_`), rotation session du kind, pub/sub `simulation-reset` avec `algoKind` ; réponse : `archiveSummary`, `redisPurge`, `warnings[]` |
@@ -325,16 +327,19 @@ reconnecte automatiquement et, sur un échec d'authentification
 
 Routes pour le trading algorithmique météo (weather-algo). Toutes requièrent un JWT.
 
-### Sélections de marchés
+### Sélections de marchés (legacy)
+
+La sélection active est **par ville** (`/weather-algo-auto-track`). Les routes
+ci-dessous restent pour cleanup / statut ; `POST` est retiré.
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/weather-algo-markets` | Liste toutes les sélections |
-| POST | `/api/weather-algo-markets` | Ajoute `{conditionId, question?, eventSlug?, city?, targetDate?, metric?, targetValue?}` |
-| DELETE | `/api/weather-algo-markets/:conditionId` | Supprime (204) |
+| GET | `/api/weather-algo-markets` | Liste legacy `WeatherMarketSelection` (désactivées en city-first) |
+| POST | `/api/weather-algo-markets` | **410 Gone** — utiliser `POST /weather-algo-auto-track` |
+| DELETE | `/api/weather-algo-markets/:conditionId` | Supprime une sélection legacy (204) |
 | PATCH | `/api/weather-algo-markets/:conditionId` | Active/désactive `{enabled: boolean}` |
-| GET | `/api/weather-algo-markets/status` | Statut runtime (heartbeat Redis + counts) |
-| POST | `/api/weather-algo-markets/notify-changed` | Interne — notifie un changement (`x-service-token`, pas de JWT utilisateur) |
+| GET | `/api/weather-algo-markets/status` | Statut runtime (`alive`, `watchedCities`, heartbeat Redis, lastSkip…) |
+| POST | `/api/weather-algo-markets/notify-changed` | Interne — notifie un changement (`x-service-token`) |
 
 ### Découverte
 
@@ -342,21 +347,21 @@ Routes pour le trading algorithmique météo (weather-algo). Toutes requièrent 
 |---------|-------|-------------|
 | GET | `/api/weather-algo-discover?offset=0` | Découvre les marchés météo Polymarket (`tag_slug=weather`, page Gamma forcée à 100) → `{temperatureMarkets, allWeatherMarkets, byCity: [{city, markets, targetDate, forecastMean, forecastStdDev, forecastStatus}]}`. Le champ `byCity` groupe les marchés `highest_temp` par ville, enrichi avec la température de prédiction Open-Meteo (cache DB). |
 
-### Auto-track
+### Auto-track (villes surveillées)
 
-Les routes persistent des règles ; le janitor `weather-algo` les applique périodiquement (`syncMarketSelectionsForAutoTrack`).
+Les règles persistent une **ville** à surveiller (`highest_temp`). Le runner
+sélectionne le palier à runtime. `POST /weather-algo-markets` (sélection par
+sous-marché) renvoie **410 Gone**.
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/weather-algo-auto-track` | Liste les règles (villes) |
+| POST | `/api/weather-algo-auto-track` | Ajoute `{city, lookAheadDays?}` (metric forcée `highest_temp`, mode `city_follow`) |
+| DELETE | `/api/weather-algo-auto-track/:id` | Supprime (204) |
+| PATCH | `/api/weather-algo-auto-track/:id` | Active/désactive `{enabled: boolean}` |
 
 ### Prévisions
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/weather-algo-forecasts/:city/:date?metric=highest_temp` | Prévision météo (cache DB → fallback Open-Meteo) |
-
-### Auto-track
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/api/weather-algo-auto-track` | Liste les règles |
-| POST | `/api/weather-algo-auto-track` | Ajoute `{city, metric, lookAheadDays?, mode?}` (mode: `expand` \| `city_follow`, défaut `expand`) |
-| DELETE | `/api/weather-algo-auto-track/:id` | Supprime (204) |
-| PATCH | `/api/weather-algo-auto-track/:id` | Active/désactive `{enabled: boolean}` |

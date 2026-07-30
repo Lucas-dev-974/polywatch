@@ -36,7 +36,7 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 
 | Fichier | File consommée | Rôle |
 |---|---|---|
-| `executor.ts` | `order-signals` / `algo-order-signals` / `weather-order-signals` / `close-signals` | Verrou position, claim + réconciliation in-flight, mos sortie, exécution sim/réelle → `execution-results`. Consomme `COPY_*` (copy-trading), `ALGO_*` (crypto-algo), `WEATHER_*` (weather-algo). |
+| `executor.ts` | `order-signals` / `algo-order-signals` / `weather-order-signals` / `close-signals` | Verrou position, claim + réconciliation in-flight, mos sortie, exécution sim/réelle → `execution-results`. Consomme `COPY_*`, `ALGO_*`, `WEATHER_OPEN` / closes `WEATHER_FORECAST_CHANGE` / `WEATHER_BUCKET_EXIT` / `WEATHER_PRE_CLOSE`. |
 | `results-consumer.ts` | `execution-results` | `completeExecution` sous `positionLocks` → finalize + retry sorties forcées |
 | `strategy-processing.ts` | — (100 ms + book updates) | Boucle principale ; délègue à `position-exit-evaluator` et `kill-switch-monitor` → `close-signals` |
 | `market-resolution-watcher.ts` | — (**15 s**) | Délègue à `MarketResolutionService` |

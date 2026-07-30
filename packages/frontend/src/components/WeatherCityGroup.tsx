@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For, Show, type JSX } from 'solid-js';
 
 export interface WeatherCityGroupProps<T> {
   city: string;
@@ -8,9 +8,11 @@ export interface WeatherCityGroupProps<T> {
   /** Forecast status drives styling/tooltip. */
   forecastStatus?: 'fresh' | 'stale' | 'unavailable';
   /** Render each market item inside the accordion body. */
-  renderItem: (item: T) => any;
+  renderItem: (item: T) => JSX.Element;
   /** Initial expanded state. Default: collapsed. */
   defaultExpanded?: boolean;
+  /** Optional actions rendered beside the city header (e.g. watch city). */
+  headerExtra?: JSX.Element;
 }
 
 export function WeatherCityGroup<T>(props: WeatherCityGroupProps<T>) {
@@ -23,31 +25,42 @@ export function WeatherCityGroup<T>(props: WeatherCityGroupProps<T>) {
 
   return (
     <div class="weather-city-group" classList={{ 'weather-city-group--expanded': expanded() }}>
-      <button
-        type="button"
-        class="weather-city-group__header"
-        onClick={() => setExpanded(!expanded())}
-        aria-expanded={expanded()}
-      >
-        <span class="weather-city-group__chevron">{expanded() ? '▾' : '▸'}</span>
-        <span class="weather-city-group__city">{props.city}</span>
-        <span
-          class="weather-city-group__forecast"
-          classList={{
-            'weather-city-group__forecast--stale': props.forecastStatus === 'stale',
-            'weather-city-group__forecast--unavailable': props.forecastStatus === 'unavailable',
-          }}
-          title={props.forecastStatus === 'unavailable' ? 'Prévision indisponible' : props.forecastStatus === 'stale' ? 'Prévision expirée' : undefined}
+      <div class="weather-city-group__header-row">
+        <button
+          type="button"
+          class="weather-city-group__header"
+          onClick={() => setExpanded(!expanded())}
+          aria-expanded={expanded()}
         >
-          {forecastLabel()}
-        </span>
-        <span class="weather-city-group__count">{props.markets.length}</span>
-      </button>
+          <span class="weather-city-group__chevron">{expanded() ? '▾' : '▸'}</span>
+          <span class="weather-city-group__city">{props.city}</span>
+          <span
+            class="weather-city-group__forecast"
+            classList={{
+              'weather-city-group__forecast--stale': props.forecastStatus === 'stale',
+              'weather-city-group__forecast--unavailable': props.forecastStatus === 'unavailable',
+            }}
+            title={
+              props.forecastStatus === 'unavailable'
+                ? 'Prévision indisponible'
+                : props.forecastStatus === 'stale'
+                  ? 'Prévision expirée'
+                  : undefined
+            }
+          >
+            {forecastLabel()}
+          </span>
+          <span class="weather-city-group__count">{props.markets.length}</span>
+        </button>
+        <Show when={props.headerExtra}>
+          <div class="weather-city-group__actions" onClick={(e) => e.stopPropagation()}>
+            {props.headerExtra}
+          </div>
+        </Show>
+      </div>
       <Show when={expanded()}>
         <div class="weather-city-group__body">
-          <For each={props.markets}>
-            {(item) => props.renderItem(item)}
-          </For>
+          <For each={props.markets}>{(item) => props.renderItem(item)}</For>
         </div>
       </Show>
     </div>

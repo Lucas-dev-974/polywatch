@@ -32,6 +32,8 @@ export function WeatherAlgoSettingsTab() {
         weatherAlgoCloseBeforeResolutionHours: c.weatherAlgoCloseBeforeResolutionHours as number,
         weatherAlgoPollMs: c.weatherAlgoPollMs as number,
         weatherAlgoCityFollowSwitchMode: c.weatherAlgoCityFollowSwitchMode as string,
+        weatherAlgoBucketHysteresisPolls: c.weatherAlgoBucketHysteresisPolls as number,
+        weatherAlgoReentryThrottleMs: c.weatherAlgoReentryThrottleMs as number,
       });
     } catch { /* ignore */ }
     setSaving(false);
@@ -89,16 +91,16 @@ export function WeatherAlgoSettingsTab() {
                 onInput={(e) => update('weatherAlgoEntryUsdc', Number(e.currentTarget.value))} />
             </label>
             <label>
-              Mode de sélection
+              Mode de sélection (entre villes)
               <select value={c().weatherAlgoSelectionMode as string}
                 onChange={(e) => update('weatherAlgoSelectionMode', e.currentTarget.value)}>
-                <option value="single">Single (meilleur edge)</option>
-                <option value="multi">Multi (top N)</option>
-                <option value="spread">Spread (meilleur YES + meilleur NO)</option>
+                <option value="single">Single (meilleure ville)</option>
+                <option value="multi">Multi (top N villes)</option>
               </select>
+              <span class="form-hint">Spread n’est plus disponible en mode ville.</span>
             </label>
             <label>
-              Max signaux par event (mode multi)
+              Max villes (mode multi)
               <input type="number" min="1" max="20"
                 value={c().weatherAlgoMaxSignalsPerEvent as number}
                 onInput={(e) => update('weatherAlgoMaxSignalsPerEvent', Number(e.currentTarget.value))} />
@@ -118,14 +120,26 @@ export function WeatherAlgoSettingsTab() {
               <span class="form-hint">Bloque les nouvelles entrées et ferme les positions ouvertes dans cette fenêtre.</span>
             </label>
             <label>
-              Comportement si la prévision change de bucket
+              Si la prévision change de palier
               <select value={c().weatherAlgoCityFollowSwitchMode as string}
                 onChange={(e) => update('weatherAlgoCityFollowSwitchMode', e.currentTarget.value)}>
-                <option value="close_and_reenter">Fermer et re-entrer sur le nouveau bucket</option>
-                <option value="hold">Conserver la position (seuil drift uniquement)</option>
-                <option value="add_position">Ouvrir une position additionnelle (mode multi requis)</option>
+                <option value="close_and_reenter">Fermer et re-entrer sur le nouveau palier</option>
+                <option value="hold">Conserver la position (drift / pre-close uniquement)</option>
               </select>
-              <span class="form-hint">En mode "Suivre la ville". "Ouvrir additionnelle" requiert Mode de sélection = Multi.</span>
+            </label>
+            <label>
+              Hysteresis bucket (polls hors palier)
+              <input type="number" min="1" max="10"
+                value={(c().weatherAlgoBucketHysteresisPolls as number) ?? 2}
+                onInput={(e) => update('weatherAlgoBucketHysteresisPolls', Number(e.currentTarget.value))} />
+              <span class="form-hint">Nombre de polls consécutifs hors palier avant fermeture (close_and_reenter).</span>
+            </label>
+            <label>
+              Throttle re-entry (ms)
+              <input type="number" min="0" step="60000"
+                value={(c().weatherAlgoReentryThrottleMs as number) ?? 1800000}
+                onInput={(e) => update('weatherAlgoReentryThrottleMs', Number(e.currentTarget.value))} />
+              <span class="form-hint">Pause après une sortie drift/bucket avant de pouvoir ré-entrer sur la même ville.</span>
             </label>
           </div>
         )}

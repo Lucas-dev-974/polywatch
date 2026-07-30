@@ -1,28 +1,30 @@
 # Package `@polywatch/weather-algo` — Trading algorithmique météo
 
-Module d'automatisation pour les marchés **température** Polymarket : prévisions
-Open-Meteo multi-modèles, calcul d'edge vs prix marché, signaux d'entrée
-`WEATHER_OPEN` et sorties `WEATHER_FORECAST_CHANGE` / `WEATHER_PRE_CLOSE`.
+Module d'automatisation pour les marchés **température** Polymarket : sélection
+par **ville**, prévisions Open-Meteo multi-modèles, BUY YES sur le palier aligné
+au forecast, sorties drift / bucket / pre-close.
 
 ---
 
 ## 1. Vue d'ensemble
 
 ```
-Sélections (DB / UI / auto-track)
+Villes surveillées (WeatherAutoTrackRule)
         │
         ▼
-StrategyRunner (poll WEATHER_ALGO_POLL_MS / weatherAlgoPollMs)
-        │  discoverWeatherMarkets + fetchWeatherForecast (cache DB)
+StrategyRunner (poll weatherAlgoPollMs)
+        │  1. ExitEvaluator (sorties d'abord)
+        │  2. discoverWeatherMarkets + forecast
+        │  3. selectForecastAlignedBucket → BUY YES si edge OK
         ▼
-WeatherForecastStrategy → runWeatherEntryPipeline → weather-order-signals
-        │
-        ▼
-WeatherExitEvaluator → close-signals (drift / pre-close)
+runWeatherEntryPipeline → weather-order-signals
         │
         ▼
 worker Executor
 ```
+
+**Unité de sélection** = ville (+ horizon). **Unité d'exécution** = sous-marché
+(palier) choisi automatiquement. **Au plus une position ouverte par ville.**
 
 Positions rattachées à une watchlist sentinelle weather-algo. Snapshot forecast
 d'entrée dans `WeatherPositionForecast`.
@@ -33,10 +35,10 @@ d'entrée dans `WeatherPositionForecast`.
 
 | Composant | Cadence | Rôle |
 |-----------|---------|------|
-| `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min) | Entrées (expand + city-follow) + déclenche l'évaluateur de sorties |
-| `WeatherExitEvaluator` | fin de chaque cycle runner | Drift forecast + bucket-exit (city-follow) + auto-close avant résolution |
-| `WeatherAutoTrackJanitor` | `pollMs` | Règles expand → `WeatherMarketSelection` ; règles city-follow ignorées (sélection à runtime) |
-| `runWeatherEntryPipeline` | sur signal | Enqueue `WEATHER_OPEN` + snapshot forecast |
+| `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min) | Sorties puis entrées city-follow |
+| `WeatherExitEvaluator` | début de chaque cycle | Drift + bucket-exit (hysteresis) + pre-close |
+| `WeatherAutoTrackJanitor` | `pollMs` | Cleanup legacy `WeatherMarketSelection` (plus de matérialisation expand) |
+| `runWeatherEntryPipeline` | sur signal | Gate throttle re-entry + enqueue `WEATHER_OPEN` |
 | Heartbeat / runtime-status | 30 s | Redis `weather-algo:heartbeat`, `weather-algo:runtime-status` |
 
 Les sorties tournent **même si `weatherAlgoEnabled = false`** (positions ouvertes).
@@ -45,14 +47,16 @@ Les sorties tournent **même si `weatherAlgoEnabled = false`** (positions ouvert
 
 ## 3. Stratégie & sorties
 
-**Entrée (expand)** : edge forecast vs marché, modes `single` / `multi` / `spread`.
-
-**Entrée (city-follow)** : l'utilisateur suit une ville (ex. Paris) au lieu de sous-marchés individuels. Le système sélectionne automatiquement le bucket (sous-marché) dont le palier contient la température prédite par Open-Meteo (`selectForecastAlignedBucket`), puis évalue l'edge sur ce seul bucket. Le comportement en cas de changement de bucket est configurable via `weatherAlgoCityFollowSwitchMode`.
+**Entrée** : pour chaque ville surveillée (métrique v1 = `highest_temp`), sélection
+du bucket aligné (`selectForecastAlignedBucket`), puis **BUY YES uniquement** si
+l'edge YES dépasse le seuil dynamique. Modes `single` / `multi` entre **villes**
+(`spread` ignoré → traité comme `single`).
 
 **Sorties** :
-- `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > weatherAlgoForecastChangeThreshold`, ou si le forecast sort du palier d'entrée (mode `close_and_reenter`)
-- `WEATHER_PRE_CLOSE` si `hoursToEnd <= weatherAlgoCloseBeforeResolutionHours` (prioritaire si les deux)
-- Close via `close-signals` sans `beginClose` préalable (le worker le fait à la consommation)
+- `WEATHER_PRE_CLOSE` si `hoursToEnd <= weatherAlgoCloseBeforeResolutionHours` (prioritaire)
+- `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > weatherAlgoForecastChangeThreshold`
+- `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `weatherAlgoCityFollowSwitchMode = close_and_reenter` **après** `weatherAlgoBucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave
+- Après close bucket/drift : throttle Redis `weather-reentry:{city}:{mode}` pendant `weatherAlgoReentryThrottleMs`
 
 ---
 
@@ -60,22 +64,25 @@ Les sorties tournent **même si `weatherAlgoEnabled = false`** (positions ouvert
 
 | Capacité | État |
 |----------|------|
-| Entrée `WEATHER_OPEN` | Actif |
-| Snapshot `WeatherPositionForecast` à l'enqueue | Actif |
+| Sélection par ville | Actif |
+| BUY YES sur bucket forecast | Actif |
+| 1 position max par ville (`pending`/`open`/`closing`) | Actif |
+| Sorties avant entrées (même cycle) | Actif |
 | Close drift forecast | Actif |
 | Auto-close avant résolution | Actif |
-| Gate entrée close-before | Actif |
-| Auto-track sync (expand) | Actif |
-| City-follow (auto-sélection du bucket) | Actif |
-| Bucket-exit (close_and_reenter / hold / add_position) | Actif |
-| Re-entry throttle dédié | Non câblé |
+| Bucket-exit `close_and_reenter` / `hold` | Actif |
+| Hysteresis Redis `weather-bucket-hysteresis:{positionId}` | Actif |
+| Re-entry throttle `weather-reentry:{city}:{mode}` | Actif |
+| Métrique forcée `highest_temp` | Actif |
+| Expand / follow par `conditionId` | Retiré |
+| `add_position` | Hors scope (coercé → `close_and_reenter`) |
 
 ---
 
 ## 5. API & config
 
 - Routes : [`api.md`](./api.md) § Weather Algo
-- RiskConfig : [`configuration.md`](./configuration.md) § Weather Algo
+- Config : [`configuration.md`](./configuration.md) § Weather Algo
 - Entités : [`modele-donnees.md`](./modele-donnees.md)
 
 Démarrage : `npm run dev:weather-algo` ou `npm run dev`.

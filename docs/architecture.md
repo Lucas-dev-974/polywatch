@@ -160,12 +160,14 @@ Voir [`docs/code/07-crypto-algo.md`](code/07-crypto-algo.md) pour le détail.
 
 ### Weather-Algo (`packages/weather-algo/src/index.ts`)
 
-Process sans serveur HTTP — trading météo température. Détail : [`weather-algo.md`](./weather-algo.md).
+Process sans serveur HTTP — trading météo **par ville**. Détail : [`weather-algo.md`](./weather-algo.md).
 
-- Entrées : discovery, Open-Meteo, edge, `WEATHER_OPEN` → `weather-order-signals`.
-- Sorties : `WeatherExitEvaluator` → `WEATHER_FORECAST_CHANGE` / `WEATHER_PRE_CLOSE` sur `close-signals` (même si algo désactivé).
-- Snapshot forecast à l'ouverture (`WeatherPositionForecast`).
-- Auto-track : janitor sync règles → sélections (`lookAheadDays`, multi-dates discovery).
+- Sélection : `WeatherAutoTrackRule` (ville + `highest_temp` + horizon).
+- Cycle : **sorties d'abord**, puis entrées ; max **1 position ouverte / ville**.
+- Entrées : discovery → bucket forecast-aligné → **BUY YES** si edge OK → `WEATHER_OPEN`.
+- Sorties : `WEATHER_PRE_CLOSE` / `WEATHER_FORECAST_CHANGE` / `WEATHER_BUCKET_EXIT` (`close_and_reenter` + hysteresis, ou `hold`).
+- Snapshot forecast à l'ouverture (`WeatherPositionForecast`) ; throttle re-entry Redis après close bucket/drift.
+- Janitor : cleanup des anciennes `WeatherMarketSelection` (plus de sync expand).
 - Heartbeat + `weather-algo:runtime-status`.
 
 ### Frontend (`packages/frontend`)
@@ -200,7 +202,7 @@ reçoit les mises à jour via WebSocket. Voir [`frontend.md`](./frontend.md).
 | File Redis `order-signals` | copy-trading → worker | Signaux `COPY_*` |
 | File Redis `algo-order-signals` | crypto-algo → worker | Signaux `ALGO_*` |
 | File Redis `weather-order-signals` | weather-algo → worker | Signaux `WEATHER_OPEN` |
-| File Redis `close-signals` | worker Strategy / weather-algo → worker Executor | SL/TP/pre-close/kill-switch / closes manuels / `WEATHER_FORECAST_CHANGE` / `WEATHER_PRE_CLOSE` |
+| File Redis `close-signals` | worker Strategy / weather-algo → worker Executor | SL/TP/pre-close/kill-switch / closes manuels / `WEATHER_FORECAST_CHANGE` / `WEATHER_BUCKET_EXIT` / `WEATHER_PRE_CLOSE` |
 | File Redis `execution-results` | worker Executor → ResultsConsumer | Finalisation |
 | Pub/Sub Redis | Backend → worker / copy-trading / crypto-algo / weather-algo | `config-changed`, `backend-ready`, `simulation-reset` |
 | Pub/Sub Redis | Crypto-Algo → Backend | `crypto-algo:runtime-status` (statut runtime) |

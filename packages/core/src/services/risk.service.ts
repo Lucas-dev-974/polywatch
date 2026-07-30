@@ -226,6 +226,7 @@ export class RiskService {
       'weatherAlgoEntryUsdc', 'weatherAlgoSelectionMode', 'weatherAlgoMaxSignalsPerEvent',
       'weatherAlgoForecastChangeThreshold', 'weatherAlgoCloseBeforeResolutionHours',
       'weatherAlgoPollMs', 'weatherAlgoCityFollowSwitchMode',
+      'weatherAlgoBucketHysteresisPolls', 'weatherAlgoReentryThrottleMs',
       'weatherAlgoMaxOpenPositions', 'weatherAlgoMaxExposureUsdc', 'weatherAlgoMaxDailyLossUsdc',
       'weatherAlgoMaxPositionSizeUsdc', 'weatherAlgoSlBidPoints', 'weatherAlgoTpBidPoints',
       'weatherAlgoTrailingBidPoints', 'weatherAlgoTrailingActivationBidPoints',

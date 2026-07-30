@@ -74,6 +74,7 @@ export { SignalScore, SignalScoreContext } from './sizing/signal-scorer.js';
 export * from './risk/policy.js';
 export * from './risk/exit-decision.js';
 export * from './risk/risk-config-api.js';
+export * from './risk/crypto-config-api.js';
 export * from './risk/sim-mode-fields.js';
 export {
   resolveSimRotationTargets,

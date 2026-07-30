@@ -515,11 +515,11 @@ export interface CryptoConfig {
   cryptoAlgoEntryDepthRetryDelayMs: number;
   cryptoAlgoSlCloseMaxRetries: number;
   cryptoAlgoMinTimeToClose: number | null;
-  cryptoAlgoAllowedMarketTags: string;
+  cryptoAlgoAllowedMarketTags: string[];
   cryptoAlgoSignalScoreSizingEnabled: boolean;
   cryptoAlgoPriceTickCleanupEnabled: boolean;
   cryptoAlgoPriceTickCleanupIntervalMinutes: number;
-  cryptoAlgoStrategies: string;
+  cryptoAlgoStrategies: string[];
   cryptoAlgoTrailingBidPoints: number | null;
   cryptoAlgoTrailingActivationBidPoints: number | null;
   cryptoAlgoSlEnabled: boolean;
@@ -556,9 +556,17 @@ export interface CryptoConfig {
   cryptoAlgoPriceTickRefQty: number | null;
   cryptoAlgoMinTimeToCloseBufferSeconds: number | null;
   cryptoAlgoLastCloseableBidMaxAgeMs: number | null;
-  cryptoAlgoSpreadAbsByInterval: string | null;
-  cryptoAlgoExitDefaultsByInterval: string | null;
-  cryptoAlgoPreCloseSecondsByInterval: string | null;
+  cryptoAlgoSpreadAbsByInterval: Record<string, number> | null;
+  cryptoAlgoExitDefaultsByInterval: Record<
+    string,
+    {
+      slBidPoints?: number;
+      tpBidPoints?: number;
+      trailingBidPoints?: number;
+      trailingActivationBidPoints?: number;
+    }
+  > | null;
+  cryptoAlgoPreCloseSecondsByInterval: Record<string, number> | null;
   cryptoAlgoSlQuotaEnabled: boolean;
   cryptoAlgoSlQuotaPerMarket: number;
   cryptoAlgoSlQuotaCacheTtlSeconds: number;
@@ -566,7 +574,7 @@ export interface CryptoConfig {
   cryptoAlgoEntryUsdcAmount: number;
   cryptoAlgoEntryShareCount: number | null;
   simInitialCapitalCrypto: number;
-  maxSlippagePercent: number;
+  cryptoAlgoConfigFingerprint?: string;
 }
 
 export interface WeatherConfig {

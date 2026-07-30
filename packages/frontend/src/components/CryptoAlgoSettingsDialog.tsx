@@ -1,5 +1,10 @@
 import { createEffect, createSignal, For, on, Show } from 'solid-js';
-import { fetchCryptoConfig, updateCryptoConfig } from '../api';
+import {
+  fetchCryptoConfig,
+  fetchGlobalConfig,
+  updateCryptoConfig,
+  updateGlobalConfig,
+} from '../api';
 import { loadAutoTrackRules } from '../stores/autoTrackStore';
 import { CryptoAlgoSettingsAutotrackTab } from './CryptoAlgoSettingsAutotrackTab';
 import { CryptoAlgoSettingsExitTab } from './CryptoAlgoSettingsExitTab';
@@ -70,8 +75,16 @@ export function CryptoAlgoSettingsDialog(props: CryptoAlgoSettingsDialogProps) {
 
   async function load() {
     try {
-      const full = await fetchCryptoConfig();
-      setConfig(pickCryptoAlgoFields(full as unknown as EnvSettings));
+      const [crypto, global] = await Promise.all([
+        fetchCryptoConfig(),
+        fetchGlobalConfig(),
+      ]);
+      setConfig(
+        pickCryptoAlgoFields({
+          ...(crypto as unknown as EnvSettings),
+          maxSlippagePercent: global.maxSlippagePercent,
+        }),
+      );
       setError(null);
       jsonValidity.clear();
       setJsonInvalidCount(0);
@@ -117,8 +130,17 @@ export function CryptoAlgoSettingsDialog(props: CryptoAlgoSettingsDialogProps) {
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateCryptoConfig(current as unknown as Record<string, unknown>);
-      setConfig(pickCryptoAlgoFields(updated as unknown as EnvSettings));
+      const { maxSlippagePercent, ...cryptoPatch } = current;
+      const [updated] = await Promise.all([
+        updateCryptoConfig(cryptoPatch as unknown as Record<string, unknown>),
+        updateGlobalConfig({ maxSlippagePercent }),
+      ]);
+      setConfig(
+        pickCryptoAlgoFields({
+          ...(updated as unknown as EnvSettings),
+          maxSlippagePercent,
+        }),
+      );
       props.onClose();
     } catch (err) {
       setError(

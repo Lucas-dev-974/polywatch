@@ -14,6 +14,8 @@ import {
   realRotationChanged,
   extractSimConfigSnapshot,
   extractRealConfigSnapshot,
+  presentCryptoConfigForApi,
+  toCryptoConfigEntityUpdate,
   type GlobalConfig,
   type CopyConfig,
   type CryptoConfig,
@@ -374,7 +376,7 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
   router.get('/config/crypto', requireJwt, async (_req, res) => {
     const config = await cryptoService.getConfig();
     res.json({
-      ...config,
+      ...presentCryptoConfigForApi(config),
       cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(config),
     });
   });
@@ -408,14 +410,16 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
       (raw.revisionSource === 'api' || raw.revisionSource === 'report_apply' || raw.revisionSource === 'system')
       ? raw.revisionSource : 'api';
     const before = await loadAllConfigs();
-    const updated = await cryptoService.updateConfig(parsed.data as any);
+    const updated = await cryptoService.updateConfig(
+      toCryptoConfigEntityUpdate(parsed.data),
+    );
     RiskService.invalidateConfigCache();
     const after = await loadAllConfigs();
     const rotation = await handleConfigRotation(before, after);
     await revisionService.recordRevision(updated, { source: revisionSource, patch: parsed.data, kind: 'crypto' });
     await publishConfigChanged('crypto');
     res.json({
-      ...updated,
+      ...presentCryptoConfigForApi(updated),
       cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(updated),
       sessionRotation: rotation,
     });

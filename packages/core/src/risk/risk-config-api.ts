@@ -29,7 +29,7 @@ function isBlankIntervalJson(raw: string | null | undefined): boolean {
   return trimmed === '' || trimmed === 'null';
 }
 
-function presentIntervalNumberMap(
+export function presentIntervalNumberMapForApi(
   field: string,
   raw: string | null | undefined,
 ): CryptoAlgoNumberIntervalMap | null {
@@ -45,7 +45,7 @@ function presentIntervalNumberMap(
   return emptyMapToNull(parsed);
 }
 
-function presentIntervalExitMap(
+export function presentIntervalExitMapForApi(
   field: string,
   raw: string | null | undefined,
 ): CryptoAlgoExitDefaultsIntervalMap | null {
@@ -97,15 +97,15 @@ export function presentRiskConfigForApi(config: RiskConfig): RiskConfigApi {
     simAllowedMarketTags: parseAllowedMarketTags(config.simAllowedMarketTags),
     realAllowedMarketTags: parseAllowedMarketTags(config.realAllowedMarketTags),
     cryptoAlgoStrategies: parseCryptoAlgoStrategies(config.cryptoAlgoStrategies),
-    cryptoAlgoSpreadAbsByInterval: presentIntervalNumberMap(
+    cryptoAlgoSpreadAbsByInterval: presentIntervalNumberMapForApi(
       'cryptoAlgoSpreadAbsByInterval',
       config.cryptoAlgoSpreadAbsByInterval,
     ),
-    cryptoAlgoExitDefaultsByInterval: presentIntervalExitMap(
+    cryptoAlgoExitDefaultsByInterval: presentIntervalExitMapForApi(
       'cryptoAlgoExitDefaultsByInterval',
       config.cryptoAlgoExitDefaultsByInterval,
     ),
-    cryptoAlgoPreCloseSecondsByInterval: presentIntervalNumberMap(
+    cryptoAlgoPreCloseSecondsByInterval: presentIntervalNumberMapForApi(
       'cryptoAlgoPreCloseSecondsByInterval',
       config.cryptoAlgoPreCloseSecondsByInterval,
     ),
@@ -162,7 +162,7 @@ export function toRiskConfigEntityUpdate<T extends MarketTagsUpdate & CryptoAlgo
  * Parse the JSON array of enabled crypto-algo strategy ids. Falls back to an
  * empty array when the column is unset/invalid (mirrors parseAllowedMarketTags).
  */
-function parseCryptoAlgoStrategies(json: string | null | undefined): string[] {
+export function parseCryptoAlgoStrategies(json: string | null | undefined): string[] {
   if (!json || json.trim() === '') return [];
   try {
     const parsed = JSON.parse(json) as unknown;

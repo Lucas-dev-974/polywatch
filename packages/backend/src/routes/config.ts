@@ -3,8 +3,8 @@ import { z } from 'zod';
 import type { DataSource } from 'typeorm';
 import {
   ClobCredentials,
-  RiskConfig,
   RiskService,
+  GlobalConfigService,
   CryptoConfigService,
   RiskConfigRevisionService,
   computeCryptoAlgoConfigFingerprint,
@@ -435,12 +435,8 @@ export function createConfigRouter(ds: DataSource): Router {
 
   router.delete('/clob-credentials', requireJwt, async (_req, res) => {
     await ds.getRepository(ClobCredentials).delete({});
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = await riskRepo.findOne({ where: {} });
-    if (risk) {
-      risk.realTradingEnabled = false;
-      await riskRepo.save(risk);
-    }
+    await new GlobalConfigService(ds).updateConfig({ realTradingEnabled: false });
+    RiskService.invalidateConfigCache();
     await publishConfigChanged();
     res.status(204).end();
   });

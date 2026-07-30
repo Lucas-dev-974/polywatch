@@ -4,7 +4,9 @@ import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Execution } from '../entities/Execution.js';
 import { MoveEventEntity } from '../entities/MoveEvent.js';
 import { PositionReservation } from '../entities/PositionReservation.js';
-import { RiskConfig } from '../entities/RiskConfig.js';
+import { CopyConfig } from '../entities/CopyConfig.js';
+import { CryptoConfig } from '../entities/CryptoConfig.js';
+import { WeatherConfig } from '../entities/WeatherConfig.js';
 import { SimulationBalance } from '../entities/SimulationBalance.js';
 import { marketLifecycleFromEntity } from '../market/lifecycle.js';
 import {
@@ -18,11 +20,12 @@ import {
   type SimExecutionCashRow,
 } from '../simulation/accounting.js';
 import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
-import {
-  getSimInitialCapital,
-  setSimInitialCapital,
-} from '../simulation/sim-initial-capital.js';
+import { getSimInitialCapital } from '../simulation/sim-initial-capital.js';
+import { CopyConfigService } from './copy-config.service.js';
+import { CryptoConfigService } from './crypto-config.service.js';
 import { MarketService } from './market.service.js';
+import { RiskService } from './risk.service.js';
+import { WeatherConfigService } from './weather-config.service.js';
 
 export { DEFAULT_SIM_BALANCE };
 
@@ -76,7 +79,7 @@ export class SimulationService {
       const repo = m.getRepository(SimulationBalance);
       let balance = await repo.findOne({ where: { algoKind } });
       if (!balance) {
-        const risk = await m.getRepository(RiskConfig).findOne({ where: {} });
+        const risk = await new RiskService(this.ds).getConfig({ manager: m });
         const baseline = getSimInitialCapital(risk, algoKind);
         balance = await repo.save(
           repo.create({
@@ -133,7 +136,7 @@ export class SimulationService {
     if (balance.baselineCapital != null && balance.baselineCapital > 0) {
       return balance.baselineCapital;
     }
-    const risk = await manager.getRepository(RiskConfig).findOne({ where: {} });
+    const risk = await new RiskService(this.ds).getConfig({ manager });
     return getSimInitialCapital(risk, balance.algoKind);
   }
 
@@ -183,7 +186,7 @@ export class SimulationService {
       const repo = m.getRepository(SimulationBalance);
       let balance = await repo.findOne({ where: { algoKind } });
       if (!balance) {
-        const risk = await m.getRepository(RiskConfig).findOne({ where: {} });
+        const risk = await new RiskService(this.ds).getConfig({ manager: m });
         const baseline = getSimInitialCapital(risk, algoKind);
         balance = await repo.save(
           repo.create({
@@ -377,11 +380,47 @@ export class SimulationService {
     }
     await repo.save(balance);
 
-    const riskRepo = manager.getRepository(RiskConfig);
-    const risk = await riskRepo.findOne({ where: {} });
-    if (risk) {
-      setSimInitialCapital(risk, algoKind, amount);
-      await riskRepo.save(risk);
+    await this.persistSimInitialCapital(manager, algoKind, amount);
+  }
+
+  /** Persist per-algo sim initial capital inside the caller's transaction. */
+  private async persistSimInitialCapital(
+    manager: EntityManager,
+    algoKind: SimAlgoKind,
+    amount: number,
+  ): Promise<void> {
+    switch (algoKind) {
+      case 'weather': {
+        const repo = manager.getRepository(WeatherConfig);
+        const cfg = await repo.findOne({ where: {} });
+        if (cfg) {
+          cfg.simInitialCapitalWeather = amount;
+          await repo.save(cfg);
+        }
+        WeatherConfigService.invalidateConfigCache();
+        break;
+      }
+      case 'copy': {
+        const repo = manager.getRepository(CopyConfig);
+        const cfg = await repo.findOne({ where: {} });
+        if (cfg) {
+          cfg.simInitialCapitalCopy = amount;
+          await repo.save(cfg);
+        }
+        CopyConfigService.invalidateConfigCache();
+        break;
+      }
+      default: {
+        const repo = manager.getRepository(CryptoConfig);
+        const cfg = await repo.findOne({ where: {} });
+        if (cfg) {
+          cfg.simInitialCapitalCrypto = amount;
+          await repo.save(cfg);
+        }
+        CryptoConfigService.invalidateConfigCache();
+        break;
+      }
     }
+    RiskService.invalidateConfigCache();
   }
 }

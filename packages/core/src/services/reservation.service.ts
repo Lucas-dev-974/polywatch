@@ -1,9 +1,12 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { In } from 'typeorm';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
+import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import { Execution } from '../entities/Execution.js';
 import { PositionReservation } from '../entities/PositionReservation.js';
-import { RiskConfig } from '../entities/RiskConfig.js';
 import { SimulationBalance } from '../entities/SimulationBalance.js';
 import { getPositionMarkPrice } from '../positions/mark.js';
 import {
@@ -12,12 +15,22 @@ import {
 } from '../positions/reservation-close-reasons.js';
 import { resolveOutcomeLabel } from '../positions/outcome.js';
 import {
-  getModeMaxExposureUsdc,
-  getModeMaxOpenPositions,
-  getModeMaxPositionSizeUsdc,
+  getCopyMaxExposureUsdc,
+  getCopyMaxOpenPositions,
+  getCopyMaxPositionSizeUsdc,
+  getCryptoMaxExposureUsdc,
+  getCryptoMaxOpenPositions,
+  getCryptoMaxPositionSizeUsdc,
+  getWeatherMaxExposureUsdc,
+  getWeatherMaxOpenPositions,
+  getWeatherMaxPositionSizeUsdc,
 } from '../risk/policy.js';
 import { RESERVATION_TTL_MS } from '../types/index.js';
-import { algoKindFromReason } from '../simulation/algo-kind.js';
+import {
+  algoKindFromReason,
+  openingReasonsForAlgoKind,
+  type SimAlgoKind,
+} from '../simulation/algo-kind.js';
 import { RiskService } from './risk.service.js';
 
 /** Entry signals that open or increase a copy position (not algo). */
@@ -57,25 +70,63 @@ export interface ReserveResult {
   orderSignalId: string;
 }
 
+type ReserveLimits = {
+  maxOpenPositions: number;
+  maxPositionSizeUsdc: number;
+  maxExposureUsdc: number;
+};
+
+function resolveReserveLimits(
+  risk: RiskConfig,
+  reason: ReserveInput['reason'],
+  mode: 'sim' | 'real',
+): ReserveLimits {
+  const algoKind = algoKindFromReason(reason);
+  switch (algoKind) {
+    case 'copy':
+      return {
+        maxOpenPositions: getCopyMaxOpenPositions(risk as unknown as CopyConfig, mode),
+        maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(risk as unknown as CopyConfig, mode),
+        maxExposureUsdc: getCopyMaxExposureUsdc(risk as unknown as CopyConfig, mode),
+      };
+    case 'weather':
+      return {
+        maxOpenPositions: getWeatherMaxOpenPositions(risk as unknown as WeatherConfig, mode),
+        maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk as unknown as WeatherConfig, mode),
+        maxExposureUsdc: getWeatherMaxExposureUsdc(risk as unknown as WeatherConfig, mode),
+      };
+    default:
+      return {
+        maxOpenPositions: getCryptoMaxOpenPositions(risk as unknown as CryptoConfig, mode),
+        maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk as unknown as CryptoConfig, mode),
+        maxExposureUsdc: getCryptoMaxExposureUsdc(risk as unknown as CryptoConfig, mode),
+      };
+  }
+}
+
 export class ReservationService {
   constructor(private readonly ds: DataSource) {}
 
   private async countActivePositions(
     manager: EntityManager,
     mode: 'sim' | 'real',
+    algoKind: SimAlgoKind,
   ): Promise<number> {
+    const reasons = openingReasonsForAlgoKind(algoKind);
     return manager
       .getRepository(CopiedPosition)
       .createQueryBuilder('p')
       .where('p.mode = :mode', { mode })
       .andWhere('p.status IN (:...statuses)', { statuses: ACTIVE_STATUSES })
+      .andWhere('p.reason IN (:...reasons)', { reasons })
       .getCount();
   }
 
   async reserve(input: ReserveInput): Promise<ReserveResult> {
     return this.ds.transaction(async (manager) => {
-      const risk = await manager.getRepository(RiskConfig).findOne({ where: {} });
-      if (!risk) throw new Error('Risk config not found');
+      const risk = await new RiskService(this.ds).getConfig({ manager });
+      const algoKind = algoKindFromReason(input.reason);
+      const limits = resolveReserveLimits(risk, input.reason, input.mode);
 
       // Defense-in-depth: ALGO_* and WEATHER_* reasons require their respective master toggles.
       if (input.reason.startsWith('ALGO_') && !risk.cryptoAlgoEnabled) {
@@ -88,7 +139,7 @@ export class ReservationService {
       const posRepo = manager.getRepository(CopiedPosition);
       const resRepo = manager.getRepository(PositionReservation);
 
-      const activeCount = await this.countActivePositions(manager, input.mode);
+      const activeCount = await this.countActivePositions(manager, input.mode, algoKind);
 
       if (
         input.mode === 'real' &&
@@ -114,24 +165,16 @@ export class ReservationService {
         throw new Error('real_copy_trading_disabled');
       }
 
-      if (activeCount >= getModeMaxOpenPositions(risk, input.mode)) {
+      if (activeCount >= limits.maxOpenPositions) {
         throw new Error('max_open_positions');
       }
 
-      if (
-        input.notionalUsdc > getModeMaxPositionSizeUsdc(risk, input.mode)
-      ) {
+      if (input.notionalUsdc > limits.maxPositionSizeUsdc) {
         throw new Error('max_position_size');
       }
 
-      const exposure = await this.computeExposure(
-        manager,
-        input.mode,
-      );
-      if (
-        exposure + input.notionalUsdc >
-        getModeMaxExposureUsdc(risk, input.mode)
-      ) {
+      const exposure = await this.computeExposure(manager, input.mode, algoKind);
+      if (exposure + input.notionalUsdc > limits.maxExposureUsdc) {
         throw new Error('max_exposure');
       }
 
@@ -143,7 +186,6 @@ export class ReservationService {
         input.mode === 'sim' &&
         SIM_ENTRY_REASONS.includes(input.reason)
       ) {
-        const algoKind = algoKindFromReason(input.reason);
         const balance = await manager.getRepository(SimulationBalance).findOne({
           where: { algoKind },
         });
@@ -305,7 +347,7 @@ export class ReservationService {
   private async sumActiveReservedNotionalWithManager(
     manager: EntityManager,
     mode: 'real' | 'sim',
-    algoKind?: ReturnType<typeof algoKindFromReason>,
+    algoKind?: SimAlgoKind,
   ): Promise<number> {
     const rows = await manager.getRepository(PositionReservation).find({
       where: { mode },
@@ -393,7 +435,9 @@ export class ReservationService {
   private async computeExposure(
     manager: EntityManager,
     mode: string,
+    algoKind: SimAlgoKind,
   ): Promise<number> {
+    const reasons = openingReasonsForAlgoKind(algoKind);
     const posRepo = manager.getRepository(CopiedPosition);
     const positions = await posRepo
       .createQueryBuilder('p')
@@ -401,6 +445,7 @@ export class ReservationService {
       .andWhere('p.status IN (:...statuses)', {
         statuses: ACTIVE_STATUSES,
       })
+      .andWhere('p.reason IN (:...reasons)', { reasons })
       .getMany();
 
     // Expired reservations are dead weight until the janitor collects them;
@@ -418,6 +463,7 @@ export class ReservationService {
       exposure += p.quantity * mark;
     }
     for (const r of reservations) {
+      if (algoKindFromReason(r.reason) !== algoKind) continue;
       exposure += r.reservedNotionalUsdc;
     }
     return exposure;

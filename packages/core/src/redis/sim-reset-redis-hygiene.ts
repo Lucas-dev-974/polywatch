@@ -4,12 +4,12 @@ import { In } from 'typeorm';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Market } from '../entities/Market.js';
 import { PositionReservation } from '../entities/PositionReservation.js';
-import { RiskConfig } from '../entities/RiskConfig.js';
 import { hashAlgoLogicalKey } from '../idempotence/hash.js';
 import { resolveMarketInterval } from '../risk/crypto-algo-exit.js';
 import { WORKER_QUEUES } from '../queue/worker-queues.js';
 import type { ExecutionResult, OrderSignal } from '../types/index.js';
 import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
+import { RiskService } from '../services/risk.service.js';
 
 const ALGO_QUEUE = WORKER_QUEUES.ALGO_ORDER_SIGNALS;
 const WEATHER_QUEUE = WORKER_QUEUES.WEATHER_ORDER_SIGNALS;
@@ -133,8 +133,8 @@ export async function collectSimRedisPurgeHints(
       entryReasons.includes(p.reason),
   );
 
-  const risk = await ds.getRepository(RiskConfig).findOne({ where: {} });
-  const strategies = parseStrategies(risk?.cryptoAlgoStrategies ?? null);
+  const risk = await new RiskService(ds).getCryptoConfig();
+  const strategies = parseStrategies(risk.cryptoAlgoStrategies ?? null);
 
   const conditionIds = [
     ...new Set([

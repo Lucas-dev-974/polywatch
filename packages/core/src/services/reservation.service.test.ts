@@ -2,12 +2,25 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { initializeDataSource } from '../database/data-source.js';
 import { createTestDataSource } from '../database/test-data-source.js';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
+import { CopyConfig } from '../entities/CopyConfig.js';
+import { CryptoConfig } from '../entities/CryptoConfig.js';
 import { Execution } from '../entities/Execution.js';
+import { GlobalConfig } from '../entities/GlobalConfig.js';
 import { PositionReservation } from '../entities/PositionReservation.js';
 import { SimulationBalance } from '../entities/SimulationBalance.js';
-import { RiskConfig } from '../entities/RiskConfig.js';
 import { seedDefaults } from '../seed/defaults.js';
+import { CopyConfigService } from './copy-config.service.js';
+import { CryptoConfigService } from './crypto-config.service.js';
+import { GlobalConfigService } from './global-config.service.js';
 import { ReservationService } from './reservation.service.js';
+import { RiskService } from './risk.service.js';
+
+function invalidateConfigCaches(): void {
+  RiskService.invalidateConfigCache();
+  GlobalConfigService.invalidateConfigCache();
+  CopyConfigService.invalidateConfigCache();
+  CryptoConfigService.invalidateConfigCache();
+}
 
 describe('ReservationService', () => {
   let ds: Awaited<ReturnType<typeof initializeDataSource>>;
@@ -16,12 +29,21 @@ describe('ReservationService', () => {
   beforeEach(async () => {
     ds = await initializeDataSource(createTestDataSource());
     await seedDefaults(ds);
+    invalidateConfigCaches();
     service = new ReservationService(ds);
   });
 
   afterEach(async () => {
     await ds.destroy();
   });
+
+  async function enableCryptoAlgo(): Promise<void> {
+    const cryptoRepo = ds.getRepository(CryptoConfig);
+    const crypto = (await cryptoRepo.findOne({ where: {} }))!;
+    crypto.cryptoAlgoEnabled = true;
+    await cryptoRepo.save(crypto);
+    invalidateConfigCaches();
+  }
 
   it('creates pending position on COPY_OPEN reserve', async () => {
     const result = await service.reserve({
@@ -48,14 +70,14 @@ describe('ReservationService', () => {
       posRepo.create({
         watchlistId: 1, conditionId: 'c1', assetId: 'a1', outcome: 'Yes',
         side: 'BUY', quantity: 100, entryPrice: 0.80, entryBidVwap: 0.80,
-        status: 'open', mode: 'sim',
+        status: 'open', mode: 'sim', reason: 'COPY_OPEN',
       }),
     );
     await posRepo.save(
       posRepo.create({
         watchlistId: 1, conditionId: 'c2', assetId: 'a2', outcome: 'No',
         side: 'BUY', quantity: 200, entryPrice: 0.05, entryBidVwap: 0.05,
-        status: 'open', mode: 'sim',
+        status: 'open', mode: 'sim', reason: 'COPY_OPEN',
       }),
     );
 
@@ -107,10 +129,11 @@ describe('ReservationService', () => {
   });
 
   it('rejects sim COPY_OPEN when sim copy trading is disabled', async () => {
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = (await riskRepo.findOne({ where: {} }))!;
-    risk.simCopyTradingEnabled = false;
-    await riskRepo.save(risk);
+    const copyRepo = ds.getRepository(CopyConfig);
+    const copy = (await copyRepo.findOne({ where: {} }))!;
+    copy.simCopyTradingEnabled = false;
+    await copyRepo.save(copy);
+    invalidateConfigCaches();
 
     await expect(
       service.reserve({
@@ -127,11 +150,11 @@ describe('ReservationService', () => {
   });
 
   it('allows sim ALGO_OPEN when sim copy trading is disabled', async () => {
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = (await riskRepo.findOne({ where: {} }))!;
-    risk.simCopyTradingEnabled = false;
-    risk.cryptoAlgoEnabled = true;
-    await riskRepo.save(risk);
+    const copyRepo = ds.getRepository(CopyConfig);
+    const copy = (await copyRepo.findOne({ where: {} }))!;
+    copy.simCopyTradingEnabled = false;
+    await copyRepo.save(copy);
+    await enableCryptoAlgo();
 
     const result = await service.reserve({
       orderSignalId: 'sig-algo',
@@ -146,12 +169,43 @@ describe('ReservationService', () => {
     expect(result.copiedPositionId).toBeGreaterThan(0);
   });
 
+  it('allows sim ALGO_OPEN above copy max position size when under crypto max', async () => {
+    const copyRepo = ds.getRepository(CopyConfig);
+    const copy = (await copyRepo.findOne({ where: {} }))!;
+    copy.simMaxPositionSizeUsdc = 25;
+    await copyRepo.save(copy);
+
+    const cryptoRepo = ds.getRepository(CryptoConfig);
+    const crypto = (await cryptoRepo.findOne({ where: {} }))!;
+    crypto.cryptoAlgoEnabled = true;
+    crypto.cryptoAlgoMaxPositionSizeUsdc = 200;
+    await cryptoRepo.save(crypto);
+    invalidateConfigCaches();
+
+    const result = await service.reserve({
+      orderSignalId: 'sig-crypto-vs-copy-limit',
+      watchlistId: 1,
+      conditionId: 'c-crypto-limit',
+      assetId: 'a-crypto-limit',
+      mode: 'sim',
+      notionalUsdc: 80,
+      reason: 'ALGO_OPEN',
+      outcome: 'Yes',
+    });
+    expect(result.copiedPositionId).toBeGreaterThan(0);
+  });
+
   it('rejects real COPY_OPEN when real copy trading is disabled', async () => {
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = (await riskRepo.findOne({ where: {} }))!;
-    risk.realCopyTradingEnabled = false;
-    risk.realTradingEnabled = true;
-    await riskRepo.save(risk);
+    const copyRepo = ds.getRepository(CopyConfig);
+    const copy = (await copyRepo.findOne({ where: {} }))!;
+    copy.realCopyTradingEnabled = false;
+    await copyRepo.save(copy);
+
+    const globalRepo = ds.getRepository(GlobalConfig);
+    const global = (await globalRepo.findOne({ where: {} }))!;
+    global.realTradingEnabled = true;
+    await globalRepo.save(global);
+    invalidateConfigCaches();
 
     await expect(
       service.reserve({
@@ -168,12 +222,17 @@ describe('ReservationService', () => {
   });
 
   it('allows real ALGO_OPEN when real copy trading is disabled', async () => {
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = (await riskRepo.findOne({ where: {} }))!;
-    risk.realCopyTradingEnabled = false;
-    risk.realTradingEnabled = true;
-    risk.cryptoAlgoEnabled = true;
-    await riskRepo.save(risk);
+    const copyRepo = ds.getRepository(CopyConfig);
+    const copy = (await copyRepo.findOne({ where: {} }))!;
+    copy.realCopyTradingEnabled = false;
+    await copyRepo.save(copy);
+
+    const globalRepo = ds.getRepository(GlobalConfig);
+    const global = (await globalRepo.findOne({ where: {} }))!;
+    global.realTradingEnabled = true;
+    await globalRepo.save(global);
+
+    await enableCryptoAlgo();
 
     const result = await service.reserve({
       orderSignalId: 'sig-real-algo',
@@ -220,10 +279,7 @@ describe('ReservationService', () => {
   });
 
   it('sets closeReason when janitor expires ALGO_OPEN reservation', async () => {
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = (await riskRepo.findOne({ where: {} }))!;
-    risk.cryptoAlgoEnabled = true;
-    await riskRepo.save(risk);
+    await enableCryptoAlgo();
 
     const result = await service.reserve({
       orderSignalId: 'sig-expired',
@@ -253,10 +309,7 @@ describe('ReservationService', () => {
   });
 
   it('sets closeReason when release cancels pending ALGO_OPEN', async () => {
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = (await riskRepo.findOne({ where: {} }))!;
-    risk.cryptoAlgoEnabled = true;
-    await riskRepo.save(risk);
+    await enableCryptoAlgo();
 
     const result = await service.reserve({
       orderSignalId: 'sig-release',
@@ -279,10 +332,7 @@ describe('ReservationService', () => {
   });
 
   it('does not release when a BUY execution is still in flight', async () => {
-    const riskRepo = ds.getRepository(RiskConfig);
-    const risk = (await riskRepo.findOne({ where: {} }))!;
-    risk.cryptoAlgoEnabled = true;
-    await riskRepo.save(risk);
+    await enableCryptoAlgo();
 
     const result = await service.reserve({
       orderSignalId: 'sig-inflight',

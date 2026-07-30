@@ -9,7 +9,7 @@ import { ExitAttemptEvent } from '../entities/ExitAttemptEvent.js';
 import { MarketPositionTick } from '../entities/MarketPositionTick.js';
 import { MarketPriceHistorySync } from '../entities/MarketPriceHistorySync.js';
 import { MarketPriceTick } from '../entities/MarketPriceTick.js';
-import { RiskConfig } from '../entities/RiskConfig.js';
+import { CryptoConfig } from '../entities/CryptoConfig.js';
 import { SimulationSession } from '../entities/SimulationSession.js';
 import { seedDefaults } from '../seed/defaults.js';
 import { SimulationResetArchiveService } from './simulation-reset-archive.service.js';
@@ -274,7 +274,7 @@ describe('SimulationResetArchiveService', () => {
       await simulationService.resetWithManager('crypto', manager, 4200);
     });
 
-    const risk = await ds.getRepository(RiskConfig).findOne({ where: {} });
-    expect(risk?.simInitialCapitalCrypto).toBe(4200);
+    const crypto = await ds.getRepository(CryptoConfig).findOne({ where: {} });
+    expect(crypto?.simInitialCapitalCrypto).toBe(4200);
   });
 });

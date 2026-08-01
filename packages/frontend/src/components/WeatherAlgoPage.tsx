@@ -101,6 +101,9 @@ export function WeatherAlgoPage() {
           onAdd={(city, lookAheadDays) => void dashboard.watchCity(city, lookAheadDays)}
           onRemove={dashboard.removeAutoTrackRule}
           onToggle={dashboard.toggleAutoTrackRule}
+          onUpdateLookAhead={(id, lookAheadDays) =>
+            void dashboard.updateAutoTrackLookAhead(id, lookAheadDays)
+          }
         />
       </Show>
 

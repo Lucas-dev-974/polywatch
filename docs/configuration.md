@@ -142,7 +142,7 @@ Parametres du trading algorithmique meteo, stockes dans `weather_config` et modi
 | `weatherAlgoMaxSignalsPerEvent` | `3` | Max villes en mode `multi` |
 | `weatherAlgoForecastChangeThreshold` | `2` | Drift du forecast mean (°C) → close `WEATHER_FORECAST_CHANGE` |
 | `weatherAlgoCloseBeforeResolutionHours` | `1` | Gate d'entrée + auto-close `WEATHER_PRE_CLOSE` dans cette fenêtre |
-| `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min) ; surcharge aussi via env `WEATHER_ALGO_POLL_MS` au demarrage |
+| `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min, min 10_000). Hot-reload : le timer est recréé à chaud et un cycle d’évaluation est lancé immédiatement sur `config-changed` (`kind` weather/global/absent). Anti-overlap + pendingRerun si un cycle est déjà en cours. Surcharge aussi via env `WEATHER_ALGO_POLL_MS` au démarrage. |
 | `weatherAlgoCityFollowSwitchMode` | `close_and_reenter` | Si la prevision change de palier : `close_and_reenter` (fermer puis re-entrer) ou `hold` (garder ; drift/pre-close restent actifs). `add_position` est coerce vers `close_and_reenter`. |
 | `weatherAlgoBucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
 | `weatherAlgoReentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree sur la meme ville |
@@ -327,10 +327,16 @@ Par package : `build` (`tsc`/`vite build`), `dev` (`tsx watch`/`vite`),
 
 ### Ordre de demarrage
 
-`dev` demarre tout en parallele, mais :
-- `dev:frontend` attend `GET /health` du backend (`wait-on`, timeout 60 s).
+`dev` execute d'abord un **pre-flight** (`scripts/dev-preflight.mjs`) qui verifie que le port backend (defaut 3000) est libre. Si le port est occupe :
+- `/health` repond → message « stack deja en cours » ; arreter l'instance existante avant de relancer.
+- `/health` ne repond pas → port zombie ; liberer le port ou definir `PORT`.
+
+Ensuite `dev` demarre tout en parallele, mais :
+- `dev:frontend` attend `GET /health` du backend via `scripts/wait-backend-health.mjs` (timeout **180 s**, honore `PORT`).
 - worker, copy-trading et crypto-algo utilisent `waitForBackendReady` (signal Redis).
 - Ces trois services requierent **Redis** et **PostgreSQL** disponibles.
+
+Si PostgreSQL est indisponible ou une migration bloque, le backend peut rester en phase de boot (logs `boot phase: ...`) et le frontend peut encore expirer apres 180 s. Verifier les logs backend et l'etat de la base.
 
 ## 4. Dependances d'execution
 

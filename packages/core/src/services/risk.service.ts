@@ -19,6 +19,7 @@ import {
   getWeatherMaxDailyLossUsdc,
   getWeatherKillSwitchAction,
 } from '../risk/policy.js';
+import { toWeatherConfigEntityUpdate } from '../risk/weather-config-api.js';
 import type { KillSwitchAction, TradingMode } from '../types/index.js';
 import type { SimAlgoKind } from '../simulation/algo-kind.js';
 
@@ -247,7 +248,7 @@ export class RiskService {
     if (Object.keys(weatherPatch).length > 0) {
       const weatherConfig = await weatherRepo.findOne({ where: {} });
       if (weatherConfig) {
-        Object.assign(weatherConfig, weatherPatch);
+        Object.assign(weatherConfig, toWeatherConfigEntityUpdate(weatherPatch));
         await weatherRepo.save(weatherConfig);
       }
     }

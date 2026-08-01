@@ -604,7 +604,7 @@ export interface WeatherConfig {
   weatherAlgoEntryDepthRetryDelayMs: number;
   weatherAlgoSlCloseMaxRetries: number;
   weatherAlgoMinTimeToClose: number;
-  weatherAlgoAllowedMarketTags: string;
+  weatherAlgoAllowedMarketTags: string[];
   weatherAlgoSignalScoreSizingEnabled: boolean;
   weatherAlgoPreCloseEnabled: boolean;
   weatherAlgoPreCloseSeconds: number;

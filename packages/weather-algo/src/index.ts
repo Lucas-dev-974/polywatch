@@ -197,9 +197,24 @@ async function main() {
     if (err) log.error({ err }, 'failed to subscribe to config-changed channel');
   });
 
-  redisSub.on('message', (channel: string) => {
+  redisSub.on('message', (channel: string, message: string) => {
     if (channel !== CONFIG_CHANGED_CHANNEL) return;
-    log.info('config-changed received — reloading weather config');
+
+    let kind: string | undefined;
+    try {
+      const parsed = JSON.parse(message) as { kind?: unknown };
+      kind = typeof parsed.kind === 'string' ? parsed.kind : undefined;
+    } catch {
+      kind = undefined;
+    }
+
+    // Ignore copy/crypto-only updates — avoid weather eval fan-out.
+    if (kind === 'copy' || kind === 'crypto') {
+      log.debug({ kind }, 'config-changed ignored for weather-algo');
+      return;
+    }
+
+    log.info({ kind: kind ?? 'unspecified' }, 'config-changed received — reloading weather config');
     void (async () => {
       try {
         WeatherConfigService.invalidateConfigCache();
@@ -209,6 +224,7 @@ async function main() {
         log.info({ weatherAlgoEnabled: weatherConfig.weatherAlgoEnabled }, 'weather config reloaded');
         strategyRunner.setRiskConfig(weatherConfig);
         exitEvaluator.updateRiskConfig(weatherConfig);
+        strategyRunner.requestEvaluationCycle();
       } catch (err) {
         log.error({ err }, 'failed to reload on config-changed');
       }

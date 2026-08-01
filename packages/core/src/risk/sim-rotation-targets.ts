@@ -37,10 +37,7 @@ export const WEATHER_SESSION_ROTATION_KEYS = [
   'weatherAlgoMaxSignalsPerEvent',
   'weatherAlgoForecastChangeThreshold',
   'weatherAlgoCloseBeforeResolutionHours',
-  'weatherAlgoPollMs',
   'weatherAlgoCityFollowSwitchMode',
-  'weatherAlgoBucketHysteresisPolls',
-  'weatherAlgoReentryThrottleMs',
 ] as const satisfies readonly (keyof RiskConfig)[];
 
 function keysChanged(
@@ -175,8 +172,7 @@ export function resolveSimRotationTargetsFromConfigs(
     'weatherAlgoMinEdge', 'weatherAlgoMaxForecastStd', 'weatherAlgoSizingMode',
     'weatherAlgoEntryUsdc', 'weatherAlgoSelectionMode', 'weatherAlgoMaxSignalsPerEvent',
     'weatherAlgoForecastChangeThreshold', 'weatherAlgoCloseBeforeResolutionHours',
-    'weatherAlgoPollMs', 'weatherAlgoCityFollowSwitchMode', 'weatherAlgoBucketHysteresisPolls',
-    'weatherAlgoReentryThrottleMs', 'weatherAlgoMaxOpenPositions',
+    'weatherAlgoCityFollowSwitchMode', 'weatherAlgoMaxOpenPositions',
     'weatherAlgoMaxExposureUsdc', 'weatherAlgoMaxDailyLossUsdc', 'weatherAlgoMaxPositionSizeUsdc',
     'weatherAlgoSlBidPoints', 'weatherAlgoTpBidPoints', 'weatherAlgoTrailingBidPoints',
     'weatherAlgoTrailingActivationBidPoints', 'weatherAlgoPreCloseEnabled', 'weatherAlgoPreCloseSeconds',

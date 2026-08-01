@@ -6,6 +6,7 @@ export interface WeatherAlgoAutoTrackTabProps {
   onAdd: (city: string, lookAheadDays: number) => void;
   onRemove: (id: number) => void;
   onToggle: (id: number, enabled: boolean) => void;
+  onUpdateLookAhead: (id: number, lookAheadDays: number) => void;
 }
 
 export function WeatherAlgoAutoTrackTab(props: WeatherAlgoAutoTrackTabProps) {
@@ -21,6 +22,8 @@ export function WeatherAlgoAutoTrackTab(props: WeatherAlgoAutoTrackTabProps) {
         Surveillez une ville : l’algo choisit automatiquement le palier de température
         (température max) aligné sur la prévision Open-Meteo, puis achète YES si l’edge est suffisant.
         Une seule position ouverte par ville.
+        L’horizon (jours) définit combien de dates UTC sont évaluées : 1 = aujourd’hui seulement,
+        2 = aujourd’hui + demain, etc.
       </p>
       <div class="weather-autotrack-form">
         <input
@@ -62,7 +65,21 @@ export function WeatherAlgoAutoTrackTab(props: WeatherAlgoAutoTrackTabProps) {
           >
             <span>{rule.city}</span>
             <span>Temp max</span>
-            <span>J+{rule.lookAheadDays}</span>
+            <label class="weather-autotrack-lookahead">
+              Horizon
+              <input
+                type="number"
+                min="1"
+                max="30"
+                value={rule.lookAheadDays}
+                onChange={(e) => {
+                  const n = Math.max(1, Math.min(30, Math.floor(Number(e.currentTarget.value) || 1)));
+                  if (n !== rule.lookAheadDays) {
+                    props.onUpdateLookAhead(rule.id, n);
+                  }
+                }}
+              />
+            </label>
             <button
               class="btn btn-sm btn-ghost"
               onClick={() => props.onToggle(rule.id, !rule.enabled)}

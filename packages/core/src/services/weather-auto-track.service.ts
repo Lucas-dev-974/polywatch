@@ -65,6 +65,20 @@ export class WeatherAutoTrackService {
     await repo.update({ id }, { enabled });
   }
 
+  async updateRule(
+    id: number,
+    patch: { enabled?: boolean; lookAheadDays?: number },
+  ): Promise<WeatherAutoTrackRule | null> {
+    const repo = this.ds.getRepository(WeatherAutoTrackRule);
+    const rule = await repo.findOne({ where: { id } });
+    if (!rule) return null;
+    if (patch.enabled !== undefined) rule.enabled = patch.enabled;
+    if (patch.lookAheadDays !== undefined) {
+      rule.lookAheadDays = Math.max(1, Math.min(30, Math.floor(patch.lookAheadDays)));
+    }
+    return repo.save(rule);
+  }
+
   /**
    * City-first: no longer materializes per-market selections.
    * Disables stale/closed selection rows left over from expand mode.

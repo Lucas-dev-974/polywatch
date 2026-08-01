@@ -16,6 +16,8 @@ import {
   extractRealConfigSnapshot,
   presentCryptoConfigForApi,
   toCryptoConfigEntityUpdate,
+  presentWeatherConfigForApi,
+  toWeatherConfigEntityUpdate,
   type GlobalConfig,
   type CopyConfig,
   type CryptoConfig,
@@ -244,6 +246,7 @@ const weatherConfigUpdateSchema = z.object({
   weatherAlgoEntryDepthRetryMax: nonNegInt,
   weatherAlgoEntryDepthRetryDelayMs: nonNegInt,
   weatherAlgoSlCloseMaxRetries: nonNegInt,
+  weatherAlgoMinTimeToClose: nonNegInt,
   weatherAlgoAllowedMarketTags: z.array(z.string().min(1).max(100)).max(200),
   weatherAlgoSignalScoreSizingEnabled: z.boolean(),
   weatherAlgoPreCloseEnabled: z.boolean(),
@@ -266,7 +269,7 @@ const weatherConfigUpdateSchema = z.object({
   weatherAlgoMaxSignalsPerEvent: z.number().int().min(1).max(20),
   weatherAlgoForecastChangeThreshold: z.number().finite().min(0.5).max(20),
   weatherAlgoCloseBeforeResolutionHours: z.number().finite().min(0.5).max(168),
-  weatherAlgoPollMs: z.number().int().min(60_000).max(86_400_000),
+  weatherAlgoPollMs: z.number().int().min(10_000).max(86_400_000),
   weatherAlgoCityFollowSwitchMode: z.enum(['close_and_reenter', 'hold']),
   weatherAlgoBucketHysteresisPolls: z.number().int().min(1).max(10),
   weatherAlgoReentryThrottleMs: z.number().int().min(0).max(86_400_000),
@@ -431,7 +434,7 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
 
   router.get('/config/weather', requireJwt, async (_req, res) => {
     const config = await weatherService.getConfig();
-    res.json(config);
+    res.json(presentWeatherConfigForApi(config));
   });
 
   router.put('/config/weather', requireJwt, async (req, res) => {
@@ -444,13 +447,15 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
       return;
     }
     const before = await loadAllConfigs();
-    const updated = await weatherService.updateConfig(parsed.data as any);
+    const updated = await weatherService.updateConfig(
+      toWeatherConfigEntityUpdate(parsed.data),
+    );
     RiskService.invalidateConfigCache();
     const after = await loadAllConfigs();
     const rotation = await handleConfigRotation(before, after);
     await revisionService.recordRevision(updated, { source: 'api', patch: parsed.data, kind: 'weather' });
     await publishConfigChanged('weather');
-    res.json({ ...updated, sessionRotation: rotation });
+    res.json({ ...presentWeatherConfigForApi(updated), sessionRotation: rotation });
   });
 
   return router;

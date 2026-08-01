@@ -99,13 +99,18 @@ export function parseWeatherQuestion(
  */
 export function resolveWeatherDate(dateString: string): Date {
   const year = new Date().getFullYear();
-  // Parse as UTC to avoid timezone-dependent day shifts.
-  // The dateString comes from the question parser (e.g. "July 24") and
-  // represents a calendar day, not a specific instant. We use noon UTC
-  // to stay safely within the same calendar day regardless of runtime TZ.
-  const parsed = new Date(`${dateString} ${year}T12:00:00Z`);
-  if (isNaN(parsed.getTime())) {
-    return new Date();
+  // Parse as UTC noon. Prefer "Month D, YYYY 12:00:00 GMT" — Node rejects
+  // the ISO-like form "July 24 2026T12:00:00Z" as Invalid Date.
+  const parsedMs = Date.parse(`${dateString}, ${year} 12:00:00 GMT`);
+  if (!Number.isNaN(parsedMs)) {
+    return new Date(parsedMs);
   }
-  return parsed;
+  const fallback = new Date(`${dateString} ${year}`);
+  if (!Number.isNaN(fallback.getTime())) {
+    // Normalize to noon UTC on the same calendar day in local interpretation.
+    return new Date(
+      Date.UTC(fallback.getFullYear(), fallback.getMonth(), fallback.getDate(), 12, 0, 0),
+    );
+  }
+  return new Date();
 }

@@ -17,8 +17,8 @@ export interface WeatherMarketDiscoveryResult {
   temperatureMarkets: MarketListItemDto[];
   /** All weather-tagged markets matching the target date (for the UI). */
   allWeatherMarkets: MarketListItemDto[];
-  /** Markets grouped by city, for the dropdown UI. */
-  byCity: CityMarketGroup[];
+  /** Markets grouped by city → date for the discovery dropdown UI. */
+  byCity: DiscoverCityGroup[];
 }
 
 export async function discoverWeatherMarkets(
@@ -90,22 +90,8 @@ export async function discoverWeatherMarkets(
 
   const allWeatherMarkets = allItems.filter((m) => matchesTargetDate(m));
 
-  // Group all weather markets by city for the UI dropdown.
-  // Filter to highest_temp only as requested.
-  const byCity = groupMarketsByCity(allWeatherMarkets, 'highest_temp');
-
-  // Sort groups: J+1 (tomorrow) first, J (today) second, then by city name.
-  // This keeps the primary discovery goal (J+1 markets) at the top of the UI.
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-  byCity.sort((a, b) => {
-    const aHasTomorrow = a.markets.some((m) => m.endDate?.startsWith(tomorrowStr));
-    const bHasTomorrow = b.markets.some((m) => m.endDate?.startsWith(tomorrowStr));
-    if (aHasTomorrow && !bHasTomorrow) return -1;
-    if (!aHasTomorrow && bHasTomorrow) return 1;
-    if (a.city === 'Autres') return 1;
-    if (b.city === 'Autres') return -1;
-    return a.city.localeCompare(b.city);
-  });
+  // City → date → markets hierarchy for the discovery UI (highest_temp only).
+  const byCity = groupMarketsByCityAndDate(allWeatherMarkets, 'highest_temp');
 
   log.info(
     {
@@ -113,6 +99,7 @@ export async function discoverWeatherMarkets(
       temperatureMarkets: temperatureMarkets.length,
       allWeatherMarkets: allWeatherMarkets.length,
       cityGroups: byCity.length,
+      dateBuckets: byCity.reduce((n, c) => n + c.dates.length, 0),
       targetDates: Array.from(targetStrs),
       targetMonthDays: Array.from(targetMonthDays),
       parisMarkets: allItems.filter((m) => m.question?.toLowerCase().includes('paris')).length,
@@ -187,17 +174,39 @@ export interface CityMarketGroup {
   markets: MarketListItemDto[];
 }
 
+/** Markets for one city on one calendar day (discovery UI date dropdown). */
+export interface DiscoverDateBucket {
+  /** ISO calendar date YYYY-MM-DD (UTC). */
+  date: string;
+  /** Server-formatted label for the date dropdown. */
+  dateLabel: string;
+  markets: MarketListItemDto[];
+}
+
+/** City node for discovery: Ville → dates → marchés. */
+export interface DiscoverCityGroup {
+  city: string;
+  /** Server-formatted label for the city dropdown (includes market count). */
+  cityLabel: string;
+  dates: DiscoverDateBucket[];
+}
+
 export type ForecastStatus = 'fresh' | 'stale' | 'unavailable';
 
-export interface ForecastEnrichedCityGroup extends CityMarketGroup {
-  /** ISO date string (YYYY-MM-DD) for which the forecast applies. */
-  targetDate: string;
+export interface ForecastEnrichedDateBucket extends DiscoverDateBucket {
   /** Forecast mean temperature in °C. Null when no forecast is available. */
   forecastMean: number | null;
   /** Forecast standard deviation in °C. Null when no forecast is available. */
   forecastStdDev: number | null;
   /** Source status for the displayed forecast. */
   forecastStatus: ForecastStatus;
+}
+
+/** Forecast-enriched city → date hierarchy for the discovery API. */
+export interface ForecastEnrichedCityGroup {
+  city: string;
+  cityLabel: string;
+  dates: ForecastEnrichedDateBucket[];
 }
 
 /**
@@ -268,6 +277,134 @@ export function groupMarketsByCity(
   // Sort: named cities alphabetically, "Autres" always last
   const groups = Array.from(map.values());
   groups.sort((a, b) => {
+    if (a.city === 'Autres') return 1;
+    if (b.city === 'Autres') return -1;
+    return a.city.localeCompare(b.city);
+  });
+
+  return groups;
+}
+
+/** Format an ISO date (YYYY-MM-DD) for the discovery date dropdown (fr-FR, UTC). */
+export function formatDiscoverDateLabel(isoDate: string, marketCount: number): string {
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) {
+    return `${isoDate} (${marketCount})`;
+  }
+  const formatted = d.toLocaleDateString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  return `${formatted} (${marketCount})`;
+}
+
+export function formatDiscoverCityLabel(city: string, marketCount: number): string {
+  return `${city} (${marketCount})`;
+}
+
+/** Resolve the calendar date (YYYY-MM-DD UTC) for a weather market. */
+export function resolveMarketTargetDateIso(market: MarketListItemDto): string | null {
+  if (market.question) {
+    const parsed = parseWeatherQuestion(market.question);
+    if (parsed) {
+      const resolved = resolveWeatherDate(parsed.dateString);
+      if (!Number.isNaN(resolved.getTime())) {
+        return resolved.toISOString().slice(0, 10);
+      }
+    }
+  }
+  if (market.endDate) {
+    const d = new Date(market.endDate);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toISOString().slice(0, 10);
+    }
+  }
+  return null;
+}
+
+function marketTempSortKey(market: MarketListItemDto): number {
+  if (!market.question) return Number.POSITIVE_INFINITY;
+  const parsed = parseWeatherQuestion(market.question);
+  if (!parsed) return Number.POSITIVE_INFINITY;
+  if (parsed.targetValue != null) return parsed.targetValue;
+  if (parsed.targetValueLow != null) return parsed.targetValueLow;
+  return Number.POSITIVE_INFINITY;
+}
+
+/**
+ * Group weather markets as Ville → Date → marchés for the discovery UI.
+ * Labels are formatted server-side for direct use in dropdowns.
+ */
+export function groupMarketsByCityAndDate(
+  markets: MarketListItemDto[],
+  metricFilter?: 'highest_temp' | 'lowest_temp',
+): DiscoverCityGroup[] {
+  type DateAcc = { date: string; markets: MarketListItemDto[] };
+  type CityAcc = { city: string; dates: Map<string, DateAcc> };
+
+  const cityMap = new Map<string, CityAcc>();
+
+  for (const m of markets) {
+    const parsed = m.question ? parseWeatherQuestion(m.question) : null;
+
+    if (!parsed) {
+      if (metricFilter) continue;
+      const dateIso = resolveMarketTargetDateIso(m) ?? 'unknown';
+      const cityKey = 'autres';
+      const cityAcc = cityMap.get(cityKey) ?? { city: 'Autres', dates: new Map() };
+      const dateAcc = cityAcc.dates.get(dateIso) ?? { date: dateIso, markets: [] };
+      dateAcc.markets.push(m);
+      cityAcc.dates.set(dateIso, dateAcc);
+      cityMap.set(cityKey, cityAcc);
+      continue;
+    }
+
+    if (metricFilter && parsed.metric !== metricFilter) continue;
+
+    const dateIso = resolveMarketTargetDateIso(m);
+    if (!dateIso) continue;
+
+    const cityKey = parsed.city.trim().toLowerCase();
+    const cityAcc = cityMap.get(cityKey) ?? {
+      city: parsed.city.trim(),
+      dates: new Map(),
+    };
+    const dateAcc = cityAcc.dates.get(dateIso) ?? { date: dateIso, markets: [] };
+    dateAcc.markets.push(m);
+    cityAcc.dates.set(dateIso, dateAcc);
+    cityMap.set(cityKey, cityAcc);
+  }
+
+  const groups: DiscoverCityGroup[] = Array.from(cityMap.values()).map((cityAcc) => {
+    const dates: DiscoverDateBucket[] = Array.from(cityAcc.dates.values())
+      .map((d) => {
+        const sortedMarkets = [...d.markets].sort(
+          (a, b) => marketTempSortKey(a) - marketTempSortKey(b),
+        );
+        return {
+          date: d.date,
+          dateLabel: formatDiscoverDateLabel(d.date, sortedMarkets.length),
+          markets: sortedMarkets,
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const marketCount = dates.reduce((n, d) => n + d.markets.length, 0);
+    return {
+      city: cityAcc.city,
+      cityLabel: formatDiscoverCityLabel(cityAcc.city, marketCount),
+      dates,
+    };
+  });
+
+  groups.sort((a, b) => {
+    const aParis = a.city.toLowerCase() === 'paris';
+    const bParis = b.city.toLowerCase() === 'paris';
+    if (aParis && !bParis) return -1;
+    if (!aParis && bParis) return 1;
     if (a.city === 'Autres') return 1;
     if (b.city === 'Autres') return -1;
     return a.city.localeCompare(b.city);

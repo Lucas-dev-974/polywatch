@@ -127,6 +127,7 @@ import { AddSimInitialCapitalPerAlgoKind1700000000086 } from '../migrations/AddS
 import { SplitRiskConfigPerAlgoKind1700000000087 } from '../migrations/SplitRiskConfigPerAlgoKind1700000000087.js';
 import { DropLegacyRiskConfig1700000000088 } from '../migrations/DropLegacyRiskConfig1700000000088.js';
 import { WeatherCityFirstSelection1700000000089 } from '../migrations/WeatherCityFirstSelection1700000000089.js';
+import { EnsureRiskConfigFingerprintNullable1700000000090 } from '../migrations/EnsureRiskConfigFingerprintNullable1700000000090.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -206,6 +207,7 @@ export const migrations = [
   SplitRiskConfigPerAlgoKind1700000000087,
   DropLegacyRiskConfig1700000000088,
   WeatherCityFirstSelection1700000000089,
+  EnsureRiskConfigFingerprintNullable1700000000090,
 ];
 
 export const entities = [

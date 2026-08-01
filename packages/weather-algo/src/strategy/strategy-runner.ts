@@ -8,7 +8,6 @@ import {
   type WeatherForecastService,
   type WeatherAutoTrackService,
   type WeatherAutoTrackRule,
-  type ParsedWeatherQuestion,
   CopiedPosition,
   WeatherPositionForecast,
   discoverWeatherMarkets,
@@ -16,6 +15,7 @@ import {
   parseWeatherQuestion,
   normalizeWeatherCity,
   buildLookAheadTargetDates,
+  resolveMarketTargetDateIso,
   selectForecastAlignedBucket,
   type BucketCandidate,
 } from '@polywatch/core';
@@ -45,6 +45,9 @@ export interface StrategyRunnerParams {
 
 export class WeatherStrategyRunner {
   private timer: NodeJS.Timeout | null = null;
+  private cycleRunning = false;
+  private pendingRerun = false;
+  private stopped = false;
   private readonly ds: DataSource;
   private readonly selectionService: WeatherMarketSelectionService; // retained for API compat; unused in city-first path
   private readonly autoTrackService: WeatherAutoTrackService;
@@ -74,8 +77,14 @@ export class WeatherStrategyRunner {
 
   setRiskConfig(risk: WeatherConfig): void {
     this.risk = risk;
-    if (risk.weatherAlgoPollMs && risk.weatherAlgoPollMs > 0) {
-      this.pollMs = risk.weatherAlgoPollMs;
+    const nextPoll = risk.weatherAlgoPollMs;
+    if (nextPoll && nextPoll > 0) {
+      if (nextPoll !== this.pollMs) {
+        this.pollMs = nextPoll;
+        if (this.timer) {
+          this.restartPolling();
+        }
+      }
     }
     for (const strategy of this.registry.getAll()) {
       if (strategy instanceof WeatherForecastStrategy) {
@@ -86,25 +95,78 @@ export class WeatherStrategyRunner {
     }
   }
 
+  /** Start interval + run one evaluation cycle (boot). */
   start(): void {
     if (this.timer) return;
+    this.stopped = false;
+    this.pendingRerun = false;
     log.info({ pollMs: this.pollMs }, 'weather strategy runner started');
-    this.timer = safeInterval(
-      () => this.runEvaluationCycle().catch((err) =>
-        log.error({ err }, 'weather strategy evaluation cycle failed'),
-      ),
-      this.pollMs,
-      'weather-algo:strategy-runner',
-    );
-    void this.runEvaluationCycle().catch((err) =>
-      log.error({ err }, 'weather strategy initial evaluation failed'),
-    );
+    this.startTimer();
+    this.requestEvaluationCycle();
   }
 
   stop(): void {
+    this.stopped = true;
+    this.pendingRerun = false;
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+  }
+
+  /**
+   * Recreate the poll timer with the current pollMs. Does not trigger an
+   * evaluation cycle (caller is responsible for requestEvaluationCycle).
+   */
+  restartPolling(): void {
+    if (this.stopped) return;
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    log.info({ pollMs: this.pollMs }, 'weather strategy runner poll restarted');
+    this.startTimer();
+  }
+
+  /**
+   * Request an evaluation cycle. If one is already running, schedule a single
+   * trailing rerun after it finishes (pendingRerun).
+   */
+  requestEvaluationCycle(): void {
+    if (this.stopped) return;
+    void this.runEvaluationCycleGuarded().catch((err) =>
+      log.error({ err }, 'weather strategy evaluation cycle failed'),
+    );
+  }
+
+  private startTimer(): void {
+    if (this.timer || this.stopped) return;
+    this.timer = safeInterval(
+      () => this.runEvaluationCycleGuarded(),
+      this.pollMs,
+      'weather-algo:strategy-runner',
+    );
+  }
+
+  private async runEvaluationCycleGuarded(): Promise<void> {
+    if (this.stopped) return;
+    if (this.cycleRunning) {
+      this.pendingRerun = true;
+      log.debug('skip_overlapping_cycle — pendingRerun set');
+      return;
+    }
+
+    this.cycleRunning = true;
+    try {
+      await this.runEvaluationCycle();
+    } finally {
+      this.cycleRunning = false;
+      if (this.pendingRerun && !this.stopped) {
+        this.pendingRerun = false;
+        this.requestEvaluationCycle();
+      } else {
+        this.pendingRerun = false;
+      }
     }
   }
 
@@ -149,11 +211,27 @@ export class WeatherStrategyRunner {
         return;
       }
 
-      const discovery = await discoverWeatherMarkets({ limit: 100 });
+      const maxLookAhead = Math.max(
+        1,
+        ...cityFollowRules.map((r) => r.lookAheadDays ?? 1),
+      );
+      const discoveryTargetDates = buildLookAheadTargetDates(maxLookAhead);
+      const discovery = await discoverWeatherMarkets({
+        limit: 100,
+        targetDates: discoveryTargetDates,
+      });
       const minHoursToClose = this.risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
       const openCities = await this.loadOpenWeatherCities();
 
-      log.info({ ruleCount: cityFollowRules.length, openCities: [...openCities] }, 'evaluating city-follow rules');
+      log.info(
+        {
+          ruleCount: cityFollowRules.length,
+          openCities: [...openCities],
+          maxLookAhead,
+          targetDates: discoveryTargetDates.map((d) => d.toISOString().slice(0, 10)),
+        },
+        'evaluating city-follow rules',
+      );
 
       const allSignals = await this.evaluateCityFollowRules(
         cityFollowRules,
@@ -251,15 +329,8 @@ export class WeatherStrategyRunner {
         targetDates.map((d) => d.toISOString().slice(0, 10)),
       );
 
-      const targetMonthDays = new Set(
-        [...targetDateStrs].map((dateStr) => {
-          const d = new Date(`${dateStr}T12:00:00Z`);
-          return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-        }),
-      );
-
       const metric = (rule.metric || 'highest_temp') as 'highest_temp' | 'lowest_temp';
-      const matching: Array<{ market: MarketListItemDto; parsed: ParsedWeatherQuestion }> = [];
+      const matching: Array<{ market: MarketListItemDto; dateKey: string }> = [];
       for (const market of temperatureMarkets) {
         if (!market.question) continue;
         const parsed = parseWeatherQuestion(market.question);
@@ -267,11 +338,10 @@ export class WeatherStrategyRunner {
         if (normalizeWeatherCity(parsed.city) !== cityKey) continue;
         if (parsed.metric !== metric) continue;
 
-        const dateMatch = targetMonthDays.has(parsed.dateString) ||
-          (market.endDate ? targetDateStrs.has(new Date(market.endDate).toISOString().slice(0, 10)) : false);
-        if (!dateMatch) continue;
+        const dateKey = resolveMarketTargetDateIso(market);
+        if (!dateKey || !targetDateStrs.has(dateKey)) continue;
 
-        matching.push({ market, parsed });
+        matching.push({ market, dateKey });
       }
 
       if (matching.length === 0) {
@@ -280,10 +350,7 @@ export class WeatherStrategyRunner {
       }
 
       const byDate = new Map<string, MarketListItemDto[]>();
-      for (const { market, parsed } of matching) {
-        const dateKey: string = market.endDate
-          ? new Date(market.endDate).toISOString().slice(0, 10)
-          : parsed.dateString;
+      for (const { market, dateKey } of matching) {
         const arr = byDate.get(dateKey);
         if (arr) arr.push(market);
         else byDate.set(dateKey, [market]);
@@ -325,6 +392,10 @@ export class WeatherStrategyRunner {
     minHoursToClose: number,
   ): Promise<WeatherSignal | null> {
     const targetDate = new Date(`${dateKey}T12:00:00Z`);
+    if (Number.isNaN(targetDate.getTime())) {
+      log.warn({ city, dateKey, metric }, 'city-follow: invalid dateKey — skipping');
+      return null;
+    }
 
     const forecast = await this.forecastService.getOrFetch(city, targetDate, metric, this.forecastCacheTtlMs);
     if (!forecast) {

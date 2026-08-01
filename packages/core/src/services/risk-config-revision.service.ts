@@ -37,17 +37,17 @@ export class RiskConfigRevisionService {
     } else if (kind === 'global' && 'maxSlippagePercent' in config) {
       // GlobalConfig: just serialize
       configJson = JSON.stringify(config);
-      fingerprint = null;
+      fingerprint = '';
     } else if (kind === 'copy' && 'simCopyTradingEnabled' in config) {
       configJson = JSON.stringify(config);
-      fingerprint = null;
+      fingerprint = '';
     } else if (kind === 'weather' && 'weatherAlgoEnabled' in config) {
       configJson = JSON.stringify(config);
-      fingerprint = null;
+      fingerprint = '';
     } else {
       // Fallback for unknown/legacy shapes
       configJson = JSON.stringify(config);
-      fingerprint = null;
+      fingerprint = '';
     }
 
     const row = repo.create({

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { enrichCityGroupsWithForecast } from './weather-forecast-enricher.js';
-import type { CityMarketGroup } from './weather-market-discovery.js';
+import type { DiscoverCityGroup } from './weather-market-discovery.js';
 
 // Mock fetchWeatherForecast at the source module level
 vi.mock('./weather-api-client.js', async (importOriginal) => {
@@ -14,34 +14,43 @@ vi.mock('./weather-api-client.js', async (importOriginal) => {
 // Import the mocked function for assertion
 import { fetchWeatherForecast } from './weather-api-client.js';
 
-function makeGroup(city: string, question: string): CityMarketGroup {
+function makeGroup(city: string, question: string, date = '2026-07-25'): DiscoverCityGroup {
   return {
     city,
-    markets: [{
-      conditionId: 'c1',
-      question,
-      eventSlug: null,
-      slug: null,
-      icon: null,
-      endDate: null,
-      startDate: null,
-      volume: null,
-      volume24hr: null,
-      liquidityClob: null,
-      outcomePrices: [],
-      outcomes: [],
-      acceptingOrders: null,
-      closed: false,
-      url: '',
-      tokenIdYes: null,
-      tokenIdNo: null,
-      category: null,
-      tagSlugs: [],
-      cryptoSymbol: null,
-      interval: null,
-      cryptoCategory: null,
-      marketType: 'standard' as any,
-    }],
+    cityLabel: `${city} (1)`,
+    dates: [
+      {
+        date,
+        dateLabel: `${date} (1)`,
+        markets: [
+          {
+            conditionId: 'c1',
+            question,
+            eventSlug: null,
+            slug: null,
+            icon: null,
+            endDate: null,
+            startDate: null,
+            volume: null,
+            volume24hr: null,
+            liquidityClob: null,
+            outcomePrices: [],
+            outcomes: [],
+            acceptingOrders: null,
+            closed: false,
+            url: '',
+            tokenIdYes: null,
+            tokenIdNo: null,
+            category: null,
+            tagSlugs: [],
+            cryptoSymbol: null,
+            interval: null,
+            cryptoCategory: null,
+            marketType: 'standard' as any,
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -72,8 +81,8 @@ describe('enrichCityGroupsWithForecast', () => {
     const groups = [makeGroup('Hong Kong', 'Will the highest temperature in Hong Kong be 31°C on July 25?')];
     const result = await enrichCityGroupsWithForecast(ds, groups);
     expect(result).toHaveLength(1);
-    expect(result[0].forecastMean).toBe(31.5);
-    expect(result[0].forecastStatus).toBe('fresh');
+    expect(result[0].dates[0].forecastMean).toBe(31.5);
+    expect(result[0].dates[0].forecastStatus).toBe('fresh');
     expect(fetchWeatherForecast).not.toHaveBeenCalled();
   });
 
@@ -89,8 +98,8 @@ describe('enrichCityGroupsWithForecast', () => {
 
     const groups = [makeGroup('Hong Kong', 'Will the highest temperature in Hong Kong be 31°C on July 25?')];
     const result = await enrichCityGroupsWithForecast(ds, groups);
-    expect(result[0].forecastMean).toBe(29.2);
-    expect(result[0].forecastStatus).toBe('fresh');
+    expect(result[0].dates[0].forecastMean).toBe(29.2);
+    expect(result[0].dates[0].forecastStatus).toBe('fresh');
   });
 
   it('marks forecast unavailable when external fetch fails and no cache', async () => {
@@ -99,8 +108,8 @@ describe('enrichCityGroupsWithForecast', () => {
 
     const groups = [makeGroup('UnknownCity', 'Will the highest temperature in UnknownCity be 20°C on July 25?')];
     const result = await enrichCityGroupsWithForecast(ds, groups);
-    expect(result[0].forecastMean).toBeNull();
-    expect(result[0].forecastStatus).toBe('unavailable');
+    expect(result[0].dates[0].forecastMean).toBeNull();
+    expect(result[0].dates[0].forecastStatus).toBe('unavailable');
   });
 
   it('returns stale cache when external fetch fails', async () => {
@@ -120,7 +129,7 @@ describe('enrichCityGroupsWithForecast', () => {
 
     const groups = [makeGroup('Hong Kong', 'Will the highest temperature in Hong Kong be 31°C on July 25?')];
     const result = await enrichCityGroupsWithForecast(ds, groups);
-    expect(result[0].forecastMean).toBe(30.0);
-    expect(result[0].forecastStatus).toBe('stale');
+    expect(result[0].dates[0].forecastMean).toBe(30.0);
+    expect(result[0].dates[0].forecastStatus).toBe('stale');
   });
 });

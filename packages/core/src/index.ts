@@ -75,6 +75,7 @@ export * from './risk/policy.js';
 export * from './risk/exit-decision.js';
 export * from './risk/risk-config-api.js';
 export * from './risk/crypto-config-api.js';
+export * from './risk/weather-config-api.js';
 export * from './risk/sim-mode-fields.js';
 export {
   resolveSimRotationTargets,
@@ -266,7 +267,24 @@ export type {
 export * from './simulation/auto-snapshot-timing.js';
 export * from './worker/move-detector-settings.js';
 export * from './services/index.js';
-export { discoverWeatherMarkets, groupMarketsByEvent, groupMarketsByCity, resolveGroupTargetDate, WEATHER_TAG_SLUG, type WeatherMarketDiscoveryResult, type CityMarketGroup, type ForecastEnrichedCityGroup, type ForecastStatus } from './weather/weather-market-discovery.js';
+export {
+  discoverWeatherMarkets,
+  groupMarketsByEvent,
+  groupMarketsByCity,
+  groupMarketsByCityAndDate,
+  formatDiscoverCityLabel,
+  formatDiscoverDateLabel,
+  resolveMarketTargetDateIso,
+  resolveGroupTargetDate,
+  WEATHER_TAG_SLUG,
+  type WeatherMarketDiscoveryResult,
+  type CityMarketGroup,
+  type DiscoverCityGroup,
+  type DiscoverDateBucket,
+  type ForecastEnrichedCityGroup,
+  type ForecastEnrichedDateBucket,
+  type ForecastStatus,
+} from './weather/weather-market-discovery.js';
 export { enrichCityGroupsWithForecast, type EnrichForecastOptions } from './weather/weather-forecast-enricher.js';
 export { parseWeatherQuestion, resolveWeatherDate, type ParsedWeatherQuestion } from './weather/question-parser.js';
 export {

@@ -8388,6 +8388,58 @@ body.is-resizing-columns .position-market-split-handle::after {
   border-top: 1px solid var(--border-subtle);
 }
 
+.weather-city-group__body--nested {
+  gap: .375rem;
+  padding: .375rem .5rem .5rem;
+  background: var(--bg);
+}
+
+/* Nested date accordion inside city */
+.weather-discover-date {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.weather-discover-date__header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .5rem .625rem;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: .78125rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s;
+}
+
+.weather-discover-date__header:hover,
+.weather-discover-date--expanded .weather-discover-date__header {
+  background: var(--surface-hover);
+}
+
+.weather-discover-date__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-discover-date__body {
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  padding: .5rem .625rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
 /* === Weather Discover Card === */
 .weather-discover-card {
   display: flex;
@@ -8405,6 +8457,13 @@ body.is-resizing-columns .position-market-split-handle::after {
   line-height: 1.4;
 }
 
+.weather-discover-card__deg {
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: #e8a0b5;
+}
+
 .weather-discover-card__prices {
   display: flex;
   flex-wrap: wrap;
@@ -8419,6 +8478,18 @@ body.is-resizing-columns .position-market-split-handle::after {
   padding: .125rem .375rem;
   background: var(--bg-elevated);
   border-radius: var(--radius-sm);
+}
+
+.weather-discover-card__outcome {
+  font-weight: 700;
+}
+
+.weather-discover-card__price--yes {
+  color: #6fbf8a;
+}
+
+.weather-discover-card__price--no {
+  color: var(--danger);
 }
 
 /* === Weather Selection Card === */
@@ -8505,6 +8576,29 @@ body.is-resizing-columns .position-market-split-handle::after {
 .weather-settings-grid > label > .form-hint {
   padding: .375rem .5rem;
   border-left-width: 2px;
+}
+
+.weather-settings-grid .settings-subheading {
+  margin: 1rem 0 0;
+  font-size: .875rem;
+  color: var(--text-primary);
+}
+
+.weather-settings-grid .settings-subheading:first-child {
+  margin-top: 0;
+}
+
+.weather-settings-error {
+  color: var(--danger, #c44);
+  margin: 0 .75rem .5rem;
+}
+
+.weather-settings-grid .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  font-size: .8125rem;
+  color: var(--text-secondary);
 }
 
 .weather-autotrack-form {

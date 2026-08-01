@@ -15,9 +15,14 @@ const createRuleSchema = z.object({
   mode: z.enum(['city_follow']).optional(),
 });
 
-const patchRuleSchema = z.object({
-  enabled: z.boolean(),
-});
+const patchRuleSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    lookAheadDays: z.number().int().min(1).max(30).optional(),
+  })
+  .refine((v) => v.enabled !== undefined || v.lookAheadDays !== undefined, {
+    message: 'at least one of enabled or lookAheadDays is required',
+  });
 
 export function createWeatherAlgoAutoTrackRouter(ds: DataSource): Router {
   const router = Router();
@@ -78,10 +83,14 @@ export function createWeatherAlgoAutoTrackRouter(ds: DataSource): Router {
       res.status(400).json({ error: 'invalid_id', message: 'id must be a number' });
       return;
     }
-    await autoTrackService.setEnabled(id, parsed.data.enabled);
+    const rule = await autoTrackService.updateRule(id, parsed.data);
+    if (!rule) {
+      res.status(404).json({ error: 'not_found', message: 'auto-track rule not found' });
+      return;
+    }
     await publishConfigChanged();
     emitAlgoMarketsChanged();
-    res.status(200).json({ ok: true });
+    res.status(200).json(rule);
   });
 
   return router;

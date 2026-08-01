@@ -249,7 +249,7 @@ export const riskConfigUpdateSchema = z
     weatherAlgoMaxSignalsPerEvent: z.number().int().min(1).max(20),
     weatherAlgoForecastChangeThreshold: z.number().finite().min(0.5).max(20),
     weatherAlgoCloseBeforeResolutionHours: z.number().finite().min(0.5).max(168),
-    weatherAlgoPollMs: z.number().int().min(60_000).max(86_400_000),
+    weatherAlgoPollMs: z.number().int().min(10_000).max(86_400_000),
     weatherAlgoCityFollowSwitchMode: z.enum(['close_and_reenter', 'hold']),
     weatherAlgoBucketHysteresisPolls: z.number().int().min(1).max(10),
     weatherAlgoReentryThrottleMs: z.number().int().min(0).max(86_400_000),

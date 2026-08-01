@@ -39,17 +39,19 @@ export interface DiscoverMarket {
   parsed: boolean;
 }
 
+export interface DiscoverDateBucket {
+  date: string;
+  dateLabel: string;
+  markets: DiscoverMarket[];
+  forecastMean: number | null;
+  forecastStdDev: number | null;
+  forecastStatus: 'fresh' | 'stale' | 'unavailable';
+}
+
 export interface CityMarketGroup {
   city: string;
-  markets: DiscoverMarket[];
-  /** ISO target date for the forecast (YYYY-MM-DD). */
-  targetDate: string;
-  /** Forecast mean temperature in °C. Null if unavailable. */
-  forecastMean: number | null;
-  /** Forecast standard deviation in °C. Null if unavailable. */
-  forecastStdDev: number | null;
-  /** fresh = from cache or live fetch; stale = expired cache; unavailable = no data. */
-  forecastStatus: 'fresh' | 'stale' | 'unavailable';
+  cityLabel: string;
+  dates: DiscoverDateBucket[];
 }
 
 export interface DiscoverResult {
@@ -204,6 +206,14 @@ export function useWeatherAlgoDashboard() {
     await refreshAutoTrackRules();
   }
 
+  async function updateAutoTrackLookAhead(id: number, lookAheadDays: number) {
+    await api(`/weather-algo-auto-track/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ lookAheadDays }),
+    });
+    await refreshAutoTrackRules();
+  }
+
   function watchedCitySet(): Set<string> {
     return new Set(
       autoTrackRules().map((r) => r.city.trim().toLowerCase()),
@@ -241,6 +251,7 @@ export function useWeatherAlgoDashboard() {
     selections, status, discoverGroups, discoverLoading, autoTrackRules,
     discoverMarkets, addMarket, toggleSelection, removeSelection,
     watchCity, watchedCitySet, addAutoTrackRule, removeAutoTrackRule, toggleAutoTrackRule,
+    updateAutoTrackLookAhead,
     refreshSelections, refreshStatus, refreshAutoTrackRules,
     capital, realTradingEnabled, weatherAlgoSimEnabled, weatherAlgoRealEnabled,
     loadCapital, loadRiskFlags, toggleRealTrading,

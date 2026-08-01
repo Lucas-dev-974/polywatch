@@ -76,13 +76,25 @@ import pino from 'pino';
 const log = pino({ name: 'backend' });
 
 async function main() {
+  log.info('boot phase: initializing database');
   const ds = await initializeDataSource(createDataSource());
+  log.info('boot phase: database initialized');
+
+  log.info('boot phase: asserting database exists');
   await assertDatabaseExists(ds);
+
+  log.info('boot phase: seeding defaults');
   await seedDefaults(ds);
+
   initBackendConfigService(ds);
+
+  log.info('boot phase: bootstrapping wallet accounts');
   await bootstrapWalletAccounts(ds);
+
   ensureE2eLogDir();
   const e2eRunner = createE2eRunnerService(ds);
+
+  log.info('boot phase: recovering stale e2e runs');
   await e2eRunner.recoverStaleRuns();
 
   const app = express();
@@ -214,6 +226,19 @@ async function main() {
   process.once('SIGTERM', () => shutdown('SIGTERM'));
   process.once('SIGINT', () => shutdown('SIGINT'));
 
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      log.error(
+        { port: config.port, err },
+        'port already in use — stop the existing backend or set PORT to another value',
+      );
+      process.exit(1);
+    }
+    log.error({ err }, 'server listen failed');
+    process.exit(1);
+  });
+
+  log.info({ port: config.port }, 'boot phase: listening');
   server.listen(config.port, () => {
     log.info({ port: config.port }, 'backend listening');
 

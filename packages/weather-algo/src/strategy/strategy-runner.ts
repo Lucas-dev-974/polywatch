@@ -4,7 +4,6 @@ import type { Redis } from 'ioredis';
 import {
   type MarketListItemDto,
   type WeatherConfig,
-  type WeatherMarketSelectionService,
   type WeatherForecastService,
   type WeatherAutoTrackService,
   type WeatherAutoTrackRule,
@@ -30,8 +29,6 @@ const log = pino({ name: 'weather-algo:strategy-runner' });
 
 export interface StrategyRunnerParams {
   ds: DataSource;
-  /** @deprecated Expand selections retired; kept for wiring compatibility. */
-  selectionService: WeatherMarketSelectionService;
   autoTrackService: WeatherAutoTrackService;
   forecastService: WeatherForecastService;
   registry: WeatherStrategyRegistry;
@@ -49,7 +46,6 @@ export class WeatherStrategyRunner {
   private pendingRerun = false;
   private stopped = false;
   private readonly ds: DataSource;
-  private readonly selectionService: WeatherMarketSelectionService; // retained for API compat; unused in city-first path
   private readonly autoTrackService: WeatherAutoTrackService;
   private readonly forecastService: WeatherForecastService;
   private readonly registry: WeatherStrategyRegistry;
@@ -63,7 +59,6 @@ export class WeatherStrategyRunner {
 
   constructor(params: StrategyRunnerParams) {
     this.ds = params.ds;
-    this.selectionService = params.selectionService;
     this.autoTrackService = params.autoTrackService;
     this.forecastService = params.forecastService;
     this.registry = params.registry;
@@ -90,7 +85,6 @@ export class WeatherStrategyRunner {
       if (strategy instanceof WeatherForecastStrategy) {
         strategy.setMinEdge(risk.weatherAlgoMinEdge);
         strategy.setMaxForecastStd(risk.weatherAlgoMaxForecastStd);
-        strategy.setYesOnly(true);
       }
     }
   }
@@ -452,7 +446,6 @@ export class WeatherStrategyRunner {
     const ctx = {
       forecastMean: forecast.forecastMean,
       forecastStdDev: forecast.forecastStdDev,
-      tempDistribution: new Map<number, number>(),
     };
 
     const candidates: WeatherSignal[] = [];
@@ -511,11 +504,7 @@ export class WeatherStrategyRunner {
     if (signals.length === 0) return [];
     if (!this.risk) return signals;
 
-    let mode = this.risk.weatherAlgoSelectionMode ?? 'single';
-    if (mode === 'spread') {
-      log.info('weather selection mode spread ignored in city-first — using single');
-      mode = 'single';
-    }
+    const mode = this.risk.weatherAlgoSelectionMode ?? 'single';
 
     if (mode === 'single') {
       const best = signals.reduce((a, b) => (b.edge > a.edge ? b : a));

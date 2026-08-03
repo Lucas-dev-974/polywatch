@@ -27,7 +27,6 @@ function buildRunner(exitEvaluator: WeatherExitEvaluator) {
         find: async () => [],
       }),
     } as never,
-    selectionService: {} as never,
     autoTrackService: {
       listEnabled: async () => [],
     } as never,
@@ -234,7 +233,6 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       ds: {
         getRepository: () => ({ find: async () => [] }),
       } as never,
-      selectionService: {} as never,
       autoTrackService: { listEnabled: async () => [] } as never,
       forecastService: {
         getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
@@ -275,7 +273,6 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
     const registry = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
     const runner = new WeatherStrategyRunner({
       ds: { getRepository: () => ({ find: async () => [] }) } as never,
-      selectionService: {} as never,
       autoTrackService: { listEnabled: async () => [] } as never,
       forecastService: {
         getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),

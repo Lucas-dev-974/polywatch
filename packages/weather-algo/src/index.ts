@@ -143,7 +143,6 @@ async function main() {
   const runtimeStatus = new WeatherAlgoRuntimeStatusPublisher(redisCmd);
   const strategyRunner = new WeatherStrategyRunner({
     ds,
-    selectionService,
     autoTrackService,
     forecastService,
     registry,

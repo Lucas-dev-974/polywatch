@@ -502,10 +502,6 @@ async function runMode(args: {
   return blockedReason;
 }
 
-export async function createWeatherEntryPipeline(params: WeatherEntryPipelineParams): Promise<(signal: WeatherSignal) => Promise<string | null>> {
-  return (signal: WeatherSignal) => runWeatherEntryPipeline({ ...params, signal });
-}
-
 async function persistEntryForecastSnapshot(args: {
   ds: DataSource;
   signal: WeatherSignal;

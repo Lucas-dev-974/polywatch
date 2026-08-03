@@ -26,8 +26,6 @@ export interface WeatherSignal {
 export interface WeatherEvaluationContext {
   forecastMean: number;
   forecastStdDev: number;
-  /** Probability distribution over temperature outcomes for the event. */
-  tempDistribution: Map<number, number>;
 }
 
 export type WeatherEvaluationResult =

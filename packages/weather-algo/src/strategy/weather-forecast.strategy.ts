@@ -19,14 +19,12 @@ const log = pino({ name: 'weather-algo:forecast-strategy' });
  * Weather forecast strategy: compares the forecast-implied probability
  * of a temperature outcome with the market price.
  *
- * City-first mode (`yesOnly`): only BUY YES on the forecast-aligned bucket.
+ * City-first: BUY YES only on the forecast-aligned bucket (directional thesis).
  */
 export class WeatherForecastStrategy implements WeatherStrategy {
   readonly id = 'weather-forecast';
   private minEdge: number = 0.10;
   private maxForecastStd: number | null = null;
-  /** When true, only emit BUY YES (city-follow thesis). */
-  private yesOnly: boolean = true;
 
   setMinEdge(edge: number): void {
     this.minEdge = edge;
@@ -34,10 +32,6 @@ export class WeatherForecastStrategy implements WeatherStrategy {
 
   setMaxForecastStd(maxStd: number | null): void {
     this.maxForecastStd = maxStd;
-  }
-
-  setYesOnly(yesOnly: boolean): void {
-    this.yesOnly = yesOnly;
   }
 
   async evaluate(
@@ -91,7 +85,6 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     }
 
     const yesEdge = calculateEdge(forecastYesProb, yesPrice);
-    const noEdge = calculateEdge(forecastNoProb, noPrice);
 
     const hoursToResolution = market.endDate
       ? Math.max(0, (new Date(market.endDate).getTime() - Date.now()) / 3_600_000)
@@ -104,21 +97,15 @@ export class WeatherForecastStrategy implements WeatherStrategy {
 
     let candidate: { outcome: 'YES' | 'NO'; edge: number; marketPrice: number; forecastProb: number } | null = null;
 
-    if (this.yesOnly) {
-      if (yesEdge > dynamicThreshold) {
-        candidate = { outcome: 'YES', edge: yesEdge, marketPrice: yesPrice, forecastProb: forecastYesProb };
-      }
-    } else if (yesEdge > dynamicThreshold && yesEdge >= noEdge) {
+    if (yesEdge > dynamicThreshold) {
       candidate = { outcome: 'YES', edge: yesEdge, marketPrice: yesPrice, forecastProb: forecastYesProb };
-    } else if (noEdge > dynamicThreshold) {
-      candidate = { outcome: 'NO', edge: noEdge, marketPrice: noPrice, forecastProb: forecastNoProb };
     }
 
     if (!candidate) {
       return {
         kind: 'abstain',
         reason: 'insufficient_edge',
-        detail: `yesEdge=${yesEdge.toFixed(4)} noEdge=${noEdge.toFixed(4)} threshold=${dynamicThreshold.toFixed(4)} yesOnly=${this.yesOnly}`,
+        detail: `yesEdge=${yesEdge.toFixed(4)} threshold=${dynamicThreshold.toFixed(4)}`,
       };
     }
 

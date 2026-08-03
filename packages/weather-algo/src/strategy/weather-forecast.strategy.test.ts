@@ -20,16 +20,14 @@ function market(overrides: Partial<MarketListItemDto> = {}): MarketListItemDto {
   } as MarketListItemDto;
 }
 
-describe('WeatherForecastStrategy city-first yesOnly', () => {
+describe('WeatherForecastStrategy city-first', () => {
   it('emits BUY YES when yes edge clears threshold', async () => {
     const strategy = new WeatherForecastStrategy();
     strategy.setMinEdge(0.05);
-    strategy.setYesOnly(true);
 
     const result = await strategy.evaluate(market(), {
       forecastMean: 24,
       forecastStdDev: 0.5,
-      tempDistribution: new Map(),
     });
 
     expect(result.kind).toBe('signal');
@@ -43,10 +41,9 @@ describe('WeatherForecastStrategy city-first yesOnly', () => {
   it('does not emit BUY NO even if NO edge would be larger', async () => {
     const strategy = new WeatherForecastStrategy();
     strategy.setMinEdge(0.05);
-    strategy.setYesOnly(true);
 
-    // Forecast far from 24 → low YES prob → YES underpriced? Actually YES edge negative;
-    // market YES expensive relative to forecast → NO would have edge, but yesOnly abstains.
+    // City-first directional thesis: even when NO would have edge, the strategy
+    // abstains (BUY NO is not a supported path).
     const result = await strategy.evaluate(
       market({
         outcomePrices: [
@@ -57,7 +54,6 @@ describe('WeatherForecastStrategy city-first yesOnly', () => {
       {
         forecastMean: 18,
         forecastStdDev: 0.5,
-        tempDistribution: new Map(),
       },
     );
 

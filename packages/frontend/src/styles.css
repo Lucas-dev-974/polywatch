@@ -8786,3 +8786,531 @@ body.is-resizing-columns .position-market-split-handle::after {
 .weather-position-card__close {
   color: var(--danger);
 }
+
+/* Weather algo positions panel — header & history tab */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border);
+}
+
+.weather-position-mode-tab {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary, var(--text));
+  white-space: nowrap;
+}
+
+.weather-exec-city {
+  font-weight: 600;
+  color: var(--text-primary, var(--text));
+  white-space: nowrap;
+}
+
+/* Weather positions — header right (tabs + mode filter) */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.weather-position-mode-tab {
+  padding: 0.3rem 0.625rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text-primary);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Sub-tabs (live/sim) shown under the open positions header */
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* History table — city column emphasis */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* Weather positions — header layout with tabs + mode filter */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border);
+}
+
+.weather-position-mode-tab {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Weather positions — open live/sim sub-tabs row */
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* Weather history table */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Weather algo positions — open/history header + mode filter */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.weather-position-mode-tab {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text-primary);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* History table tweaks */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border);
+}
+
+.weather-position-mode-tab {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Weather positions panel: header right (open/history tabs + mode filter) */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.weather-position-mode-tab {
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text-primary);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface, var(--bg-elevated));
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Inner live/sim sub-tabs row */
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* History table tweaks */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Weather algo positions panel — header right (tabs + mode filter) */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+}
+
+.weather-position-mode-tab {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Sub-tabs (live/sim) shown under the open positions tab */
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* History table — city column emphasis */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* Weather algo positions — header right cluster (open/history + mode filter) */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border);
+}
+
+.weather-position-mode-tab {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Weather algo positions — inner live/sim sub-tabs (open tab) */
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* Weather algo positions — history table */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Weather positions: open/history header + mode filter */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.weather-position-mode-tab {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text-primary);
+}
+
+.weather-position-mode-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* Inner live/sim sub-tabs under the "Ouvertes" view */
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* History table tweaks */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* Weather positions: open/history header + mode filter */
+.weather-position-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.weather-position-mode-tabs {
+  display: flex;
+  gap: 0.125rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm, 0.25rem);
+  padding: 0.1875rem;
+}
+
+.weather-position-mode-tab {
+  padding: 0.3rem 0.625rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted, var(--text-secondary));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.weather-position-mode-tab:hover {
+  color: var(--text, var(--text-primary));
+}
+
+.weather-position-mode-tab.active {
+  background: var(--surface, var(--bg-base, #0a0a0c));
+  color: var(--text, var(--text-primary));
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+.weather-position-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+/* History table tweaks */
+.weather-history-city {
+  font-weight: 600;
+  color: var(--text, var(--text-primary));
+  white-space: nowrap;
+}

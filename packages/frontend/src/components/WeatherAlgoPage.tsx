@@ -1,6 +1,7 @@
 import { createSignal, Show } from 'solid-js';
 import { useWeatherAlgoDashboard } from '../hooks/useWeatherAlgoDashboard';
 import { useWeatherAlgoPositions } from '../hooks/useWeatherAlgoPositions';
+import { useWeatherAlgoExecutions } from '../hooks/useWeatherAlgoExecutions';
 import { WeatherAlgoHeader } from './WeatherAlgoHeader';
 import { WeatherAlgoCapitalHero } from './WeatherAlgoCapitalHero';
 import { WeatherAlgoDiscoverPanel } from './WeatherAlgoDiscoverPanel';
@@ -16,6 +17,7 @@ type Tab = 'markets' | 'positions' | 'cities' | 'settings';
 export function WeatherAlgoPage() {
   const dashboard = useWeatherAlgoDashboard();
   const positions = useWeatherAlgoPositions();
+  const executions = useWeatherAlgoExecutions();
   const [tab, setTab] = createSignal<Tab>('markets');
 
   return (
@@ -92,7 +94,7 @@ export function WeatherAlgoPage() {
 
       <Show when={tab() === 'positions'}>
         <WeatherAlgoPositionsPanel positions={positions} />
-        <WeatherAlgoExecutionsPanel />
+        <WeatherAlgoExecutionsPanel executions={executions} />
       </Show>
 
       <Show when={tab() === 'cities'}>

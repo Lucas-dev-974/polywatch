@@ -157,6 +157,10 @@ export {
   type WeatherPositionForecastInput,
 } from './weather-position-forecast.service.js';
 export {
+  serializeWeatherForecast,
+  type WeatherForecastSnapshotDto,
+} from './weather-forecast-serializer.js';
+export {
   WeatherForecastService,
   type ForecastResult,
 } from './weather-forecast.service.js';

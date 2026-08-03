@@ -3,6 +3,7 @@ import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Execution } from '../entities/Execution.js';
 import { WatchlistEntry } from '../entities/Watchlist.js';
 import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
+import { serializeWeatherForecast } from './weather-forecast-serializer.js';
 import { marketLifecycleFromEntity } from '../market/lifecycle.js';
 import { resolveClosedExitBidVwap } from '../positions/exit-bid.js';
 import {
@@ -220,28 +221,7 @@ export class CopiedPositionPresenter {
 
     const map = new Map<number, EnrichedCopiedPosition['weatherForecast']>();
     for (const row of rows) {
-      let bounds: { low?: number; high?: number; target?: number } | null = null;
-      if (row.entryBucketBounds) {
-        try {
-          const parsed = JSON.parse(row.entryBucketBounds) as Record<string, unknown>;
-          bounds = {
-            low: typeof parsed.low === 'number' ? parsed.low : undefined,
-            high: typeof parsed.high === 'number' ? parsed.high : undefined,
-            target: typeof parsed.target === 'number' ? parsed.target : undefined,
-          };
-        } catch {
-          bounds = null;
-        }
-      }
-      map.set(row.copiedPositionId, {
-        city: row.city,
-        targetDate: row.targetDate.toISOString(),
-        metric: row.metric,
-        entryForecastMean: row.entryForecastMean,
-        entryForecastStdDev: row.entryForecastStdDev,
-        entryBucketComparison: row.entryBucketComparison,
-        entryBucketBounds: bounds,
-      });
+      map.set(row.copiedPositionId, serializeWeatherForecast(row));
     }
     return map;
   }

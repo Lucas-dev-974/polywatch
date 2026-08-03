@@ -73,6 +73,8 @@ export function createPositionsRouter(ds: DataSource): Router {
       }
       if (req.query.reason === 'algo') {
         qb.andWhere('p.reason LIKE :algoPattern', { algoPattern: 'ALGO_%' });
+      } else if (req.query.reason === 'weather') {
+        qb.andWhere('p.reason LIKE :weatherPattern', { weatherPattern: 'WEATHER_%' });
       } else if (req.query.reason) {
         qb.andWhere('p.reason = :reason', { reason: req.query.reason });
       }

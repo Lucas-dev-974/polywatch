@@ -1,7 +1,17 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { api } from '../api';
 
-interface WeatherPosition {
+export interface WeatherForecastSnapshot {
+  city: string;
+  targetDate: string;
+  metric: string;
+  entryForecastMean: number;
+  entryForecastStdDev: number;
+  entryBucketComparison: string | null;
+  entryBucketBounds: { low?: number; high?: number; target?: number } | null;
+}
+
+export interface WeatherPosition {
   id: number;
   conditionId: string;
   assetId: string;
@@ -12,6 +22,9 @@ interface WeatherPosition {
   mode: string;
   unrealizedPnl: number;
   reason: string | null;
+  marketQuestion: string | null;
+  marketUrl: string | null;
+  weatherForecast: WeatherForecastSnapshot | null;
 }
 
 const POLL_MS = 10_000;
@@ -33,8 +46,14 @@ export function useWeatherAlgoPositions() {
   }
 
   async function closePosition(id: number) {
-    await api(`/copied-positions/${id}/close`, { method: 'POST' });
-    await refresh();
+    try {
+      await api(`/copied-positions/${id}/close`, { method: 'POST' });
+      await refresh();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to close weather position', id, err);
+      throw err;
+    }
   }
 
   onMount(() => {

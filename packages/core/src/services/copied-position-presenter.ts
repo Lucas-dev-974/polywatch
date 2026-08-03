@@ -2,6 +2,7 @@ import type { DataSource, EntityManager } from 'typeorm';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Execution } from '../entities/Execution.js';
 import { WatchlistEntry } from '../entities/Watchlist.js';
+import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
 import { marketLifecycleFromEntity } from '../market/lifecycle.js';
 import { resolveClosedExitBidVwap } from '../positions/exit-bid.js';
 import {
@@ -49,6 +50,16 @@ export type EnrichedCopiedPosition = CopiedPosition & {
   entryInvestedAmount: number | null;
   /** Fill price of the last successful SELL execution (exit price). */
   exitBidVwap: number | null;
+  /** Weather-specific snapshot attached to the position (only for WEATHER_* reasons). */
+  weatherForecast: {
+    city: string;
+    targetDate: string;
+    metric: string;
+    entryForecastMean: number;
+    entryForecastStdDev: number;
+    entryBucketComparison: string | null;
+    entryBucketBounds: { low?: number; high?: number; target?: number } | null;
+  } | null;
 };
 
 export class CopiedPositionPresenter {
@@ -93,6 +104,8 @@ export class CopiedPositionPresenter {
       await this.resolveClosedEntryInvested(closedIds, m);
     const closedExitBids = await resolveClosedExitBidVwap(this.ds, closedIds, m);
 
+    const weatherForecasts = await this.resolveWeatherForecasts(positions, m);
+
     return positions.map((pos) => {
       const watchlist = watchlistById.get(pos.watchlistId);
       const market = marketsByCondition.get(pos.conditionId);
@@ -121,6 +134,7 @@ export class CopiedPositionPresenter {
         entryInvestedAmount: entryInvested?.amount ?? null,
         peakClosurePnlPercent: pos.peakClosurePnlPercent,
         exitBidVwap: closedExitBids.get(pos.id) ?? null,
+        weatherForecast: weatherForecasts.get(pos.id) ?? null,
       };
     });
   }
@@ -184,6 +198,50 @@ export class CopiedPositionPresenter {
     for (const row of rows) {
       const id = Number(row.copiedPositionId);
       if (!map.has(id)) map.set(id, row.error);
+    }
+    return map;
+  }
+
+  /** Weather forecast snapshot attached to positions opened by the weather algo. */
+  private async resolveWeatherForecasts(
+    positions: CopiedPosition[],
+    manager: EntityManager,
+  ): Promise<Map<number, EnrichedCopiedPosition['weatherForecast']>> {
+    const weatherIds = positions
+      .filter((p) => p.reason?.startsWith('WEATHER_'))
+      .map((p) => p.id);
+    if (weatherIds.length === 0) return new Map();
+
+    const rows = await manager
+      .getRepository(WeatherPositionForecast)
+      .createQueryBuilder('f')
+      .where('f.copiedPositionId IN (:...ids)', { ids: weatherIds })
+      .getMany();
+
+    const map = new Map<number, EnrichedCopiedPosition['weatherForecast']>();
+    for (const row of rows) {
+      let bounds: { low?: number; high?: number; target?: number } | null = null;
+      if (row.entryBucketBounds) {
+        try {
+          const parsed = JSON.parse(row.entryBucketBounds) as Record<string, unknown>;
+          bounds = {
+            low: typeof parsed.low === 'number' ? parsed.low : undefined,
+            high: typeof parsed.high === 'number' ? parsed.high : undefined,
+            target: typeof parsed.target === 'number' ? parsed.target : undefined,
+          };
+        } catch {
+          bounds = null;
+        }
+      }
+      map.set(row.copiedPositionId, {
+        city: row.city,
+        targetDate: row.targetDate.toISOString(),
+        metric: row.metric,
+        entryForecastMean: row.entryForecastMean,
+        entryForecastStdDev: row.entryForecastStdDev,
+        entryBucketComparison: row.entryBucketComparison,
+        entryBucketBounds: bounds,
+      });
     }
     return map;
   }

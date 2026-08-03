@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { WeatherConfig } from '@polywatch/core';
+import type { WeatherConfig, MarketListItemDto } from '@polywatch/core';
 import { WeatherStrategyRunner } from './strategy-runner.js';
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
+import type { WeatherSignal, WeatherStrategy } from './strategy.js';
+import { pickBestEdgeBucket, bucketCentre } from './strategy-runner.js';
 
 function minimalRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
   return {
@@ -97,5 +99,203 @@ describe('WeatherStrategyRunner requestEvaluationCycle', () => {
     expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(1);
 
     runner.stop();
+  });
+});
+
+describe('pickBestEdgeBucket', () => {
+  function signal(overrides: Partial<WeatherSignal> = {}): WeatherSignal {
+    return {
+      conditionId: 'c1',
+      assetId: 'a1',
+      outcome: 'YES',
+      side: 'BUY',
+      confidence: 0.2,
+      reasons: [],
+      strategyId: 'weather-forecast',
+      eventSlug: 'slug',
+      city: 'Paris',
+      metric: 'highest_temp',
+      targetDate: new Date('2026-08-02T12:00:00Z'),
+      forecastMean: 32,
+      forecastStdDev: 1.5,
+      forecastProbability: 0.2,
+      marketPrice: 0.05,
+      edge: 0.15,
+      entryBucketComparison: 'exact',
+      entryBucketBounds: { target: 33 },
+      ...overrides,
+    };
+  }
+
+  it('returns the signal with the highest edge', () => {
+    const candidates = [
+      signal({ edge: 0.10, conditionId: 'low' }),
+      signal({ edge: 0.25, conditionId: 'high' }),
+      signal({ edge: 0.15, conditionId: 'mid' }),
+    ];
+    const best = pickBestEdgeBucket(candidates, 32);
+    expect(best.conditionId).toBe('high');
+  });
+
+  it('ties break by bucket centre closest to forecastMean', () => {
+    const candidates = [
+      signal({ edge: 0.20, conditionId: 'far', entryBucketBounds: { target: 30 } }),
+      signal({ edge: 0.20, conditionId: 'close', entryBucketBounds: { target: 32 } }),
+    ];
+    const best = pickBestEdgeBucket(candidates, 32);
+    expect(best.conditionId).toBe('close');
+  });
+
+  it('uses midpoint of between buckets for tie-break', () => {
+    const candidates = [
+      signal({ edge: 0.20, conditionId: 'between-near', entryBucketComparison: 'between', entryBucketBounds: { low: 31, high: 33 } }),
+      signal({ edge: 0.20, conditionId: 'between-far', entryBucketComparison: 'between', entryBucketBounds: { low: 28, high: 30 } }),
+    ];
+    const best = pickBestEdgeBucket(candidates, 32);
+    expect(best.conditionId).toBe('between-near');
+  });
+});
+
+describe('bucketCentre', () => {
+  it('returns target for exact/or_* buckets', () => {
+    expect(bucketCentre({ target: 33 }, 0)).toBe(33);
+    expect(bucketCentre({ target: null, low: 20, high: 30 }, 0)).toBe(25);
+  });
+
+  it('returns midpoint for between buckets', () => {
+    expect(bucketCentre({ low: 31, high: 33 }, 0)).toBe(32);
+  });
+
+  it('falls back to forecastMean when no bounds', () => {
+    expect(bucketCentre({}, 32)).toBe(32);
+  });
+});
+
+describe('evaluateCityFollowDateGroup best-edge integration', () => {
+  function market(overrides: Partial<MarketListItemDto> = {}): MarketListItemDto {
+    return {
+      conditionId: 'cond-1',
+      question: 'Will the highest temperature in Paris be 33°C on August 2?',
+      eventSlug: 'paris-aug-2',
+      tokenIdYes: 'yes-1',
+      tokenIdNo: 'no-1',
+      outcomePrices: [
+        { outcome: 'Yes', price: 0.05 },
+        { outcome: 'No', price: 0.95 },
+      ],
+      endDate: new Date(Date.now() + 48 * 3_600_000).toISOString(),
+      closed: false,
+      acceptingOrders: true,
+      ...overrides,
+    } as MarketListItemDto;
+  }
+
+  it('selects the bucket with the best edge among all active buckets', async () => {
+    const strategy = {
+      id: 'weather-forecast',
+      evaluate: vi.fn(async (m: MarketListItemDto, ctx) => {
+        const parsed = /(\d+)°C/.exec(m.question ?? '');
+        const target = parsed ? Number(parsed[1]) : 0;
+        const forecastMean = ctx.forecastMean;
+        // Manufacture a signal whose edge decreases as we move away from 34°C
+        const edge = 0.30 - Math.abs(target - 34) * 0.10;
+        if (edge <= 0.05) return { kind: 'abstain' as const, reason: 'insufficient_edge' };
+        return {
+          kind: 'signal' as const,
+          signal: {
+            conditionId: m.conditionId,
+            assetId: m.tokenIdYes!,
+            outcome: 'YES',
+            side: 'BUY',
+            confidence: 0.5,
+            reasons: [],
+            strategyId: 'weather-forecast',
+            eventSlug: m.eventSlug!,
+            city: 'Paris',
+            metric: 'highest_temp',
+            targetDate: new Date(m.endDate!),
+            forecastMean: ctx.forecastMean,
+            forecastStdDev: ctx.forecastStdDev,
+            forecastProbability: edge + 0.05,
+            marketPrice: 0.05,
+            edge,
+            entryBucketComparison: 'exact',
+            entryBucketBounds: { target },
+          },
+        };
+      }),
+    } as unknown as WeatherStrategy;
+
+    const registry = {
+      getAll: () => [strategy],
+    } as unknown as WeatherStrategyRegistry;
+
+    const runner = new WeatherStrategyRunner({
+      ds: {
+        getRepository: () => ({ find: async () => [] }),
+      } as never,
+      selectionService: {} as never,
+      autoTrackService: { listEnabled: async () => [] } as never,
+      forecastService: {
+        getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
+      } as never,
+      registry,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+      exitEvaluator: undefined,
+    });
+
+    const markets = [
+      market({ conditionId: 'm-33', question: 'Will the highest temperature in Paris be 33°C on August 2?' }),
+      market({ conditionId: 'm-34', question: 'Will the highest temperature in Paris be 34°C on August 2?' }),
+      market({ conditionId: 'm-35', question: 'Will the highest temperature in Paris be 35°C on August 2?' }),
+    ];
+
+    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+      'Paris',
+      'highest_temp',
+      '2026-08-02',
+      markets,
+      [strategy],
+      1,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.conditionId).toBe('m-34');
+    expect(result!.entryBucketBounds).toEqual({ target: 34 });
+  });
+
+  it('returns null when all buckets abstain', async () => {
+    const strategy = {
+      id: 'weather-forecast',
+      evaluate: vi.fn(async () => ({ kind: 'abstain' as const, reason: 'insufficient_edge' })),
+    } as unknown as WeatherStrategy;
+
+    const registry = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
+    const runner = new WeatherStrategyRunner({
+      ds: { getRepository: () => ({ find: async () => [] }) } as never,
+      selectionService: {} as never,
+      autoTrackService: { listEnabled: async () => [] } as never,
+      forecastService: {
+        getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
+      } as never,
+      registry,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+      exitEvaluator: undefined,
+    });
+
+    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+      'Paris',
+      'highest_temp',
+      '2026-08-02',
+      [market()],
+      [strategy],
+      1,
+    );
+
+    expect(result).toBeNull();
   });
 });

@@ -95,8 +95,10 @@ export async function runWeatherEntryPipeline(
   }
 
   // --- Load market ---------------------------------------------------------
-  const markets = await marketService.loadByConditionIds([signal.conditionId]);
-  const market = markets.get(signal.conditionId);
+  // The signal comes from live Gamma discovery; the local markets table may
+  // not have the row yet. ensureTradableMarket fetches/persists from Gamma when
+  // the market is missing or incomplete (no tokenIdYes).
+  const market = await marketService.ensureTradableMarket(signal.conditionId);
   if (!market) {
     log.warn({ conditionId: signal.conditionId }, 'entry skipped — market not found');
     return 'Marché introuvable';

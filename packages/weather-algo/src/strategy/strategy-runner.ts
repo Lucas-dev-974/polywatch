@@ -1,5 +1,5 @@
 import pino from 'pino';
-import { In, type DataSource } from 'typeorm';
+import { In, MoreThanOrEqual, type DataSource } from 'typeorm';
 import type { Redis } from 'ioredis';
 import {
   type MarketListItemDto,
@@ -10,13 +10,13 @@ import {
   type WeatherAutoTrackRule,
   CopiedPosition,
   WeatherPositionForecast,
+  PositionReservation,
   discoverWeatherMarkets,
   safeInterval,
   parseWeatherQuestion,
   normalizeWeatherCity,
   buildLookAheadTargetDates,
   resolveMarketTargetDateIso,
-  selectForecastAlignedBucket,
   type BucketCandidate,
 } from '@polywatch/core';
 import { WeatherForecastStrategy } from './weather-forecast.strategy.js';
@@ -278,6 +278,10 @@ export class WeatherStrategyRunner {
    * Cities that already have a WEATHER_OPEN position in flight or open.
    * Includes pending (reserved, not filled) and closing (exit enqueued / in progress)
    * so we never open a second thesis for the same city.
+   *
+   * A pending position with quantity 0 is only considered active when it has a
+   * non-expired reservation. Otherwise it is a stale zombie left by an earlier
+   * failed entry and must not block the city.
    */
   private async loadOpenWeatherCities(): Promise<Set<string>> {
     const positions = await this.ds.getRepository(CopiedPosition).find({
@@ -286,21 +290,47 @@ export class WeatherStrategyRunner {
         status: In(['pending', 'open', 'closing']),
       },
     });
-    const active = positions.filter(
-      (p) => p.status === 'pending' || p.status === 'closing' || p.quantity > 0,
-    );
-    if (active.length === 0) return new Set();
+    if (positions.length === 0) return new Set();
+
+    const activeIds = await this.resolveActiveWeatherPositionIds(positions);
+    if (activeIds.size === 0) return new Set();
 
     const cities = new Set<string>();
-    const forecastRepo = this.ds.getRepository(WeatherPositionForecast);
-    const ids = active.map((p) => p.id);
-    const snaps = await forecastRepo.find({
-      where: { copiedPositionId: In(ids) },
+    const snaps = await this.ds.getRepository(WeatherPositionForecast).find({
+      where: { copiedPositionId: In([...activeIds]) },
     });
     for (const snap of snaps) {
       if (snap.city) cities.add(normalizeWeatherCity(snap.city));
     }
     return cities;
+  }
+
+  /**
+   * Returns the ids of weather positions that are truly active.
+   * Open/closing/filled positions are active. Pending positions with quantity 0
+   * are active only when backed by a non-expired reservation.
+   */
+  private async resolveActiveWeatherPositionIds(
+    positions: CopiedPosition[],
+  ): Promise<Set<number>> {
+    const ids = positions.map((p) => p.id);
+    const reservations = await this.ds.getRepository(PositionReservation).find({
+      where: { copiedPositionId: In(ids), expiresAt: MoreThanOrEqual(new Date()) },
+    });
+    const reservedIds = new Set(reservations.map((r) => r.copiedPositionId));
+
+    const active = new Set<number>();
+    for (const p of positions) {
+      if (
+        p.status === 'open' ||
+        p.status === 'closing' ||
+        p.quantity > 0 ||
+        (p.status === 'pending' && reservedIds.has(p.id))
+      ) {
+        active.add(p.id);
+      }
+    }
+    return active;
   }
 
   private async loadCityFollowRules(): Promise<WeatherAutoTrackRule[]> {
@@ -345,9 +375,10 @@ export class WeatherStrategyRunner {
       }
 
       if (matching.length === 0) {
-        log.debug({ city: rule.city, metric }, 'city-follow: no matching markets found');
+        log.info({ city: rule.city, metric, targetDates: [...targetDateStrs] }, 'city-follow: no matching markets found');
         continue;
       }
+      log.info({ city: rule.city, metric, matchingCount: matching.length, dates: [...new Set(matching.map((m) => m.dateKey))] }, 'city-follow: matching markets found');
 
       const byDate = new Map<string, MarketListItemDto[]>();
       for (const { market, dateKey } of matching) {
@@ -413,31 +444,10 @@ export class WeatherStrategyRunner {
       buckets.push({ conditionId: market.conditionId, market, parsed });
     }
 
-    if (buckets.length === 0) {
-      log.debug({ city, dateKey }, 'city-follow: no active markets');
+      if (buckets.length === 0) {
+      log.debug({ city, dateKey, marketCount: markets.length }, 'city-follow: no active markets');
       return null;
     }
-
-    const selected = selectForecastAlignedBucket(forecast.forecastMean, buckets);
-    if (!selected) {
-      log.debug(
-        { city, dateKey, forecastMean: forecast.forecastMean },
-        'city-follow: no bucket aligned with forecast',
-      );
-      return null;
-    }
-
-    log.info(
-      {
-        city,
-        dateKey,
-        forecastMean: forecast.forecastMean,
-        conditionId: selected.conditionId,
-        comparison: selected.parsed.comparison,
-        target: selected.parsed.targetValue ?? `${selected.parsed.targetValueLow}-${selected.parsed.targetValueHigh}`,
-      },
-      'city-follow: selected bucket aligned with forecast',
-    );
 
     const ctx = {
       forecastMean: forecast.forecastMean,
@@ -445,14 +455,42 @@ export class WeatherStrategyRunner {
       tempDistribution: new Map<number, number>(),
     };
 
-    for (const strategy of strategies) {
-      const result = await strategy.evaluate(selected.market, ctx);
-      if (result.kind === 'signal') {
-        return result.signal;
+    const candidates: WeatherSignal[] = [];
+    const abstainReasons: string[] = [];
+    for (const bucket of buckets) {
+      for (const strategy of strategies) {
+        const result = await strategy.evaluate(bucket.market, ctx);
+        if (result.kind === 'signal') {
+          candidates.push(result.signal);
+          break;
+        } else {
+          abstainReasons.push(`${bucket.parsed.comparison}:${result.reason}`);
+        }
       }
     }
 
-    return null;
+    if (candidates.length === 0) {
+      log.debug({ city, dateKey, bucketCount: buckets.length, abstainReasons }, 'city-follow: no bucket with sufficient edge');
+      return null;
+    }
+
+    const best = pickBestEdgeBucket(candidates, forecast.forecastMean);
+    log.info(
+      {
+        city,
+        dateKey,
+        forecastMean: forecast.forecastMean,
+        conditionId: best.conditionId,
+        comparison: best.entryBucketComparison,
+        target: best.entryBucketBounds?.target ??
+          `${best.entryBucketBounds?.low ?? ''}-${best.entryBucketBounds?.high ?? ''}`,
+        edge: best.edge,
+        nCandidates: candidates.length,
+      },
+      'city-follow: best-edge bucket selected',
+    );
+
+    return best;
   }
 
   private async publishStatus(status: {
@@ -509,10 +547,48 @@ function isMarketActiveForWeather(
 ): boolean {
   if (market.closed) return false;
   if (market.acceptingOrders === false) return false;
+  // Weather markets must be CLOB-tradable: a YES token id is required for
+  // execution, otherwise the worker will cancel the order with no fill.
+  if (!market.tokenIdYes) return false;
   if (market.endDate) {
     const end = new Date(market.endDate).getTime();
     const minMs = Math.max(0, minHoursToClose) * 3_600_000;
     if (end - Date.now() < minMs) return false;
   }
   return true;
+}
+
+/**
+ * Pick the bucket with the highest YES edge.
+ * Callers must only pass non-empty candidate lists (all edges are assumed positive).
+ * On exact edge ties, pick the bucket whose centre is closest to the forecast mean.
+ *   - For exact / or_below / or_above buckets, the centre is the target value.
+ *   - For between buckets, the centre is the midpoint of the bounds.
+ */
+export function pickBestEdgeBucket(
+  candidates: WeatherSignal[],
+  forecastMean: number,
+): WeatherSignal {
+  if (candidates.length === 0) {
+    throw new Error('pickBestEdgeBucket called with empty candidates');
+  }
+  return candidates.reduce((best, current) => {
+    if (current.edge > best.edge) return current;
+    if (current.edge < best.edge) return best;
+    // Tie on edge: pick the bucket closest to the forecast mean.
+    const currentCentre = bucketCentre(current.entryBucketBounds, forecastMean);
+    const bestCentre = bucketCentre(best.entryBucketBounds, forecastMean);
+    const currentDist = Math.abs(forecastMean - currentCentre);
+    const bestDist = Math.abs(forecastMean - bestCentre);
+    return currentDist < bestDist ? current : best;
+  });
+}
+
+export function bucketCentre(
+  bounds: WeatherSignal['entryBucketBounds'],
+  fallback: number,
+): number {
+  if (bounds?.target != null) return bounds.target;
+  if (bounds?.low != null && bounds?.high != null) return (bounds.low + bounds.high) / 2;
+  return fallback;
 }

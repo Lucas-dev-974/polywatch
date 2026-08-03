@@ -22,6 +22,7 @@ import {
   resetWeatherBucketHysteresis,
   type BucketBounds,
 } from '@polywatch/core';
+import { DEFAULT_REENTRY_THROTTLE_MS, CLOSE_QUEUE_DEDUPE_TTL_SECONDS } from '../constants.js';
 
 const log = pino({ name: 'weather-algo:exit-evaluator' });
 
@@ -211,11 +212,11 @@ export class WeatherExitEvaluator {
     await this.params.closeQueue.enqueueUnique(
       signal,
       `weather-close:${pos.id}:${reason}`,
-      120,
+      CLOSE_QUEUE_DEDUPE_TTL_SECONDS,
     );
 
     if (reason === 'WEATHER_BUCKET_EXIT' || reason === 'WEATHER_FORECAST_CHANGE') {
-      const throttleMs = risk.weatherAlgoReentryThrottleMs ?? 1_800_000;
+      const throttleMs = risk.weatherAlgoReentryThrottleMs ?? DEFAULT_REENTRY_THROTTLE_MS;
       await setWeatherReentryThrottle(
         this.params.redisCmd,
         snapshot.city,

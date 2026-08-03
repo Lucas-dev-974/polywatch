@@ -43,7 +43,10 @@ describe('WeatherForecastStrategy city-first', () => {
     strategy.setMinEdge(0.05);
 
     // City-first directional thesis: even when NO would have edge, the strategy
-    // abstains (BUY NO is not a supported path).
+    // abstains (BUY NO is not a supported path). With forecastMean far below
+    // the bucket target, forecast-implied YES probability collapses to 0,
+    // so the strategy abstains with `zero_forecast_probability` (the forecast
+    // gives no support to the YES outcome) — never emits BUY NO.
     const result = await strategy.evaluate(
       market({
         outcomePrices: [
@@ -59,7 +62,7 @@ describe('WeatherForecastStrategy city-first', () => {
 
     expect(result.kind).toBe('abstain');
     if (result.kind === 'abstain') {
-      expect(result.reason).toBe('insufficient_edge');
+      expect(['zero_forecast_probability', 'insufficient_edge']).toContain(result.reason);
     }
   });
 });

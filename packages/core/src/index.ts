@@ -71,6 +71,7 @@ export * from './sizing/enqueue-entry-signal.js';
 export * from './sizing/gate-algo-entry-liquidity.js';
 export * from './sizing/signal-scorer.js';
 export { SignalScore, SignalScoreContext } from './sizing/signal-scorer.js';
+export * from './sizing/real-cash.js';
 export * from './risk/policy.js';
 export * from './risk/exit-decision.js';
 export * from './risk/risk-config-api.js';

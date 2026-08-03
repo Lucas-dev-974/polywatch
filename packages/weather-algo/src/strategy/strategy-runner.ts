@@ -18,12 +18,12 @@ import {
   resolveMarketTargetDateIso,
   type BucketCandidate,
 } from '@polywatch/core';
-import { WeatherForecastStrategy } from './weather-forecast.strategy.js';
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherSignal, WeatherStrategy } from './strategy.js';
 import { WeatherAlgoRuntimeStatusPublisher } from '../runtime-status.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import { WEATHER_FORECAST_CACHE_TTL_MS_DEFAULT } from '../config.js';
+import { DEFAULT_MAX_SIGNALS_PER_EVENT } from '../constants.js';
 
 const log = pino({ name: 'weather-algo:strategy-runner' });
 
@@ -82,10 +82,7 @@ export class WeatherStrategyRunner {
       }
     }
     for (const strategy of this.registry.getAll()) {
-      if (strategy instanceof WeatherForecastStrategy) {
-        strategy.setMinEdge(risk.weatherAlgoMinEdge);
-        strategy.setMaxForecastStd(risk.weatherAlgoMaxForecastStd);
-      }
+      strategy.setRiskConfig?.(risk);
     }
   }
 
@@ -234,9 +231,18 @@ export class WeatherStrategyRunner {
         openCities,
       );
 
-      const selectedSignals = this.applySelectionMode(allSignals);
+      // Deduplicate signals by city before selection: when several rules target
+      // the same city (e.g. highest_temp + lowest_temp), keep only the best-edge
+      // signal per city so applySelectionMode's slice doesn't waste a slot on a
+      // same-city duplicate that seenCities would filter out afterwards.
+      const dedupedSignals = dedupSignalsByCity(allSignals);
 
-      // Enforce one open position per city across the emitted batch
+      const selectedSignals = this.applySelectionMode(dedupedSignals);
+
+      // Safety guard: enforce one open position per city across the emitted
+      // batch. dedupedSignals already carries at most one signal per city, but
+      // seenCities also blocks cities that already have an open/pending position
+      // (defensive against any upstream regression in the open-city filter).
       const seenCities = new Set<string>(openCities);
       for (const signal of selectedSignals) {
         const cityKey = normalizeWeatherCity(signal.city);
@@ -438,7 +444,7 @@ export class WeatherStrategyRunner {
       buckets.push({ conditionId: market.conditionId, market, parsed });
     }
 
-      if (buckets.length === 0) {
+    if (buckets.length === 0) {
       log.debug({ city, dateKey, marketCount: markets.length }, 'city-follow: no active markets');
       return null;
     }
@@ -512,18 +518,12 @@ export class WeatherStrategyRunner {
     }
 
     if (mode === 'multi') {
-      const maxN = this.risk.weatherAlgoMaxSignalsPerEvent ?? 3;
+      // The 1-per-city guarantee is enforced upstream by `dedupSignalsByCity`
+      // (called in runEvaluationCycle before selection) which keeps only the
+      // best-edge signal per city. No city dedup is needed here.
+      const maxN = this.risk.weatherAlgoMaxSignalsPerEvent ?? DEFAULT_MAX_SIGNALS_PER_EVENT;
       const sorted = [...signals].sort((a, b) => b.edge - a.edge);
-      const seen = new Set<string>();
-      const selected: WeatherSignal[] = [];
-      for (const sig of sorted) {
-        const key = normalizeWeatherCity(sig.city);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        selected.push(sig);
-        if (selected.length >= maxN) break;
-      }
-      return selected;
+      return sorted.slice(0, maxN);
     }
 
     return signals;
@@ -545,6 +545,24 @@ function isMarketActiveForWeather(
     if (end - Date.now() < minMs) return false;
   }
   return true;
+}
+
+/**
+ * Deduplicate weather signals by city, keeping only the highest-edge signal per
+ * normalized city. This runs in `runEvaluationCycle` before `applySelectionMode`
+ * so that several rules targeting the same city (e.g. highest_temp + lowest_temp)
+ * cannot consume more than one selection slot.
+ */
+export function dedupSignalsByCity(signals: WeatherSignal[]): WeatherSignal[] {
+  const bestPerCity = new Map<string, WeatherSignal>();
+  for (const signal of signals) {
+    const cityKey = normalizeWeatherCity(signal.city);
+    const prev = bestPerCity.get(cityKey);
+    if (!prev || signal.edge > prev.edge) {
+      bestPerCity.set(cityKey, signal);
+    }
+  }
+  return [...bestPerCity.values()];
 }
 
 /**

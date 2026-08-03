@@ -1,5 +1,5 @@
 import pino from 'pino';
-import type { MarketListItemDto } from '@polywatch/core';
+import type { MarketListItemDto, WeatherConfig } from '@polywatch/core';
 import {
   parseWeatherQuestion,
   calculateEdge,
@@ -12,6 +12,7 @@ import type {
   WeatherEvaluationContext,
   WeatherEvaluationResult,
 } from './strategy.js';
+import { DEFAULT_MIN_EDGE, DEFAULT_HOURS_TO_RESOLUTION_FALLBACK } from '../constants.js';
 
 const log = pino({ name: 'weather-algo:forecast-strategy' });
 
@@ -23,7 +24,7 @@ const log = pino({ name: 'weather-algo:forecast-strategy' });
  */
 export class WeatherForecastStrategy implements WeatherStrategy {
   readonly id = 'weather-forecast';
-  private minEdge: number = 0.10;
+  private minEdge: number = DEFAULT_MIN_EDGE;
   private maxForecastStd: number | null = null;
 
   setMinEdge(edge: number): void {
@@ -32,6 +33,11 @@ export class WeatherForecastStrategy implements WeatherStrategy {
 
   setMaxForecastStd(maxStd: number | null): void {
     this.maxForecastStd = maxStd;
+  }
+
+  setRiskConfig(risk: WeatherConfig): void {
+    this.setMinEdge(risk.weatherAlgoMinEdge);
+    this.setMaxForecastStd(risk.weatherAlgoMaxForecastStd);
   }
 
   async evaluate(
@@ -47,7 +53,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       return { kind: 'abstain', reason: 'unrecognized_question' };
     }
 
-    const { yesProb: forecastYesProb, noProb: forecastNoProb } =
+    const { yesProb: forecastYesProb } =
       computeMarketImpliedProbabilities(
         parsed.targetValue,
         parsed.comparison,
@@ -57,7 +63,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
         parsed.targetValueHigh,
       );
 
-    if (forecastYesProb <= 0 && forecastNoProb <= 0) {
+    if (forecastYesProb <= 0) {
       return {
         kind: 'abstain',
         reason: 'zero_forecast_probability',
@@ -78,9 +84,8 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     }
 
     const yesPrice = market.outcomePrices[0]?.price ?? 0;
-    const noPrice = market.outcomePrices[1]?.price ?? 0;
 
-    if (yesPrice <= 0 && noPrice <= 0) {
+    if (yesPrice <= 0) {
       return { kind: 'abstain', reason: 'zero_prices' };
     }
 
@@ -88,20 +93,14 @@ export class WeatherForecastStrategy implements WeatherStrategy {
 
     const hoursToResolution = market.endDate
       ? Math.max(0, (new Date(market.endDate).getTime() - Date.now()) / 3_600_000)
-      : 24;
+      : DEFAULT_HOURS_TO_RESOLUTION_FALLBACK;
     const dynamicThreshold = resolveDynamicMinEdge(
       ctx.forecastStdDev,
       hoursToResolution,
       this.minEdge,
     );
 
-    let candidate: { outcome: 'YES' | 'NO'; edge: number; marketPrice: number; forecastProb: number } | null = null;
-
-    if (yesEdge > dynamicThreshold) {
-      candidate = { outcome: 'YES', edge: yesEdge, marketPrice: yesPrice, forecastProb: forecastYesProb };
-    }
-
-    if (!candidate) {
+    if (yesEdge <= dynamicThreshold) {
       return {
         kind: 'abstain',
         reason: 'insufficient_edge',
@@ -109,8 +108,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       };
     }
 
-    const assetId =
-      candidate.outcome === 'YES' ? market.tokenIdYes : market.tokenIdNo;
+    const assetId = market.tokenIdYes;
     if (!assetId) {
       return { kind: 'abstain', reason: 'missing_token' };
     }
@@ -120,15 +118,15 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     const signal: WeatherSignal = {
       conditionId: market.conditionId,
       assetId,
-      outcome: candidate.outcome,
+      outcome: 'YES',
       side: 'BUY',
-      confidence: Math.min(1, Math.abs(candidate.edge) * 2),
+      confidence: Math.min(1, Math.abs(yesEdge) * 2),
       reasons: [
         `forecast=${parsed.metric}:${parsed.targetValue ?? `${parsed.targetValueLow}-${parsed.targetValueHigh}`}°C`,
         `comparison=${parsed.comparison}`,
-        `forecastProb=${candidate.forecastProb.toFixed(4)}`,
-        `marketPrice=${candidate.marketPrice.toFixed(4)}`,
-        `edge=${candidate.edge.toFixed(4)}`,
+        `forecastProb=${forecastYesProb.toFixed(4)}`,
+        `marketPrice=${yesPrice.toFixed(4)}`,
+        `edge=${yesEdge.toFixed(4)}`,
         `threshold=${dynamicThreshold.toFixed(4)}`,
         `stdDev=${ctx.forecastStdDev.toFixed(2)}`,
         `hoursToResolution=${hoursToResolution.toFixed(1)}`,
@@ -140,9 +138,9 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       targetDate,
       forecastMean: ctx.forecastMean,
       forecastStdDev: ctx.forecastStdDev,
-      forecastProbability: candidate.forecastProb,
-      marketPrice: candidate.marketPrice,
-      edge: candidate.edge,
+      forecastProbability: forecastYesProb,
+      marketPrice: yesPrice,
+      edge: yesEdge,
       entryBucketComparison: parsed.comparison,
       entryBucketBounds: {
         low: parsed.targetValueLow,
@@ -154,8 +152,8 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     log.debug(
       {
         conditionId: market.conditionId,
-        outcome: candidate.outcome,
-        edge: candidate.edge,
+        outcome: 'YES',
+        edge: yesEdge,
         threshold: dynamicThreshold,
       },
       'weather forecast strategy emitted signal',

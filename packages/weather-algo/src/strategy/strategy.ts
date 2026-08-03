@@ -1,4 +1,5 @@
 import type { MarketListItemDto } from '@polywatch/core';
+import type { WeatherConfig } from '@polywatch/core';
 
 export interface WeatherSignal {
   conditionId: string;
@@ -38,4 +39,6 @@ export interface WeatherStrategy {
     market: MarketListItemDto,
     ctx: WeatherEvaluationContext,
   ): Promise<WeatherEvaluationResult>;
+  /** Push runtime risk tunables into the strategy. Optional; default no-op. */
+  setRiskConfig?(risk: WeatherConfig): void;
 }

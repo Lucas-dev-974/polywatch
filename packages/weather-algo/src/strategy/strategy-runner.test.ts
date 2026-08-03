@@ -4,7 +4,7 @@ import { WeatherStrategyRunner } from './strategy-runner.js';
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import type { WeatherSignal, WeatherStrategy } from './strategy.js';
-import { pickBestEdgeBucket, bucketCentre } from './strategy-runner.js';
+import { pickBestEdgeBucket, bucketCentre, dedupSignalsByCity } from './strategy-runner.js';
 
 function minimalRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
   return {
@@ -38,6 +38,58 @@ function buildRunner(exitEvaluator: WeatherExitEvaluator) {
     exitEvaluator,
   });
 }
+
+describe('WeatherStrategyRunner setRiskConfig propagation', () => {
+  it('calls setRiskConfig on each registered strategy that implements it', () => {
+    const setRiskConfig = vi.fn();
+    const strategy = {
+      id: 'mock-strategy',
+      evaluate: vi.fn(),
+      setRiskConfig,
+    } as unknown as WeatherStrategy;
+    const registry = {
+      getAll: () => [strategy],
+    } as unknown as WeatherStrategyRegistry;
+
+    const runner = new WeatherStrategyRunner({
+      ds: { getRepository: () => ({ find: async () => [] }) } as never,
+      autoTrackService: { listEnabled: async () => [] } as never,
+      forecastService: {} as never,
+      registry,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+    });
+
+    const risk = minimalRisk({ weatherAlgoMinEdge: 0.25, weatherAlgoMaxForecastStd: 1.2 });
+    runner.setRiskConfig(risk);
+
+    expect(setRiskConfig).toHaveBeenCalledTimes(1);
+    expect(setRiskConfig).toHaveBeenCalledWith(risk);
+  });
+
+  it('does not throw when a strategy does not implement setRiskConfig', () => {
+    const strategy = {
+      id: 'no-setconfig-strategy',
+      evaluate: vi.fn(),
+    } as unknown as WeatherStrategy;
+    const registry = {
+      getAll: () => [strategy],
+    } as unknown as WeatherStrategyRegistry;
+
+    const runner = new WeatherStrategyRunner({
+      ds: { getRepository: () => ({ find: async () => [] }) } as never,
+      autoTrackService: { listEnabled: async () => [] } as never,
+      forecastService: {} as never,
+      registry,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+    });
+
+    expect(() => runner.setRiskConfig(minimalRisk())).not.toThrow();
+  });
+});
 
 describe('WeatherStrategyRunner requestEvaluationCycle', () => {
   it('drains a single pendingRerun after an overlapping request', async () => {
@@ -294,5 +346,179 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe('applySelectionMode', () => {
+  function signal(overrides: Partial<WeatherSignal> = {}): WeatherSignal {
+    return {
+      conditionId: 'c1',
+      assetId: 'a1',
+      outcome: 'YES',
+      side: 'BUY',
+      confidence: 0.2,
+      reasons: [],
+      strategyId: 'weather-forecast',
+      eventSlug: 'slug',
+      city: 'Paris',
+      metric: 'highest_temp',
+      targetDate: new Date('2026-08-02T12:00:00Z'),
+      forecastMean: 32,
+      forecastStdDev: 1.5,
+      forecastProbability: 0.2,
+      marketPrice: 0.05,
+      edge: 0.15,
+      entryBucketComparison: 'exact',
+      entryBucketBounds: { target: 33 },
+      ...overrides,
+    };
+  }
+
+  function buildRunnerForSelection(risk: WeatherConfig) {
+    const registry = { getAll: () => [] } as unknown as WeatherStrategyRegistry;
+    const runner = new WeatherStrategyRunner({
+      ds: { getRepository: () => ({ find: async () => [] }) } as never,
+      autoTrackService: { listEnabled: async () => [] } as never,
+      forecastService: {} as never,
+      registry,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+    });
+    runner.setRiskConfig(risk);
+    return runner;
+  }
+
+  it('single mode returns the highest-edge signal only', () => {
+    const runner = buildRunnerForSelection(
+      minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'single' }),
+    );
+    const apply = runner as unknown as {
+      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
+    };
+    const result = apply.applySelectionMode([
+      signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
+      signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
+      signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].conditionId).toBe('high');
+  });
+
+  it('multi mode returns top N by edge across distinct cities', () => {
+    const runner = buildRunnerForSelection(
+      minimalRisk({
+        weatherAlgoEnabled: true,
+        weatherAlgoSelectionMode: 'multi',
+        weatherAlgoMaxSignalsPerEvent: 2,
+      }),
+    );
+    const apply = runner as unknown as {
+      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
+    };
+    const result = apply.applySelectionMode([
+      signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
+      signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
+      signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
+    ]);
+    expect(result).toHaveLength(2);
+    expect(result.map((s) => s.conditionId)).toEqual(['high', 'mid']);
+  });
+
+  it('multi mode keeps only top N even if same city appears multiple times (defensive guard)', () => {
+    // Today evaluateCityFollowRules guarantees 1 signal per city, so this case
+    // cannot happen in production. The test locks the behavior against a future
+    // upstream regression: multi mode must still cap at maxN.
+    const runner = buildRunnerForSelection(
+      minimalRisk({
+        weatherAlgoEnabled: true,
+        weatherAlgoSelectionMode: 'multi',
+        weatherAlgoMaxSignalsPerEvent: 2,
+      }),
+    );
+    const apply = runner as unknown as {
+      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
+    };
+    const result = apply.applySelectionMode([
+      signal({ edge: 0.30, conditionId: 'a', city: 'Paris' }),
+      signal({ edge: 0.20, conditionId: 'b', city: 'Paris' }),
+      signal({ edge: 0.10, conditionId: 'c', city: 'Paris' }),
+    ]);
+    expect(result).toHaveLength(2);
+    expect(result.map((s) => s.conditionId)).toEqual(['a', 'b']);
+  });
+
+  it('returns empty array for empty input regardless of mode', () => {
+    const runner = buildRunnerForSelection(
+      minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'multi' }),
+    );
+    const apply = runner as unknown as {
+      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
+    };
+    expect(apply.applySelectionMode([])).toEqual([]);
+  });
+});
+
+describe('dedupSignalsByCity', () => {
+  function sig(edge: number, conditionId: string, city: string): WeatherSignal {
+    return {
+      conditionId,
+      assetId: 'a1',
+      outcome: 'YES',
+      side: 'BUY',
+      confidence: 0.2,
+      reasons: [],
+      strategyId: 'weather-forecast',
+      eventSlug: 'slug',
+      city,
+      metric: 'highest_temp',
+      targetDate: new Date('2026-08-02T12:00:00Z'),
+      forecastMean: 32,
+      forecastStdDev: 1.5,
+      forecastProbability: 0.2,
+      marketPrice: 0.05,
+      edge,
+      entryBucketComparison: 'exact',
+      entryBucketBounds: { target: 33 },
+    };
+  }
+
+  it('keeps only the highest-edge signal per city', () => {
+    const result = dedupSignalsByCity([
+      sig(0.30, 'paris-hi', 'Paris'),
+      sig(0.25, 'paris-lo', 'paris'), // same normalized city, lower edge → dropped
+      sig(0.28, 'lyon', 'Lyon'),
+    ]);
+    expect(result).toHaveLength(2);
+    const byCity = new Map(result.map((s) => [s.city, s.conditionId]));
+    expect(byCity.get('Paris')).toBe('paris-hi');
+    expect(byCity.get('Lyon')).toBe('lyon');
+  });
+
+  it('preserves all signals when cities are distinct', () => {
+    const result = dedupSignalsByCity([
+      sig(0.10, 'a', 'Paris'),
+      sig(0.20, 'b', 'Lyon'),
+      sig(0.30, 'c', 'Marseille'),
+    ]);
+    expect(result).toHaveLength(3);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(dedupSignalsByCity([])).toEqual([]);
+  });
+
+  it('regression C1: two rules same city do not starve a third city slot', () => {
+    // Reproduces the bug fixed by deduping before applySelectionMode:
+    // Paris(0.30), Paris(0.29), Lyon(0.28) with maxN=2 must yield Paris + Lyon,
+    // not Paris only.
+    const deduped = dedupSignalsByCity([
+      sig(0.30, 'paris-1', 'Paris'),
+      sig(0.29, 'paris-2', 'Paris'),
+      sig(0.28, 'lyon-1', 'Lyon'),
+    ]);
+    expect(deduped).toHaveLength(2);
+    // After dedup, a multi-mode selection with maxN=2 keeps both distinct cities.
+    expect(deduped.map((s) => s.city).sort()).toEqual(['Lyon', 'Paris']);
   });
 });

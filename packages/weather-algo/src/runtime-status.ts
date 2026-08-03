@@ -1,4 +1,5 @@
 import type { Redis } from 'ioredis';
+import { RUNTIME_STATUS_TTL_SECONDS } from './constants.js';
 
 const RUNTIME_STATUS_KEY = 'weather-algo:runtime-status';
 
@@ -21,7 +22,7 @@ export class WeatherAlgoRuntimeStatusPublisher {
       RUNTIME_STATUS_KEY,
       JSON.stringify(status),
       'EX',
-      300,
+      RUNTIME_STATUS_TTL_SECONDS,
     );
   }
 }

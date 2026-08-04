@@ -26,6 +26,7 @@ export interface AppMetrics {
   snapshotPurgeTotal: Counter<string>;
   apiRouteDuration: Histogram<string>;
   workerMetricsLastPushTimestamp: Gauge<string>;
+  weatherQuestionParseTotal: Counter<string>;
 }
 
 export function createAppMetrics(registry: Registry): AppMetrics {
@@ -173,6 +174,12 @@ export function createAppMetrics(registry: Registry): AppMetrics {
       help: 'Unix timestamp of the last metrics push from the worker',
       registers: [registry],
     }),
+    weatherQuestionParseTotal: new Counter({
+      name: `${prefix}weather_question_parse_total`,
+      help: 'Total number of weather question parse results',
+      labelNames: ['result'],
+      registers: [registry],
+    }),
   };
 }
 
@@ -297,4 +304,8 @@ export function recordSnapshotCount(
 
 export function recordApiRouteDuration(route: string, durationMs: number): void {
   metricsHolder?.apiRouteDuration?.labels(route).observe(durationMs);
+}
+
+export function recordWeatherQuestionParse(parsed: boolean): void {
+  metricsHolder?.weatherQuestionParseTotal?.labels(parsed ? 'parsed' : 'unparsed').inc();
 }

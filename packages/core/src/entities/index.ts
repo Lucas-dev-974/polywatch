@@ -62,7 +62,6 @@ export { RealStateSnapshot } from './RealStateSnapshot.js';
 export { RealArchivePosition } from './RealArchivePosition.js';
 export { RealArchiveExecution } from './RealArchiveExecution.js';
 export { RealArchiveExitAttempt } from './RealArchiveExitAttempt.js';
-export { WeatherMarketSelection } from './WeatherMarketSelection.js';
 export { WeatherAutoTrackRule } from './WeatherAutoTrackRule.js';
 export { WeatherForecastCache } from './WeatherForecastCache.js';
 export { WeatherPositionForecast } from './WeatherPositionForecast.js';

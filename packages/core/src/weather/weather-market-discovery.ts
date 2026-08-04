@@ -27,6 +27,7 @@ export async function discoverWeatherMarkets(
     offset?: number;
     targetDate?: Date;
     targetDates?: Date[];
+    onParseResult?: (parsed: boolean) => void;
   },
 ): Promise<WeatherMarketDiscoveryResult> {
   const limit = Math.min(100, Math.max(1, options?.limit ?? 100));
@@ -47,10 +48,12 @@ export async function discoverWeatherMarkets(
       d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
     ),
   );
+  const onParseResult = options?.onParseResult;
 
   function matchesTargetDate(m: MarketListItemDto): boolean {
     if (m.question) {
       const parsed = parseWeatherQuestion(m.question);
+      onParseResult?.(parsed != null);
       if (parsed && targetMonthDays.has(parsed.dateString)) return true;
     }
     if (m.endDate) {

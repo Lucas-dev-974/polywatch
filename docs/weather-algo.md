@@ -37,7 +37,7 @@ d'entrée dans `WeatherPositionForecast`.
 |-----------|---------|------|
 | `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min) | Sorties puis entrées city-follow |
 | `WeatherExitEvaluator` | début de chaque cycle | Drift + bucket-exit (hysteresis) + pre-close |
-| `WeatherAutoTrackJanitor` | `pollMs` | Cleanup legacy `WeatherMarketSelection` (plus de matérialisation expand) |
+| `WeatherAutoTrackJanitor` | `pollMs` | Cleanup legacy (no-op après suppression de `WeatherMarketSelection`) |
 | `runWeatherEntryPipeline` | sur signal | Gate throttle re-entry + enqueue `WEATHER_OPEN` |
 | Heartbeat / runtime-status | 30 s | Redis `weather-algo:heartbeat`, `weather-algo:runtime-status` |
 

@@ -734,7 +734,7 @@ export class RiskConfig {
   @Column({ type: 'real', name: 'weather_algo_entry_usdc', default: 10 })
   weatherAlgoEntryUsdc!: number;
 
-  /** Selection mode: 'single' | 'multi' | 'spread'. */
+  /** Selection mode: 'single' | 'multi'. Unknown values fall back to 'single'. */
   @Column({ type: 'text', name: 'weather_algo_selection_mode', default: 'single' })
   weatherAlgoSelectionMode!: string;
 

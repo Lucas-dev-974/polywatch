@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   recordExitEvent,
   recordStrategyCycle,
+  recordWeatherQuestionParse,
   getRegistry,
   type StrategyCycleSnapshot,
 } from '../../metrics.js';
@@ -34,6 +35,15 @@ export function createInternalMetricsRouter(): Router {
       illiquidPositions: body.illiquidPositions ?? 0,
       spreadMean: body.spreadMean ?? 0,
     });
+    res.json({ ok: true });
+  });
+
+  router.post('/weather-question-parse', (req, res) => {
+    const { parsed, unparsed } = req.body as { parsed?: number; unparsed?: number };
+    const p = typeof parsed === 'number' && parsed > 0 ? parsed : 0;
+    const u = typeof unparsed === 'number' && unparsed > 0 ? unparsed : 0;
+    for (let i = 0; i < p; i++) recordWeatherQuestionParse(true);
+    for (let i = 0; i < u; i++) recordWeatherQuestionParse(false);
     res.json({ ok: true });
   });
 

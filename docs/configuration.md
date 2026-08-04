@@ -138,7 +138,7 @@ Parametres du trading algorithmique meteo, stockes dans `weather_config` et modi
 | `weatherAlgoMaxForecastStd` | `null` | Std dev max des modeles pour autoriser l'entree (°C, null = illimite) |
 | `weatherAlgoSizingMode` | `fixed_usdc` | Mode de sizing (actuellement `fixed_usdc` uniquement) |
 | `weatherAlgoEntryUsdc` | `10` | Montant fixe d'entree en USDC par position weather-algo |
-| `weatherAlgoSelectionMode` | `single` | Mode de selection entre **villes** : `single` (meilleure ville), `multi` (top N villes). `spread` n'est plus supporté. |
+| `weatherAlgoSelectionMode` | `single` | Mode de selection entre **villes** : `single` (meilleure ville), `multi` (top N villes). Toute valeur non reconnue retombe sur `single`. |
 | `weatherAlgoMaxSignalsPerEvent` | `3` | Max villes en mode `multi` |
 | `weatherAlgoForecastChangeThreshold` | `2` | Drift du forecast mean (°C) → close `WEATHER_FORECAST_CHANGE` |
 | `weatherAlgoCloseBeforeResolutionHours` | `1` | Gate d'entrée + auto-close `WEATHER_PRE_CLOSE` dans cette fenêtre |

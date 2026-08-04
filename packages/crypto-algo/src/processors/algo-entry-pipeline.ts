@@ -621,7 +621,7 @@ async function runMode(args: {
   } catch (err) {
     if (reserved) {
       const releaseId = releaseSignalId ?? logicalKey;
-      await reservationService.release(releaseId).catch((releaseErr) =>
+      await reservationService.release(releaseId, 'pipeline_error').catch((releaseErr) =>
         log.warn(
           { err: releaseErr, conditionId: signal.conditionId, signalId: releaseId },
           'failed to release reservation after pipeline error',

@@ -5,7 +5,6 @@ import {
   initializeDataSource,
   WeatherConfigService,
   GlobalConfigService,
-  createWeatherSelectionServices,
   WeatherAutoTrackService,
   WeatherForecastService,
   WeatherPositionForecastService,
@@ -19,6 +18,7 @@ import {
   SimulationService,
   MarketService,
   PolymarketConnectionManager,
+  createBackendClient,
 } from '@polywatch/core';
 import { config } from './config.js';
 import { seedWeatherAlgoWatchlistEntry } from './watchlist-seed.js';
@@ -32,6 +32,7 @@ import { WeatherAlgoRuntimeStatusPublisher } from './runtime-status.js';
 import { runWeatherEntryPipeline } from './processors/weather-entry-pipeline.js';
 import { WeatherExitEvaluator } from './processors/weather-exit-evaluator.js';
 import { runWeatherAutoTrackJanitorCycle } from './auto-track-janitor.js';
+import { WeatherAlgoMetricsPublisher } from './metrics-publisher.js';
 
 const log = pino({ name: 'weather-algo' });
 
@@ -48,7 +49,6 @@ async function main() {
 
   const weatherConfigService = new WeatherConfigService(ds);
   const globalConfigService = new GlobalConfigService(ds);
-  const { selectionService } = createWeatherSelectionServices(ds);
   const forecastService = new WeatherForecastService(ds);
   const positionForecastService = new WeatherPositionForecastService(ds);
   const autoTrackService = new WeatherAutoTrackService(ds);
@@ -141,6 +141,11 @@ async function main() {
   };
 
   const runtimeStatus = new WeatherAlgoRuntimeStatusPublisher(redisCmd);
+  const backendClient = createBackendClient({
+    backendUrl: config.backendUrl,
+    serviceToken: config.serviceToken,
+  });
+  const metricsPublisher = new WeatherAlgoMetricsPublisher(backendClient);
   const strategyRunner = new WeatherStrategyRunner({
     ds,
     autoTrackService,
@@ -152,13 +157,13 @@ async function main() {
     forecastCacheTtlMs: config.forecastCacheTtlMs,
     runtimeStatus,
     exitEvaluator,
+    onParseResult: (parsed) => metricsPublisher.recordParse(parsed),
   });
   strategyRunner.setRiskConfig(weatherConfig);
   const runAutoTrackTick = async (): Promise<void> => {
     try {
       const { added } = await runWeatherAutoTrackJanitorCycle(
         autoTrackService,
-        selectionService,
       );
       if (added > 0) {
         await redisPub.publish(
@@ -172,6 +177,7 @@ async function main() {
   };
 
   strategyRunner.start();
+  metricsPublisher.start();
 
   const autoTrackTimer = safeInterval(
     () => runAutoTrackTick(),
@@ -242,6 +248,7 @@ async function main() {
   const shutdown = async () => {
     log.info('shutting down...');
     strategyRunner.stop();
+    metricsPublisher.stop();
     clearInterval(heartbeatTimer);
     clearInterval(autoTrackTimer);
     try {

@@ -56,7 +56,7 @@ core/src/
 | `Market` | `markets` | tokenIdYes/No, endDate, negRisk, `feeRate`/`feeExponent` (frais CLOB dynamiques), lifecycle (active/resolved/closed/acceptingOrders/winningTokenId), `category`, `tagSlugs` (cache filtre copie), `marketType` |
 | `AlgoAutoTrackRule` | `algo_auto_track_rules` | Règle auto-track `(cryptoSymbol, interval)` unique, flag `enabled` |
 | `AlgoMarketSelection` | `algo_market_selections` | Marché sélectionné pour crypto-algo (`conditionId`, `cryptoSymbol`, `interval`, `slug`, `enabled`) |
-| `WeatherMarketSelection` | `weather_market_selections` | **Legacy** — anciennes sélections par `conditionId` (désactivées en city-first) |
+| `WeatherMarketSelection` | `weather_market_selections` | **Supprimé** — remplacé par `WeatherAutoTrackRule` (city-first) |
 | `WeatherAutoTrackRule` | `weather_auto_track_rules` | **Sélection active** : ville (`city`, `highest_temp`, `lookAheadDays`, `mode=city_follow`) |
 | `WeatherConfig` | `weather_config` | Config weather-algo (edge, switch mode, hysteresis, throttle…) |
 | `WeatherForecastCache` | `weather_forecast_cache` | Cache prévisions Open-Meteo (city, date, metric, mean, stdDev) |
@@ -212,7 +212,7 @@ alors que « marché » reste proche de 0 %. Le filtre `*MinBidToAskRatio` dans
 | `SystemConfigService` | CRUD configuration système (clés/valeurs, catégories) |
 | `ExitAttemptEventService` | `listByPosition` — journal des tentatives de sortie |
 | `CryptoAlgoRuntimeStatusService` | Publication/lecture du statut runtime crypto-algo via Redis |
-| `WeatherMarketSelectionService` / `WeatherAutoTrackService` / `WeatherForecastService` / `WeatherPositionForecastService` | Sélections, auto-track, cache Open-Meteo, snapshot forecast d'entrée (voir [`../weather-algo.md`](../weather-algo.md)) |
+| `WeatherAutoTrackService` / `WeatherForecastService` / `WeatherPositionForecastService` | Auto-track, cache Open-Meteo, snapshot forecast d'entrée (voir [`../weather-algo.md`](../weather-algo.md)) |
 | `MarketResolutionService` | Détection des marchés réglés → positions `pending_resolution` |
 | `AlgoSurveillanceService` | `findLiveMarkets`, gestion snapshots de surveillance OHLC |
 | `AlgoSelectionBookAssets` | Résolution des assets de book pour les sélections algo |

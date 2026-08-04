@@ -115,6 +115,17 @@ export class WeatherConfig {
   @Column({ type: 'real', name: 'weather_algo_max_forecast_std', nullable: true })
   weatherAlgoMaxForecastStd!: number | null;
 
+  /**
+   * Minimum forecast-implied YES probability required to emit a signal.
+   * Filters out long-shot buckets where forecastProb is low (e.g. 0.15) but
+   * the probability edge passes `weatherAlgoMinEdge`. Such buckets have a
+   * structurally low win rate even when the edge is positive. Null disables
+   * the filter (legacy behavior). Default 0.30 keeps buckets with a real
+   * directional thesis (≈ "likely YES").
+   */
+  @Column({ type: 'real', name: 'weather_algo_min_forecast_probability', nullable: true })
+  weatherAlgoMinForecastProbability!: number | null;
+
   // ── Sizing ────────────────────────────────────────────────────────
 
   @Column({ type: 'text', name: 'weather_algo_sizing_mode', default: 'fixed_usdc' })

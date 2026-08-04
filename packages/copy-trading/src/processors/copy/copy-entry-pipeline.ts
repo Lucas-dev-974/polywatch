@@ -424,7 +424,7 @@ export async function runCopyEntryPipeline(params: {
     }
   } catch (err) {
     if (reserved) {
-      await reservationService.release(signalId).catch((releaseErr) =>
+      await reservationService.release(signalId, 'pipeline_error').catch((releaseErr) =>
         log.warn({ err: releaseErr, moveId: move.id, signalId }, 'failed to release reservation after pipeline error'),
       );
     }

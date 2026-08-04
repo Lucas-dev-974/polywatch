@@ -29,7 +29,7 @@ export async function resolveEntryEnqueueBlocked(
 
   if (params.hasBuyExecution && (await params.hasBuyExecution())) {
     await params.reservationService
-      .release(params.orderSignalId)
+      .release(params.orderSignalId, `enqueue_blocked:${params.blockedReason}`)
       .catch(() => undefined);
     return params.blockedReason;
   }
@@ -39,7 +39,7 @@ export async function resolveEntryEnqueueBlocked(
   }
 
   await params.reservationService
-    .release(params.orderSignalId)
+    .release(params.orderSignalId, `enqueue_blocked:${params.blockedReason}`)
     .catch(() => undefined);
   return params.blockedReason;
 }

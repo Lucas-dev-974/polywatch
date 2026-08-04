@@ -5430,6 +5430,14 @@ body.is-resizing-columns .position-market-split-handle::after {
   border-top: 1px solid var(--border-subtle);
 }
 
+.algo-capital-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  margin-top: 0.375rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .algo-capital-detail {
   display: flex;
   align-items: baseline;
@@ -5461,6 +5469,95 @@ body.is-resizing-columns .position-market-split-handle::after {
   text-align: center;
   padding: 1rem;
   color: var(--text-muted);
+}
+
+.algo-capital-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Weather Algo Reset Dialog */
+.weather-algo-reset-dialog {
+  width: 480px;
+}
+
+.weather-algo-reset-body {
+  padding: 1.25rem;
+}
+
+.weather-algo-reset-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.weather-algo-reset-summary p {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.weather-algo-reset-impacts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.weather-algo-reset-impacts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.weather-algo-reset-impacts .impact-marker {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 0.3em;
+}
+
+.weather-algo-reset-impacts .impact-marker.archive {
+  background: var(--info);
+}
+
+.weather-algo-reset-impacts .impact-marker.purge {
+  background: var(--warning);
+}
+
+.weather-algo-reset-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.weather-algo-reset-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.weather-algo-reset-options .checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.weather-algo-reset-actions {
+  margin-top: 0.5rem;
 }
 
 /* Two-column layout */

@@ -146,11 +146,6 @@ export {
 } from './sim-execution-stats.service.js';
 export { AnalysisReportService } from './analysis-report.service.js';
 export { RiskConfigRevisionService } from './risk-config-revision.service.js';
-export {
-  WeatherMarketSelectionService,
-  type WeatherSelectionMeta,
-} from './weather-market-selection.service.js';
-export { createWeatherSelectionServices } from './weather-services.js';
 export { WeatherAutoTrackService } from './weather-auto-track.service.js';
 export {
   WeatherPositionForecastService,

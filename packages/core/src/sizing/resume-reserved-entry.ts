@@ -71,7 +71,9 @@ export async function resumeEntryFromReservation(
     if (hasInFlightBuy && (await hasInFlightBuy())) {
       return deferToWorker();
     }
-    await reservationService.release(signalId).catch(() => undefined);
+    await reservationService
+      .release(signalId, `resume_abandoned:${skipReason}`)
+      .catch(() => undefined);
     return skipReason;
   };
 

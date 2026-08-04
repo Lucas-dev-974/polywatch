@@ -8,6 +8,7 @@ export interface WeatherAlgoCapitalHeroProps {
   weatherAlgoSimEnabled: boolean;
   weatherAlgoRealEnabled: boolean;
   onToggleRealTrading: () => void;
+  onResetSim?: () => void;
 }
 
 export function WeatherAlgoCapitalHero(props: WeatherAlgoCapitalHeroProps) {
@@ -61,6 +62,15 @@ export function WeatherAlgoCapitalHero(props: WeatherAlgoCapitalHeroProps) {
                       {props.weatherAlgoSimEnabled ? 'Actif' : 'Inactif'}
                     </span>
                   </div>
+                </div>
+                <div class="algo-capital-actions">
+                  <button
+                    type="button"
+                    class="btn btn-danger btn-sm"
+                    onClick={() => props.onResetSim?.()}
+                  >
+                    Réinitialiser la simulation
+                  </button>
                 </div>
               </Show>
             </div>

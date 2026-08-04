@@ -26,6 +26,7 @@
     "test:e2e:crypto:hardening": "vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo/crypto-algo.execution-hardening.e2e.test.ts",
     "test:e2e:crypto:sim-reset": "vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo/sim-reset-redis-hygiene.e2e.test.ts",
     "test:e2e:crypto:real": "cross-env RUN_REAL_SIM_E2E=1 vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo/crypto-algo.real-sim.e2e.test.ts",
+    "test:e2e:weather": "vitest run -c e2e/weather-algo/vitest.config.ts e2e/weather-algo",
     "validate:redemption": "node scripts/validate-redemption-onchain.mjs",
     "audit:stale-entries": "tsx tools/detect-stale-entry-timestamps.ts"
   },

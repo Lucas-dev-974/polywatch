@@ -65,4 +65,56 @@ describe('WeatherForecastStrategy city-first', () => {
       expect(['zero_forecast_probability', 'insufficient_edge']).toContain(result.reason);
     }
   });
+
+  it('abstains when forecast YES probability is below minForecastProbability (long-shot filter)', async () => {
+    const strategy = new WeatherForecastStrategy();
+    strategy.setMinEdge(0.05);
+    strategy.setMinForecastProbability(0.30);
+
+    // forecastMean = 22, target = 24, std = 0.5 → P(YES) ≈ 0 (well below 0.30).
+    // Even if the market price were near 0 (large edge), the long-shot filter
+    // must reject the signal.
+    const result = await strategy.evaluate(market(), {
+      forecastMean: 22,
+      forecastStdDev: 0.5,
+    });
+
+    expect(result.kind).toBe('abstain');
+    if (result.kind === 'abstain') {
+      expect(result.reason).toBe('forecast_probability_below_min');
+    }
+  });
+
+  it('emits a signal when forecast YES probability clears minForecastProbability', async () => {
+    const strategy = new WeatherForecastStrategy();
+    strategy.setMinEdge(0.05);
+    strategy.setMinForecastProbability(0.30);
+
+    // forecastMean = 24, target = 24, std = 0.5 → P(YES) ≈ 0.76 (above 0.30).
+    const result = await strategy.evaluate(market(), {
+      forecastMean: 24,
+      forecastStdDev: 0.5,
+    });
+
+    expect(result.kind).toBe('signal');
+  });
+
+  it('does not apply the long-shot filter when minForecastProbability is null', async () => {
+    const strategy = new WeatherForecastStrategy();
+    strategy.setMinEdge(0.05);
+    strategy.setMinForecastProbability(null);
+
+    // Low forecastProb but edge passes → signal emitted (legacy behavior).
+    // forecastMean = 25.2, target = 24, std = 0.5 → P(YES) very small but > 0.
+    const result = await strategy.evaluate(market(), {
+      forecastMean: 25.2,
+      forecastStdDev: 0.5,
+    });
+
+    // Either a signal (if edge passes) or abstain for a non-probability reason;
+    // must NOT be 'forecast_probability_below_min'.
+    if (result.kind === 'abstain') {
+      expect(result.reason).not.toBe('forecast_probability_below_min');
+    }
+  });
 });

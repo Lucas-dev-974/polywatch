@@ -457,6 +457,22 @@ describe('applySelectionMode', () => {
     };
     expect(apply.applySelectionMode([])).toEqual([]);
   });
+
+  it('falls back to single for unknown selection mode (spread)', () => {
+    const runner = buildRunnerForSelection(
+      minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'spread' }),
+    );
+    const apply = runner as unknown as {
+      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
+    };
+    const result = apply.applySelectionMode([
+      signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
+      signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
+      signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].conditionId).toBe('high');
+  });
 });
 
 describe('dedupSignalsByCity', () => {

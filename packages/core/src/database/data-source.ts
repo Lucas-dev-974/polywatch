@@ -43,7 +43,6 @@ import {
   RealArchivePosition,
   RealArchiveExecution,
   RealArchiveExitAttempt,
-  WeatherMarketSelection,
   WeatherAutoTrackRule,
   WeatherForecastCache,
   WeatherPositionForecast,
@@ -128,6 +127,7 @@ import { SplitRiskConfigPerAlgoKind1700000000087 } from '../migrations/SplitRisk
 import { DropLegacyRiskConfig1700000000088 } from '../migrations/DropLegacyRiskConfig1700000000088.js';
 import { WeatherCityFirstSelection1700000000089 } from '../migrations/WeatherCityFirstSelection1700000000089.js';
 import { EnsureRiskConfigFingerprintNullable1700000000090 } from '../migrations/EnsureRiskConfigFingerprintNullable1700000000090.js';
+import { AddWeatherAlgoMinForecastProbability1700000000092 } from '../migrations/AddWeatherAlgoMinForecastProbability1700000000092.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -208,6 +208,7 @@ export const migrations = [
   DropLegacyRiskConfig1700000000088,
   WeatherCityFirstSelection1700000000089,
   EnsureRiskConfigFingerprintNullable1700000000090,
+  AddWeatherAlgoMinForecastProbability1700000000092,
 ];
 
 export const entities = [
@@ -254,7 +255,6 @@ export const entities = [
   RealArchivePosition,
   RealArchiveExecution,
   RealArchiveExitAttempt,
-  WeatherMarketSelection,
   WeatherAutoTrackRule,
   WeatherForecastCache,
   WeatherPositionForecast,

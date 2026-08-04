@@ -145,6 +145,12 @@ Légende **Statut** :
 |-----|------|---------------|--------|-----------------|
 | `polywatch_api_route_duration_ms` | Histogram | `route` | **Partiel** | `positions.ts`, `simulation.ts` seulement (pas de middleware global) |
 
+### Weather question parse
+
+| Nom | Type | Labels (code) | Statut | Instrumentation |
+|-----|------|---------------|--------|-----------------|
+| `polywatch_weather_question_parse_total` | Counter | `result` (`parsed`, `unparsed`) | **Actif** | Weather-algo strategy-runner + backend discover route → `POST /api/internal/metrics/weather-question-parse` |
+
 ## Instrumentation réelle (résumé)
 
 | Métrique | Source |
@@ -165,6 +171,7 @@ Légende **Statut** :
 | `snapshot_count` | Backend (purge totale) |
 | `redemption_total` / `redemption_payoff_total` | Backend après redeem on-chain |
 | `api_route_duration_ms` | Backend (routes positions + simulation) |
+| `weather_question_parse_total` | Weather-algo strategy-runner + backend discover route → `POST /api/internal/metrics/weather-question-parse` |
 
 **Non instrumentées** : latences CLOB/Data API, reconnexions WS (P1/P2).
 
@@ -190,6 +197,9 @@ polywatch_positions_open_by_mode
 
 # Taux de SL déclenchés
 rate(polywatch_sl_fired_total[5m])
+
+# Taux de parse weather question
+rate(polywatch_weather_question_parse_total[5m])
 
 # Durée du cycle stratégique (95e percentile)
 histogram_quantile(0.95, rate(polywatch_strategy_eval_duration_ms_bucket[5m]))

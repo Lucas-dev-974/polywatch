@@ -26,6 +26,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
   readonly id = 'weather-forecast';
   private minEdge: number = DEFAULT_MIN_EDGE;
   private maxForecastStd: number | null = null;
+  private minForecastProbability: number | null = null;
 
   setMinEdge(edge: number): void {
     this.minEdge = edge;
@@ -35,9 +36,14 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     this.maxForecastStd = maxStd;
   }
 
+  setMinForecastProbability(minProb: number | null): void {
+    this.minForecastProbability = minProb;
+  }
+
   setRiskConfig(risk: WeatherConfig): void {
     this.setMinEdge(risk.weatherAlgoMinEdge);
     this.setMaxForecastStd(risk.weatherAlgoMaxForecastStd);
+    this.setMinForecastProbability(risk.weatherAlgoMinForecastProbability);
   }
 
   async evaluate(
@@ -68,6 +74,22 @@ export class WeatherForecastStrategy implements WeatherStrategy {
         kind: 'abstain',
         reason: 'zero_forecast_probability',
         detail: `target=${parsed.targetValue ?? `${parsed.targetValueLow}-${parsed.targetValueHigh}`} comparison=${parsed.comparison}`,
+      };
+    }
+
+    // Filter long-shot buckets: a low forecastProb (e.g. 0.15) can pass the
+    // probability-edge gate (edge = forecastProb - marketPrice ≥ minEdge) yet
+    // resolve YES only ~15% of the time — structurally producing a near-0%
+    // win rate. Require a directional thesis (forecastProb ≥ min) unless the
+    // filter is disabled (null).
+    if (
+      this.minForecastProbability != null &&
+      forecastYesProb < this.minForecastProbability
+    ) {
+      return {
+        kind: 'abstain',
+        reason: 'forecast_probability_below_min',
+        detail: `forecastProb=${forecastYesProb.toFixed(4)} < min=${this.minForecastProbability.toFixed(4)}`,
       };
     }
 

@@ -1,5 +1,6 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { In } from 'typeorm';
+import pino from 'pino';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
 import type { CopyConfig } from '../entities/CopyConfig.js';
 import type { CryptoConfig } from '../entities/CryptoConfig.js';
@@ -32,6 +33,8 @@ import {
   type SimAlgoKind,
 } from '../simulation/algo-kind.js';
 import { RiskService } from './risk.service.js';
+
+const log = pino({ name: 'reservation-service' });
 
 /** Entry signals that open or increase a copy position (not algo). */
 const COPY_ENTRY_REASONS: readonly string[] = ['COPY_OPEN', 'COPY_INCREASE'];
@@ -337,12 +340,15 @@ export class ReservationService {
       .update({ id: reservationId }, { orderSignalId });
   }
 
-  async releaseByCopiedPositionId(copiedPositionId: number): Promise<void> {
+  async releaseByCopiedPositionId(
+    copiedPositionId: number,
+    releaseReason?: string,
+  ): Promise<void> {
     const reservation = await this.ds
       .getRepository(PositionReservation)
       .findOne({ where: { copiedPositionId } });
     if (!reservation) return;
-    await this.release(reservation.orderSignalId);
+    await this.release(reservation.orderSignalId, releaseReason ?? 'already_claimed');
   }
 
   /** Sum of non-expired reservation notionals still holding entry capital. */
@@ -367,7 +373,7 @@ export class ReservationService {
     return active.reduce((sum, r) => sum + (r.reservedNotionalUsdc ?? 0), 0);
   }
 
-  async release(orderSignalId: string): Promise<void> {
+  async release(orderSignalId: string, releaseReason?: string): Promise<void> {
     await this.ds.transaction(async (manager) => {
       const resRepo = manager.getRepository(PositionReservation);
       const posRepo = manager.getRepository(CopiedPosition);
@@ -392,6 +398,19 @@ export class ReservationService {
           pos.status = 'cancelled';
           pos.closeReason = RESERVATION_CLOSE_REASON_RELEASED;
           await posRepo.save(pos);
+          // Attribute the release to its caller so audit queries can split
+          // the "reservation_released" bucket by root cause (enqueue-failed,
+          // disabled-trading, already-claimed, expired, resume-abandon, …).
+          log.info(
+            {
+              orderSignalId,
+              copiedPositionId: pos.id,
+              reason: reservation.reason,
+              releaseReason: releaseReason ?? 'unspecified',
+              reservedNotionalUsdc: reservation.reservedNotionalUsdc,
+            },
+            'reservation released — pending position cancelled',
+          );
         }
       }
 

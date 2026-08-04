@@ -15,6 +15,7 @@ import {
   isForcedExitCloseReason,
   isForcedExitRetryableError,
 } from '../orders/forced-exit.js';
+import { RESERVATION_CLOSE_REASON_RELEASED } from '../positions/reservation-close-reasons.js';
 import { SimulationService } from './simulation.service.js';
 import { ExitAttemptEventService } from './exit-attempt-event.service.js';
 
@@ -451,6 +452,12 @@ export class ExecutionService {
         await execRepo.save(exec);
         if (isBuy && pos.status === 'pending') {
           pos.status = 'cancelled';
+          // A failed BUY execution cancels the pending position — record the
+          // close reason so audit queries can attribute cancellations instead
+          // of leaving close_reason NULL (which made 20 rows un-attributable).
+          if (!pos.closeReason) {
+            pos.closeReason = RESERVATION_CLOSE_REASON_RELEASED;
+          }
           await posRepo.save(pos);
           await resRepo.delete({ orderSignalId: input.orderSignalId });
         } else if (!isBuy && pos.status === 'closing') {

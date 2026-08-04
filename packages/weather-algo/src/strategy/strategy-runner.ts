@@ -38,6 +38,7 @@ export interface StrategyRunnerParams {
   forecastCacheTtlMs?: number;
   runtimeStatus?: WeatherAlgoRuntimeStatusPublisher;
   exitEvaluator?: WeatherExitEvaluator;
+  onParseResult?: (parsed: boolean) => void;
 }
 
 export class WeatherStrategyRunner {
@@ -56,6 +57,7 @@ export class WeatherStrategyRunner {
   private risk: WeatherConfig | null = null;
   private runtimeStatus?: WeatherAlgoRuntimeStatusPublisher;
   private exitEvaluator?: WeatherExitEvaluator;
+  private readonly onParseResult?: (parsed: boolean) => void;
 
   constructor(params: StrategyRunnerParams) {
     this.ds = params.ds;
@@ -68,6 +70,7 @@ export class WeatherStrategyRunner {
     this.forecastCacheTtlMs = params.forecastCacheTtlMs ?? WEATHER_FORECAST_CACHE_TTL_MS_DEFAULT;
     this.runtimeStatus = params.runtimeStatus;
     this.exitEvaluator = params.exitEvaluator;
+    this.onParseResult = params.onParseResult;
   }
 
   setRiskConfig(risk: WeatherConfig): void {
@@ -364,6 +367,7 @@ export class WeatherStrategyRunner {
       for (const market of temperatureMarkets) {
         if (!market.question) continue;
         const parsed = parseWeatherQuestion(market.question);
+        this.onParseResult?.(parsed != null);
         if (!parsed) continue;
         if (normalizeWeatherCity(parsed.city) !== cityKey) continue;
         if (parsed.metric !== metric) continue;
@@ -440,6 +444,7 @@ export class WeatherStrategyRunner {
       const q = market.question;
       if (!q) continue;
       const parsed = parseWeatherQuestion(q);
+      this.onParseResult?.(parsed != null);
       if (!parsed) continue;
       buckets.push({ conditionId: market.conditionId, market, parsed });
     }
@@ -512,11 +517,6 @@ export class WeatherStrategyRunner {
 
     const mode = this.risk.weatherAlgoSelectionMode ?? 'single';
 
-    if (mode === 'single') {
-      const best = signals.reduce((a, b) => (b.edge > a.edge ? b : a));
-      return [best];
-    }
-
     if (mode === 'multi') {
       // The 1-per-city guarantee is enforced upstream by `dedupSignalsByCity`
       // (called in runEvaluationCycle before selection) which keeps only the
@@ -526,7 +526,14 @@ export class WeatherStrategyRunner {
       return sorted.slice(0, maxN);
     }
 
-    return signals;
+    if (mode !== 'single') {
+      log.warn(
+        { weatherAlgoSelectionMode: mode },
+        'weather selection mode unknown — falling back to single',
+      );
+    }
+    const best = signals.reduce((a, b) => (b.edge > a.edge ? b : a));
+    return [best];
   }
 }
 

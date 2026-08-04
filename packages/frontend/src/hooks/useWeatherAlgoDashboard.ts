@@ -3,18 +3,6 @@ import { api, apiText } from '../api';
 import { onGlobalRefresh } from '../socket';
 import { fetchWeatherAlgoCapital, type WeatherAlgoCapital } from '../lib/weather-algo-capital';
 
-export interface WeatherSelection {
-  id: number;
-  conditionId: string;
-  question: string | null;
-  eventSlug: string | null;
-  city: string | null;
-  targetDate: string | null;
-  metric: string | null;
-  targetValue: number | null;
-  enabled: boolean;
-}
-
 export interface WeatherStatus {
   alive: boolean;
   lastSeenAt: string | null;
@@ -72,7 +60,6 @@ export interface AutoTrackRule {
 const STATUS_POLL_MS = 10_000;
 
 export function useWeatherAlgoDashboard() {
-  const [selections, setSelections] = createSignal<WeatherSelection[]>([]);
   const [status, setStatus] = createSignal<WeatherStatus | null>(null);
   const [discoverGroups, setDiscoverGroups] = createSignal<CityMarketGroup[]>([]);
   const [discoverLoading, setDiscoverLoading] = createSignal(false);
@@ -81,12 +68,6 @@ export function useWeatherAlgoDashboard() {
   const [realTradingEnabled, setRealTradingEnabled] = createSignal(false);
   const [weatherAlgoSimEnabled, setWeatherAlgoSimEnabled] = createSignal(true);
   const [weatherAlgoRealEnabled, setWeatherAlgoRealEnabled] = createSignal(false);
-
-  async function refreshSelections() {
-    try {
-      setSelections(await api<WeatherSelection[]>('/weather-algo-markets'));
-    } catch { /* ignore */ }
-  }
 
   async function refreshStatus() {
     try {
@@ -164,23 +145,6 @@ export function useWeatherAlgoDashboard() {
     }
   }
 
-  async function addMarket(_conditionId: string, _question: string, _eventSlug: string | null) {
-    // Deprecated: per-market follow removed — use watchCity
-  }
-
-  async function toggleSelection(conditionId: string, enabled: boolean) {
-    await api(`/weather-algo-markets/${conditionId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled }),
-    });
-    await refreshSelections();
-  }
-
-  async function removeSelection(conditionId: string) {
-    await apiText(`/weather-algo-markets/${conditionId}`, { method: 'DELETE' });
-    await refreshSelections();
-  }
-
   async function watchCity(city: string, lookAheadDays: number = 1) {
     await api('/weather-algo-auto-track', {
       method: 'POST',
@@ -231,7 +195,6 @@ export function useWeatherAlgoDashboard() {
   }
 
   onMount(() => {
-    void refreshSelections();
     void refreshStatus();
     void discoverMarkets();
     void refreshAutoTrackRules();
@@ -239,13 +202,11 @@ export function useWeatherAlgoDashboard() {
     void loadRiskFlags();
 
     const poll = setInterval(() => {
-      void refreshSelections();
       void refreshStatus();
       void loadCapital();
     }, STATUS_POLL_MS);
 
     const unsub = onGlobalRefresh(() => {
-      void refreshSelections();
       void refreshStatus();
       void loadCapital();
       void loadRiskFlags();
@@ -258,11 +219,11 @@ export function useWeatherAlgoDashboard() {
   });
 
   return {
-    selections, status, discoverGroups, discoverLoading, autoTrackRules,
-    discoverMarkets, toggleSelection, removeSelection,
+    status, discoverGroups, discoverLoading, autoTrackRules,
+    discoverMarkets,
     watchCity, watchedCitySet, removeAutoTrackRule, toggleAutoTrackRule,
     updateAutoTrackLookAhead, updateAllAutoTrackLookAhead,
-    refreshSelections, refreshStatus, refreshAutoTrackRules,
+    refreshStatus, refreshAutoTrackRules,
     capital, realTradingEnabled, weatherAlgoSimEnabled, weatherAlgoRealEnabled,
     loadCapital, loadRiskFlags, toggleRealTrading,
   };

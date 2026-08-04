@@ -10,6 +10,7 @@ import { WeatherAlgoPositionsPanel } from './WeatherAlgoPositionsPanel';
 import { WeatherAlgoExecutionsPanel } from './WeatherAlgoExecutionsPanel';
 import { WeatherAlgoAutoTrackTab } from './WeatherAlgoAutoTrackTab';
 import { WeatherAlgoSettingsTab } from './WeatherAlgoSettingsTab';
+import { WeatherAlgoResetDialog } from './WeatherAlgoResetDialog';
 
 type Tab = 'markets' | 'positions' | 'cities' | 'settings';
 
@@ -18,6 +19,7 @@ export function WeatherAlgoPage() {
   const positions = useWeatherAlgoPositions();
   const executions = useWeatherAlgoExecutions();
   const [tab, setTab] = createSignal<Tab>('markets');
+  const [resetDialogOpen, setResetDialogOpen] = createSignal(false);
 
   return (
     <div class="weather-algo-page">
@@ -28,6 +30,7 @@ export function WeatherAlgoPage() {
         weatherAlgoSimEnabled={dashboard.weatherAlgoSimEnabled()}
         weatherAlgoRealEnabled={dashboard.weatherAlgoRealEnabled()}
         onToggleRealTrading={dashboard.toggleRealTrading}
+        onResetSim={() => setResetDialogOpen(true)}
       />
 
       <div class="weather-algo-segmented" role="tablist">
@@ -93,6 +96,15 @@ export function WeatherAlgoPage() {
       <Show when={tab() === 'settings'}>
         <WeatherAlgoSettingsTab />
       </Show>
+
+      <WeatherAlgoResetDialog
+        open={resetDialogOpen()}
+        onClose={() => setResetDialogOpen(false)}
+        onDone={() => {
+          void dashboard.loadCapital();
+          void dashboard.loadRiskFlags();
+        }}
+      />
     </div>
   );
 }

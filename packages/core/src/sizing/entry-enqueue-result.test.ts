@@ -55,7 +55,7 @@ describe('resolveEntryEnqueueBlocked', () => {
       blockedReason: 'blocked',
     });
     expect(result).toBe('blocked');
-    expect(reservationService.release).toHaveBeenCalledWith('sig-1');
+    expect(reservationService.release).toHaveBeenCalledWith('sig-1', 'enqueue_blocked:blocked');
   });
 
   it('defers when dedupe marker is still active', async () => {
@@ -84,6 +84,6 @@ describe('resolveEntryEnqueueBlocked', () => {
       blockedReason: 'blocked',
     });
     expect(result).toBe('blocked');
-    expect(reservationService.release).toHaveBeenCalledWith('sig-1');
+    expect(reservationService.release).toHaveBeenCalledWith('sig-1', 'enqueue_blocked:blocked');
   });
 });

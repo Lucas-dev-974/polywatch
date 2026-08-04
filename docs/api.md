@@ -334,7 +334,7 @@ ci-dessous restent pour cleanup / statut ; `POST` est retiré.
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/weather-algo-markets` | Liste legacy `WeatherMarketSelection` (désactivées en city-first) |
+| GET | `/api/weather-algo-markets` | Liste legacy (retourne `[]` en city-first) |
 | POST | `/api/weather-algo-markets` | **410 Gone** — utiliser `POST /weather-algo-auto-track` |
 | DELETE | `/api/weather-algo-markets/:conditionId` | Supprime une sélection legacy (204) |
 | PATCH | `/api/weather-algo-markets/:conditionId` | Active/désactive `{enabled: boolean}` |

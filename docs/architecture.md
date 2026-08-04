@@ -167,7 +167,7 @@ Process sans serveur HTTP — trading météo **par ville**. Détail : [`weather
 - Entrées : discovery → bucket forecast-aligné → **BUY YES** si edge OK → `WEATHER_OPEN`.
 - Sorties : `WEATHER_PRE_CLOSE` / `WEATHER_FORECAST_CHANGE` / `WEATHER_BUCKET_EXIT` (`close_and_reenter` + hysteresis, ou `hold`).
 - Snapshot forecast à l'ouverture (`WeatherPositionForecast`) ; throttle re-entry Redis après close bucket/drift.
-- Janitor : cleanup des anciennes `WeatherMarketSelection` (plus de sync expand).
+- Janitor : cleanup legacy (no-op après suppression de `WeatherMarketSelection`).
 - Heartbeat + `weather-algo:runtime-status`.
 
 ### Frontend (`packages/frontend`)

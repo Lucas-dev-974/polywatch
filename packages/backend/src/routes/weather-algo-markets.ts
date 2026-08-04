@@ -1,17 +1,12 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import type { DataSource } from 'typeorm';
 import pino from 'pino';
-import { createWeatherSelectionServices, WeatherAutoTrackService } from '@polywatch/core';
+import { WeatherAutoTrackService } from '@polywatch/core';
 import { requireJwt, requireServiceToken } from '../middleware/auth.js';
 import { publishConfigChanged, getRedis } from '../redis.js';
 import { emitAlgoMarketsChanged } from '../websocket.js';
 
 const log = pino({ name: 'weather-algo:routes' });
-
-const patchSelectionSchema = z.object({
-  enabled: z.boolean(),
-});
 
 interface WeatherRuntimeStatus {
   evaluableSelections?: number;
@@ -22,37 +17,30 @@ interface WeatherRuntimeStatus {
 
 export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
   const router = Router();
-  const { selectionService: service } = createWeatherSelectionServices(ds);
   const autoTrackService = new WeatherAutoTrackService(ds);
 
   router.get('/', requireJwt, async (_req, res) => {
-    res.json(await service.loadAll());
+    // Legacy selection list — return empty array (city-first mode only).
+    res.json([]);
   });
 
   router.get('/status', requireJwt, async (_req, res) => {
     let heartbeatValue: string | null = null;
     let runtimeRaw: string | null = null;
-    let counts: { enabledSelections: number; selectionsWithMarket: number };
     let watchedCities = 0;
 
     try {
       const redis = getRedis();
-      const [hb, rt, c, rules] = await Promise.all([
+      const [hb, rt, rules] = await Promise.all([
         redis.get('weather-algo:heartbeat'),
         redis.get('weather-algo:runtime-status'),
-        service.getStatusCounts(),
         autoTrackService.loadAllEnabled(),
       ]);
       heartbeatValue = hb;
       runtimeRaw = rt;
-      counts = c;
       watchedCities = rules.length;
     } catch (err) {
-      log.warn({ err }, 'status endpoint degraded — using DB counts only');
-      counts = await service.getStatusCounts().catch(() => ({
-        enabledSelections: 0,
-        selectionsWithMarket: 0,
-      }));
+      log.warn({ err }, 'status endpoint degraded');
       watchedCities = (await autoTrackService.loadAllEnabled().catch(() => [])).length;
     }
 
@@ -78,8 +66,8 @@ export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
     res.json({
       alive,
       lastSeenAt,
-      enabledSelections: counts.enabledSelections,
-      selectionsWithMarket: counts.selectionsWithMarket,
+      enabledSelections: 0,
+      selectionsWithMarket: 0,
       watchedCities,
       evaluableSelections: runtime?.evaluableSelections ?? watchedCities,
       lastEvaluatedAt: runtime?.lastEvaluatedAt
@@ -105,27 +93,15 @@ export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
     });
   });
 
-  router.delete('/:conditionId', requireJwt, async (req, res) => {
-    const conditionId = String(req.params.conditionId);
-    await service.removeSelection(conditionId);
+  router.delete('/:conditionId', requireJwt, async (_req, res) => {
+    // Legacy per-market selection removal — no-op in city-first mode.
     await publishConfigChanged();
     emitAlgoMarketsChanged();
     res.status(204).end();
   });
 
-  router.patch('/:conditionId', requireJwt, async (req, res) => {
-    const parsed = patchSelectionSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        error: 'invalid_body',
-        message: parsed.error.issues
-          .map((i) => `${i.path.join('.')}: ${i.message}`)
-          .join('; '),
-      });
-      return;
-    }
-    const conditionId = String(req.params.conditionId);
-    await service.setEnabled(conditionId, parsed.data.enabled);
+  router.patch('/:conditionId', requireJwt, async (_req, res) => {
+    // Legacy per-market selection toggle — no-op in city-first mode.
     await publishConfigChanged();
     emitAlgoMarketsChanged();
     res.status(200).json({ ok: true });

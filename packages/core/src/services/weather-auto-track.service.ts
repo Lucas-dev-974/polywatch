@@ -1,7 +1,6 @@
 import { DataSource } from 'typeorm';
 import pino from 'pino';
 import { WeatherAutoTrackRule } from '../entities/WeatherAutoTrackRule.js';
-import type { WeatherMarketSelectionService } from './weather-market-selection.service.js';
 
 const log = pino({ name: 'core:weather-auto-track' });
 
@@ -80,22 +79,10 @@ export class WeatherAutoTrackService {
   }
 
   /**
-   * City-first: no longer materializes per-market selections.
-   * Disables stale/closed selection rows left over from expand mode.
+   * City-first: legacy per-market selections have been removed.
+   * This is a no-op kept for backward compatibility with the janitor cycle.
    */
-  async syncMarketSelectionsForAutoTrack(
-    selectionService: WeatherMarketSelectionService,
-  ): Promise<WeatherAutoTrackSyncResult> {
-    const existing = await selectionService.loadAll();
-    let disabled = 0;
-    for (const sel of existing) {
-      if (!sel.enabled) continue;
-      await selectionService.setEnabled(sel.conditionId, false);
-      disabled++;
-    }
-    if (disabled > 0) {
-      log.info({ disabled }, 'weather auto-track cleanup disabled legacy market selections');
-    }
-    return { disabled, added: 0 };
+  async syncMarketSelectionsForAutoTrack(): Promise<WeatherAutoTrackSyncResult> {
+    return { disabled: 0, added: 0 };
   }
 }

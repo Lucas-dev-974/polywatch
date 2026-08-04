@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { DataSource } from 'typeorm';
 import { discoverWeatherMarkets, enrichCityGroupsWithForecast } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
+import { recordWeatherQuestionParse } from '../metrics.js';
 
 export function createWeatherAlgoDiscoverRouter(ds: DataSource): Router {
   const router = Router();
@@ -16,6 +17,7 @@ export function createWeatherAlgoDiscoverRouter(ds: DataSource): Router {
       const result = await discoverWeatherMarkets({
         limit: 100,
         offset: Number.isFinite(offset) ? offset : 0,
+        onParseResult: (parsed) => recordWeatherQuestionParse(parsed),
       });
 
       // Enrich city groups with Open-Meteo temperature forecasts for the UI headers.

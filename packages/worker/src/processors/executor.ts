@@ -135,10 +135,8 @@ export class Executor {
     // is off. Close signals are allowed through so open positions can exit.
     if (await this.isRealEntryBlocked(signal)) {
       log.warn({ signalId: signal.id }, 'real BUY rejected — real trading disabled');
-      // Release the reservation created by CopyProcessor so the pending
-      // position is cancelled instead of left orphaned.
       await this.reservationService
-        .release(signal.id)
+        .release(signal.id, 'real_trading_disabled')
         .catch((err) =>
           log.warn({ err, signalId: signal.id }, 'failed to release reservation'),
         );
@@ -149,7 +147,7 @@ export class Executor {
     if (await this.isSimCopyEntryBlocked(signal)) {
       log.warn({ signalId: signal.id }, 'sim COPY BUY rejected — sim copy trading disabled');
       await this.reservationService
-        .release(signal.id)
+        .release(signal.id, 'sim_copy_trading_disabled')
         .catch((err) =>
           log.warn({ err, signalId: signal.id }, 'failed to release reservation'),
         );
@@ -160,7 +158,7 @@ export class Executor {
     if (await this.isRealCopyEntryBlocked(signal)) {
       log.warn({ signalId: signal.id }, 'real COPY BUY rejected — real copy trading disabled');
       await this.reservationService
-        .release(signal.id)
+        .release(signal.id, 'real_copy_trading_disabled')
         .catch((err) =>
           log.warn({ err, signalId: signal.id }, 'failed to release reservation'),
         );
@@ -382,7 +380,7 @@ export class Executor {
       'entry BUY skipped — reservation missing or expired',
     );
     await this.reservationService
-      .release(signal.id)
+      .release(signal.id, 'reservation_expired_before_claim')
       .catch((err) =>
         log.warn({ err, signalId: signal.id }, 'failed to release expired reservation'),
       );

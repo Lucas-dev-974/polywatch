@@ -204,9 +204,6 @@ export function SimHero(props: Props) {
               />
               <span class="toggle-track" />
             </label>
-            <span class={`badge ${copyTradingEnabled() ? 'sim' : 'neutral'}`}>
-              {copyTradingEnabled() ? 'Activé' : 'Désactivé'}
-            </span>
           </div>
         </div>
         <EnvSettingsDialogTrigger mode="sim" />

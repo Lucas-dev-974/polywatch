@@ -1,0 +1,497 @@
+{
+  "archiveRange": {
+    "first": "2026-07-11T05:46:27.244Z",
+    "last": "2026-08-04T10:09:01.676Z"
+  },
+  "archiveTraded": {
+    "n": 8426,
+    "wins": 1977,
+    "losses": 1858,
+    "breakeven": 4591,
+    "winrate": 23.5,
+    "totalPnl": -601.18,
+    "avgPnl": -0.0713,
+    "avgWin": 1.4639,
+    "avgLoss": 1.8812,
+    "profitFactor": 0.83,
+    "maxWin": 23.46,
+    "maxLoss": -10.84
+  },
+  "currentTraded": {
+    "n": 19,
+    "wins": 2,
+    "losses": 17,
+    "breakeven": 0,
+    "winrate": 10.5,
+    "totalPnl": -24.89,
+    "avgPnl": -1.31,
+    "avgWin": 0.4284,
+    "avgLoss": 1.5145,
+    "profitFactor": 0.03,
+    "maxWin": 0.81,
+    "maxLoss": -3.3
+  },
+  "currentSim": {
+    "n": 11,
+    "wins": 0,
+    "losses": 11,
+    "breakeven": 0,
+    "winrate": 0,
+    "totalPnl": -11.6,
+    "avgPnl": -1.0541,
+    "avgWin": 0,
+    "avgLoss": 1.0541,
+    "profitFactor": 0,
+    "maxWin": 0,
+    "maxLoss": -1.36
+  },
+  "currentReal": {
+    "n": 8,
+    "wins": 2,
+    "losses": 6,
+    "breakeven": 0,
+    "winrate": 25,
+    "totalPnl": -13.29,
+    "avgPnl": -1.6619,
+    "avgWin": 0.4284,
+    "avgLoss": 2.3586,
+    "profitFactor": 0.06,
+    "maxWin": 0.81,
+    "maxLoss": -3.3
+  },
+  "archiveSimVsReal": {
+    "sim": {
+      "n": 8426,
+      "wins": 1977,
+      "losses": 1858,
+      "breakeven": 4591,
+      "winrate": 23.5,
+      "totalPnl": -601.18,
+      "avgPnl": -0.0713,
+      "avgWin": 1.4639,
+      "avgLoss": 1.8812,
+      "profitFactor": 0.83,
+      "maxWin": 23.46,
+      "maxLoss": -10.84
+    },
+    "real": {
+      "n": 0,
+      "wins": 0,
+      "losses": 0,
+      "breakeven": 0,
+      "winrate": 0,
+      "totalPnl": 0,
+      "avgPnl": 0,
+      "avgWin": 0,
+      "avgLoss": 0,
+      "profitFactor": 0,
+      "maxWin": 0,
+      "maxLoss": 0
+    }
+  },
+  "archiveHasMode": false,
+  "sampleArchiveRow": {
+    "id": 379,
+    "session_id": 4,
+    "source_id": 20116,
+    "condition_id": "0xe674c908a49ec95626e32f5d2e70fd0ef12fd864ce2b3156f343bfb54fa592fd",
+    "asset_id": "78926882716380885129921683956974936878912694526250859378478516649107363259962",
+    "market_title": null,
+    "outcome": "YES",
+    "side": "BUY",
+    "size": 0,
+    "entry_price": 0.64,
+    "exit_price": null,
+    "realized_pnl": -3.04875,
+    "close_reason": "SL",
+    "reason": "ALGO_OPEN",
+    "opened_at": "2026-07-11T05:46:27.244Z",
+    "closed_at": "2026-07-11T05:48:47.539Z",
+    "raw_json": "{\"id\":20116,\"watchlistId\":40,\"moveEventId\":null,\"conditionId\":\"0xe674c908a49ec95626e32f5d2e70fd0ef12fd864ce2b3156f343bfb54fa592fd\",\"assetId\":\"78926882716380885129921683956974936878912694526250859378478516649107363259962\",\"outcome\":\"YES\",\"side\":\"BUY\",\"quantity\":0,\"entryPrice\":0.64,\"entryBidVwap\":0.63,\"entryFees\":0.126,\"entryQuantityRemaining\":0,\"entryFeesRemaining\":0,\"executableBidVwap\":0.28,\"lastCloseableBidVwap\":0.28,\"lastCloseableBidAt\":\"2026-07-11T05:48:47.477Z\",\"unrealizedPnl\":0,\"realizedPnl\":-3.04875,\"peakClosurePnlPercent\":-0.93396413,\"closingAttemptSeq\":1,\"liquidityStatus\":\"ok\",\"bookUpdatedAt\":\"2026-07-11T05:48:47.479Z\",\"trailingStopPercent\":null,\"trailingActivationPercent\":null,\"status\":\"closed\",\"mode\":\"sim\",\"openedAt\":\"2026-07-11T05:46:27.244Z\",\"closedAt\":\"2026-07-11T05:48:47.539Z\",\"closeReason\":\"SL\",\"closingReason\":null,\"closingStartedAt\":\"2026-07-11T05:48:47.113Z\",\"increaseCount\":0,\"reason\":\"ALGO_OPEN\",\"slBidPoints\":0.2,\"tpBidPoints\":null,\"forcedExitFailedAttempts\":0,\"lastForcedExitAttemptAt\":null,\"lastExitBlockReason\":null,\"lastExitBlockCloseReason\":null,\"firstExitBlockAt\":null,\"lastExitBlockAt\":null,\"exitEmitBlockedCount\":0}"
+  },
+  "daily": [
+    {
+      "day": "2026-07-11",
+      "pnl": 27.73,
+      "cum": 27.73,
+      "trades": 368,
+      "winrate": 58
+    },
+    {
+      "day": "2026-07-12",
+      "pnl": -48.06,
+      "cum": -20.32,
+      "trades": 867,
+      "winrate": 55
+    },
+    {
+      "day": "2026-07-13",
+      "pnl": -107.48,
+      "cum": -127.8,
+      "trades": 415,
+      "winrate": 58
+    },
+    {
+      "day": "2026-07-14",
+      "pnl": -149.83,
+      "cum": -277.64,
+      "trades": 856,
+      "winrate": 56
+    },
+    {
+      "day": "2026-07-15",
+      "pnl": -80.46,
+      "cum": -358.09,
+      "trades": 686,
+      "winrate": 50
+    },
+    {
+      "day": "2026-07-16",
+      "pnl": -47.81,
+      "cum": -405.91,
+      "trades": 182,
+      "winrate": 41
+    },
+    {
+      "day": "2026-07-17",
+      "pnl": -20.85,
+      "cum": -426.76,
+      "trades": 75,
+      "winrate": 40
+    },
+    {
+      "day": "2026-07-20",
+      "pnl": -36.88,
+      "cum": -463.64,
+      "trades": 76,
+      "winrate": 26
+    },
+    {
+      "day": "2026-07-21",
+      "pnl": -15.96,
+      "cum": -479.59,
+      "trades": 37,
+      "winrate": 30
+    },
+    {
+      "day": "2026-07-22",
+      "pnl": -49.21,
+      "cum": -528.8,
+      "trades": 119,
+      "winrate": 35
+    },
+    {
+      "day": "2026-07-23",
+      "pnl": -22.42,
+      "cum": -551.22,
+      "trades": 59,
+      "winrate": 36
+    },
+    {
+      "day": "2026-07-24",
+      "pnl": -0.53,
+      "cum": -551.75,
+      "trades": 1,
+      "winrate": 0
+    },
+    {
+      "day": "2026-07-28",
+      "pnl": -0.32,
+      "cum": -552.07,
+      "trades": 2,
+      "winrate": 50
+    },
+    {
+      "day": "2026-07-29",
+      "pnl": 2.06,
+      "cum": -550,
+      "trades": 1,
+      "winrate": 100
+    },
+    {
+      "day": "2026-07-30",
+      "pnl": -26.97,
+      "cum": -576.97,
+      "trades": 42,
+      "winrate": 21
+    },
+    {
+      "day": "2026-08-01",
+      "pnl": -17.47,
+      "cum": -594.44,
+      "trades": 29,
+      "winrate": 28
+    },
+    {
+      "day": "2026-08-02",
+      "pnl": -1.01,
+      "cum": -595.45,
+      "trades": 1,
+      "winrate": 0
+    },
+    {
+      "day": "2026-08-04",
+      "pnl": -5.63,
+      "cum": -601.08,
+      "trades": 18,
+      "winrate": 39
+    }
+  ],
+  "byEntryBucket": [
+    {
+      "bucket": "0.45-0.50",
+      "n": 30,
+      "pnl": -11.2,
+      "avg": -0.3733,
+      "winrate": 26.7
+    },
+    {
+      "bucket": "0.50-0.55",
+      "n": 148,
+      "pnl": -24.18,
+      "avg": -0.1634,
+      "winrate": 35.8
+    },
+    {
+      "bucket": "0.55-0.60",
+      "n": 1258,
+      "pnl": -127.13,
+      "avg": -0.1011,
+      "winrate": 45.2
+    },
+    {
+      "bucket": "0.60-0.65",
+      "n": 945,
+      "pnl": -148.32,
+      "avg": -0.157,
+      "winrate": 46.5
+    },
+    {
+      "bucket": "0.65-0.70",
+      "n": 465,
+      "pnl": -56.2,
+      "avg": -0.1209,
+      "winrate": 52
+    },
+    {
+      "bucket": "0.70-0.75",
+      "n": 530,
+      "pnl": -117.16,
+      "avg": -0.2211,
+      "winrate": 55.3
+    },
+    {
+      "bucket": "0.75-0.80",
+      "n": 355,
+      "pnl": -86.6,
+      "avg": -0.244,
+      "winrate": 60.3
+    },
+    {
+      "bucket": "0.80-0.85",
+      "n": 94,
+      "pnl": -26.61,
+      "avg": -0.2831,
+      "winrate": 64.9
+    },
+    {
+      "bucket": "0.85-0.90",
+      "n": 26,
+      "pnl": 5.76,
+      "avg": 0.2216,
+      "winrate": 80.8
+    },
+    {
+      "bucket": "0.90-0.95",
+      "n": 30,
+      "pnl": 0.62,
+      "avg": 0.0208,
+      "winrate": 80
+    },
+    {
+      "bucket": "0.95-1.00",
+      "n": 54,
+      "pnl": -3.36,
+      "avg": -0.0622,
+      "winrate": 87
+    }
+  ],
+  "byCloseReason": [
+    {
+      "reason": "null",
+      "n": 4592,
+      "pnl": -0.1,
+      "avg": 0,
+      "winrate": 0
+    },
+    {
+      "reason": "REDEMPTION",
+      "n": 1823,
+      "pnl": 708.85,
+      "avg": 0.3888,
+      "winrate": 74.4
+    },
+    {
+      "reason": "SL",
+      "n": 1181,
+      "pnl": -1763.32,
+      "avg": -1.4931,
+      "winrate": 2.3
+    },
+    {
+      "reason": "TP",
+      "n": 415,
+      "pnl": 511.9,
+      "avg": 1.2335,
+      "winrate": 99
+    },
+    {
+      "reason": "TRAILING",
+      "n": 315,
+      "pnl": -123.66,
+      "avg": -0.3926,
+      "winrate": 39
+    },
+    {
+      "reason": "PRE_CLOSE_LOSS",
+      "n": 45,
+      "pnl": -29.64,
+      "avg": -0.6588,
+      "winrate": 17.8
+    },
+    {
+      "reason": "PRE_CLOSE_WIN",
+      "n": 43,
+      "pnl": 40.63,
+      "avg": 0.9449,
+      "winrate": 95.3
+    },
+    {
+      "reason": "TIME_EXIT",
+      "n": 9,
+      "pnl": 47.51,
+      "avg": 5.2791,
+      "winrate": 77.8
+    },
+    {
+      "reason": "MANUAL",
+      "n": 3,
+      "pnl": 6.65,
+      "avg": 2.2168,
+      "winrate": 100
+    }
+  ],
+  "durationArchive": {
+    "n": 3834,
+    "p10": "30",
+    "p50": "241",
+    "p90": "661",
+    "max": "86327",
+    "under30s": 386,
+    "under60s": 808
+  },
+  "slLeg": {
+    "n": 1181,
+    "avgEntry": 0.6264,
+    "avgExit": 0,
+    "avgPnl": -1.4931
+  },
+  "tpLeg": {
+    "n": 415,
+    "avgEntry": 0.6569,
+    "avgExit": 0,
+    "avgPnl": 1.2335
+  },
+  "redemptionLeg": {
+    "n": 1823,
+    "avgEntry": 0.657,
+    "wins": 1357,
+    "avgPnl": 0.3888
+  },
+  "todaySession": {
+    "n": 11,
+    "pnl": -11.6,
+    "slCount": 11,
+    "entries": [
+      {
+        "id": 29669,
+        "entry": 0.6,
+        "outcome": "NO",
+        "pnl": -1.17,
+        "durS": 196
+      },
+      {
+        "id": 29673,
+        "entry": 0.57,
+        "outcome": "YES",
+        "pnl": -1.36,
+        "durS": 11
+      },
+      {
+        "id": 29675,
+        "entry": 0.55,
+        "outcome": "NO",
+        "pnl": -0.97,
+        "durS": 54
+      },
+      {
+        "id": 29676,
+        "entry": 0.56,
+        "outcome": "YES",
+        "pnl": -0.97,
+        "durS": 153
+      },
+      {
+        "id": 29680,
+        "entry": 0.6,
+        "outcome": "YES",
+        "pnl": -1.22,
+        "durS": 115
+      },
+      {
+        "id": 29681,
+        "entry": 0.58,
+        "outcome": "YES",
+        "pnl": -0.92,
+        "durS": 27
+      },
+      {
+        "id": 29682,
+        "entry": 0.55,
+        "outcome": "NO",
+        "pnl": -1.36,
+        "durS": 5
+      },
+      {
+        "id": 29683,
+        "entry": 0.56,
+        "outcome": "NO",
+        "pnl": -1.12,
+        "durS": 50
+      },
+      {
+        "id": 29684,
+        "entry": 0.58,
+        "outcome": "YES",
+        "pnl": -0.27,
+        "durS": 1
+      },
+      {
+        "id": 29686,
+        "entry": 0.6,
+        "outcome": "NO",
+        "pnl": -0.97,
+        "durS": 29
+      },
+      {
+        "id": 29688,
+        "entry": 0.56,
+        "outcome": "YES",
+        "pnl": -1.26,
+        "durS": 56
+      }
+    ]
+  },
+  "maxDrawdown": 666.23,
+  "archiveReservationChurn": 1354
+}

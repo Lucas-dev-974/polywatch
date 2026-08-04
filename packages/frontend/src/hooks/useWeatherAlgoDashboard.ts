@@ -189,10 +189,6 @@ export function useWeatherAlgoDashboard() {
     await refreshAutoTrackRules();
   }
 
-  async function addAutoTrackRule(city: string, lookAheadDays: number) {
-    await watchCity(city, lookAheadDays);
-  }
-
   async function removeAutoTrackRule(id: number) {
     await apiText(`/weather-algo-auto-track/${id}`, { method: 'DELETE' });
     await refreshAutoTrackRules();
@@ -211,6 +207,20 @@ export function useWeatherAlgoDashboard() {
       method: 'PATCH',
       body: JSON.stringify({ lookAheadDays }),
     });
+    await refreshAutoTrackRules();
+  }
+
+  async function updateAllAutoTrackLookAhead(lookAheadDays: number) {
+    const rules = autoTrackRules();
+    if (rules.length === 0) return;
+    await Promise.all(
+      rules.map((r) =>
+        api(`/weather-algo-auto-track/${r.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ lookAheadDays }),
+        }),
+      ),
+    );
     await refreshAutoTrackRules();
   }
 
@@ -249,9 +259,9 @@ export function useWeatherAlgoDashboard() {
 
   return {
     selections, status, discoverGroups, discoverLoading, autoTrackRules,
-    discoverMarkets, addMarket, toggleSelection, removeSelection,
-    watchCity, watchedCitySet, addAutoTrackRule, removeAutoTrackRule, toggleAutoTrackRule,
-    updateAutoTrackLookAhead,
+    discoverMarkets, toggleSelection, removeSelection,
+    watchCity, watchedCitySet, removeAutoTrackRule, toggleAutoTrackRule,
+    updateAutoTrackLookAhead, updateAllAutoTrackLookAhead,
     refreshSelections, refreshStatus, refreshAutoTrackRules,
     capital, realTradingEnabled, weatherAlgoSimEnabled, weatherAlgoRealEnabled,
     loadCapital, loadRiskFlags, toggleRealTrading,

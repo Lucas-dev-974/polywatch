@@ -10,6 +10,7 @@ import {
   NullableNumberField,
   ToggleField,
 } from './settings-fields';
+import { CollapsibleSection } from './CollapsibleSection';
 
 export function WeatherAlgoSettingsTab() {
   const [config, setConfig] = createSignal<WeatherConfig | null>(null);
@@ -83,13 +84,15 @@ export function WeatherAlgoSettingsTab() {
   }
 
   return (
-    <section class="algo-panel">
-      <div class="algo-panel-header">
-        <h2 class="algo-panel-title">Paramètres Weather Algo</h2>
+    <CollapsibleSection
+      title="Paramètres Weather Algo"
+      persistKey="polywatch_weather_settings_collapsed"
+      headerActions={
         <button class="btn btn-sm btn-primary" onClick={() => saveConfig()} disabled={saving()}>
           {saving() ? '...' : 'Sauvegarder'}
         </button>
-      </div>
+      }
+    >
       <p class="form-hint">
         L’horizon de dates (lookAheadDays) se configure par ville dans l’onglet Villes surveillées.
       </p>
@@ -358,6 +361,6 @@ export function WeatherAlgoSettingsTab() {
           </div>
         )}
       </Show>
-    </section>
+    </CollapsibleSection>
   );
 }

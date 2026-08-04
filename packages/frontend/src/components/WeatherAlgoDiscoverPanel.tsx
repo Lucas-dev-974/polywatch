@@ -4,6 +4,7 @@ import type {
   DiscoverDateBucket,
   DiscoverMarket,
 } from '../hooks/useWeatherAlgoDashboard';
+import { CollapsibleSection } from './CollapsibleSection';
 
 export interface WeatherAlgoDiscoverPanelProps {
   groups: CityMarketGroup[];
@@ -173,9 +174,10 @@ export function WeatherAlgoDiscoverPanel(props: WeatherAlgoDiscoverPanelProps) {
   }
 
   return (
-    <section class="algo-panel">
-      <div class="algo-panel-header">
-        <h2 class="algo-panel-title">Découverte marchés Polymarket</h2>
+    <CollapsibleSection
+      title="Découverte marchés Polymarket"
+      persistKey="polywatch_weather_discover_collapsed"
+      headerActions={
         <button
           type="button"
           class="btn btn-ghost btn-sm"
@@ -184,7 +186,8 @@ export function WeatherAlgoDiscoverPanel(props: WeatherAlgoDiscoverPanelProps) {
         >
           {props.loading ? '...' : 'Rafraîchir'}
         </button>
-      </div>
+      }
+    >
       <p class="form-hint">
         Dépliez une ville, puis une date pour voir les paliers. « Surveiller cette ville » active le
         suivi température max — l’algo choisit le bon bucket automatiquement.
@@ -204,6 +207,6 @@ export function WeatherAlgoDiscoverPanel(props: WeatherAlgoDiscoverPanelProps) {
           />
         )}
       </For>
-    </section>
+    </CollapsibleSection>
   );
 }

@@ -1,6 +1,7 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import type { useWeatherAlgoPositions, WeatherPosition } from '../hooks/useWeatherAlgoPositions';
 import { formatShortDateTime } from '../lib/date';
+import { CollapsibleSection } from './CollapsibleSection';
 import {
   formatPnlAmount,
   formatPnlPercent,
@@ -139,9 +140,11 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
   );
 
   return (
-    <section class="algo-panel algo-panel-full">
-      <div class="algo-panel-header">
-        <h2 class="algo-panel-title">Positions weather-algo</h2>
+    <CollapsibleSection
+      title="Positions weather-algo"
+      persistKey="polywatch_weather_positions_collapsed"
+      class="algo-panel-full"
+      headerActions={
         <div class="weather-position-header-right">
           <div class="weather-position-tabs">
             <button
@@ -181,7 +184,8 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
             </button>
           </div>
         </div>
-      </div>
+      }
+    >
 
       <Show when={p().posTab() === 'open'}>
         <div class="weather-position-subtabs">
@@ -316,6 +320,6 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
           </Show>
         </Show>
       </Show>
-    </section>
+    </CollapsibleSection>
   );
 }

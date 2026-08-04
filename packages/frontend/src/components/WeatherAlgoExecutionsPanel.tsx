@@ -10,6 +10,7 @@ import {
 import { formatWeatherDate, bucketLabel, type WeatherBucketBounds } from '../lib/weather-position';
 import type { useWeatherAlgoExecutions, WeatherExecution } from '../hooks/useWeatherAlgoExecutions';
 import { Icon } from './Icon';
+import { CollapsibleSection } from './CollapsibleSection';
 
 type ExecutionsState = ReturnType<typeof useWeatherAlgoExecutions>;
 
@@ -100,12 +101,16 @@ export function WeatherAlgoExecutionsPanel(props: WeatherAlgoExecutionsPanelProp
       : 'Aucune exécution weather-algo enregistrée.';
 
   return (
-    <section class="algo-panel algo-panel-full">
-      <div class="algo-panel-header">
-        <h2 class="algo-panel-title">
+    <CollapsibleSection
+      title={
+        <>
           <Icon name="activity" />
           Exécutions weather-algo
-        </h2>
+        </>
+      }
+      class="algo-panel-full"
+      persistKey="polywatch_weather_executions_collapsed"
+      headerActions={
         <div class="algo-panel-header-right">
           <div class="algo-pos-mode-tabs">
             <button
@@ -195,8 +200,8 @@ export function WeatherAlgoExecutionsPanel(props: WeatherAlgoExecutionsPanelProp
           </Show>
           <span class="algo-panel-count">{ex().total()} exécutions</span>
         </div>
-      </div>
-
+      }
+    >
       <Show
         when={ex().loading()}
         fallback={
@@ -234,6 +239,6 @@ export function WeatherAlgoExecutionsPanel(props: WeatherAlgoExecutionsPanelProp
       >
         <div class="algo-empty">Chargement…</div>
       </Show>
-    </section>
+    </CollapsibleSection>
   );
 }

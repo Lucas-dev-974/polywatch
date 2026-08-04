@@ -5149,6 +5149,16 @@ body.is-resizing-columns .position-market-split-handle::after {
   margin: 0;
 }
 
+.weather-algo-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.weather-algo-header-v2 {
+  margin-bottom: 0.75rem;
+}
+
 /* Status badge */
 .algo-status-badge {
   display: inline-flex;
@@ -8609,6 +8619,38 @@ body.is-resizing-columns .position-market-split-handle::after {
   align-items: center;
 }
 
+.weather-autotrack-lookahead {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  font-size: .8125rem;
+  color: var(--text-secondary);
+}
+
+.weather-autotrack-lookahead input[type="number"] {
+  width: 4rem;
+  padding: .25rem .375rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: .8125rem;
+  text-align: center;
+}
+
+.weather-autotrack-lookahead--inline {
+  gap: .125rem;
+}
+
+.weather-autotrack-lookahead--inline input[type="number"] {
+  width: 3.25rem;
+}
+
+.weather-autotrack-lookahead--inline span {
+  font-size: .75rem;
+  color: var(--text-muted);
+}
+
 .weather-autotrack-row {
   display: flex;
   align-items: center;
@@ -8620,6 +8662,674 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 .weather-autotrack-row--disabled {
   opacity: .5;
+}
+
+.weather-autotrack-global {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .75rem;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  font-size: .8125rem;
+}
+
+.weather-autotrack-global .weather-autotrack-lookahead {
+  font-size: .75rem;
+  color: var(--text-muted);
+}
+
+.weather-autotrack-global .weather-autotrack-lookahead input[type="number"] {
+  width: 3.5rem;
+}
+
+/* Weather algo — collapsible sections & spacing */
+.weather-algo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.weather-algo-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.weather-collapsible {
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-collapsible-header {
+  gap: .75rem;
+}
+
+.weather-collapsible-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+  flex: 1;
+}
+
+.weather-collapsible-toggle:hover {
+  color: var(--accent);
+}
+
+.weather-collapsible-toggle .algo-panel-title {
+  margin: 0;
+}
+
+.weather-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: .75rem;
+  transition: transform .15s ease;
+}
+
+.weather-collapsible--collapsed .weather-collapsible-header {
+  border-bottom-color: transparent;
+}
+
+.weather-collapsible-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+
+.weather-collapsible-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Weather algo — collapsible sections + spacing */
+.weather-algo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.weather-algo-page > section + section,
+.weather-algo-page > .weather-algo-grid + section,
+.weather-algo-grid > section + section {
+  margin-top: 1rem;
+}
+
+.weather-collapsible {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.weather-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  gap: 0.75rem;
+}
+
+.weather-collapsible--collapsed .weather-collapsible-header {
+  border-bottom: none;
+}
+
+.weather-collapsible-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font);
+  color: var(--text);
+  min-width: 0;
+}
+
+.weather-collapsible-toggle:hover {
+  color: var(--accent);
+}
+
+.weather-collapsible-toggle .algo-panel-title {
+  margin: 0;
+}
+
+.weather-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.weather-collapsible-toggle:hover .weather-collapsible-chevron {
+  color: var(--accent);
+}
+
+.weather-collapsible-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.weather-collapsible-body {
+  padding: 0;
+}
+
+/* Weather algo — collapsible sections & layout spacing */
+.weather-algo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.weather-algo-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.weather-collapsible {
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-collapsible--collapsed {
+  overflow: hidden;
+}
+
+.weather-collapsible--collapsed .weather-collapsible-header {
+  border-bottom: none;
+}
+
+.weather-collapsible-header {
+  gap: 0.75rem;
+}
+
+.weather-collapsible-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.weather-collapsible-toggle:hover .algo-panel-title {
+  color: var(--accent);
+}
+
+.weather-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.weather-collapsible-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.weather-collapsible-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Weather algo — collapsible sections & spacing */
+.weather-algo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.weather-algo-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.weather-collapsible {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.weather-collapsible--collapsed {
+  overflow: hidden;
+}
+
+.weather-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  gap: 1rem;
+}
+
+.weather-collapsible--collapsed .weather-collapsible-header {
+  border-bottom: none;
+}
+
+.weather-collapsible-toggle {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.weather-collapsible-toggle:hover {
+  color: var(--accent);
+}
+
+.weather-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  user-select: none;
+}
+
+.weather-collapsible-toggle:hover .weather-collapsible-chevron {
+  color: var(--accent);
+}
+
+.weather-collapsible-toggle .algo-panel-title {
+  margin: 0;
+}
+
+.weather-collapsible-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.weather-collapsible-body {
+  display: block;
+}
+
+/* Weather algo — watched cities table (Villes surveillées) */
+.weather-watched-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.weather-watched-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8125rem;
+  color: var(--text-secondary);
+}
+
+.weather-watched-th {
+  text-align: left;
+  padding: .625rem .75rem;
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  white-space: nowrap;
+}
+
+.weather-watched-th-actions {
+  text-align: right;
+}
+
+.weather-watched-tr {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background .15s;
+}
+
+.weather-watched-tr:hover {
+  background: var(--surface-hover);
+}
+
+.weather-watched-tr:last-child {
+  border-bottom: none;
+}
+
+.weather-watched-tr--disabled {
+  opacity: .55;
+}
+
+.weather-watched-td {
+  padding: .625rem .75rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.weather-watched-td-city {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.weather-watched-td-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .375rem;
+  white-space: nowrap;
+}
+
+.weather-watched-remove {
+  color: var(--danger);
+}
+
+.weather-watched-remove:hover {
+  background: var(--accent-muted);
+}
+
+.weather-watched-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .1875rem .5rem;
+  border-radius: 999px;
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.weather-watched-badge-dot {
+  width: .4375rem;
+  height: .4375rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.weather-watched-badge--active {
+  background: rgba(16, 185, 129, .14);
+  color: var(--success);
+}
+
+.weather-watched-badge--active .weather-watched-badge-dot {
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, .2);
+}
+
+.weather-watched-badge--inactive {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.weather-watched-badge--inactive .weather-watched-badge-dot {
+  background: var(--text-muted);
+}
+
+.weather-watched-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 1rem 2.25rem;
+  gap: .5rem;
+}
+
+.weather-watched-empty-icon {
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: .25rem;
+  opacity: .85;
+}
+
+.weather-watched-empty-title {
+  margin: 0;
+  font-size: .9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.weather-watched-empty-text {
+  margin: 0;
+  max-width: 32rem;
+  font-size: .8125rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.weather-watched-empty-text strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .weather-watched-table,
+  .weather-watched-table thead,
+  .weather-watched-table tbody,
+  .weather-watched-table th,
+  .weather-watched-table td,
+  .weather-watched-table tr {
+    display: block;
+  }
+
+  .weather-watched-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .weather-watched-tr {
+    padding: .5rem .75rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--surface);
+  }
+
+  .weather-watched-tr:hover {
+    background: var(--surface-hover);
+  }
+
+  .weather-watched-td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .375rem 0;
+    border: none;
+    white-space: normal;
+  }
+
+  .weather-watched-td::before {
+    content: attr(data-label);
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+
+  .weather-watched-td-city {
+    font-size: .9375rem;
+    padding-top: .5rem;
+  }
+
+  .weather-watched-td-city::before {
+    display: none;
+  }
+
+  .weather-watched-td-actions {
+    justify-content: flex-end;
+    padding-top: .5rem;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: .25rem;
+  }
+
+  .weather-watched-td-actions::before {
+    display: none;
+  }
+}
+
+/* Weather algo page — segmented tab control (Marchés / Positions / Villes / Paramètres) */
+.weather-algo-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: .125rem;
+  padding: .25rem;
+  margin: 0 0 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  width: fit-content;
+}
+
+.weather-algo-segmented-btn {
+  padding: .4rem .9rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: .8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+
+.weather-algo-segmented-btn:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.weather-algo-segmented-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.weather-algo-segmented-btn.active:hover {
+  background: var(--accent-hover);
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .weather-algo-segmented {
+    display: flex;
+    width: 100%;
+  }
+  .weather-algo-segmented-btn {
+    flex: 1;
+  }
+}
+
+/* Weather algo — segmented tab control (Marchés / Positions / Villes / Paramètres) */
+.weather-algo-segmented {
+  display: inline-flex;
+  align-items: stretch;
+  gap: .125rem;
+  padding: .25rem;
+  margin: .75rem 0 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.weather-algo-segmented-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: .45rem 1.1rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: .8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.weather-algo-segmented-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.weather-algo-segmented-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.weather-algo-segmented-btn.active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .weather-algo-segmented {
+    width: 100%;
+  }
+  .weather-algo-segmented-btn {
+    flex: 1;
+    padding: .45rem .5rem;
+  }
 }
 
 /* Weather algo positions panel */

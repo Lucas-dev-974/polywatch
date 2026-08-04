@@ -1,4 +1,4 @@
-import { createSignal, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { useWeatherAlgoDashboard } from '../hooks/useWeatherAlgoDashboard';
 import { useWeatherAlgoPositions } from '../hooks/useWeatherAlgoPositions';
 import { useWeatherAlgoExecutions } from '../hooks/useWeatherAlgoExecutions';
@@ -6,7 +6,6 @@ import { WeatherAlgoHeader } from './WeatherAlgoHeader';
 import { WeatherAlgoCapitalHero } from './WeatherAlgoCapitalHero';
 import { WeatherAlgoDiscoverPanel } from './WeatherAlgoDiscoverPanel';
 import { WeatherAlgoActiveMarketsPanel } from './WeatherAlgoActiveMarketsPanel';
-import { WeatherAlgoForecastPanel } from './WeatherAlgoForecastPanel';
 import { WeatherAlgoPositionsPanel } from './WeatherAlgoPositionsPanel';
 import { WeatherAlgoExecutionsPanel } from './WeatherAlgoExecutionsPanel';
 import { WeatherAlgoAutoTrackTab } from './WeatherAlgoAutoTrackTab';
@@ -31,47 +30,25 @@ export function WeatherAlgoPage() {
         onToggleRealTrading={dashboard.toggleRealTrading}
       />
 
-      <div class="weather-algo-tabs">
-        <button
-          classList={{
-            'btn btn-sm': true,
-            'btn-primary': tab() === 'markets',
-            'btn-ghost': tab() !== 'markets',
-          }}
-          onClick={() => setTab('markets')}
-        >
-          Marchés
-        </button>
-        <button
-          classList={{
-            'btn btn-sm': true,
-            'btn-primary': tab() === 'positions',
-            'btn-ghost': tab() !== 'positions',
-          }}
-          onClick={() => setTab('positions')}
-        >
-          Positions
-        </button>
-        <button
-          classList={{
-            'btn btn-sm': true,
-            'btn-primary': tab() === 'cities',
-            'btn-ghost': tab() !== 'cities',
-          }}
-          onClick={() => setTab('cities')}
-        >
-          Villes
-        </button>
-        <button
-          classList={{
-            'btn btn-sm': true,
-            'btn-primary': tab() === 'settings',
-            'btn-ghost': tab() !== 'settings',
-          }}
-          onClick={() => setTab('settings')}
-        >
-          Paramètres
-        </button>
+      <div class="weather-algo-segmented" role="tablist">
+        <For each={[
+          { id: 'markets' as const, label: 'Marchés' },
+          { id: 'positions' as const, label: 'Positions' },
+          { id: 'cities' as const, label: 'Villes' },
+          { id: 'settings' as const, label: 'Paramètres' },
+        ]}>
+          {(item) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab() === item.id}
+              class={`weather-algo-segmented-btn${tab() === item.id ? ' active' : ''}`}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          )}
+        </For>
       </div>
 
       <Show when={tab() === 'markets'}>
@@ -88,13 +65,14 @@ export function WeatherAlgoPage() {
             onRefresh={dashboard.discoverMarkets}
             onWatchCity={(city) => void dashboard.watchCity(city)}
           />
-          <WeatherAlgoForecastPanel />
         </div>
       </Show>
 
       <Show when={tab() === 'positions'}>
-        <WeatherAlgoPositionsPanel positions={positions} />
-        <WeatherAlgoExecutionsPanel executions={executions} />
+        <div class="weather-algo-stack">
+          <WeatherAlgoPositionsPanel positions={positions} />
+          <WeatherAlgoExecutionsPanel executions={executions} />
+        </div>
       </Show>
 
       <Show when={tab() === 'cities'}>
@@ -105,6 +83,9 @@ export function WeatherAlgoPage() {
           onToggle={dashboard.toggleAutoTrackRule}
           onUpdateLookAhead={(id, lookAheadDays) =>
             void dashboard.updateAutoTrackLookAhead(id, lookAheadDays)
+          }
+          onUpdateAllLookAhead={(lookAheadDays) =>
+            void dashboard.updateAllAutoTrackLookAhead(lookAheadDays)
           }
         />
       </Show>

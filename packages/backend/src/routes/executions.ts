@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { DataSource } from 'typeorm';
-import { CopiedPosition, Execution } from '@polywatch/core';
+import { CopiedPosition, Execution, algoKindLikePattern } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 import { requireServiceToken } from '../middleware/auth.js';
 import { broadcastSimSnapshot } from '../notify/simulation.js';
@@ -26,6 +26,10 @@ export function createExecutionsRouter(ds: DataSource): Router {
 
     if (req.query.mode) {
       qb.andWhere('e.mode = :mode', { mode: req.query.mode });
+    }
+    if (req.query.algoKind) {
+      const pattern = algoKindLikePattern(req.query.algoKind as 'crypto' | 'weather' | 'copy');
+      qb.andWhere('e.reason LIKE :algoPattern', { algoPattern: pattern });
     }
     if (req.query.status) {
       qb.andWhere('e.status = :status', { status: req.query.status });

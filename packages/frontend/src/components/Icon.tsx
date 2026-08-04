@@ -180,5 +180,31 @@ export function Icon(props: Props) {
     );
   }
 
+  if (props.name === 'trending-up') {
+    return (
+      <svg {...svgProps} width={size()} height={size()} viewBox="0 0 24 24" aria-hidden="true">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+        <polyline points="17 6 23 6 23 12" />
+      </svg>
+    );
+  }
+
+  if (props.name === 'cloud') {
+    return (
+      <svg {...svgProps} width={size()} height={size()} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+      </svg>
+    );
+  }
+
+  if (props.name === 'copy') {
+    return (
+      <svg {...svgProps} width={size()} height={size()} viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    );
+  }
+
   return null;
 }

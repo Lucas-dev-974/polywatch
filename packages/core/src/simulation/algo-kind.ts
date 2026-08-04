@@ -58,3 +58,19 @@ export function openingReasonsForAlgoKind(algoKind: SimAlgoKind): string[] {
       return ['ALGO_OPEN', 'ALGO_INCREASE'];
   }
 }
+
+/**
+ * SQL LIKE pattern for filtering CopiedPosition/Execution by algoKind.
+ * Covers all reasons (open, increase, close, exit) for that algo.
+ */
+export function algoKindLikePattern(algoKind: SimAlgoKind): string {
+  switch (algoKind) {
+    case 'copy':
+      return 'COPY_%';
+    case 'weather':
+      return 'WEATHER_%';
+    case 'crypto':
+    default:
+      return 'ALGO_%';
+  }
+}

@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, onCleanup, Show } from 'solid-js';
+import { createSignal, For, onMount, onCleanup, createEffect, Show } from 'solid-js';
 import { api } from '../api';
 import { formatShortDateTime } from '../lib/date';
 import { connectSocket } from '../socket';
@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 
 type Props = {
   mode: 'sim' | 'real';
+  algoKind?: string;
 };
 
 interface ExecutionsResponse {
@@ -30,6 +31,7 @@ export function ExecutionLog(props: Props) {
     params.set('mode', props.mode);
     params.set('sortBy', 'executedAt');
     params.set('hasExecutedAt', 'true');
+    if (props.algoKind) params.set('algoKind', props.algoKind);
     return `/executions?${params.toString()}`;
   }
 
@@ -73,6 +75,12 @@ export function ExecutionLog(props: Props) {
       socket.off('execution', onExecution);
       socket.off('simulation_reset', onSimulationReset);
     });
+  });
+
+  // Reload when algoKind changes
+  createEffect(() => {
+    const _ = props.algoKind;
+    void load();
   });
 
   return (

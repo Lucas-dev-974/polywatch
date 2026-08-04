@@ -9,6 +9,7 @@ import {
   ExecutionService,
   CopiedPositionService,
   SimulationService,
+  algoKindLikePattern,
 } from '@polywatch/core';
 import { getRedis } from '../../redis.js';
 import { fetchPusdBalance } from '../../polymarket/pusd-balance.js';
@@ -30,11 +31,18 @@ export function createInternalPositionsRouter(ds: DataSource): Router {
       'open',
       'closing',
     ];
-    const positions = await ds
+    const qb = ds
       .getRepository(CopiedPosition)
       .createQueryBuilder('p')
-      .where('p.status IN (:...statuses)', { statuses })
-      .getMany();
+      .where('p.status IN (:...statuses)', { statuses });
+
+    const algoKind = req.query.algoKind as string | undefined;
+    if (algoKind === 'crypto' || algoKind === 'weather' || algoKind === 'copy') {
+      const pattern = algoKindLikePattern(algoKind);
+      qb.andWhere('p.reason LIKE :algoPattern', { algoPattern: pattern });
+    }
+
+    const positions = await qb.getMany();
     res.json(positions);
   });
 
@@ -156,13 +164,15 @@ export function createInternalPositionsRouter(ds: DataSource): Router {
     res.json({ ok: true, orderSignalId: signal.id, message: 'retry_close_enqueued' });
   });
 
-  router.get('/executions', async (_req, res) => {
-    res.json(
-      await ds.getRepository(Execution).find({
-        order: { id: 'DESC' },
-        take: 50,
-      }),
-    );
+  router.get('/executions', async (req, res) => {
+    const qb = ds.getRepository(Execution).createQueryBuilder('e').orderBy('e.id', 'DESC').take(50);
+
+    const algoKind = req.query.algoKind as string | undefined;
+    if (algoKind === 'crypto' || algoKind === 'weather' || algoKind === 'copy') {
+      qb.andWhere('e.reason LIKE :algoPattern', { algoPattern: algoKindLikePattern(algoKind) });
+    }
+
+    res.json(await qb.getMany());
   });
 
   return router;

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { createMemo, createSignal, createEffect, onCleanup, onMount, Show } from 'solid-js';
 
 import { MarketMetricsPanel } from './MarketMetricsPanel';
 
@@ -34,6 +34,7 @@ const POSITION_POLL_INTERVAL_MS = 60_000;
 
 type Props = {
   mode: 'sim' | 'real';
+  algoKind?: string;
 };
 
 function EmptyState(props: { message: string }) {
@@ -71,17 +72,23 @@ export function PositionCard(props: Props) {
   const awaitingRedemptionPositions = () => partitioned().awaitingRedemption;
   const failedPositions = () => partitioned().failed;
 
+  function buildPositionsQuery(status: string): string {
+    const params = new URLSearchParams();
+    params.set('status', status);
+    params.set('mode', props.mode);
+    if (props.algoKind) params.set('algoKind', props.algoKind);
+    return `/copied-positions?${params.toString()}`;
+  }
+
   async function loadActive() {
     setActivePositions(
-      await api<Position[]>(
-        `/copied-positions?status=open,closing,pending_resolution,failed&mode=${props.mode}`,
-      ),
+      await api<Position[]>(buildPositionsQuery('open,closing,pending_resolution,failed')),
     );
   }
 
   async function loadHistory() {
     setClosedPositions(
-      await api<Position[]>(`/copied-positions?status=closed&mode=${props.mode}`),
+      await api<Position[]>(buildPositionsQuery('closed')),
     );
   }
 
@@ -126,6 +133,12 @@ export function PositionCard(props: Props) {
       unsubscribeRefresh();
       if (pollId != null) clearInterval(pollId);
     });
+  });
+
+  // Reload when algoKind changes
+  createEffect(() => {
+    const _ = props.algoKind;
+    void loadAll();
   });
 
   async function closePosition(id: number) {

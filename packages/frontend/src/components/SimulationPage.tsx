@@ -1,17 +1,19 @@
-import { Show } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { EventsPanel } from './EventsPanel';
 import { ExecutionLog } from './ExecutionLog';
 import { PositionCard } from './PositionCard';
 import { SimAnalyticsPanel } from './SimAnalyticsPanel';
 import { SimHero } from './SimHero';
 import { SIM_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../lib/ui-persistence';
+import type { SimAlgoKind } from '../lib/simulation';
 
 export function SimulationPage() {
   const [tab, setTab] = usePersistedEnum(UI_KEYS.simTab, 'activity', SIM_PAGE_TABS);
+  const [activeAlgo, setActiveAlgo] = createSignal<SimAlgoKind>('crypto');
 
   return (
     <>
-      <SimHero />
+      <SimHero activeAlgo={activeAlgo()} onAlgoChange={setActiveAlgo} />
       <div class="sim-page-tabs panel-tabs">
         <button
           type="button"
@@ -31,9 +33,9 @@ export function SimulationPage() {
       <Show when={tab() === 'activity'}>
         <div class="page-grid page-grid-single">
           <div class="page-col">
-            <PositionCard mode="sim" />
+            <PositionCard mode="sim" algoKind={activeAlgo()} />
             <EventsPanel mode="sim" />
-            <ExecutionLog mode="sim" />
+            <ExecutionLog mode="sim" algoKind={activeAlgo()} />
           </div>
         </div>
       </Show>

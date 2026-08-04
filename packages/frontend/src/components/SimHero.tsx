@@ -15,6 +15,7 @@ import { formatSimExecutionStatsSummary } from './SimExecutionStatsPanel';
 import { ModeHeroBalanceStat } from './ModeHeroBalanceStat';
 import { SimSnapshotDialog } from './SimSnapshotDialog';
 import { NewSessionResetDialog } from './NewSessionResetDialog';
+import { Icon } from './Icon';
 import {
   fetchSimExecutionStats,
   type SimExecutionStats,
@@ -24,14 +25,18 @@ import {
 const BALANCE_REFRESH_DEBOUNCE_MS = 500;
 const EXEC_STATS_REFRESH_DEBOUNCE_MS = 2_000;
 
-const ALGO_TABS: { id: SimAlgoKind; label: string }[] = [
-  { id: 'crypto', label: 'Crypto' },
-  { id: 'weather', label: 'Weather' },
-  { id: 'copy', label: 'Copy' },
+const ALGO_TABS: { id: SimAlgoKind; label: string; icon: string }[] = [
+  { id: 'crypto', label: 'Crypto', icon: 'trending-up' },
+  { id: 'weather', label: 'Weather', icon: 'cloud' },
+  { id: 'copy', label: 'Copy', icon: 'copy' },
 ];
 
-export function SimHero() {
-  const [activeAlgo, setActiveAlgo] = createSignal<SimAlgoKind>('crypto');
+type Props = {
+  activeAlgo: SimAlgoKind;
+  onAlgoChange: (algo: SimAlgoKind) => void;
+};
+
+export function SimHero(props: Props) {
   const [simBalance, setSimBalance] = createSignal<SimBalance | null>(null);
   const [initialCapital, setInitialCapital] = createSignal<number | null>(null);
   const [snapshotOpen, setSnapshotOpen] = createSignal(false);
@@ -59,10 +64,10 @@ export function SimHero() {
 
   async function loadSimBalance() {
     const gen = ++balanceLoadGen;
-    const ak = activeAlgo();
+    const ak = props.activeAlgo;
     try {
       const bal = await fetchSimBalance(ak);
-      if (gen === balanceLoadGen && ak === activeAlgo()) {
+      if (gen === balanceLoadGen && ak === props.activeAlgo) {
         setSimBalance(bal);
       }
     } catch {
@@ -81,7 +86,7 @@ export function SimHero() {
   onMount(() => {
     void loadRisk();
     void loadExecStats();
-    void loadInitialCapitalForAlgo(activeAlgo());
+    void loadInitialCapitalForAlgo(props.activeAlgo);
     const socket = connectSocket();
     const refreshBalance = debounceFn(() => void loadSimBalance(), BALANCE_REFRESH_DEBOUNCE_MS);
     const refreshExecStats = debounceFn(
@@ -89,11 +94,11 @@ export function SimHero() {
       EXEC_STATS_REFRESH_DEBOUNCE_MS,
     );
     const onSimulationReset = (payload?: { algoKind?: string }) => {
-      if (payload?.algoKind && payload.algoKind !== activeAlgo()) return;
+      if (payload?.algoKind && payload.algoKind !== props.activeAlgo) return;
       void loadSimBalance();
     };
     socket.on('simulation_balance', (payload: SimBalance & { algoKind?: string }) => {
-      if (!payload.algoKind || payload.algoKind !== activeAlgo()) return;
+      if (!payload.algoKind || payload.algoKind !== props.activeAlgo) return;
       setSimBalance(payload);
     });
     socket.on('simulation_reset', onSimulationReset);
@@ -139,7 +144,7 @@ export function SimHero() {
   }
 
   function switchAlgo(algo: SimAlgoKind) {
-    setActiveAlgo(algo);
+    props.onAlgoChange(algo);
     setSimBalance(null);
     void loadSimBalance();
     void loadInitialCapitalForAlgo(algo);
@@ -162,18 +167,19 @@ export function SimHero() {
               <button
                 type="button"
                 class="algo-kind-tab"
-                classList={{ active: activeAlgo() === tab.id }}
+                classList={{ active: props.activeAlgo === tab.id }}
                 role="tab"
-                aria-selected={activeAlgo() === tab.id}
+                aria-selected={props.activeAlgo === tab.id}
                 onClick={() => switchAlgo(tab.id)}
               >
-                {tab.label}
+                <Icon name={tab.icon} size={14} />
+                <span>{tab.label}</span>
               </button>
             )}
           </For>
         </nav>
         <ModeHeroBalanceStat
-          label={`Simulation (${activeAlgo()})`}
+          label={`Simulation (${props.activeAlgo})`}
           equity={balance()?.equity}
           cash={balance()?.amount}
           positions={balance()?.positionsValue}
@@ -243,13 +249,13 @@ export function SimHero() {
         onClose={() => setResetDialogOpen(false)}
         mode="manual"
         onDone={(result) => onResetDone(result)}
-        algoKind={activeAlgo()}
+        algoKind={props.activeAlgo}
       />
       <SimSnapshotDialog
         open={snapshotOpen()}
         onClose={() => setSnapshotOpen(false)}
         onCreated={onSnapshotCreated}
-        algoKind={activeAlgo()}
+        algoKind={props.activeAlgo}
       />
       <SimExecutionSettingsDialog
         open={simExecSettingsOpen()}

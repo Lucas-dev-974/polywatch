@@ -9,6 +9,7 @@ import {
   ExitAttemptEventService,
   EXIT_ATTEMPT_LIST_MAX_LIMIT,
   MarketPositionTickService,
+  algoKindLikePattern,
 } from '@polywatch/core';
 import { requireJwt, type AuthRequest } from '../middleware/auth.js';
 import { getRedis } from '../redis.js';
@@ -70,6 +71,10 @@ export function createPositionsRouter(ds: DataSource): Router {
       }
       if (req.query.mode) {
         qb.andWhere('p.mode = :mode', { mode: req.query.mode });
+      }
+      if (req.query.algoKind) {
+        const pattern = algoKindLikePattern(req.query.algoKind as 'crypto' | 'weather' | 'copy');
+        qb.andWhere('p.reason LIKE :algoPattern', { algoPattern: pattern });
       }
       if (req.query.reason === 'algo') {
         qb.andWhere('p.reason LIKE :algoPattern', { algoPattern: 'ALGO_%' });

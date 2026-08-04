@@ -1166,6 +1166,72 @@ body {
   }
 }
 
+/* ── Algo kind tabs (Crypto / Weather / Copy) ── */
+
+.algo-kind-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+
+.algo-kind-tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.algo-kind-tab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.algo-kind-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.algo-kind-tab.active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.algo-kind-tab.active svg {
+  color: var(--accent);
+}
+
+.algo-kind-tab svg {
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+@media (max-width: 640px) {
+  .algo-kind-tabs {
+    width: 100%;
+  }
+  .algo-kind-tab {
+    flex: 1;
+  }
+}
+
 .dialog-creds {
   max-width: 480px;
 }

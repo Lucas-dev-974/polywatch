@@ -8,6 +8,10 @@ export interface AlgoReentryFillPayload {
   conditionId: string;
   outcome: string;
   filledAtMs?: number;
+  /** Copied position id — used for idempotent Redis slot consumption. */
+  positionId?: number;
+  /** Effective throttle window at fill time (ms). */
+  windowMs?: number;
 }
 
 export async function publishAlgoReentryFill(

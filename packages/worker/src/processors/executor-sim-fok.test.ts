@@ -8,6 +8,7 @@ import {
   getSelfImpactRegistry,
   resetSelfImpactRegistryForTests,
 } from '../execution/self-impact-registry.js';
+import { makeGlobalConfig } from './strategy/test-config-fixtures.js';
 
 vi.mock('../clob/prepare-fak-order.js', () => ({
   prepareFakMarketOrder: vi.fn(),
@@ -72,11 +73,14 @@ describe('Executor simulateFill FOK', () => {
       } as any,
     );
 
-    (executor as any).riskService = {
-      getConfig: vi.fn().mockResolvedValue({
-        simSelfImpactEnabled: true,
-        simSelfImpactTtlSeconds: 8,
-      }),
+    (executor as any).globalConfigService = {
+      getConfig: vi.fn().mockResolvedValue(
+        makeGlobalConfig({
+          simSelfImpactEnabled: true,
+          simSelfImpactTtlSeconds: 8,
+          simExecLatencyMs: 0,
+        }),
+      ),
     };
 
     vi.mocked(prepareFakMarketOrder).mockResolvedValue({

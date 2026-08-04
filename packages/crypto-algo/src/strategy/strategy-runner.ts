@@ -1,4 +1,5 @@
 import type { DataSource } from 'typeorm';
+import type { Redis } from 'ioredis';
 import pino from 'pino';
 import {
   safeInterval,
@@ -8,6 +9,9 @@ import {
   resolveNaiveMomentumConfig,
   resolveGammaCacheTtlMs,
   resolveGammaStaleOnErrorFactor,
+  tryLoadCryptoReentryState,
+  isCryptoReentrySuppressed,
+  recordCryptoReentryFill,
   type MarketService,
   type CryptoConfigService,
   type CryptoConfig,
@@ -124,6 +128,8 @@ export class StrategyRunner {
   private tickTimer: NodeJS.Timeout | null = null;
   private janitorTimer: NodeJS.Timeout | null = null;
   private priceFeed: CryptoAlgoPriceFeed | null = null;
+  /** Redis SoT for re-entry throttle (optional in unit tests). */
+  private redis: Redis | null = null;
   private wsConnected = false;
   private pollMs = DEFAULT_POLL_MS;
   private currentCryptoConfig: CryptoConfig | null = null;
@@ -175,6 +181,11 @@ export class StrategyRunner {
     priceFeed.setOnMarketResolved((conditionId) => {
       void this.handleMarketResolved(conditionId);
     });
+  }
+
+  /** Wire Redis for durable re-entry throttle (required in production). */
+  setRedis(redis: Redis): void {
+    this.redis = redis;
   }
 
   /**
@@ -247,9 +258,16 @@ export class StrategyRunner {
 
   /**
    * Consume a re-entry slot after a confirmed algo BUY fill.
-   * Called via Redis when the worker finalizes an ALGO_OPEN execution.
+   * Called via Redis pub/sub when the worker finalizes an ALGO_OPEN execution.
+   * Redis is the source of truth; the in-memory Map is a test/fallback cache.
    */
-  recordReEntryOnFill(conditionId: string, outcome: string, nowMs = Date.now()): void {
+  recordReEntryOnFill(
+    conditionId: string,
+    outcome: string,
+    nowMs = Date.now(),
+    positionId?: number,
+    windowMsOverride?: number,
+  ): void {
     if (this.reEntryWindowMs === 0) return;
 
     const normalized = normalizeReEntryOutcome(outcome);
@@ -268,11 +286,31 @@ export class StrategyRunner {
       .getActiveSelections()
       .find((s) => s.conditionId === conditionId);
     const reentryParams = resolveCryptoAlgoReentryParams(cryptoConfig, selection?.interval);
+    const windowMs = windowMsOverride && windowMsOverride > 0
+      ? windowMsOverride
+      : reentryParams.windowMs;
     const reEntryKey = buildReEntryKey(conditionId, normalized);
 
-    recordReEntrySuccess(this.reentry, reEntryKey, nowMs, reentryParams.windowMs);
+    // Local cache (tests / brief lag before next Redis read).
+    recordReEntrySuccess(this.reentry, reEntryKey, nowMs, windowMs);
+
+    if (this.redis && positionId != null && positionId > 0) {
+      void recordCryptoReentryFill(this.redis, {
+        conditionId,
+        outcome: normalized,
+        positionId,
+        windowMs,
+        nowMs,
+      }).catch((err) => {
+        log.warn(
+          { err, conditionId, outcome: normalized, positionId },
+          'failed to mirror re-entry fill into Redis',
+        );
+      });
+    }
+
     log.info(
-      { conditionId, outcome: normalized, windowMs: reentryParams.windowMs },
+      { conditionId, outcome: normalized, windowMs, positionId },
       're-entry slot consumed after fill',
     );
   }
@@ -686,15 +724,47 @@ export class StrategyRunner {
 
     if (!throttleDisabled) {
       const reentryParams = resolveCryptoAlgoReentryParams(cryptoConfig, selection.interval);
-      const state = this.reentry.get(reEntryKey);
+      let suppressed = false;
+      let suppressCount: number | undefined;
 
-      if (shouldSuppressReEntry(state, nowMs, reentryParams.maxEntries)) {
+      if (this.redis) {
+        const loaded = await tryLoadCryptoReentryState(
+          this.redis,
+          selection.conditionId,
+          fired.outcome,
+        );
+        if (!loaded.ok) {
+          // Fail-closed: Redis down must not allow revenge re-entry after restart.
+          log.warn(
+            { err: loaded.error, conditionId: selection.conditionId, outcome: fired.outcome },
+            're-entry Redis unavailable — suppressing entry (fail-closed)',
+          );
+          this.runtimeStatus?.recordSkip(
+            'ré-entrée indisponible (Redis)',
+            selection.conditionId,
+          );
+          this.onAbstain?.(selection.conditionId, 're_entry_limit');
+          return true;
+        }
+        suppressed = isCryptoReentrySuppressed(
+          loaded.state,
+          nowMs,
+          reentryParams.maxEntries,
+        );
+        suppressCount = loaded.state?.count;
+      } else {
+        const state = this.reentry.get(reEntryKey);
+        suppressed = shouldSuppressReEntry(state, nowMs, reentryParams.maxEntries);
+        suppressCount = state?.count;
+      }
+
+      if (suppressed) {
         log.info(
           {
             conditionId: selection.conditionId,
             outcome: fired.outcome,
             strategyId: firedStrategy.id,
-            count: state?.count,
+            count: suppressCount,
             max: reentryParams.maxEntries,
           },
           're-entry limit reached — suppressing signal',

@@ -66,6 +66,8 @@ export function buildPositionExitContext(params: {
   pos: CopiedPosition;
   market: Market | undefined;
   globalConfig: GlobalConfig;
+  /** Per-algo config (crypto/copy/weather) — not GlobalConfig. */
+  algoConfig: any;
   bookPrices: BookPrices;
   lifecycle: ReturnType<typeof resolveMarkState>['lifecycle'];
   wsBestBid?: number;
@@ -77,10 +79,11 @@ export function buildPositionExitContext(params: {
   closure: number;
   peakClosure: number;
 }): PositionExitContext {
-  const { pos, market, globalConfig, bookPrices, lifecycle, wsBestBid, now, marketInterval, lastTradePrice, lastTradeTimestamp, trigger, closure, peakClosure } = params;
+  const { pos, market, algoConfig, bookPrices, lifecycle, wsBestBid, now, marketInterval, lastTradePrice, lastTradeTimestamp, trigger, closure, peakClosure } = params;
 
   const timeToEndMs = resolveTimeToEndMs(market, now);
-  const preClose = getPositionPreCloseParams(globalConfig as any,
+  const preClose = getPositionPreCloseParams(
+    algoConfig,
     pos.mode as TradingMode,
     pos.reason,
     marketInterval,
@@ -93,7 +96,7 @@ export function buildPositionExitContext(params: {
     preCloseSeconds: preClose.preCloseSeconds,
     liquidityStatus: bookPrices.liquidityStatus,
   });
-  const lastCloseableBidMaxAgeMs = resolveLastCloseableBidMaxAgeMs(globalConfig as any);
+  const lastCloseableBidMaxAgeMs = resolveLastCloseableBidMaxAgeMs(algoConfig);
   const exitMark = resolveExitDecisionMarkPrice(
     pos,
     bookPrices.executableBidVwap,
@@ -309,6 +312,7 @@ export async function evaluateIlliquidPosition(params: {
         pos,
         market,
         globalConfig,
+        algoConfig,
         bookPrices,
         lifecycle,
         wsBestBid,
@@ -345,6 +349,7 @@ export async function evaluateIlliquidPosition(params: {
     pos,
     market,
     globalConfig,
+    algoConfig,
     bookPrices,
     lifecycle,
     wsBestBid,
@@ -456,6 +461,7 @@ export async function evaluateLiquidPosition(params: {
     pos,
     market,
     globalConfig,
+    algoConfig,
     bookPrices,
     lifecycle,
     wsBestBid,

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PositionExitEvaluator } from './position-exit-evaluator.js';
-import type { CopiedPosition, Market, RiskConfig } from '@polywatch/core';
+import type { CopiedPosition, CryptoConfig, Market } from '@polywatch/core';
 import {
   FORCED_EXIT_RETRY_COOLDOWN_MS,
   SL_CONFIRMATION_MIN_WINDOW_MS,
 } from '../../constants.js';
+import { makeCryptoConfig, makeGlobalConfig } from './test-config-fixtures.js';
 
 function makePos(overrides: Partial<CopiedPosition> = {}): CopiedPosition {
   return {
@@ -46,30 +47,33 @@ function makePos(overrides: Partial<CopiedPosition> = {}): CopiedPosition {
   } as CopiedPosition;
 }
 
-function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
-  return {
-    simTrailingStopPercent: null,
-    simTrailingActivationPercent: null,
-    simSlEnabled: true,
-    simTpEnabled: true,
-    simTrailingEnabled: false,
-    simPreCloseEnabled: false,
-    simPreCloseSeconds: 0,
-    simPreCloseKeepEnabled: false,
-    simPreCloseKeepBidThreshold: 0,
-    realTrailingStopPercent: null,
-    realTrailingActivationPercent: null,
-    realSlEnabled: true,
-    realTpEnabled: true,
-    realTrailingEnabled: false,
-    realPreCloseEnabled: false,
-    realPreCloseSeconds: 0,
-    realPreCloseKeepEnabled: false,
-    realPreCloseKeepBidThreshold: 0,
-    simSlCloseMaxRetries: 5,
-    slConfirmationTicks: 1,
-    ...overrides,
-  } as RiskConfig;
+/** Convenience: evaluateCloseLogic with a default GlobalConfig. */
+function closeLogic(
+  evaluator: PositionExitEvaluator,
+  pos: CopiedPosition,
+  market: Market | undefined,
+  algo: CryptoConfig,
+  trigger: number,
+  closure: number,
+  peakClosure: number,
+  projectedRealizedPnlUsdc: number,
+  executableBidVwap: number,
+  liquidityStatus: 'ok' | 'partial' | 'illiquid',
+  ...rest: unknown[]
+) {
+  return evaluator.evaluateCloseLogic(
+    pos,
+    market,
+    makeGlobalConfig(),
+    algo,
+    trigger,
+    closure,
+    peakClosure,
+    projectedRealizedPnlUsdc,
+    executableBidVwap,
+    liquidityStatus,
+    ...(rest as []),
+  );
 }
 
 describe('PositionExitEvaluator', () => {
@@ -83,12 +87,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos();
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -110,12 +115,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos();
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -137,12 +143,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos({ executableBidVwap: 0 });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -163,12 +170,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos({ executableBidVwap: 0 });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -196,12 +204,13 @@ describe('PositionExitEvaluator', () => {
         lastCloseableBidVwap: 0.38,
         lastCloseableBidAt: new Date(),
       });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -228,10 +237,11 @@ describe('PositionExitEvaluator', () => {
         lastCloseableBidAt: new Date(),
       });
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        makeRisk(),
+        makeCryptoConfig(),
         -25,
         -25,
         -25,
@@ -243,7 +253,6 @@ describe('PositionExitEvaluator', () => {
         undefined,
         null,
         null,
-        undefined,
         undefined,
         0.01,
       );
@@ -262,10 +271,11 @@ describe('PositionExitEvaluator', () => {
         record,
       );
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         makePos({ executableBidVwap: 0 }),
         undefined,
-        makeRisk(),
+        makeCryptoConfig(),
         -25,
         -25,
         -25,
@@ -286,13 +296,14 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos({ executableBidVwap: 0 });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
       const lastTradeAt = new Date();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -325,12 +336,13 @@ describe('PositionExitEvaluator', () => {
         lastCloseableBidVwap: 0.38,
         lastCloseableBidAt: staleAt,
       });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -350,13 +362,14 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos({ entryBidVwap: 0.39, slBidPoints: 0.2 });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
       // trigger/closure from executable pos-qty VWAP (0.39) — above SL threshold 0.19
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -1,
         -1,
         -1,
@@ -382,12 +395,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos({ executableBidVwap: 0 });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -423,17 +437,19 @@ describe('PositionExitEvaluator', () => {
         reason: 'ALGO_OPEN',
         executableBidVwap: 0.85,
       });
-      const risk = makeRisk({
-        simPreCloseEnabled: true,
-        simPreCloseSeconds: 120,
-        simPreCloseKeepEnabled: true,
-        simPreCloseKeepBidThreshold: 0.80,
+      const algo = makeCryptoConfig({
+        cryptoAlgoPreCloseEnabled: true,
+        cryptoAlgoPreCloseSeconds: 120,
+        // Keep is on, but bid is below confidence → still sell PRE_CLOSE_LOSS.
+        cryptoAlgoPreCloseKeepEnabled: true,
+        cryptoAlgoPreCloseKeepBidThreshold: 0.90,
       });
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         market,
-        risk,
+        algo,
         -5,
         -5,
         -5,
@@ -466,17 +482,18 @@ describe('PositionExitEvaluator', () => {
         reason: 'ALGO_OPEN',
         executableBidVwap: 0.85,
       });
-      const risk = makeRisk({
-        simPreCloseEnabled: true,
-        simPreCloseSeconds: 120,
-        simPreCloseKeepEnabled: true,
-        simPreCloseKeepBidThreshold: 0.80,
+      const algo = makeCryptoConfig({
+        cryptoAlgoPreCloseEnabled: true,
+        cryptoAlgoPreCloseSeconds: 120,
+        cryptoAlgoPreCloseKeepEnabled: true,
+        cryptoAlgoPreCloseKeepBidThreshold: 0.80,
       });
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         market,
-        risk,
+        algo,
         -5,
         -5,
         -5,
@@ -517,17 +534,18 @@ describe('PositionExitEvaluator', () => {
         quantity: 2.5,
         entryQuantityRemaining: 2.5,
       });
-      const risk = makeRisk({
-        simPreCloseEnabled: true,
-        simPreCloseSeconds: 120,
-        simPreCloseKeepEnabled: true,
-        simPreCloseKeepBidThreshold: 0.80,
+      const algo = makeCryptoConfig({
+        cryptoAlgoPreCloseEnabled: true,
+        cryptoAlgoPreCloseSeconds: 120,
+        cryptoAlgoPreCloseKeepEnabled: true,
+        cryptoAlgoPreCloseKeepBidThreshold: 0.80,
       });
 
       await evaluateCloseLogic(
         pos,
         market,
-        risk,
+        makeGlobalConfig(),
+        algo,
         -2.12,
         -2.12,
         -2.12,
@@ -561,19 +579,18 @@ describe('PositionExitEvaluator', () => {
         reason: 'ALGO_OPEN',
         executableBidVwap: 0.8,
       });
-      const risk = makeRisk({
-        simPreCloseEnabled: true,
-        simPreCloseSeconds: 120,
+      const algo = makeCryptoConfig({
         cryptoAlgoPreCloseEnabled: true,
+        cryptoAlgoPreCloseSeconds: 120,
         cryptoAlgoPreCloseKeepEnabled: true,
         cryptoAlgoPreCloseKeepBidThreshold: 0.85,
-        cryptoAlgoTimeExitEnabled: false,
       });
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         market,
-        risk,
+        algo,
         8,
         8,
         8,
@@ -597,12 +614,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos({ id: 2, side: 'SELL', quantity: 2 });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -639,12 +657,16 @@ describe('PositionExitEvaluator', () => {
 
       // PRE_CLOSE_LOSS scenario: in SOFT window, mild loss, ALGO position
       const pos = makePos({ side: 'SELL', quantity: 100, reason: 'ALGO_OPEN' });
-      const risk = makeRisk({ simPreCloseEnabled: true, simPreCloseSeconds: 120 });
+      const algo = makeCryptoConfig({
+        cryptoAlgoPreCloseEnabled: true,
+        cryptoAlgoPreCloseSeconds: 120,
+      });
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         market,
-        risk,
+        algo,
         -5,
         -5,
         -5,
@@ -679,12 +701,16 @@ describe('PositionExitEvaluator', () => {
       } as Market;
 
       const pos = makePos({ id: 5, quantity: 2, reason: 'ALGO_OPEN' });
-      const risk = makeRisk({ simPreCloseEnabled: true, simPreCloseSeconds: 120 });
+      const algo = makeCryptoConfig({
+        cryptoAlgoPreCloseEnabled: true,
+        cryptoAlgoPreCloseSeconds: 120,
+      });
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         market,
-        risk,
+        algo,
         -5,
         -5,
         -5,
@@ -707,12 +733,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos({ quantity: 2 });
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -734,12 +761,13 @@ describe('PositionExitEvaluator', () => {
       );
 
       const pos = makePos();
-      const risk = makeRisk();
+      const algo = makeCryptoConfig();
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         undefined,
-        risk,
+        algo,
         -25,
         -25,
         -25,
@@ -774,16 +802,16 @@ describe('PositionExitEvaluator', () => {
         entryBidVwap: 0.55,
         entryPrice: 0.57,
       });
-      const risk = makeRisk({
-        simPreCloseEnabled: true,
-        simPreCloseSeconds: 120,
-        cryptoAlgoTimeExitEnabled: true,
+      const algo = makeCryptoConfig({
+        cryptoAlgoPreCloseEnabled: true,
+        cryptoAlgoPreCloseSeconds: 120,
       });
 
-      await evaluator.evaluateCloseLogic(
+      await closeLogic(
+        evaluator,
         pos,
         market,
-        risk,
+        algo,
         -12,
         -12,
         -12,
@@ -813,12 +841,13 @@ describe('PositionExitEvaluator', () => {
           vi.fn().mockResolvedValue(false),
         );
         const pos = makePos();
-        const risk = makeRisk({ slConfirmationTicks: 2 });
+        const algo = makeCryptoConfig({ cryptoAlgoSlConfirmationTicks: 2 });
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           -25,
           -25,
           -25,
@@ -830,10 +859,11 @@ describe('PositionExitEvaluator', () => {
 
         vi.advanceTimersByTime(SL_CONFIRMATION_MIN_WINDOW_MS + 1);
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           -25,
           -25,
           -25,
@@ -852,12 +882,13 @@ describe('PositionExitEvaluator', () => {
           vi.fn().mockResolvedValue(false),
         );
         const pos = makePos();
-        const risk = makeRisk({ slConfirmationTicks: 2 });
+        const algo = makeCryptoConfig({ cryptoAlgoSlConfirmationTicks: 2 });
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           -25,
           -25,
           -25,
@@ -866,10 +897,11 @@ describe('PositionExitEvaluator', () => {
           'ok',
         );
         vi.advanceTimersByTime(SL_CONFIRMATION_MIN_WINDOW_MS + 1);
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           -25,
           -25,
           -25,
@@ -879,10 +911,11 @@ describe('PositionExitEvaluator', () => {
         );
         expect(enqueue).toHaveBeenCalledTimes(1);
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           -25,
           -25,
           -25,
@@ -913,12 +946,13 @@ describe('PositionExitEvaluator', () => {
           forcedExitFailedAttempts: 5,
           lastForcedExitAttemptAt: new Date(Date.now() - 60_000),
         });
-        const risk = makeRisk({ simSlCloseMaxRetries: 5 });
+        const algo = makeCryptoConfig({ cryptoAlgoSlCloseMaxRetries: 5 });
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           50,
           50,
           50,
@@ -937,12 +971,13 @@ describe('PositionExitEvaluator', () => {
           vi.fn().mockResolvedValue(false),
         );
         const pos = makePos();
-        const risk = makeRisk();
+        const algo = makeCryptoConfig();
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           50,
           50,
           50,
@@ -952,10 +987,11 @@ describe('PositionExitEvaluator', () => {
         );
         expect(enqueue).toHaveBeenCalledTimes(1);
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           50,
           50,
           50,
@@ -967,10 +1003,11 @@ describe('PositionExitEvaluator', () => {
 
         vi.advanceTimersByTime(FORCED_EXIT_RETRY_COOLDOWN_MS + 1);
 
-        await evaluator.evaluateCloseLogic(
+        await closeLogic(
+          evaluator,
           pos,
           undefined,
-          risk,
+          algo,
           50,
           50,
           50,

@@ -350,6 +350,19 @@ export {
   hasWeatherReentryThrottle,
 } from './redis/weather-reentry-throttle.js';
 export {
+  cryptoReentryThrottleKey,
+  normalizeCryptoReentryOutcome,
+  parseCryptoReentryRedisState,
+  loadCryptoReentryState,
+  tryLoadCryptoReentryState,
+  isCryptoReentrySuppressed,
+  recordCryptoReentryFill,
+  type CryptoReentryRedisState,
+  type RecordCryptoReentryFillInput,
+  type RecordCryptoReentryFillResult,
+  type CryptoReentryLoadResult,
+} from './redis/crypto-reentry-throttle.js';
+export {
   weatherBucketHysteresisKey,
   incrementWeatherBucketHysteresis,
   resetWeatherBucketHysteresis,

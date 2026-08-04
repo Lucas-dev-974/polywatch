@@ -214,6 +214,7 @@ async function main() {
 
   // 16. Set up WebSocket price feed integration
   strategyRunner.setPriceFeed(priceFeed);
+  strategyRunner.setRedis(redisCmd);
   strategyRunner.setOnAbstain((conditionId, reason, detail) => {
     signalRegistry.recordAbstain(conditionId, reason, detail);
   });
@@ -440,12 +441,16 @@ async function main() {
           conditionId?: string;
           outcome?: string;
           filledAtMs?: number;
+          positionId?: number;
+          windowMs?: number;
         };
         if (payload.conditionId && payload.outcome) {
           strategyRunner.recordReEntryOnFill(
             payload.conditionId,
             payload.outcome,
             payload.filledAtMs ?? Date.now(),
+            payload.positionId,
+            payload.windowMs,
           );
         }
       } catch (err) {

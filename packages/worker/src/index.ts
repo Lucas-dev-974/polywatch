@@ -93,7 +93,7 @@ async function main() {
   const redisPub = createRedis();
   const redisSub = createRedis();
   configureAlgoSlQuotaInvalidatePublisher(redisPub);
-  configureAlgoReentryFillPublisher(redisPub);
+  configureAlgoReentryFillPublisher(redisPub, ds);
   const redisOrderConsumer = createRedis();
   const redisAlgoOrderConsumer = createRedis();
   const redisWeatherOrderConsumer = createRedis();

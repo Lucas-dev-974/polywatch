@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { CopiedPosition, Market, RiskConfig } from '@polywatch/core';
+import type { CopiedPosition, Market } from '@polywatch/core';
 import { evaluateIlliquidPosition } from './position-branches.js';
+import { makeCryptoConfig, makeGlobalConfig } from './test-config-fixtures.js';
 
 function makePos(overrides: Partial<CopiedPosition> = {}): CopiedPosition {
   return {
@@ -46,7 +47,8 @@ describe('evaluateIlliquidPosition', () => {
     await evaluateIlliquidPosition({
       pos: makePos(),
       market: undefined,
-      risk: {} as RiskConfig,
+      globalConfig: makeGlobalConfig(),
+      algoConfig: makeCryptoConfig(),
       connectionManager: { isBookConnectionHealthy: () => true } as any,
       positionService: { updatePnlFields: vi.fn() } as any,
       pnlPublisher: {
@@ -62,9 +64,10 @@ describe('evaluateIlliquidPosition', () => {
     });
 
     expect(evaluateCloseLogic).toHaveBeenCalledTimes(1);
-    expect(evaluateCloseLogic.mock.calls[0][9]).toBe(0.42);
+    // [10]=wsBestBid, [11]=marketInterval, [12]=lastTradePrice
+    expect(evaluateCloseLogic.mock.calls[0][10]).toBe(0.42);
+    expect(evaluateCloseLogic.mock.calls[0][12]).toBeUndefined();
     expect(evaluateCloseLogic.mock.calls[0][11]).toBeUndefined();
-    expect(evaluateCloseLogic.mock.calls[0][10]).toBeUndefined();
   });
 
   it('passes lastTradePrice through to exit evaluation', async () => {
@@ -78,7 +81,8 @@ describe('evaluateIlliquidPosition', () => {
     await evaluateIlliquidPosition({
       pos: makePos(),
       market: undefined,
-      risk: {} as RiskConfig,
+      globalConfig: makeGlobalConfig(),
+      algoConfig: makeCryptoConfig(),
       connectionManager: { isBookConnectionHealthy: () => true } as any,
       positionService: { updatePnlFields: vi.fn() } as any,
       pnlPublisher: {
@@ -95,7 +99,7 @@ describe('evaluateIlliquidPosition', () => {
     });
 
     expect(evaluateCloseLogic).toHaveBeenCalledTimes(1);
-    expect(evaluateCloseLogic.mock.calls[0][11]).toBe(0.41);
+    expect(evaluateCloseLogic.mock.calls[0][12]).toBe(0.41);
   });
 
   it('uses last trade price as conservative mark when stale bid masks a stop-loss breach', async () => {
@@ -113,7 +117,8 @@ describe('evaluateIlliquidPosition', () => {
         executableBidVwap: 0,
       }),
       market: undefined,
-      risk: {} as RiskConfig,
+      globalConfig: makeGlobalConfig(),
+      algoConfig: makeCryptoConfig(),
       connectionManager: { isBookConnectionHealthy: () => true } as any,
       positionService: { updatePnlFields: vi.fn() } as any,
       pnlPublisher: {
@@ -132,8 +137,9 @@ describe('evaluateIlliquidPosition', () => {
 
     expect(evaluateCloseLogic).toHaveBeenCalledTimes(1);
     // Both trigger and closure must reflect the crashed market so the SL fires.
-    expect(evaluateCloseLogic.mock.calls[0][3]).toBeLessThan(-40); // trigger
-    expect(evaluateCloseLogic.mock.calls[0][4]).toBeLessThan(-40); // closure
+    // [4]=trigger, [5]=closure after globalConfig+algoConfig were inserted.
+    expect(evaluateCloseLogic.mock.calls[0][4]).toBeLessThan(-40); // trigger
+    expect(evaluateCloseLogic.mock.calls[0][5]).toBeLessThan(-40); // closure
   });
 
   it('invokes exit evaluation when settled but a CLOB bid still exists', async () => {
@@ -155,7 +161,8 @@ describe('evaluateIlliquidPosition', () => {
     await evaluateIlliquidPosition({
       pos: makePos({ entryBidVwap: 0.55 }),
       market,
-      risk: {} as RiskConfig,
+      globalConfig: makeGlobalConfig(),
+      algoConfig: makeCryptoConfig(),
       connectionManager: { isBookConnectionHealthy: () => true } as any,
       positionService: { updatePnlFields: vi.fn() } as any,
       pnlPublisher: {
@@ -179,6 +186,6 @@ describe('evaluateIlliquidPosition', () => {
     });
 
     expect(evaluateCloseLogic).toHaveBeenCalledTimes(1);
-    expect(evaluateCloseLogic.mock.calls[0][3]).toBeLessThan(0);
+    expect(evaluateCloseLogic.mock.calls[0][4]).toBeLessThan(0);
   });
 });

@@ -4,6 +4,19 @@ import type { OrderSignal } from '@polywatch/core';
 import { MetricsReporter } from '../metrics-reporter.js';
 import { ensureBookReady } from '../polymarket/ensure-book-ready.js';
 import { completeExecution } from '../clob/execution-completion.js';
+import { makeGlobalConfig } from './strategy/test-config-fixtures.js';
+
+function mockExecutorConfigServices(executor: Executor): void {
+  (executor as any).globalConfigService = {
+    getConfig: vi.fn().mockResolvedValue(makeGlobalConfig()),
+  };
+  (executor as any).copyConfigService = {
+    getConfig: vi.fn().mockResolvedValue({
+      simCopyTradingEnabled: true,
+      realCopyTradingEnabled: true,
+    }),
+  };
+}
 
 // Mock dependencies
 vi.mock('../metrics-reporter.js', () => ({
@@ -104,6 +117,7 @@ describe('Executor metrics counting', () => {
     // Override internal services
     (executor as any).positionService = mockPositionService;
     (executor as any).executionService = mockExecutionService;
+    mockExecutorConfigServices(executor);
   });
 
   it('records exit when closingAttemptSeq === 1 and !resumed', async () => {
@@ -235,11 +249,7 @@ describe('Executor entry reservation guard', () => {
 
     (executor as any).reservationService = mockReservationService;
     (executor as any).executionService = mockExecutionService;
-    (executor as any).riskService = {
-      isRealTradingEnabled: vi.fn().mockResolvedValue(true),
-      isSimCopyTradingEnabled: vi.fn().mockResolvedValue(true),
-      isRealCopyTradingEnabled: vi.fn().mockResolvedValue(true),
-    };
+    mockExecutorConfigServices(executor);
   });
 
   it('rejects expired ALGO_OPEN BUY without claiming execution', async () => {
@@ -260,7 +270,10 @@ describe('Executor entry reservation guard', () => {
     await executor.handle(signal);
 
     expect(mockExecutionService.claim).not.toHaveBeenCalled();
-    expect(mockReservationService.release).toHaveBeenCalledWith('expired-algo-signal');
+    expect(mockReservationService.release).toHaveBeenCalledWith(
+      'expired-algo-signal',
+      'reservation_expired_before_claim',
+    );
     expect(mockResultsQueue.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
@@ -366,12 +379,7 @@ describe('Executor abort after claim', () => {
 
     (executor as any).reservationService = mockReservationService;
     (executor as any).executionService = mockExecutionService;
-    (executor as any).riskService = {
-      isRealTradingEnabled: vi.fn().mockResolvedValue(true),
-      isSimCopyTradingEnabled: vi.fn().mockResolvedValue(true),
-      isRealCopyTradingEnabled: vi.fn().mockResolvedValue(true),
-      getConfig: vi.fn().mockResolvedValue({}),
-    };
+    mockExecutorConfigServices(executor);
   });
 
   it('enqueues position_lock_timeout when aborted after claim', async () => {

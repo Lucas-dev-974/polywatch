@@ -448,9 +448,19 @@ export class PositionExitEvaluator {
         return;
       }
 
+      try {
+        // Do NOT clear exit-emit block on enqueue — wait for fill / terminal close.
+        await this.emitCloseSignal(pos, closeReason, emitBid, lastTradePrice);
+      } catch (err) {
+        // Enqueue failed (e.g. Redis down): do NOT arm the cooldown marker so
+        // the next evaluation can retry the critical exit immediately.
+        log.error(
+          { err, positionId: pos.id, closeReason },
+          'close signal enqueue failed — will retry on next evaluation',
+        );
+        return;
+      }
       this.lastForcedExitEmitAt.set(pos.id, now);
-      // Do NOT clear exit-emit block on enqueue — wait for fill / terminal close.
-      await this.emitCloseSignal(pos, closeReason, emitBid, lastTradePrice);
       return;
     }
 

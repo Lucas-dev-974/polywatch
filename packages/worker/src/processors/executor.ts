@@ -230,31 +230,36 @@ export class Executor {
     let terminalSettled = false;
     const settleTerminal = async (result: ExecutionResult): Promise<void> => {
       terminalSettled = true;
-      if (signal.mode !== 'sim') {
-        await this.resultsQueue.enqueue(result);
-        return;
-      }
 
+      // Real and sim get the same resilient delivery: retry the queue, then
+      // fall back to a local finalize. executionService.finalize is idempotent
+      // (status guards + optimistic-lock recovery), so a duplicate delivery —
+      // enqueue that actually succeeded but whose response was lost — is a
+      // no-op. A real fill must never depend on a single Redis enqueue.
       const terminalViaQueue = await this.enqueueWithRetry(result);
       if (terminalViaQueue) return;
 
       log.warn(
-        { signalId: signal.id, positionId: signal.copiedPositionId },
-        'sim terminal could not be queued — finalizing locally',
+        { signalId: signal.id, positionId: signal.copiedPositionId, mode: signal.mode },
+        'terminal result could not be queued — finalizing locally',
       );
 
       try {
         const input = executionResultToFinalizeInput(result);
-        await completeExecution(
-          this.ds,
-          this.executionService,
-          this.connectionManager,
-          input,
+        await withTimeout(
+          completeExecution(
+            this.ds,
+            this.executionService,
+            this.connectionManager,
+            input,
+          ),
+          15_000,
+          'local_finalize_fallback_timeout',
         );
       } catch (fallbackErr) {
-        log.warn(
-          { err: fallbackErr, signalId: signal.id, positionId: signal.copiedPositionId },
-          'sim local finalize fallback also failed — execution may stay placing',
+        log.error(
+          { err: fallbackErr, signalId: signal.id, positionId: signal.copiedPositionId, mode: signal.mode },
+          'local finalize fallback also failed — execution may stay placing until watchdog/reconciler',
         );
       }
     };
@@ -578,7 +583,7 @@ export class Executor {
 
   /**
    * Best-effort queue delivery. Returns true if Redis confirmed the enqueue.
-   * Used for sim only as a fallback path to local finalize exists.
+   * Both sim and real use it; the local finalize fallback covers failure.
    */
   private async enqueueWithRetry(result: ExecutionResult): Promise<boolean> {
     const delaysMs = [0, 100, 300];

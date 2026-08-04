@@ -5243,6 +5243,13 @@ body.is-resizing-columns .position-market-split-handle::after {
   color: var(--success);
 }
 
+.algo-status-badge.trading-off {
+  background: var(--warning-muted);
+  color: var(--warning);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .algo-status-badge.stopped {
   background: rgba(239, 68, 68, 0.12);
   color: var(--danger);

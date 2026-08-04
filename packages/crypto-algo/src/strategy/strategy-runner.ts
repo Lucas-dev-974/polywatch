@@ -492,6 +492,9 @@ export class StrategyRunner {
 
       // Clear price-feed cache for this condition
       this.priceFeed?.clearTopOfBook(conditionId);
+      // Purge any settled eval-chain entry for this market (no-op while an
+      // evaluation is in flight — it completes normally).
+      this.evalChains.delete(conditionId);
       log.debug({ conditionId }, 'cleared price-feed cache for resolved market');
 
       if (this.onSelectionResolved) {
@@ -510,17 +513,26 @@ export class StrategyRunner {
     selection: { conditionId: string; enabled: boolean; question?: string | null; cryptoSymbol?: string | null; interval?: string | null; slug?: string | null },
   ): Promise<boolean> {
     const conditionId = selection.conditionId;
-    const prev = this.evalChains.get(conditionId) ?? Promise.resolve(false);
-    const next = prev
-      .catch(() => false)
-      .then(() => this.evaluateSelectionUnlocked(selection));
-    this.evalChains.set(
-      conditionId,
-      next.then(
-        () => false,
-        () => false,
-      ),
+    const existing = this.evalChains.get(conditionId);
+    if (existing) {
+      // Coalesce: an evaluation is already queued/running for this market.
+      // Drop this trigger — it carried stale data by the time it would run,
+      // and the next WS update / poll tick re-evaluates with fresh data.
+      return existing;
+    }
+    const next = this.evaluateSelectionUnlocked(selection);
+    const tracked = next.then(
+      () => false,
+      () => false,
     );
+    this.evalChains.set(conditionId, tracked);
+    // Purge the entry once settled: short-lived 5m/15m markets rotate
+    // constantly and would otherwise grow the map without bound.
+    void tracked.then(() => {
+      if (this.evalChains.get(conditionId) === tracked) {
+        this.evalChains.delete(conditionId);
+      }
+    });
     return next;
   }
 

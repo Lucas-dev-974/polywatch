@@ -1,0 +1,2 @@
+﻿crypto_config: [{"id":1,"crypto_algo_enabled":false}]
+open algo positions: []

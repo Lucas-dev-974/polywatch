@@ -1,0 +1,3 @@
+﻿crypto_config: [{"id":1,"crypto_algo_enabled":false}]
+active sim session: {"session_id":104,"boundary_at":"2026-08-04T10:09:20.100Z","baseline_capital":20,"balance_amount":18.55541}
+open algo positions (active sim session): []

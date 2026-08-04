@@ -1,0 +1,264 @@
+﻿archiveColumns: id,session_id,source_id,condition_id,asset_id,market_title,outcome,side,size,entry_price,exit_price,realized_pnl,close_reason,reason,opened_at,closed_at,raw_json
+has reason col: true
+
+=== ARCHIVE reason distribution ===
+{ ALGO_OPEN: 9780 }
+
+=== CURRENT positions (ALGO_OPEN) ===
+22441 real closed YES qty=0 entry=0.83 pnl=0.81025994 close=REDEMPTION opened=2026-07-12T11:16:05.609Z closed=2026-07-12T11:26:41.985Z cond=0x6340f14ab1ÔÇª
+22539 real closed NO qty=0 entry=0.99 pnl=0.04653 close=REDEMPTION opened=2026-07-12T12:38:56.892Z closed=2026-07-12T12:57:33.725Z cond=0x0eba1e1496ÔÇª
+22574 real closed NO qty=0 entry=0.8 pnl=-3.30304 close=SL opened=2026-07-12T13:00:41.058Z closed=2026-07-12T13:04:41.558Z cond=0x065a1c12b0ÔÇª
+22588 real closed NO qty=0 entry=0.58 pnl=-2.46953 close=SL opened=2026-07-12T13:07:09.354Z closed=2026-07-12T13:09:54.591Z cond=0x1efe60a701ÔÇª
+22587 real closed NO qty=0 entry=0.58 pnl=-2.98526 close=REDEMPTION opened=2026-07-12T13:26:27.363Z closed=2026-07-12T13:26:45.178Z cond=0x1efe60a701ÔÇª
+28079 real closed YES qty=0 entry=0.47 pnl=-1.30103 close=SL opened=2026-07-16T06:30:10.698Z closed=2026-07-16T06:31:12.728Z cond=0x83a91527fbÔÇª
+28078 real closed YES qty=0 entry=0.47 pnl=-1.58885 close=SL opened=2026-07-16T06:30:11.797Z closed=2026-07-16T06:31:11.567Z cond=0x5bd89d27acÔÇª
+28110 real closed YES qty=0 entry=0.62999994 pnl=-2.5038972 close=SL opened=2026-07-16T07:20:20.090Z closed=2026-07-16T07:24:25.546Z cond=0xc2c2ea3357ÔÇª
+29669 sim closed NO qty=0 entry=0.6 pnl=-1.168 close=SL opened=2026-08-04T10:15:08.607Z closed=2026-08-04T10:18:24.802Z cond=0xd24b9c8fb8ÔÇª
+29673 sim closed YES qty=0 entry=0.57 pnl=-1.36318 close=SL opened=2026-08-04T10:23:33.384Z closed=2026-08-04T10:23:44.435Z cond=0xdb523d35bcÔÇª
+29675 sim closed NO qty=0 entry=0.55 pnl=-0.9699 close=SL opened=2026-08-04T10:25:14.378Z closed=2026-08-04T10:26:08.705Z cond=0xe161ba3024ÔÇª
+29676 sim closed YES qty=0 entry=0.56 pnl=-0.97024 close=SL opened=2026-08-04T10:25:27.942Z closed=2026-08-04T10:28:00.614Z cond=0x8bf0ee3387ÔÇª
+29680 sim closed YES qty=0 entry=0.6 pnl=-1.21727 close=SL opened=2026-08-04T10:30:13.057Z closed=2026-08-04T10:32:08.270Z cond=0x1f82afbadcÔÇª
+29681 sim closed YES qty=0 entry=0.58 pnl=-0.92105 close=SL opened=2026-08-04T10:30:14.216Z closed=2026-08-04T10:30:41.324Z cond=0x4abfaf71b1ÔÇª
+29682 sim closed NO qty=0 entry=0.55 pnl=-1.3615 close=SL opened=2026-08-04T10:30:42.763Z closed=2026-08-04T10:30:48.130Z cond=0x4abfaf71b1ÔÇª
+29683 sim closed NO qty=0 entry=0.56 pnl=-1.11783 close=SL opened=2026-08-04T10:31:59.523Z closed=2026-08-04T10:32:49.660Z cond=0x1d59e3139dÔÇª
+29684 sim closed YES qty=0 entry=0.58 pnl=-0.2715 close=SL opened=2026-08-04T10:32:12.903Z closed=2026-08-04T10:32:13.922Z cond=0x1f82afbadcÔÇª
+29685 sim closed NO qty=0 entry=0.57 pnl=-1.84778 close=SL opened=2026-08-04T10:35:13.255Z closed=2026-08-04T10:39:17.198Z cond=0x2cfd309132ÔÇª
+29686 sim closed NO qty=0 entry=0.6 pnl=-0.97024 close=SL opened=2026-08-04T10:35:13.879Z closed=2026-08-04T10:35:42.429Z cond=0xf51815ebd8ÔÇª
+29687 sim closed NO qty=0 entry=0.58 pnl=2.01474 close=REDEMPTION opened=2026-08-04T10:35:34.313Z closed=2026-08-04T10:47:11.241Z cond=0x5fabc645ffÔÇª
+29688 sim closed YES qty=0 entry=0.56 pnl=-1.26478 close=SL opened=2026-08-04T10:35:43.396Z closed=2026-08-04T10:36:39.296Z cond=0xf51815ebd8ÔÇª
+29690 sim closed YES qty=0 entry=0.61 pnl=1.86673 close=REDEMPTION opened=2026-08-04T10:40:14.438Z closed=2026-08-04T10:51:11.241Z cond=0x305dc0bb1aÔÇª
+29693 sim closed NO qty=0 entry=0.58 pnl=-1.31489 close=SL opened=2026-08-04T10:50:12.783Z closed=2026-08-04T10:52:20.564Z cond=0x0728f3340bÔÇª
+29695 sim closed NO qty=0 entry=0.56 pnl=-0.97024 close=SL opened=2026-08-04T10:51:34.786Z closed=2026-08-04T10:52:26.125Z cond=0x81b7f019d0ÔÇª
+29697 sim closed YES qty=0 entry=0.55 pnl=1.0553 close=TRAILING opened=2026-08-04T10:52:09.822Z closed=2026-08-04T10:54:05.798Z cond=0xb38384947dÔÇª
+29698 sim closed YES qty=0 entry=0.6 pnl=-1.06926 close=SL opened=2026-08-04T10:53:28.190Z closed=2026-08-04T10:53:35.307Z cond=0x81b7f019d0ÔÇª
+29699 sim closed YES qty=0 entry=0.58 pnl=2.01474 close=REDEMPTION opened=2026-08-04T10:55:13.131Z closed=2026-08-04T11:03:41.259Z cond=0x63bc233a7cÔÇª
+29700 sim closed YES qty=0 entry=0.59 pnl=-1.16794 close=SL opened=2026-08-04T10:55:15.274Z closed=2026-08-04T10:59:07.712Z cond=0xf5a59e34f7ÔÇª
+29701 sim closed NO qty=0 entry=0.61 pnl=1.86673 close=REDEMPTION opened=2026-08-04T10:59:08.682Z closed=2026-08-04T11:04:41.260Z cond=0xf5a59e34f7ÔÇª
+29702 sim closed NO qty=0 entry=0.58 pnl=-1.89725 close=SL opened=2026-08-04T11:03:55.093Z closed=2026-08-04T11:04:06.194Z cond=0x8ef9af86c0ÔÇª
+29703 sim closed NO qty=0 entry=0.53 pnl=-0.91965 close=SL opened=2026-08-04T11:04:16.330Z closed=2026-08-04T11:04:18.672Z cond=0x688762b6a0ÔÇª
+29704 sim closed YES qty=0 entry=0.54 pnl=2.21306 close=REDEMPTION opened=2026-08-04T11:04:30.107Z closed=2026-08-04T11:10:11.285Z cond=0xbce47b8626ÔÇª
+29705 sim closed NO qty=0 entry=0.55 pnl=2.16337 close=REDEMPTION opened=2026-08-04T11:05:20.200Z closed=2026-08-04T11:14:41.294Z cond=0xcf1e9afb12ÔÇª
+29706 sim closed NO qty=0 entry=0.58 pnl=2.01474 close=REDEMPTION opened=2026-08-04T11:10:22.881Z closed=2026-08-04T11:20:30.538Z cond=0x8d0ab9bdd4ÔÇª
+29707 sim closed NO qty=0 entry=0.56 pnl=2.11376 close=REDEMPTION opened=2026-08-04T11:10:27.567Z closed=2026-08-04T11:20:30.559Z cond=0xac7aba3b68ÔÇª
+29717 sim closed NO qty=0 entry=0.58 pnl=2.01474 close=REDEMPTION opened=2026-08-04T11:15:45.456Z closed=2026-08-04T11:25:32.495Z cond=0xa49bbc8d2dÔÇª
+29677 sim cancelled YES qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0xab024cf9baÔÇª
+29679 sim cancelled NO qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0x8bf0ee3387ÔÇª
+22586 real cancelled YES qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0x4c738aac29ÔÇª
+29678 sim cancelled NO qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0xab024cf9baÔÇª
+22584 real cancelled NO qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0x8a8b4c19fcÔÇª
+22438 real cancelled YES qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0xe5b0c89317ÔÇª
+28106 real cancelled NO qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0x90a163f6ccÔÇª
+28104 real cancelled YES qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0x968148cbb4ÔÇª
+28102 real cancelled YES qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0x968148cbb4ÔÇª
+29689 sim cancelled YES qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0xcc68a94278ÔÇª
+28095 real cancelled NO qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0x08b0484b41ÔÇª
+29694 sim cancelled NO qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0xb38384947dÔÇª
+28097 real cancelled NO qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0x460fd5b869ÔÇª
+29674 sim cancelled YES qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0x3087b67655ÔÇª
+29672 sim cancelled YES qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0xd24b9c8fb8ÔÇª
+29716 sim cancelled NO qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0xa0a99bad9bÔÇª
+29667 sim cancelled NO qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0x23c802d16eÔÇª
+28100 real cancelled YES qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0xb7c54eabaaÔÇª
+28108 real cancelled NO qty=0 entry=0 pnl=0 close=null opened=null closed=null cond=0xddb7f1147bÔÇª
+29696 sim cancelled NO qty=0 entry=0 pnl=0 close=reservation_released opened=null closed=null cond=0x1e044080caÔÇª
+
+=== closeReasons (current) ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé mode   Ôöé close_reason Ôöé n  Ôöé total_pnl  Ôöé avg_pnl   Ôöé min_pnl   Ôöé max_pnl   Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 'real' Ôöé 'SL'         Ôöé 5  Ôöé '-11.1663' Ôöé '-2.2333' Ôöé '-3.3030' Ôöé '-1.3010' Ôöé
+Ôöé 1       Ôöé 'real' Ôöé 'REDEMPTION' Ôöé 3  Ôöé '-2.1285'  Ôöé '-0.7095' Ôöé '-2.9853' Ôöé '0.8103'  Ôöé
+Ôöé 2       Ôöé 'sim'  Ôöé 'SL'         Ôöé 18 Ôöé '-20.7825' Ôöé '-1.1546' Ôöé '-1.8973' Ôöé '-0.2715' Ôöé
+Ôöé 3       Ôöé 'sim'  Ôöé 'REDEMPTION' Ôöé 9  Ôöé '18.2826'  Ôöé '2.0314'  Ôöé '1.8667'  Ôöé '2.2131'  Ôöé
+Ôöé 4       Ôöé 'sim'  Ôöé 'TRAILING'   Ôöé 1  Ôöé '1.0553'   Ôöé '1.0553'  Ôöé '1.0553'  Ôöé '1.0553'  Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== byOutcome ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé mode   Ôöé outcome Ôöé status      Ôöé n  Ôöé total_pnl Ôöé avg_pnl   Ôöé avg_entry Ôöé avg_notional Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 'real' Ôöé 'NO'    Ôöé 'cancelled' Ôöé 5  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.00'       Ôöé
+Ôöé 1       Ôöé 'real' Ôöé 'NO'    Ôöé 'closed'    Ôöé 4  Ôöé '-8.7113' Ôöé '-2.1778' Ôöé '0.7375'  Ôöé '0.00'       Ôöé
+Ôöé 2       Ôöé 'real' Ôöé 'YES'   Ôöé 'cancelled' Ôöé 5  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.00'       Ôöé
+Ôöé 3       Ôöé 'real' Ôöé 'YES'   Ôöé 'closed'    Ôöé 4  Ôöé '-4.5835' Ôöé '-1.1459' Ôöé '0.6000'  Ôöé '0.00'       Ôöé
+Ôöé 4       Ôöé 'sim'  Ôöé 'NO'    Ôöé 'cancelled' Ôöé 6  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.00'       Ôöé
+Ôöé 5       Ôöé 'sim'  Ôöé 'NO'    Ôöé 'closed'    Ôöé 16 Ôöé '-0.3492' Ôöé '-0.0218' Ôöé '0.5712'  Ôöé '0.00'       Ôöé
+Ôöé 6       Ôöé 'sim'  Ôöé 'YES'   Ôöé 'cancelled' Ôöé 4  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.0000'  Ôöé '0.00'       Ôöé
+Ôöé 7       Ôöé 'sim'  Ôöé 'YES'   Ôöé 'closed'    Ôöé 12 Ôöé '-1.0954' Ôöé '-0.0913' Ôöé '0.5767'  Ôöé '0.00'       Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== durations ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé mode   Ôöé n  Ôöé avg_dur_s Ôöé min_dur_s Ôöé max_dur_s Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 'real' Ôöé 8  Ôöé '318'     Ôöé '18'      Ôöé '1117'    Ôöé
+Ôöé 1       Ôöé 'sim'  Ôöé 28 Ôöé '228'     Ôöé '1'       Ôöé '697'     Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== exitBlocks ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== execStats ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé mode   Ôöé side   Ôöé status      Ôöé reason       Ôöé n  Ôöé avg_slip Ôöé max_slip Ôöé total_fees Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 'real' Ôöé 'BUY'  Ôöé 'failed'    Ôöé 'ALGO_OPEN'  Ôöé 10 Ôöé null     Ôöé null     Ôöé '0.0000'   Ôöé
+Ôöé 1       Ôöé 'real' Ôöé 'BUY'  Ôöé 'filled'    Ôöé 'ALGO_OPEN'  Ôöé 8  Ôöé null     Ôöé null     Ôöé '0.5385'   Ôöé
+Ôöé 2       Ôöé 'real' Ôöé 'SELL' Ôöé 'filled'    Ôöé 'SL'         Ôöé 5  Ôöé null     Ôöé null     Ôöé '0.2477'   Ôöé
+Ôöé 3       Ôöé 'real' Ôöé 'SELL' Ôöé 'failed'    Ôöé 'SL'         Ôöé 3  Ôöé null     Ôöé null     Ôöé '0.0000'   Ôöé
+Ôöé 4       Ôöé 'real' Ôöé 'SELL' Ôöé 'filled'    Ôöé 'REDEMPTION' Ôöé 2  Ôöé null     Ôöé null     Ôöé '0.0000'   Ôöé
+Ôöé 5       Ôöé 'real' Ôöé 'SELL' Ôöé 'no_payout' Ôöé 'REDEMPTION' Ôöé 1  Ôöé null     Ôöé null     Ôöé '0.0000'   Ôöé
+Ôöé 6       Ôöé 'sim'  Ôöé 'BUY'  Ôöé 'filled'    Ôöé 'ALGO_OPEN'  Ôöé 28 Ôöé '0.841'  Ôöé '13.115' Ôöé '2.3927'   Ôöé
+Ôöé 7       Ôöé 'sim'  Ôöé 'BUY'  Ôöé 'failed'    Ôöé 'ALGO_OPEN'  Ôöé 10 Ôöé '16.667' Ôöé '21.667' Ôöé '0.0000'   Ôöé
+Ôöé 8       Ôöé 'sim'  Ôöé 'SELL' Ôöé 'filled'    Ôöé 'SL'         Ôöé 18 Ôöé '2.991'  Ôöé '43.750' Ôöé '1.4438'   Ôöé
+Ôöé 9       Ôöé 'sim'  Ôöé 'SELL' Ôöé 'failed'    Ôöé 'SL'         Ôöé 14 Ôöé null     Ôöé null     Ôöé '0.0000'   Ôöé
+Ôöé 10      Ôöé 'sim'  Ôöé 'SELL' Ôöé 'filled'    Ôöé 'REDEMPTION' Ôöé 9  Ôöé null     Ôöé null     Ôöé '0.0000'   Ôöé
+Ôöé 11      Ôöé 'sim'  Ôöé 'SELL' Ôöé 'filled'    Ôöé 'TRAILING'   Ôöé 1  Ôöé '5.333'  Ôöé '5.333'  Ôöé '0.0581'   Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== stuckPositions ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== cancelled ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé mode   Ôöé n  Ôöé avg_qty Ôöé avg_entry Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 'real' Ôöé 10 Ôöé '0.00'  Ôöé '0.0000'  Ôöé
+Ôöé 1       Ôöé 'sim'  Ôöé 10 Ôöé '0.00'  Ôöé '0.0000'  Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== dailyPnl ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé day                        Ôöé mode   Ôöé trades Ôöé day_pnl   Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé '2026-07-11T22:00:00.000Z' Ôöé 'real' Ôöé 5      Ôöé '-7.9010' Ôöé
+Ôöé 1       Ôöé '2026-07-15T22:00:00.000Z' Ôöé 'real' Ôöé 3      Ôöé '-5.3938' Ôöé
+Ôöé 2       Ôöé '2026-08-03T22:00:00.000Z' Ôöé 'sim'  Ôöé 28     Ôöé '-1.4446' Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== concentration (top) ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé condition_id                                                         Ôöé mode   Ôöé n Ôöé total_pnl Ôöé first_open                 Ôöé last_open                  Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé '0x1f82afbadc8b68801393f0f71136e7366242575bf00525cd80e536b4e74b682d' Ôöé 'sim'  Ôöé 2 Ôöé '-1.4888' Ôöé '2026-08-04T10:30:13.057Z' Ôöé '2026-08-04T10:32:12.903Z' Ôöé
+Ôöé 1       Ôöé '0x968148cbb49a8bde30b6101f4dcd4ad636aa8499672ab479c4099c925cf0b810' Ôöé 'real' Ôöé 2 Ôöé '0.0000'  Ôöé null                       Ôöé null                       Ôöé
+Ôöé 2       Ôöé '0x1efe60a70160a990be54138493a597321569a11c76d1b416bf565ce25f02dd45' Ôöé 'real' Ôöé 2 Ôöé '-5.4548' Ôöé '2026-07-12T13:07:09.354Z' Ôöé '2026-07-12T13:26:27.363Z' Ôöé
+Ôöé 3       Ôöé '0x8bf0ee3387e2ae2035e6611b56ab56e4de40c3e9c53765d48432ab9f8563bce3' Ôöé 'sim'  Ôöé 2 Ôöé '-0.9702' Ôöé '2026-08-04T10:25:27.942Z' Ôöé '2026-08-04T10:25:27.942Z' Ôöé
+Ôöé 4       Ôöé '0xd24b9c8fb85afae6d152de8bbb7383b889c76bbec309b5ccd41f8323e78f0420' Ôöé 'sim'  Ôöé 2 Ôöé '-1.1680' Ôöé '2026-08-04T10:15:08.607Z' Ôöé '2026-08-04T10:15:08.607Z' Ôöé
+Ôöé 5       Ôöé '0xab024cf9ba5dc2a2f44d71dcd0c5de886013f942e1ef686f3cc6fc27ebde0df2' Ôöé 'sim'  Ôöé 2 Ôöé '0.0000'  Ôöé null                       Ôöé null                       Ôöé
+Ôöé 6       Ôöé '0x4abfaf71b162f3fae25b4c3e46f7a588b02d39ef6bf52360f2a60cd6387f9d87' Ôöé 'sim'  Ôöé 2 Ôöé '-2.2826' Ôöé '2026-08-04T10:30:14.216Z' Ôöé '2026-08-04T10:30:42.763Z' Ôöé
+Ôöé 7       Ôöé '0xb38384947d0469e07ea065e939354c32fb23a105e3f111e9d0fb0fd41c31f0ee' Ôöé 'sim'  Ôöé 2 Ôöé '1.0553'  Ôöé '2026-08-04T10:52:09.822Z' Ôöé '2026-08-04T10:52:09.822Z' Ôöé
+Ôöé 8       Ôöé '0x81b7f019d0b5466b375be25bb45aaa11fe4a0f27e6e5aa04a13489b02901d3ee' Ôöé 'sim'  Ôöé 2 Ôöé '-2.0395' Ôöé '2026-08-04T10:51:34.786Z' Ôöé '2026-08-04T10:53:28.190Z' Ôöé
+Ôöé 9       Ôöé '0xf51815ebd859bd604a1ff25a01a4b0433cc338afe527727206bfefaaeedc0713' Ôöé 'sim'  Ôöé 2 Ôöé '-2.2350' Ôöé '2026-08-04T10:35:13.879Z' Ôöé '2026-08-04T10:35:43.396Z' Ôöé
+Ôöé 10      Ôöé '0xf5a59e34f75996bdae12bd814fba888425ff21fa083741dc2718a0e49303b160' Ôöé 'sim'  Ôöé 2 Ôöé '0.6988'  Ôöé '2026-08-04T10:55:15.274Z' Ôöé '2026-08-04T10:59:08.682Z' Ôöé
+Ôöé 11      Ôöé '0x4c738aac29cae42f93bc287380e647e71fd16af895e215a0abcb7b8900f7a92b' Ôöé 'real' Ôöé 1 Ôöé '0.0000'  Ôöé null                       Ôöé null                       Ôöé
+Ôöé 12      Ôöé '0x5bd89d27ac65d77639b1f752583038f7f28e9fa94ad34126c3f39e334ecec52c' Ôöé 'real' Ôöé 1 Ôöé '-1.5889' Ôöé '2026-07-16T06:30:11.797Z' Ôöé '2026-07-16T06:30:11.797Z' Ôöé
+Ôöé 13      Ôöé '0x5fabc645ffca370a2dd53b7c017e0279f5e5d60ecd3cfb4cad30c9bf81636aaa' Ôöé 'sim'  Ôöé 1 Ôöé '2.0147'  Ôöé '2026-08-04T10:35:34.313Z' Ôöé '2026-08-04T10:35:34.313Z' Ôöé
+Ôöé 14      Ôöé '0x6340f14ab158d28071625c7e4f3cb5f1a2cbbd0b71af38fbaa60b89ce9e00790' Ôöé 'real' Ôöé 1 Ôöé '0.8103'  Ôöé '2026-07-12T11:16:05.609Z' Ôöé '2026-07-12T11:16:05.609Z' Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== archiveCloseReasons ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé close_reason           Ôöé n    Ôöé total_pnl    Ôöé avg_pnl   Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 'REDEMPTION'           Ôöé 1823 Ôöé '708.8610'   Ôöé '0.3888'  Ôöé
+Ôöé 1       Ôöé 'SL'                   Ôöé 1181 Ôöé '-1763.3200' Ôöé '-1.4931' Ôöé
+Ôöé 2       Ôöé 'reservation_released' Ôöé 1077 Ôöé '0.0000'     Ôöé '0.0000'  Ôöé
+Ôöé 3       Ôöé 'TP'                   Ôöé 415  Ôöé '511.9000'   Ôöé '1.2335'  Ôöé
+Ôöé 4       Ôöé 'TRAILING'             Ôöé 315  Ôöé '-123.6560'  Ôöé '-0.3926' Ôöé
+Ôöé 5       Ôöé 'reservation_expired'  Ôöé 277  Ôöé '0.0000'     Ôöé '0.0000'  Ôöé
+Ôöé 6       Ôöé 'PRE_CLOSE_LOSS'       Ôöé 45   Ôöé '-29.6440'   Ôöé '-0.6588' Ôöé
+Ôöé 7       Ôöé 'PRE_CLOSE_WIN'        Ôöé 43   Ôöé '40.6313'    Ôöé '0.9449'  Ôöé
+Ôöé 8       Ôöé 'TIME_EXIT'            Ôöé 9    Ôöé '47.5120'    Ôöé '5.2791'  Ôöé
+Ôöé 9       Ôöé 'MANUAL'               Ôöé 3    Ôöé '6.6503'     Ôöé '2.2168'  Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+exitAttemptEvents: { n: 662 }
+
+=== ARCHIVE algo positions: 9780 ===
+closed=5188 wins=1977 losses=1857 winrate=38.1% totalPnl=-601.08 avg=-0.1159
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé close_reason           Ôöé n    Ôöé pnl      Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 'REDEMPTION'           Ôöé 1823 Ôöé 708.85   Ôöé
+Ôöé 1       Ôöé 'SL'                   Ôöé 1181 Ôöé -1763.32 Ôöé
+Ôöé 2       Ôöé 'reservation_released' Ôöé 1077 Ôöé 0        Ôöé
+Ôöé 3       Ôöé 'TP'                   Ôöé 415  Ôöé 511.9    Ôöé
+Ôöé 4       Ôöé 'TRAILING'             Ôöé 315  Ôöé -123.66  Ôöé
+Ôöé 5       Ôöé 'reservation_expired'  Ôöé 277  Ôöé 0        Ôöé
+Ôöé 6       Ôöé 'PRE_CLOSE_LOSS'       Ôöé 45   Ôöé -29.64   Ôöé
+Ôöé 7       Ôöé 'PRE_CLOSE_WIN'        Ôöé 43   Ôöé 40.63    Ôöé
+Ôöé 8       Ôöé 'TIME_EXIT'            Ôöé 9    Ôöé 47.51    Ôöé
+Ôöé 9       Ôöé 'MANUAL'               Ôöé 3    Ôöé 6.65     Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+=== cryptoConfig (current) ===
+crypto_algo_max_open_positions = 10
+crypto_algo_max_exposure_usdc = 1000
+crypto_algo_max_daily_loss_usdc = 20
+crypto_algo_max_position_size_usdc = 200
+crypto_algo_sl_confirmation_ticks = 2
+crypto_algo_kill_switch_action = block_entries
+crypto_algo_min_bid_to_ask_ratio = 0.9
+crypto_algo_entry_depth_retry_max = 3
+crypto_algo_entry_depth_retry_delay_ms = 1000
+crypto_algo_sl_close_max_retries = 5
+crypto_algo_allowed_market_tags = ["esports","finance","tech","economy","culture","geopolitics","politics","sports"]
+crypto_algo_signal_score_sizing_enabled = false
+crypto_algo_enabled = false
+crypto_algo_price_tick_cleanup_enabled = false
+crypto_algo_price_tick_cleanup_interval_minutes = 60
+crypto_algo_strategies = ["naive-momentum"]
+crypto_algo_trailing_bid_points = 0.05
+crypto_algo_trailing_activation_bid_points = 0.06
+crypto_algo_pre_close_enabled = false
+crypto_algo_pre_close_seconds = 45
+crypto_algo_pre_close_keep_enabled = null
+crypto_algo_pre_close_keep_bid_threshold = null
+crypto_algo_min_time_to_close = null
+crypto_algo_sl_enabled = true
+crypto_algo_tp_enabled = false
+crypto_algo_trailing_enabled = true
+crypto_algo_sl_bid_points = 0.15
+crypto_algo_tp_bid_points = 0.2
+crypto_algo_reentry_window_ms = null
+crypto_algo_max_entries_per_window = 2
+crypto_algo_base_threshold = null
+crypto_algo_spread_adjustment_factor = null
+crypto_algo_min_spread_abs_for_adjustment = 0.01
+crypto_algo_max_spread_abs = null
+crypto_algo_price_sum_tolerance = null
+crypto_algo_warn_price_deviation = null
+crypto_algo_max_book_age_ms = null
+crypto_algo_gamma_cache_ttl_short_ms = null
+crypto_algo_gamma_cache_ttl_default_ms = null
+crypto_algo_gamma_stale_on_error_factor = null
+crypto_algo_ws_debounce_ms = null
+crypto_algo_poll_ms = 5000
+crypto_algo_tick_interval_ms = null
+crypto_algo_tick_retention_hours = null
+crypto_algo_price_tick_ref_qty = null
+crypto_algo_min_time_to_close_buffer_seconds = null
+crypto_algo_last_closeable_bid_max_age_ms = null
+crypto_algo_spread_abs_by_interval = null
+crypto_algo_exit_defaults_by_interval = null
+crypto_algo_pre_close_seconds_by_interval = null
+crypto_algo_sl_quota_enabled = true
+crypto_algo_sl_quota_per_market = 2
+crypto_algo_sl_quota_cache_ttl_seconds = 10
+crypto_algo_entry_price_min = 0.55
+crypto_algo_entry_price_max = 0.6
+crypto_algo_entry_price_band_enabled = null
+crypto_algo_curve_filter_enabled = true
+crypto_algo_curve_lookback_ms = 10000
+crypto_algo_curve_min_delta = 0.02
+crypto_algo_sizing_mode = fixed_shares
+crypto_algo_entry_usdc_amount = 10
+crypto_algo_entry_share_count = 5
+sim_initial_capital_crypto = 20

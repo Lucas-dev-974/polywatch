@@ -1,27 +1,29 @@
 # Audit crypto-algo — session simulation active
 
-**Date** : 2026-08-04  
-**Périmètre** : session sim crypto **#104** uniquement (`copied_positions`, mode `sim`, `opened_at >= session_started_at`). Pas d'archive, pas de mode real.  
-**Extraction** : `node tools/audit-db-extract.cjs` (défaut session-scoped).
+**Date** : 2026-08-05 (extraction 08:42 UTC+2)  
+**Périmètre** : session sim crypto **#106** uniquement (`copied_positions`, mode `sim`, `opened_at >= session_started_at`). Pas d'archive, pas de mode real.  
+**Extraction** : pipeline `tools/audit-db-*.cjs` (défaut session-scoped).
 
 ---
 
 ## 1. Résumé exécutif
 
-Session démarrée le **04/08/2026 à 10:09 UTC** (reset sim, capital baseline **20 USDC**). Sur **~1 h** de trading (10:15 → 11:15 UTC), **28 positions** ont été remplies et clôturées.
+Session démarrée le **04/08/2026 à 20:54 UTC** (reset sim, capital baseline **20 USDC**). Trading ~1 h 10 (21:05 → 22:16 UTC). Algo **ON**. Capital quasiment épuisé.
 
 | Indicateur | Valeur |
 |---|---|
-| P&L session | **−1,44 USDC** (−7,2 % du capital) |
-| Solde sim | **18,56 USDC** |
-| Trades clôturés | **28** (10 W / 18 L) |
-| Winrate | **35,7 %** |
-| Espérance | **−0,05 USDC/trade** |
-| Profit factor | **0,93** |
-| Drawdown intra-session | **12,66 USDC** |
-| Algo | **OFF** (`crypto_algo_enabled = false`) |
+| P&L session | **−18,84 USDC** (−94,2 % du capital) |
+| Solde sim | **2,03 USDC** |
+| Trades clôturés | **53** (22 W / 31 L) |
+| Winrate | **41,5 %** |
+| Espérance | **−0,36 USDC/trade** |
+| Profit factor | **0,47** |
+| Drawdown intra-session | **18,26 USDC** |
+| Algo | **ON** (`crypto_algo_enabled = true`) |
 
-**Verdict session** : profil **mixte mais légèrement perdant**. Les **18 SL** (−20,78 USDC) sont presque entièrement compensés par **9 REDEMPTION** (+18,28 USDC) et **1 TRAILING** (+1,06 USDC). Les positions tenues jusqu'à la résolution du marché gagnent ; celles stoppées rapidement perdent. Plusieurs SL se déclenchent en **1 à 11 secondes** (sélection adverse à l'entrée).
+**Verdict** : session **fortement perdante**. Les **26 SL** (−31,27 USDC) ne sont pas compensés par **22 TRAILING** (+7,45) ni **5 REDEMPTION** (+4,98). Contrairement à la session #104 (où les redemptions sauvaient le P&L), ici le trailing se déclenche souvent mais avec de petits gains (+0,34 moy.), insuffisants face aux SL (−1,20 moy.). Une redemption a même perdu **−2,99 USDC** (`no_payout`).
+
+**vs session #104** : −1,44 → **−18,84** ; PF 0,93 → **0,47** ; trailing 1 → **22** ; redemption 9 → **5**.
 
 ---
 
@@ -29,17 +31,17 @@ Session démarrée le **04/08/2026 à 10:09 UTC** (reset sim, capital baseline *
 
 | Champ | Valeur |
 |---|---|
-| `session_id` | 104 |
-| `boundary_at` | 2026-08-04T10:09:20.100Z |
+| `session_id` | 106 |
+| `boundary_at` | 2026-08-04T20:54:20.940Z |
 | `baseline_capital` | 20 USDC |
-| `balance_amount` | 18,56 USDC |
-| Première ouverture | 2026-08-04T10:15:08.607Z |
-| Dernière ouverture | 2026-08-04T11:15:45.456Z |
+| `balance_amount` | 2,02747 USDC |
+| Première ouverture | 2026-08-04T21:05:12.715Z |
+| Dernière ouverture | 2026-08-04T22:16:19.092Z |
 | Positions ouvertes restantes | **0** |
 | Positions stuck | **0** |
 | Annulations (non fill) | **0** |
 
-Tous les trades de la session sont dans la bande **0,53–0,61** (config `entry_price_min/max = 0,55 / 0,60`).
+Bande d'entrée dominante **0,55–0,60** (38/53), reste en 0,60–0,65.
 
 ---
 
@@ -49,39 +51,36 @@ Tous les trades de la session sont dans la bande **0,53–0,61** (config `entry_
 
 | Métrique | Valeur |
 |---|---|
-| Gain moyen | +1,93 USDC |
-| Perte moyenne | −1,15 USDC |
-| Ratio G/L | 1,67 |
-| Max win | +2,21 USDC (REDEMPTION) |
-| Max loss | −1,90 USDC (SL) |
-| Durée médiane | **128 s** (p10 = 5 s, p90 = 608 s) |
-| Trades < 30 s | **8 / 28** (29 %) |
-| Trades < 60 s | **12 / 28** (43 %) |
+| Gain moyen | +0,75 USDC |
+| Perte moyenne | −1,14 USDC |
+| Ratio G/L | 0,66 |
+| Max win | +2,06 USDC (REDEMPTION) |
+| Max loss | −2,99 USDC (REDEMPTION no_payout) |
+| Durée médiane | **63 s** (p10 = 14 s, p90 = 242 s) |
+| Trades < 30 s | **11 / 53** (21 %) |
+| Trades < 60 s | **25 / 53** (47 %) |
 
 ### 3.2 Par jambe de sortie
 
 | Jambe | n | P&L total | P&L moyen | Winrate |
 |---|---|---|---|---|
-| **SL** | 18 | **−20,78** | −1,15 | 0 % |
-| **REDEMPTION** | 9 | **+18,28** | +2,03 | 100 % |
-| **TRAILING** | 1 | +1,06 | +1,06 | 100 % |
+| **SL** | 26 | **−31,27** | −1,20 | 0 % |
+| **TRAILING** | 22 | **+7,45** | +0,34 | 81,8 % |
+| **REDEMPTION** | 5 | **+4,98** | +1,00 | 80 % |
 | **TP** | 0 | — | — | — |
 
-Le SL reste le moteur des pertes, mais la session se redresse grâce aux positions qui survivent jusqu'à la redemption (souvent **5–10 min** de hold).
+Le trailing gagne souvent mais trop peu ; le SL détruit le capital. Une redemption perdante (#29799, −2,99) est un événement rare et coûteux.
 
 ### 3.3 Par bucket d'entrée
 
-| Bucket | n | P&L moyen | Winrate |
-|---|---|---|---|
-| 0,55–0,60 | 20 | −0,10 | 35 % |
-| 0,60–0,65 | 6 | −0,12 | 33 % |
-| 0,50–0,55 | 2 | — | — |
-
-Toute la session est concentrée sur la bande configurée, historiquement perdante sur le long terme.
+| Bucket | n | P&L total | P&L moyen | Winrate |
+|---|---|---|---|---|
+| 0,55–0,60 | 38 | −14,18 | −0,37 | 42 % |
+| 0,60–0,65 | 11 | −4,45 | −0,40 | 36 % |
 
 ### 3.4 Courbe intra-session
 
-Le P&L cumulé plonge rapidement jusqu'à **−13,44 USDC** (trade #12, ~10:39 UTC), puis remonte progressivement grâce aux redemptions fin de session (**−1,44 USDC** final). Les 9 dernières positions clôturées sont toutes des REDEMPTION gagnantes (+2 USDC chacune en moyenne).
+P&L cumulé en baisse quasi continue : creux vers **−18,84 USDC** en fin de session. Les 5 derniers trades sont tous des SL (−1,12 à −1,36). Pas de remontée redemption comme en #104.
 
 ---
 
@@ -91,83 +90,97 @@ Le P&L cumulé plonge rapidement jusqu'à **−13,44 USDC** (trade #12, ~10:39 U
 
 | Métrique | Valeur |
 |---|---|
-| BUY filled | **28 / 28** (100 %) |
-| Slippage moyen BUY | 0,84 % (max 13,1 %) |
-| Frais BUY | 2,39 USDC |
-
-Aucun échec d'entrée sur cette session — contrairement au mode real (55 % d'échecs historiques).
+| BUY filled | **53 / 53** (100 %) |
+| Slippage moyen BUY | 0,79 % (max 8,9 %) |
+| Frais BUY | 4,51 USDC |
 
 ### 4.2 Sorties
 
 | Métrique | Valeur |
 |---|---|
-| SELL SL filled | 18 |
-| SELL SL failed (FOK) | **14** |
-| SELL REDEMPTION | 9 |
-| SELL TRAILING | 1 |
-| Frais SELL | 1,50 USDC |
+| SELL SL filled | 26 |
+| SELL SL failed (FOK) | **18** |
+| SELL TRAILING filled | 22 |
+| SELL TRAILING failed | **16** |
+| SELL REDEMPTION filled | 4 |
+| SELL REDEMPTION no_payout | **1** |
+| Frais SELL | ~3,67 USDC |
 
-**86 exit events** sur la session (vs 662 sur tout l'historique non-scoped).
+**254 exit events** sur la session.
 
 | Blocage / échec | n |
 |---|---|
-| `forced_exit_retries_exhausted` | 42 |
-| `sl_pending_confirmation` | 26 |
-| FOK `order_not_matched` | 14 |
-| `forced_exit_cooldown` | 4 |
+| `forced_exit_retries_exhausted` | 154 |
+| `sl_pending_confirmation` | 58 |
+| FOK `order_not_matched` (SL) | 18 |
+| FOK `order_not_matched` (TRAILING) | 16 |
+| `forced_exit_cooldown` | 8 |
 
-**Incident notable** : position **#29690** — **59 exit events** en ~4 min (10:46–10:50 UTC), 5 SELL SL FOK ratés, clôture finale en **REDEMPTION +1,87 USDC**. Même famille que l'incident #29298 du 23/07 (boucle de sortie sur marché illiquide).
+**Incidents notables** :
 
-Plusieurs SL ultra-courts :
+| Position | Exit events | Issue |
+|---|---|---|
+| **#29799** | **101** (~8 min) | Boucle SL puis REDEMPTION **−2,99** (`no_payout`) |
+| **#29755** | 65 | Boucle puis REDEMPTION +2,06 |
+| **#29803** | 41 | Boucle puis REDEMPTION +1,97 |
 
-| ID | Durée | Entrée | P&L | Sortie |
-|---|---|---|---|---|
-| 29684 | **1 s** | 0,58 | −0,27 | SL |
-| 29703 | **2 s** | 0,53 | −0,92 | SL |
-| 29682 | **5 s** | 0,55 | −1,36 | SL |
-| 29698 | **7 s** | 0,60 | −1,07 | SL |
-| 29673 | **11 s** | 0,57 | −1,36 | SL |
-| 29702 | **11 s** | 0,58 | −1,90 | SL |
+SL ultra-courts :
+
+| ID | Durée | Entrée | P&L |
+|---|---|---|---|
+| 29779 | **2 s** | 0,59 | −0,32 |
+| 29767 | **4 s** | 0,54 | −1,07 |
+| 29780 | **5 s** | 0,59 | −1,44 |
+| 29766 | **14 s** | 0,57 | −1,46 |
+| 29806 | **14 s** | 0,60 | −1,12 |
+| 29791 | **15 s** | 0,60 | −1,02 |
 
 ---
 
-## 5. Configuration en vigueur (post-hygiène)
+## 5. Configuration en vigueur
 
 | Paramètre | Valeur | Note session |
 |---|---|---|
-| `crypto_algo_enabled` | **false** | Entrées coupées |
-| `entry_price_min / max` | 0,55 / 0,60 | 100 % des trades |
-| `tp_enabled` | false | Aucun TP sur la session |
-| `sl_bid_points` | 0,15 | SL moyen −1,15 USDC |
-| `trailing` (config DB) | 0,05 / 0,06 | 1 seul trailing déclenché |
-| `sizing_mode` | fixed_shares / **5** | Minimum exchange |
-| `max_daily_loss_usdc` | **20** | Aligné sur capital sim |
-| `min_spread_abs_for_adjustment` | **0,01** | Corrigé |
-
-Les positions ouvertes en début de session portent encore `trailing_bid_points = 0,20` (valeur au moment du fill), d'où l'écart config DB vs positions live.
+| `crypto_algo_enabled` | **true** | Entrées actives |
+| `entry_price_min / max` | 0,55 / 0,60 | Majorité des trades |
+| `tp_enabled` | false | Aucun TP |
+| `sl_bid_points` | 0,15 | SL moyen −1,20 |
+| `trailing` | on · 0,05 / 0,06 | **22** trailings (+7,45) |
+| `sizing` | fixed_shares / 5 | |
+| `sim_initial_capital_crypto` | 20 | Solde restant 2,03 |
 
 ---
 
-## 6. Recommandations (session)
+## 6. Scripts d'audit DB utilisés
 
-1. **Rester OFF** tant qu'aucune preuve d'edge n'est établie sur cette bande — la session confirme le pattern SL rapide vs redemption tardive, pas un edge net.
-2. **Analyser la sélection adverse** : logger le mid à +1 s / +5 s / +30 s post-entrée sur les 8 SL < 30 s.
-3. **Investiguer #29690** : 59 events en 4 min — vérifier si le patch H1/H4 réduit ces boucles sur prochaine session.
-4. **Avant réactivation** : backtester via `optimize-report` sur sessions sim archivées ; tester bande 0,85–0,95 ou TP activé.
-5. **Sizing** : passer à 10–15 shares pour réduire le risque dust / below_min_order_size.
-
----
-
-## 7. Reproductibilité
+| Script | Rôle |
+|---|---|
+| `audit-db-check-state.cjs` | Session active + positions open + algo enabled |
+| `audit-db-extract.cjs` | Dump JSON scoped session |
+| `audit-db-analyze.cjs` | Tables positions / execs |
+| `audit-db-metrics.cjs` | KPIs WR, PF, DD, buckets |
+| `audit-db-exit-events2.cjs` | Breakdown exit events |
 
 ```bash
+node tools/audit-db-check-state.cjs
 node tools/audit-db-extract.cjs
 node tools/audit-db-analyze.cjs
 node tools/audit-db-metrics.cjs
 node tools/audit-db-exit-events2.cjs
-node tools/audit-db-check-state.cjs
 ```
 
-Pour inclure tout l'historique archivé : ajouter `--all-history` à chaque script.
+---
 
-**Canvas** : [crypto-algo-session-audit.canvas.tsx](C:\Users\lcsystem\.cursor\projects\c-Users-lcsystem-Desktop-TradeInterface-Polytwatch-versioning-Polywatch-v1-1\canvases\crypto-algo-session-audit.canvas.tsx)
+## 7. Recommandations
+
+1. **Couper l'algo** — capital quasi épuisé (−94 %) ; edge négatif clair (PF 0,47).
+2. **Trailing** : wins fréquents mais trop petits vs SL — revoir activation / distance, ou exiger un R:R minimum.
+3. **#29799** : 101 events + redemption `no_payout` −2,99 — prioriser le patch des boucles de sortie et le cas payout=0.
+4. **Bande 0,55–0,60** : confirme la session #104, toujours perdante.
+5. Avant réactivation : reset sim + backtest ; ne pas relancer sur ce solde (2 USDC).
+
+---
+
+## 8. Canvas
+
+[crypto-algo-session-audit.canvas.tsx](C:\Users\lcsystem\.cursor\projects\c-Users-lcsystem-Desktop-TradeInterface-Polytwatch-versioning-Polywatch-v1-1\canvases\crypto-algo-session-audit.canvas.tsx)

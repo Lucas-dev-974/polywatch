@@ -107,10 +107,13 @@ export function PositionCard(props: Props) {
     const onMarketTick = (tick: MarketTick) => {
       setMarketTickMap((prev) => ({ ...prev, [tick.assetId]: tick }));
     };
-    const onSimulationReset = () => {
-      if (props.mode === 'sim') {
-        setPnlMap({});
+    const onSimulationReset = (payload?: { algoKind?: string }) => {
+      if (props.mode !== 'sim') return;
+      // Only clear PnL ticks when the reset targets the displayed algo.
+      if (payload?.algoKind && props.algoKind && payload.algoKind !== props.algoKind) {
+        return;
       }
+      setPnlMap({});
     };
 
     socket.on('pnl_tick', onPnlTick);

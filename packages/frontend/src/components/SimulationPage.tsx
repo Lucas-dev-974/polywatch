@@ -34,7 +34,7 @@ export function SimulationPage() {
         <div class="page-grid page-grid-single">
           <div class="page-col">
             <PositionCard mode="sim" algoKind={activeAlgo()} />
-            <EventsPanel mode="sim" />
+            <EventsPanel mode="sim" algoKind={activeAlgo()} />
             <ExecutionLog mode="sim" algoKind={activeAlgo()} />
           </div>
         </div>
@@ -42,7 +42,7 @@ export function SimulationPage() {
       <Show when={tab() === 'analytics'}>
         <div class="page-grid page-grid-single">
           <div class="page-col">
-            <SimAnalyticsPanel />
+            <SimAnalyticsPanel algoKind={activeAlgo()} />
           </div>
         </div>
       </Show>

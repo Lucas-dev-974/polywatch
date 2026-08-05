@@ -72,6 +72,9 @@ export class MoveDetector {
   }
 
   async recoverOrphanMoves(): Promise<void> {
+    // Always re-enqueue unprocessed moves. CopyProcessor strips `sim` when
+    // `skipReasons.sim === 'session_reset'` so dual-mode real recovery still runs
+    // after a copy sim reset drained the Redis queue.
     const orphans = await this.moveEventService.loadUnprocessed();
     for (const event of orphans) {
       await this.moveQueue.enqueue({

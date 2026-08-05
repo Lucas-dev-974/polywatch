@@ -20,7 +20,7 @@ export const SYSTEM_PAGE_TABS = ['overview', 'reports', 'snapshots', 'e2e-tests'
 
 | Page | Composants principaux |
 |------|-----------------------|
-| **Simulation** | `SimulationPage` : onglets **Activité** (`SimHero`, `PositionCard`, `EventsPanel`, `ExecutionLog`), **Snapshots** (voir [`snapshots-simulation.md`](./snapshots-simulation.md)), **Analytics** (`SimAnalyticsPanel`, `SimMarketAnalyticsPanel`) |
+| **Simulation** | `SimulationPage` : onglets **Activité** (`SimHero`, `PositionCard`, `EventsPanel`, `ExecutionLog` — tous reçoivent `algoKind` actif), **Snapshots** (voir [`snapshots-simulation.md`](./snapshots-simulation.md)), **Analytics** (`SimAnalyticsPanel algoKind` — affiché seulement pour `copy`, placeholder sinon) |
 | **Réel** | `RealHero`, `PositionCard mode="real"`, `EventsPanel`, `ExecutionLog mode="real"` |
 | **Leaderboard** | `Leaderboard` |
 | **Marchés** | `MarketsPage` : liste des marchés Gamma avec filtres (`MarketsCryptoFilterBar`, `MarketsIntervalSidebar`, `MarketsTagBar`), métriques (`MarketMetricsPanel`, `MarketCard`) |
@@ -84,7 +84,7 @@ src/
 │   │   ├── PositionOpenRowMeta.tsx, OpenPositionRowPnl.tsx
 │   │   ├── PositionCloseButton.tsx, PositionMarketLink.tsx, PositionPnlSummary.tsx
 │   │   ├── PositionListFrame.tsx, PositionMarketSplitView.tsx
-│   ├── EventsPanel.tsx           flux des mouvements détectés (copy-trading + algo, filtrable par source)
+│   ├── EventsPanel.tsx           flux des mouvements détectés — prop `algoKind?` restreint la source (copy→moves, crypto→algo events, weather→placeholder)
 │   │   ├── move-events/MoveEventFilters.tsx  filtres des mouvements (mode, source)
 │   │   └── algo-events/AlgoEventRow.tsx      ligne d'événement algo dans EventsPanel
 │   ├── ExecutionLog.tsx          journal des exécutions
@@ -236,6 +236,6 @@ Documentées dans la skill `polywatch-frontend-ui`
 | Évolution PnL | `pnl_tick` met à jour le signal `pnlMap` de `PositionCard` ; les lignes lisent le tick via des accesseurs réactifs (`OpenPositionRow`) |
 | PnL — secours | À défaut de `pnl_tick`, `PositionCard` recharge les positions ouvertes en REST toutes les **30 s** (valeurs persistées en base) |
 | Clôture manuelle | `POST /api/copied-positions/:id/close` → `position_update` (`closing`) |
-| Reset simulation | `POST /api/simulation-balance/reset` (`algoKind` requis) → purge Redis **scopée** + `simulation_reset` (WS + `algoKind`) + `simulation-reset` (Redis) + `config-changed` |
+| Reset simulation | `POST /api/simulation-balance/reset` (`algoKind` requis) → dialog **kind-aware** (`NewSessionResetDialog`, config via `/config/{kind}`) → purge Redis **scopée** (+ drain `move-events` copy, purge `weather-reentry` weather) + `simulation_reset` (WS + `algoKind`) ; `PositionCard.pnlMap` et refresh filtrés par `payload.algoKind` |
 | Toggle copy trading | `PUT /api/risk-config` → DB + `config-changed` (Redis) → le worker `copy-trading` relance la surveillance si elle était arrêtée |
 | Kill switch / book down | `alert` → `AlertBanner` |

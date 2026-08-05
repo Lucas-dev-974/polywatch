@@ -80,6 +80,13 @@ aux conditions du kind** (pas un wipe marché global), et réinitialise
 `market_price_history_sync` pour ces conditions (sans toucher aux lignes
 surveillance **live** hors périmètre).
 
+Indépendamment de `deepClean`, le wipe positions weather supprime aussi les
+`weather_position_forecasts` des positions effacées (même transaction). Le reset
+copy **ne flippe plus** `MoveEvent.processed` globalement — il marque seulement
+`skipReasons.sim = 'session_reset'` sur les moves des traders watchlist sim.
+`recoverOrphanMoves` ré-enqueue toujours ces orphans ; `CopyProcessor` ignore
+l'entrée sim et conserve le copy **réel**.
+
 #### Hygiène Redis (après wipe DB)
 
 Après le commit transactionnel du reset, le backend appelle
@@ -87,11 +94,17 @@ Après le commit transactionnel du reset, le backend appelle
 
 1. **Avant** delete DB : `collectSimRedisPurgeHints(ds, algoKind)` —
    réservations + **toutes** les positions sim du kind (tous statuts) →
-   `copiedPositionIds` / `copySignalIds` / clés logiques.
+   `copiedPositionIds` / `copySignalIds` / clés logiques ; + traders watchlist
+   sim (copy) et villes weather avec positions wipees (weather).
 2. **Après** commit :
    - queues d'**entrée** dédiées uniquement (`algo-order-signals` /
      `weather-order-signals` / `order-signals` + `:processing`) : jobs `mode:sim`
      dont la raison d'entrée mappe au kind ;
+   - **copy** : drain `move-events` (+ `:processing`) pour les jobs des traders
+     watchlist **sim** et suppression de leurs marqueurs dedupe
+     `move-events:enqueued:{id}` — anti re-entrée phantom ;
+   - **weather** : suppression `weather-reentry:{city}:sim` (villes wipees) et
+     `weather-bucket-hysteresis:{positionId}` — évite throttle/hystérésis orphelins ;
    - **`close-signals`** : jobs `mode:sim` dont `copiedPositionId ∈ hints.copiedPositionIds`
      (jamais classer un `SL`/`TP` via `algoKindFromReason` — ces raisons retombent
      sur `crypto`) ;
@@ -290,7 +303,7 @@ Routes montées dans `packages/backend/src/routes/simulation.ts`.
 | GET | `/api/simulation-snapshots` | Liste paginée — **`algoKind` requis** + filtres |
 | POST | `/api/simulation-snapshots` | Création manuelle `{ algoKind, label?: string }` |
 | GET | `/api/simulation-snapshots/:id` | Détail complet |
-| DELETE | `/api/simulation-snapshots` | Supprime **tous** les snapshots (`{ deleted: number }`) |
+| DELETE | `/api/simulation-snapshots` | Supprime les snapshots **du kind** — **`algoKind` requis** (`?algoKind=crypto\|weather\|copy`) ; 400 sinon. Autres kinds intacts. |
 
 ### Query params (GET liste)
 

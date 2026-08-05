@@ -36,6 +36,12 @@ export type SnapshotPanelView = 'sessions' | 'snapshots';
 
 const LABEL_DEBOUNCE_MS = 400;
 
+const ALGO_LABEL: Record<SimAlgoKind, string> = {
+  crypto: 'Crypto',
+  weather: 'Weather',
+  copy: 'Copy',
+};
+
 export function useSimulationSnapshots(initialAlgoKind: SimAlgoKind = 'crypto') {
   const [algoKind, setAlgoKind] = createSignal<SimAlgoKind>(initialAlgoKind);
   const [view, setView] = createSignal<SnapshotPanelView>('sessions');
@@ -545,15 +551,16 @@ export function useSimulationSnapshots(initialAlgoKind: SimAlgoKind = 'crypto') 
   async function deleteAll() {
     const count = total();
     if (count === 0 && view() === 'snapshots') return false;
+    const kindLabel = ALGO_LABEL[algoKind()] ?? algoKind();
     const confirmed = confirm(
       view() === 'snapshots'
-        ? `Supprimer tous les snapshots (${count}) ?\n\nCette action est irréversible.`
-        : `Supprimer tous les snapshots ?\n\nLes sessions fermées resteront (sans snapshots).`,
+        ? `Supprimer tous les snapshots ${kindLabel} (${count}) ?\n\nSeuls les snapshots de cet algo sont supprimés. Cette action est irréversible.`
+        : `Supprimer tous les snapshots ${kindLabel} ?\n\nLes sessions fermées ${kindLabel} resteront (sans snapshots).`,
     );
     if (!confirmed) return false;
     setDeleting(true);
     try {
-      await deleteAllSimulationSnapshots();
+      await deleteAllSimulationSnapshots(algoKind());
       clearSelection();
       setDetails(new Map());
       setPage(0);

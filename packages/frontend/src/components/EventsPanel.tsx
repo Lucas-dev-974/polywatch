@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, onCleanup, Show } from 'solid-js';
+import { createSignal, For, onMount, onCleanup, Show, createEffect } from 'solid-js';
 
 import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
 import { Icon } from './Icon';
@@ -8,6 +8,7 @@ import { AlgoEventRow } from './algo-events/AlgoEventRow';
 
 import { api } from '../api';
 import { connectSocket } from '../socket';
+import type { SimAlgoKind } from '../lib/simulation';
 import {
   MOVE_EVENTS_PAGE_SIZE,
   type ModeFilter,
@@ -18,6 +19,8 @@ import type { AlgoEvent, AlgoEventsResponse } from '../lib/algo-events';
 
 type Props = {
   mode: 'sim' | 'real';
+  /** When provided (simulation page), show only this algo's events. */
+  algoKind?: SimAlgoKind;
 };
 
 const ALGO_EVENTS_PAGE_SIZE = 20;
@@ -29,8 +32,30 @@ export function EventsPanel(props: Props) {
   const [clearing, setClearing] = createSignal(false);
   const [collapsed, setCollapsed] = useCollapse('events', props.mode);
   const [modeFilter, setModeFilter] = createSignal<ModeFilter>('all');
-  const [sourceFilter, setSourceFilter] = createSignal<SourceFilter>('all');
+
+  /** Kind-aware view restricts event sources to the active algo. */
+  const sourceOptions = (): SourceFilter[] | undefined => {
+    if (!props.algoKind) return undefined;
+    if (props.algoKind === 'copy') return ['copy'];
+    if (props.algoKind === 'crypto') return ['algo'];
+    return []; // weather: no events API
+  };
+
+  const defaultSource = (): SourceFilter =>
+    props.algoKind === 'copy' ? 'copy' : props.algoKind === 'crypto' ? 'algo' : 'all';
+
+  const [sourceFilter, setSourceFilter] = createSignal<SourceFilter>(defaultSource());
   const [page, setPage] = createSignal(0);
+
+  const weatherOnly = () => props.algoKind === 'weather';
+
+  // Reset source filter and reload when the active algo tab changes.
+  createEffect(() => {
+    const _ = props.algoKind;
+    setSourceFilter(defaultSource());
+    setPage(0);
+    void loadSingleSource();
+  });
 
   function buildCopyQuery(): string {
     const params = new URLSearchParams();
@@ -168,14 +193,21 @@ export function EventsPanel(props: Props) {
   };
 
   onMount(() => {
-    void loadSingleSource();
     const socket = connectSocket();
     const refresh = () => void loadSingleSource();
+    const onReset = (payload?: { algoKind?: SimAlgoKind }) => {
+      if (!props.algoKind || !payload?.algoKind || payload.algoKind === props.algoKind) {
+        setPage(0);
+        void loadSingleSource();
+      }
+    };
     socket.on('move_detected', refresh);
     socket.on('execution', refresh);
+    socket.on('simulation_reset', onReset);
     onCleanup(() => {
       socket.off('move_detected', refresh);
       socket.off('execution', refresh);
+      socket.off('simulation_reset', onReset);
     });
   });
 
@@ -207,11 +239,21 @@ export function EventsPanel(props: Props) {
           onFilterChange={setFilter}
           sourceFilter={sourceFilter}
           onSourceFilterChange={setSource}
+          sourceOptions={sourceOptions()}
         />
       </div>
 
       <CollapsiblePanel collapsed={collapsed()}>
         <div class="panel-body-flush panel-scroll">
+          <Show
+            when={!weatherOnly()}
+            fallback={
+              <div class="empty-state">
+                <div class="empty-state-icon">⚡</div>
+                Aucun flux d'événements pour l'algo weather.
+              </div>
+            }
+          >
           <Show
             when={copyEvents().length > 0 || algoEvents().length > 0}
             fallback={
@@ -268,6 +310,7 @@ export function EventsPanel(props: Props) {
                 Suivant →
               </button>
             </div>
+          </Show>
           </Show>
         </div>
       </CollapsiblePanel>

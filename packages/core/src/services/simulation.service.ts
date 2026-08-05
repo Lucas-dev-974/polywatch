@@ -8,6 +8,8 @@ import { CopyConfig } from '../entities/CopyConfig.js';
 import { CryptoConfig } from '../entities/CryptoConfig.js';
 import { WeatherConfig } from '../entities/WeatherConfig.js';
 import { SimulationBalance } from '../entities/SimulationBalance.js';
+import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
+import { WatchlistEntry } from '../entities/Watchlist.js';
 import { marketLifecycleFromEntity } from '../market/lifecycle.js';
 import {
   computePositionUnrealizedPnl,
@@ -340,6 +342,12 @@ export class SimulationService {
     if (matchingPosIds.length > 0) {
       await manager.delete(Execution, { copiedPositionId: In(matchingPosIds) });
       await manager.delete(CopiedPosition, { id: In(matchingPosIds) });
+
+      if (algoKind === 'weather') {
+        await manager.delete(WeatherPositionForecast, {
+          copiedPositionId: In(matchingPosIds),
+        });
+      }
     }
 
     const reservations = await manager.getRepository(PositionReservation).find({
@@ -353,13 +361,23 @@ export class SimulationService {
     }
 
     if (algoKind === 'copy') {
-      await manager
-        .getRepository(MoveEventEntity)
-        .createQueryBuilder()
-        .update()
-        .set({ processed: true })
-        .where('processed = :processed', { processed: false })
-        .execute();
+      // Do NOT flip `processed` globally — a single flag gates both sim and
+      // real recovery (`recoverOrphanMoves`). Scope the skip to sim only for
+      // watchlist-sim traders; real copy of the same move stays untouched.
+      const simTraders = await manager.getRepository(WatchlistEntry).find({
+        where: { active: true, simEnabled: true },
+      });
+      const traderSet = new Set(simTraders.map((t) => t.traderAddress));
+      const unprocessed = await manager.getRepository(MoveEventEntity).find({
+        where: { processed: false },
+      });
+      const toSkip = unprocessed.filter((e) => traderSet.has(e.traderAddress));
+      if (toSkip.length > 0) {
+        await manager.getRepository(MoveEventEntity).update(
+          { id: In(toSkip.map((e) => e.id)) },
+          { skipReasons: { sim: 'session_reset' } },
+        );
+      }
     }
 
     const repo = manager.getRepository(SimulationBalance);

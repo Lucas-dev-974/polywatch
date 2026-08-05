@@ -4,9 +4,13 @@ import { In } from 'typeorm';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Market } from '../entities/Market.js';
 import { PositionReservation } from '../entities/PositionReservation.js';
+import { WatchlistEntry } from '../entities/Watchlist.js';
+import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
 import { hashAlgoLogicalKey } from '../idempotence/hash.js';
 import { resolveMarketInterval } from '../risk/crypto-algo-exit.js';
 import { WORKER_QUEUES } from '../queue/worker-queues.js';
+import { weatherReentryThrottleKey } from './weather-reentry-throttle.js';
+import { weatherBucketHysteresisKey } from './weather-bucket-hysteresis.js';
 import type { ExecutionResult, OrderSignal } from '../types/index.js';
 import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
 import { RiskService } from '../services/risk.service.js';
@@ -16,12 +20,17 @@ const WEATHER_QUEUE = WORKER_QUEUES.WEATHER_ORDER_SIGNALS;
 const COPY_QUEUE = WORKER_QUEUES.ORDER_SIGNALS;
 const CLOSE_QUEUE = WORKER_QUEUES.CLOSE_SIGNALS;
 const RESULTS_QUEUE = WORKER_QUEUES.EXECUTION_RESULTS;
+const MOVE_EVENTS_QUEUE = WORKER_QUEUES.MOVE_EVENTS;
 
 export interface SimRedisPurgeHints {
   algoLogicalKeys: string[];
   janitorDedupeKeys: string[];
   copySignalIds: string[];
   copiedPositionIds: number[];
+  /** Watchlist sim traders — used to drain `move-events` for sim copy reset. */
+  simWatchlistTraders?: string[];
+  /** Weather cities with wiped positions — used to clear reentry throttles. */
+  weatherCities?: string[];
 }
 
 export interface SimResetRedisPurgeResult {
@@ -32,6 +41,9 @@ export interface SimResetRedisPurgeResult {
   dedupeMarkersRemoved: number;
   retryMarkersRemoved: number;
   cooldownKeysRemoved: number;
+  moveEventsRemoved?: number;
+  weatherReentryKeysRemoved?: number;
+  weatherHysteresisKeysRemoved?: number;
 }
 
 function processingKey(queueName: string): string {
@@ -184,11 +196,30 @@ export async function collectSimRedisPurgeHints(
 
   const janitorDedupeKeys = pendingEntries.map((p) => `janitor:${p.id}`);
 
+  const simWatchlistTraders: string[] =
+    algoKind === 'copy'
+      ? (
+          await ds.getRepository(WatchlistEntry).find({
+            where: { active: true, simEnabled: true },
+          })
+        ).map((t) => t.traderAddress)
+      : [];
+
+  let weatherCities: string[] = [];
+  if (algoKind === 'weather' && copiedPositionIds.length > 0) {
+    const forecasts = await ds.getRepository(WeatherPositionForecast).find({
+      where: { copiedPositionId: In(copiedPositionIds) },
+    });
+    weatherCities = [...new Set(forecasts.map((f) => f.city))];
+  }
+
   return {
     algoLogicalKeys: [...algoLogicalKeys],
     janitorDedupeKeys,
     copySignalIds: [...copySignalIds],
     copiedPositionIds,
+    simWatchlistTraders,
+    weatherCities,
   };
 }
 
@@ -259,6 +290,35 @@ async function removeSimExecutionResultsFromList(
     }
   }
   return removed;
+}
+
+/**
+ * Drain `move-events` jobs for watchlist-sim traders so queued moves cannot
+ * recreate sim COPY positions after a copy reset. DTOs carry no `mode` — the
+ * only safe sim discriminator is the trader's sim-enabled watchlist entry.
+ */
+async function removeMoveEventsForTraders(
+  redis: Redis,
+  queueName: string,
+  traders: Set<string>,
+): Promise<{ removed: number; moveIds: Set<string> }> {
+  const items = await redis.lrange(queueName, 0, -1);
+  let removed = 0;
+  const moveIds = new Set<string>();
+  for (const raw of items) {
+    try {
+      const job = JSON.parse(raw) as { id?: string; traderAddress?: string };
+      if (!job.traderAddress || !traders.has(job.traderAddress.toLowerCase())) {
+        continue;
+      }
+      if (job.id) moveIds.add(job.id);
+      const count = await redis.lrem(queueName, 0, raw);
+      if (count > 0) removed += count;
+    } catch {
+      /* skip */
+    }
+  }
+  return { removed, moveIds };
 }
 
 /**
@@ -369,6 +429,52 @@ export async function purgeSimExecutionRedisState(
     }
   }
 
+  let moveEventsRemoved = 0;
+  if (algoKind === 'copy' && hints.simWatchlistTraders?.length) {
+    const traders = new Set(hints.simWatchlistTraders.map((t) => t.toLowerCase()));
+    const moveMain = await removeMoveEventsForTraders(redis, MOVE_EVENTS_QUEUE, traders);
+    const moveProcessing = await removeMoveEventsForTraders(
+      redis,
+      processingKey(MOVE_EVENTS_QUEUE),
+      traders,
+    );
+    moveEventsRemoved = moveMain.removed + moveProcessing.removed;
+    const moveDedupeKeys = [
+      ...moveMain.moveIds,
+      ...moveProcessing.moveIds,
+    ].flatMap((id) => markerKeys(MOVE_EVENTS_QUEUE, id));
+    if (moveDedupeKeys.length > 0) {
+      const existing = await Promise.all(
+        moveDedupeKeys.map(async (key) => ((await redis.exists(key)) === 1 ? key : null)),
+      );
+      const toDelete = existing.filter((k): k is string => k != null);
+      if (toDelete.length > 0) {
+        dedupeMarkersRemoved += toDelete.filter((k) => k.includes(':enqueued:')).length;
+        retryMarkersRemoved += toDelete.length - toDelete.filter((k) => k.includes(':enqueued:')).length;
+        await redis.del(...toDelete);
+      }
+    }
+  }
+
+  let weatherReentryKeysRemoved = 0;
+  let weatherHysteresisKeysRemoved = 0;
+  if (algoKind === 'weather') {
+    const keysToDelete: string[] = [];
+    for (const city of hints.weatherCities ?? []) {
+      keysToDelete.push(weatherReentryThrottleKey(city, 'sim'));
+    }
+    for (const id of hints.copiedPositionIds) {
+      keysToDelete.push(weatherBucketHysteresisKey(id));
+    }
+    for (const key of keysToDelete) {
+      const n = await redis.del(key);
+      if (n > 0) {
+        if (key.startsWith('weather-reentry:')) weatherReentryKeysRemoved += n;
+        else weatherHysteresisKeysRemoved += n;
+      }
+    }
+  }
+
   return {
     algoOrderSignalsRemoved,
     orderSignalsRemoved,
@@ -377,6 +483,9 @@ export async function purgeSimExecutionRedisState(
     dedupeMarkersRemoved,
     retryMarkersRemoved,
     cooldownKeysRemoved,
+    moveEventsRemoved,
+    weatherReentryKeysRemoved,
+    weatherHysteresisKeysRemoved,
   };
 }
 

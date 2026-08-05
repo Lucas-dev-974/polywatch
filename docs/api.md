@@ -57,7 +57,7 @@ Montées sous `/api` (`createConfigRouter`).
 | GET | `/api/simulation-snapshots` | Liste des snapshots — query **`algoKind` requis** + pagination / filtres (`source`, `sessionId`, `label`, `from`, `to`) |
 | POST | `/api/simulation-snapshots` | Crée un snapshot manuel `{ algoKind: 'crypto'\|'weather'\|'copy', label?: string }` — **`algoKind` requis** |
 | GET | `/api/simulation-snapshots/:id` | Détail d'un snapshot |
-| DELETE | `/api/simulation-snapshots` | Supprime tous les snapshots |
+| DELETE | `/api/simulation-snapshots` | Supprime les snapshots **du kind** — query **`algoKind` requis** (`crypto\|weather\|copy`) ; 400 si absent ; les autres kinds ne sont pas touchés |
 | GET | `/api/simulation-sessions` | Liste des sessions — query **`algoKind` requis** + `status`, `label`, `from`, `to` |
 | GET | `/api/simulation-sessions/current` | Session active du kind — query **`algoKind` requis** (ou `null`) |
 | GET | `/api/simulation-sessions/:id` | Détail d'une session (query **`algoKind` requis**) — **404** si la session n'existe pas ou si `session.algoKind !== algoKind` |

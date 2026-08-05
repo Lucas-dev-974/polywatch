@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { api } from '../api';
+import { onGlobalRefresh } from '../socket';
 
 export interface WeatherForecastSnapshot {
   city: string;
@@ -98,7 +99,16 @@ export function useWeatherAlgoPositions() {
   onMount(() => {
     void refresh();
     const poll = setInterval(() => void refresh(), POLL_MS);
-    onCleanup(() => clearInterval(poll));
+    // Refresh immediately on any simulation reset (payload-algoKind agnostic —
+    // this hook already filters weather-only rows, a spurious refetch is cheap).
+    const unsubscribeRefresh = onGlobalRefresh(() => {
+      void refresh();
+      if (historyLoaded()) void refreshHistory();
+    });
+    onCleanup(() => {
+      clearInterval(poll);
+      unsubscribeRefresh();
+    });
   });
 
   return {

@@ -236,6 +236,10 @@ export class MoveEventService {
     );
   }
 
+  async findById(id: string): Promise<MoveEventEntity | null> {
+    return this.ds.getRepository(MoveEventEntity).findOne({ where: { id } });
+  }
+
   async markProcessedWithReasons(
     ids: string[],
     reasons: MoveSkipReasonsUpdate,
@@ -286,12 +290,13 @@ export class MoveEventService {
     return moves;
   }
 
-  /** Reset processed flag so the move event is retried on the next poll cycle. */
+  /** Reset processed flag so the move event is retried on the next poll cycle.
+   * Preserves skipReasons (e.g. `session_reset`) so sim stays gated after recovery. */
   async resetProcessed(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await this.ds.getRepository(MoveEventEntity).update(
       { id: In(ids) },
-      { processed: false, skipReasons: null },
+      { processed: false },
     );
   }
 

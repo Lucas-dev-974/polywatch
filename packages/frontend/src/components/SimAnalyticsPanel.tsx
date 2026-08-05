@@ -24,10 +24,21 @@ import { SimAnalyticsCategoryChart } from './SimAnalyticsCategoryChart';
 import { SimAnalyticsChartSection } from './SimAnalyticsChartSection';
 import { SimAnalyticsTable } from './SimAnalyticsTable';
 import { SimMarketAnalyticsPanel } from './SimMarketAnalyticsPanel';
+import type { SimAlgoKind } from '../lib/simulation';
 
 const REFRESH_DEBOUNCE_MS = 500;
 
-export function SimAnalyticsPanel() {
+const ALGO_LABEL: Record<SimAlgoKind, string> = {
+  crypto: 'Crypto',
+  weather: 'Weather',
+  copy: 'Copy',
+};
+
+export interface SimAnalyticsPanelProps {
+  algoKind?: SimAlgoKind;
+}
+
+export function SimAnalyticsPanel(props: SimAnalyticsPanelProps) {
   const [collapsed, setCollapsed] = useCollapse();
   const [traders, setTraders] = createSignal<Awaited<ReturnType<typeof fetchTraderAnalytics>>['traders']>([]);
   const [pnlByCategory, setPnlByCategory] = createSignal<MarketCategoryPnlRow[]>([]);
@@ -128,6 +139,20 @@ export function SimAnalyticsPanel() {
 
   return (
     <>
+    <Show
+      when={!props.algoKind || props.algoKind === 'copy'}
+      fallback={
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Analytics par trader</h2>
+          </div>
+          <div class="empty-state">
+            Les analytics par trader (copy trading) ne sont pas disponibles pour l'algo{' '}
+            {props.algoKind ? ALGO_LABEL[props.algoKind] : ''}. Sélectionnez l'onglet Copy.
+          </div>
+        </section>
+      }
+    >
     <section class="panel">
       <div class="panel-header">
         <h2>Analytics par trader</h2>
@@ -246,6 +271,7 @@ export function SimAnalyticsPanel() {
       </CollapsiblePanel>
     </section>
     <SimMarketAnalyticsPanel />
+    </Show>
     </>
   );
 }

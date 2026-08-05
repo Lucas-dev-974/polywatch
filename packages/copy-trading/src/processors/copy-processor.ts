@@ -63,12 +63,19 @@ export class CopyProcessor {
       return;
     }
 
+    const existing = await this.moveEventService.findById(move.id);
+    const simSessionReset = existing?.skipReasons?.sim === 'session_reset';
+
     const [copyConfig, globalConfig] = await Promise.all([
       this.copyConfigService.getConfig(),
       this.globalConfigService.getConfig(),
     ]);
-    const { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, copyConfig, globalConfig);
+    let { modes, skippedRealReason } = resolveCopyModesWithReasons(entry, copyConfig, globalConfig);
     const skipReasons: MoveSkipReasonsUpdate = {};
+    if (simSessionReset) {
+      modes = modes.filter((m) => m !== 'sim');
+      skipReasons.sim = existing?.skipReasons?.sim ?? 'session_reset';
+    }
     const recordSkip = (mode: TradingMode, reason: string) => {
       if (!skipReasons[mode]) skipReasons[mode] = reason;
     };

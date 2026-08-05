@@ -661,8 +661,13 @@ export function createSimulationRouter(ds: DataSource): Router {
     res.status(summary ? 201 : 200).json(summary);
   });
 
-  router.delete('/simulation-snapshots', requireJwt, async (_req, res) => {
-    const deleted = await archiveService.deleteAllSnapshots();
+  router.delete('/simulation-snapshots', requireJwt, async (req, res) => {
+    const algoKindParsed = algoKindSchema.safeParse(req.query.algoKind);
+    if (!algoKindParsed.success) {
+      res.status(400).json({ error: 'invalid_query', message: 'algoKind required (crypto|weather|copy)' });
+      return;
+    }
+    const deleted = await archiveService.deleteSnapshotsByAlgoKind(algoKindParsed.data);
     await refreshSnapshotCount();
     emitSimulationSnapshotCreated();
     res.json({ deleted });

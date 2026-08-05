@@ -10,7 +10,7 @@ import { WeatherAlgoPositionsPanel } from './WeatherAlgoPositionsPanel';
 import { WeatherAlgoExecutionsPanel } from './WeatherAlgoExecutionsPanel';
 import { WeatherAlgoAutoTrackTab } from './WeatherAlgoAutoTrackTab';
 import { WeatherAlgoSettingsTab } from './WeatherAlgoSettingsTab';
-import { WeatherAlgoResetDialog } from './WeatherAlgoResetDialog';
+import { NewSessionResetDialog } from './NewSessionResetDialog';
 
 type Tab = 'markets' | 'positions' | 'cities' | 'settings';
 
@@ -97,12 +97,15 @@ export function WeatherAlgoPage() {
         <WeatherAlgoSettingsTab />
       </Show>
 
-      <WeatherAlgoResetDialog
+      <NewSessionResetDialog
         open={resetDialogOpen()}
         onClose={() => setResetDialogOpen(false)}
+        mode="manual"
+        algoKind="weather"
         onDone={() => {
           void dashboard.loadCapital();
           void dashboard.loadRiskFlags();
+          void positions.refresh();
         }}
       />
     </div>

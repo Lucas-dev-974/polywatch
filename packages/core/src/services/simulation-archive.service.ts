@@ -403,6 +403,20 @@ export class SimulationArchiveService {
     return result.affected ?? count;
   }
 
+  async deleteSnapshotsByAlgoKind(algoKind: SimAlgoKind): Promise<number> {
+    const repo = this.ds.getRepository(SimulationStateSnapshot);
+    const count = await repo.count({ where: { algoKind } });
+    if (count === 0) return 0;
+
+    const result = await repo
+      .createQueryBuilder()
+      .delete()
+      .from(SimulationStateSnapshot)
+      .where('algo_kind = :algoKind', { algoKind })
+      .execute();
+    return result.affected ?? count;
+  }
+
   /**
    * Prune snapshots based on retention policy.
    * - retentionDays: delete snapshots older than N days.

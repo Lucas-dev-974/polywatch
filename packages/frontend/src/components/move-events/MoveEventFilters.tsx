@@ -17,6 +17,8 @@ interface MoveEventFiltersProps {
   onFilterChange: (filter: ModeFilter) => void;
   sourceFilter: () => SourceFilter;
   onSourceFilterChange: (filter: SourceFilter) => void;
+  /** Restrict which source options are selectable (kind-aware views). */
+  sourceOptions?: SourceFilter[];
 }
 
 function FilterSegment<T extends string>(props: {
@@ -47,6 +49,8 @@ function FilterSegment<T extends string>(props: {
 }
 
 export function MoveEventFilters(props: MoveEventFiltersProps) {
+  const sourceOptions = () =>
+    SOURCE_FILTER_OPTIONS.filter((o) => !props.sourceOptions || props.sourceOptions.includes(o.value));
   return (
     <div class="event-filters">
       <FilterSegment
@@ -58,7 +62,7 @@ export function MoveEventFilters(props: MoveEventFiltersProps) {
       <FilterSegment
         label="Source"
         value={props.sourceFilter}
-        options={SOURCE_FILTER_OPTIONS}
+        options={sourceOptions()}
         onChange={props.onSourceFilterChange}
       />
     </div>

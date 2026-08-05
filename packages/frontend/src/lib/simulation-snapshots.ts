@@ -182,8 +182,10 @@ export async function fetchSimulationSnapshotDetail(
   return api<SimStateSnapshotDetail>(`/simulation-snapshots/${id}`);
 }
 
-export async function deleteAllSimulationSnapshots(): Promise<{ deleted: number }> {
-  return api<{ deleted: number }>('/simulation-snapshots', {
+export async function deleteAllSimulationSnapshots(
+  algoKind: SimAlgoKind,
+): Promise<{ deleted: number }> {
+  return api<{ deleted: number }>(`/simulation-snapshots?algoKind=${algoKind}`, {
     method: 'DELETE',
   });
 }

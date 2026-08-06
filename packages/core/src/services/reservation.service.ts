@@ -1,11 +1,10 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { In } from 'typeorm';
 import pino from 'pino';
-import { CopiedPosition } from '../entities/CopiedPosition.js';
 import type { CopyConfig } from '../entities/CopyConfig.js';
 import type { CryptoConfig } from '../entities/CryptoConfig.js';
-import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
+import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Execution } from '../entities/Execution.js';
 import { PositionReservation } from '../entities/PositionReservation.js';
 import { SimulationBalance } from '../entities/SimulationBalance.js';
@@ -79,8 +78,10 @@ type ReserveLimits = {
   maxExposureUsdc: number;
 };
 
+type AlgoKindConfig = CopyConfig | CryptoConfig | WeatherConfig;
+
 function resolveReserveLimits(
-  risk: RiskConfig,
+  config: AlgoKindConfig,
   reason: ReserveInput['reason'],
   mode: 'sim' | 'real',
 ): ReserveLimits {
@@ -88,21 +89,21 @@ function resolveReserveLimits(
   switch (algoKind) {
     case 'copy':
       return {
-        maxOpenPositions: getCopyMaxOpenPositions(risk as unknown as CopyConfig, mode),
-        maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(risk as unknown as CopyConfig, mode),
-        maxExposureUsdc: getCopyMaxExposureUsdc(risk as unknown as CopyConfig, mode),
+        maxOpenPositions: getCopyMaxOpenPositions(config as CopyConfig, mode),
+        maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(config as CopyConfig, mode),
+        maxExposureUsdc: getCopyMaxExposureUsdc(config as CopyConfig, mode),
       };
     case 'weather':
       return {
-        maxOpenPositions: getWeatherMaxOpenPositions(risk as unknown as WeatherConfig, mode),
-        maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk as unknown as WeatherConfig, mode),
-        maxExposureUsdc: getWeatherMaxExposureUsdc(risk as unknown as WeatherConfig, mode),
+        maxOpenPositions: getWeatherMaxOpenPositions(config as WeatherConfig, mode),
+        maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(config as WeatherConfig, mode),
+        maxExposureUsdc: getWeatherMaxExposureUsdc(config as WeatherConfig, mode),
       };
     default:
       return {
-        maxOpenPositions: getCryptoMaxOpenPositions(risk as unknown as CryptoConfig, mode),
-        maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk as unknown as CryptoConfig, mode),
-        maxExposureUsdc: getCryptoMaxExposureUsdc(risk as unknown as CryptoConfig, mode),
+        maxOpenPositions: getCryptoMaxOpenPositions(config as CryptoConfig, mode),
+        maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(config as CryptoConfig, mode),
+        maxExposureUsdc: getCryptoMaxExposureUsdc(config as CryptoConfig, mode),
       };
   }
 }
@@ -127,15 +128,26 @@ export class ReservationService {
 
   async reserve(input: ReserveInput): Promise<ReserveResult> {
     return this.ds.transaction(async (manager) => {
-      const risk = await new RiskService(this.ds).getConfig({ manager });
+      const riskService = new RiskService(this.ds);
+      const opts = { manager };
       const algoKind = algoKindFromReason(input.reason);
-      const limits = resolveReserveLimits(risk, input.reason, input.mode);
+
+      const [global, copy, crypto, weather] = await Promise.all([
+        riskService.getGlobalConfig(opts),
+        riskService.getCopyConfig(opts),
+        riskService.getCryptoConfig(opts),
+        riskService.getWeatherConfig(opts),
+      ]);
+
+      const algoConfig: AlgoKindConfig =
+        algoKind === 'copy' ? copy : algoKind === 'weather' ? weather : crypto;
+      const limits = resolveReserveLimits(algoConfig, input.reason, input.mode);
 
       // Defense-in-depth: ALGO_* and WEATHER_* reasons require their respective master toggles.
-      if (input.reason.startsWith('ALGO_') && !risk.cryptoAlgoEnabled) {
+      if (input.reason.startsWith('ALGO_') && !crypto.cryptoAlgoEnabled) {
         throw new Error('crypto_algo_disabled');
       }
-      if (input.reason.startsWith('WEATHER_') && !risk.weatherAlgoEnabled) {
+      if (input.reason.startsWith('WEATHER_') && !weather.weatherAlgoEnabled) {
         throw new Error('weather_algo_disabled');
       }
 
@@ -147,7 +159,7 @@ export class ReservationService {
       if (
         input.mode === 'real' &&
         REAL_ENTRY_REASONS.includes(input.reason) &&
-        !RiskService.isRealTradingEnabledForConfig(risk)
+        !global.realTradingEnabled
       ) {
         throw new Error('real_trading_disabled');
       }
@@ -155,7 +167,7 @@ export class ReservationService {
       if (
         input.mode === 'sim' &&
         COPY_ENTRY_REASONS.includes(input.reason) &&
-        !RiskService.isSimCopyTradingEnabledForConfig(risk)
+        !copy.simCopyTradingEnabled
       ) {
         throw new Error('sim_copy_trading_disabled');
       }
@@ -163,7 +175,7 @@ export class ReservationService {
       if (
         input.mode === 'real' &&
         COPY_ENTRY_REASONS.includes(input.reason) &&
-        !RiskService.isRealCopyTradingEnabledForConfig(risk)
+        !copy.realCopyTradingEnabled
       ) {
         throw new Error('real_copy_trading_disabled');
       }

@@ -6,10 +6,10 @@
 |------|---------|-------|--------------|-------------------|-------|-------------|
 | `services/risk.service.ts` | core | facade | `composeRiskConfig`, `getConfig`, `updateConfig` | keep until Phase F | — | hot |
 | `risk/policy.ts` | core | runtime | legacy getters (`getModeSizingParams`, etc.) | algo-kind wrappers on isolated configs | B.4 / F | hot |
-| `risk/sim-execution-tunables.ts` | core | runtime | sim exec latency / self-impact | `GlobalConfig` | B.1 | hot |
-| `risk/sim-rotation-targets.ts` | core | runtime | rotation keys | `CopyConfig` + `CryptoConfig` | B.1 | warm |
-| `risk/crypto-algo-exit.ts` | core | runtime | crypto exit params | `CryptoConfig` | B.1 | hot |
-| `services/reservation.service.ts` | core | runtime | max open positions | `getCopyMaxOpenPositions` / `getCryptoMaxOpenPositions` | B.1 | hot |
+| `risk/sim-execution-tunables.ts` | core | runtime | sim exec latency / self-impact | `GlobalConfig` | ✅ B.1 done | hot |
+| `risk/sim-rotation-targets.ts` | core | runtime | rotation keys | `CopyConfig` + `CryptoConfig` (+ FromConfigs) | ✅ B.1 (legacy deprecated) | warm |
+| `risk/crypto-algo-exit.ts` | core | runtime | crypto exit params | `CryptoConfig` | ✅ B.1 done | hot |
+| `services/reservation.service.ts` | core | runtime | max open positions | `getCopyMaxOpenPositions` / `getCryptoMaxOpenPositions` | ✅ B.1 done | hot |
 | `services/simulation-archive.service.ts` | core | runtime | `extractSimConfigSnapshot(getConfig())` | `extractSimConfigSnapshotFromIsolated` | B.2 | warm |
 | `services/real-archive.service.ts` | core | runtime | `extractRealConfigSnapshot(getConfig())` | `extractRealConfigSnapshotFromIsolated` | B.2 | warm |
 | `services/simulation-session.service.ts` | core | runtime | `pickRotationKeys`, `SIM_SESSION_ROTATION_KEYS` | isolated keys + `pickRotationKeysFromIsolated` | B.2 | warm |

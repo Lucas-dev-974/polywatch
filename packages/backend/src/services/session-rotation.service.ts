@@ -34,6 +34,28 @@ import { emitSimulationReset, emitRealPeriodRotated } from '../websocket.js';
 import { broadcastSimSnapshot } from '../notify/simulation.js';
 import { recordSnapshotCreated, recordSnapshotCount } from '../metrics.js';
 
+type IsolatedConfigBundle = {
+  global: GlobalConfig;
+  copy: CopyConfig;
+  crypto: CryptoConfig;
+  weather: WeatherConfig;
+};
+
+function isIsolatedConfigBundle(
+  cfg: RiskConfig | IsolatedConfigBundle,
+): cfg is IsolatedConfigBundle {
+  return (
+    typeof cfg === 'object' &&
+    cfg !== null &&
+    'global' in cfg &&
+    'copy' in cfg &&
+    'crypto' in cfg &&
+    'weather' in cfg &&
+    typeof (cfg as IsolatedConfigBundle).global === 'object' &&
+    (cfg as IsolatedConfigBundle).global !== null
+  );
+}
+
 export interface SimRotationResult {
   closedId: number | null;
   openedId: number;
@@ -81,12 +103,13 @@ export class SessionRotationService {
 
     const result: RotationResult = {};
 
-    const simTargets = Array.isArray((before as any).global)
-      ? resolveSimRotationTargetsFromConfigs(
-          before as { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
-          after as { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
-        )
-      : resolveSimRotationTargets(beforeRisk, afterRisk);
+    const beforeIsolated = isIsolatedConfigBundle(before) ? before : null;
+    const afterIsolated = isIsolatedConfigBundle(after) ? after : null;
+
+    const simTargets =
+      beforeIsolated && afterIsolated
+        ? resolveSimRotationTargetsFromConfigs(beforeIsolated, afterIsolated)
+        : resolveSimRotationTargets(beforeRisk, afterRisk);
 
     if (simTargets.length > 0) {
       result.sim = await this.performSimHardRotate(afterRisk, simTargets);
@@ -102,20 +125,17 @@ export class SessionRotationService {
   private asRiskConfig(
     cfg: RiskConfig | { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
   ): RiskConfig {
-    if ('id' in cfg) return cfg as RiskConfig;
-    const { global, copy, crypto, weather } = cfg as {
-      global: GlobalConfig;
-      copy: CopyConfig;
-      crypto: CryptoConfig;
-      weather: WeatherConfig;
-    };
-    return {
-      ...global,
-      ...copy,
-      ...crypto,
-      ...weather,
-      id: 0,
-    } as unknown as RiskConfig;
+    if (isIsolatedConfigBundle(cfg)) {
+      const { global, copy, crypto, weather } = cfg;
+      return {
+        ...global,
+        ...copy,
+        ...crypto,
+        ...weather,
+        id: 0,
+      } as unknown as RiskConfig;
+    }
+    return cfg;
   }
 
   private async performSimHardRotate(

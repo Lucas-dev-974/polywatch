@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { GlobalConfig } from '../entities/GlobalConfig.js';
 import {
   DEFAULT_SIM_EXEC_LATENCY_MS,
   DEFAULT_SIM_SELF_IMPACT_TTL_SECONDS,
@@ -7,13 +7,13 @@ import {
   resolveSimExecutionTunables,
 } from './sim-execution-tunables.js';
 
-function baseRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
-  return { id: 1, ...overrides } as RiskConfig;
+function baseGlobal(overrides: Partial<GlobalConfig> = {}): GlobalConfig {
+  return { id: 1, ...overrides } as GlobalConfig;
 }
 
 describe('resolveSimExecutionTunables', () => {
   it('uses code defaults when fields are null', () => {
-    const t = resolveSimExecutionTunables(baseRisk());
+    const t = resolveSimExecutionTunables(baseGlobal());
     expect(t.latencyMode).toBe('fixed');
     expect(t.fixedLatencyMs).toBe(DEFAULT_SIM_EXEC_LATENCY_MS);
     expect(t.selfImpactEnabled).toBe(false);
@@ -26,7 +26,7 @@ describe('resolveSimExecutionTunables', () => {
 
   it('enables recordLatencySamples for calibrated mode', () => {
     const t = resolveSimExecutionTunables(
-      baseRisk({ simExecLatencyMode: 'calibrated' }),
+      baseGlobal({ simExecLatencyMode: 'calibrated' }),
     );
     expect(t.latencyMode).toBe('calibrated');
     expect(t.recordLatencySamples).toBe(true);
@@ -34,14 +34,14 @@ describe('resolveSimExecutionTunables', () => {
 
   it('enables recordLatencySamples when shadow logging is on', () => {
     const t = resolveSimExecutionTunables(
-      baseRisk({ simShadowLoggingEnabled: true }),
+      baseGlobal({ simShadowLoggingEnabled: true }),
     );
     expect(t.recordLatencySamples).toBe(true);
   });
 
   it('respects explicit overrides', () => {
     const t = resolveSimExecutionTunables(
-      baseRisk({
+      baseGlobal({
         simExecLatencyMs: 80,
         simSelfImpactEnabled: true,
         simSelfImpactTtlSeconds: 12,

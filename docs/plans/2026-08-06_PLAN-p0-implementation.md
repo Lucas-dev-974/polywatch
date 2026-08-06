@@ -156,13 +156,13 @@ main (stable)
 
 #### B.1 — Migration consommateurs 1-4 (moins risqués)
 
-- [ ] `sim-execution-tunables.ts` → `GlobalConfig` (champs sim exec latency/self-impact dans GlobalConfig). Test existant : `sim-execution-tunables.test.ts`.
-- [ ] `sim-rotation-targets.ts` → `CopyConfig` + `CryptoConfig`
-- [ ] `crypto-algo-exit.ts` → `CryptoConfig`
-- [ ] `reservation.service.ts` → wrapper `getCopyMaxOpenPositions` / `getCryptoMaxOpenPositions` selon algoKind
-- [ ] Après chaque migration : `npm run build -w @polywatch/core` doit passer (TypeScript empêche les références mortes)
-- [ ] Après chaque migration : `npm run test -w @polywatch/core` doit être vert
-- [ ] **Observations** :
+- [x] `sim-execution-tunables.ts` → `GlobalConfig` uniquement ✅ 2026-08-06
+- [x] `sim-rotation-targets.ts` → consommateur backend utilise `resolveSimRotationTargetsFromConfigs` (fix détection bundle isolé) ✅ 2026-08-06
+- [x] `crypto-algo-exit.ts` → déjà `CryptoConfig` ; import `RiskConfig` mort retiré ✅ 2026-08-06
+- [x] `reservation.service.ts` → getters isolés + wrappers `getCopy/Crypto/WeatherMax*` selon algoKind ✅ 2026-08-06
+- [x] Après chaque migration : `npm run build` core/worker/backend ✅
+- [x] Tests : `sim-execution-tunables`, `reservation.service`, `crypto-algo-exit`, `latency-calibrator` verts ✅
+- [x] **Observations** : `getConfigForAlgo` accepte maintenant `GetRiskConfigOptions` (manager). Legacy `resolveSimRotationTargets(RiskConfig)` conservé deprecated jusqu'à Phase F. `realRotationChanged` reste sur RiskConfig → B.2.
 
 #### B.2 — Migration consommateurs 5-6 (délicats : snapshots + sessions)
 
@@ -417,7 +417,7 @@ main (stable)
 | Phase | Statut | Dernière mise à jour |
 |-------|--------|----------------------|
 | Phase A — Préparation (tests + guards + cartographie) | ✅ Terminée (+ correctif flags) | 2026-08-06 |
-| Phase B — C4 RiskConfig migration consommateurs | ⏳ En attente | — |
+| Phase B — C4 RiskConfig migration consommateurs | ⏳ En cours (B.1 ✅) | 2026-08-06 |
 | Phase C — C1 sim/real extraction | ⏳ En attente | — |
 | Phase D — Bugs fantômes 4.3/4.4 | ⏳ En attente | — |
 | Phase E — Finalisation et PR P0 | ⏳ En attente | — |

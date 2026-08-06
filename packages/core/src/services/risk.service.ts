@@ -362,14 +362,17 @@ export class RiskService {
    * Load the algo-specific config for a given algoKind.
    * Used by the worker to load the right config for close signals.
    */
-  async getConfigForAlgo(algoKind: SimAlgoKind): Promise<CopyConfig | CryptoConfig | WeatherConfig> {
+  async getConfigForAlgo(
+    algoKind: SimAlgoKind,
+    options?: GetRiskConfigOptions,
+  ): Promise<CopyConfig | CryptoConfig | WeatherConfig> {
     switch (algoKind) {
       case 'copy':
-        return this.getCopyConfig();
+        return this.getCopyConfig(options);
       case 'crypto':
-        return this.getCryptoConfig();
+        return this.getCryptoConfig(options);
       case 'weather':
-        return this.getWeatherConfig();
+        return this.getWeatherConfig(options);
       default:
         throw new Error(`Unsupported algoKind: ${algoKind}`);
     }

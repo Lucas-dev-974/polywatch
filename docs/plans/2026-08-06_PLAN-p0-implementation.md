@@ -260,7 +260,9 @@ main (stable)
 
 #### D.1 — Audit 4.3 : crypto-algo/index.ts shutdown
 
-- [ ] Scénario SIGTERM pendant `evaluateSelection` : `evaluating` flag est-il reset ? Le timer re-entrance est-il bloqué ?
+> Note Phase A (Q8/3A) : tests unitaires couvrent l'idempotence du pattern + `clearPostEntryMidTimers` seulement. Si l'audit révèle un besoin de test du vrai chemin, extraire `shutdownCryptoAlgo(deps)` depuis `index.ts`.
+
+- [ ] Scénario SIGTERM pendant `evaluateSelection` : `evalChains` / timers — le runner est-il `stop()` avant destruction DS ?
 - [ ] Scénario SIGTERM pendant `runAlgoEntryPipeline` : réservation libérée ? Queue en cours ACK ?
 - [ ] Vérifier l'ordre de shutdown (timers, Redis, DS) — une erreur dans l'un empêche-t-elle les suivants ?
 - [ ] Si bug trouvé : **corriger immédiatement** dans la même branche
@@ -268,10 +270,12 @@ main (stable)
 
 #### D.2 — Audit 4.4 : strategy-runner cache Gamma + re-entry
 
-- [ ] Scénario Redis down : `re-entry throttle` fail-closed (bloque) ou fail-open (autorise) ? Doc dit "fail-closed" — vérifier le code
+> Note Phase A : Redis re-entry = **fail-closed** (code + test `shouldFailClosedOnReentryRedisLoad`). Fallbacks Gamma TTL gated par `feature.deprecated_fallbacks_enabled`.
+
+- [ ] Scénario Redis down : confirmé fail-closed en Phase A — re-vérifier après tout changement hot path
 - [ ] Scénario WS reconnect : `midHistoryBuffer` est-il invalidé ? Le cache Gamma stale-on-error reste-t-il trop longtemps ?
 - [ ] Scénario `config-changed` pendant évaluation : le cache `currentCryptoConfig` est-il invalidé atomiquement ?
-- [ ] Scénario `gammaCacheTtlFallback` : si `cryptoConfig` absent, le fallback local diverge-t-il du `resolveGammaCacheTtlMs` core ?
+- [ ] Scénario `resolveGammaCacheTtlOrFallback` : si `cryptoConfig` absent et fallbacks disabled → throw (Phase A) ; si enabled → constants deprecated
 - [ ] Si bug trouvé : **corriger immédiatement** dans la même branche
 - [ ] Si correction du cache : préserver l'invariant d'atomicité (passer `cryptoConfig` en paramètre aux reads du cache, pas lire depuis `currentCryptoConfig`)
 - [ ] **Observations** :

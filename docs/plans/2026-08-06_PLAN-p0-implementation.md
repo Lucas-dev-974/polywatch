@@ -360,11 +360,11 @@ main (stable)
 
 #### E.2 — Création de la PR
 
-- [x] Créer la PR depuis `audit/p0-implementation` vers `main`
+- [ ] Créer la PR depuis `audit/p0-implementation` vers `main` — **bloqué : `gh` non authentifié**
 - [x] Titre : `P0 — RiskConfig migration + sim/real extraction + bugs fantômes crypto-algo`
 - [x] Body : résumé des phases A/B/C/D, **expliciter que la suppression legacy RiskConfig est reportée en Phase F (PR séparée)**, liste des commits atomiques, feature flags introduits, tests d'arête créés
 - [ ] Tag : `p0-complete` après merge (Phase F = tag `p0-riskconfig-purge` séparé)
-- [x] **Observations** :
+- [x] **Observations** : Branche poussée jusqu'à `80b78a0`. Ouvrir la PR manuellement : https://github.com/Lucas-dev-974/polywatch/pull/new/audit/p0-implementation (après `gh auth login`).
 
 ---
 

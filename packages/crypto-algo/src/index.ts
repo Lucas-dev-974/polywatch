@@ -1,5 +1,4 @@
 import pino from 'pino';
-import type { Redis } from 'ioredis';
 import {
   assertDatabaseExists,
   createDataSource,
@@ -34,6 +33,7 @@ import {
   getFeatureFlag,
 } from '@polywatch/core';
 import { config } from './config.js';
+import { createShutdownHandler } from './shutdown.js';
 import { seedCryptoAlgoWatchlistEntry } from './watchlist-seed.js';
 import { SelectionLoader } from './selection-loader.js';
 import { StrategyRegistry, type AlgoSignal } from './strategy/index.js';
@@ -559,38 +559,33 @@ async function main() {
   log.info('Polywatch crypto-algo started (WebSocket + polling hybrid mode)');
 
   // 22. Graceful shutdown
-  let shuttingDown = false;
-  const shutdown = async () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    log.info('shutting down...');
-    if (marketJanitorTimer) clearInterval(marketJanitorTimer);
-    clearInterval(heartbeatTimer);
-    clearInterval(surveillanceRefreshTimer);
-    stopSurveillanceJanitor();
-    clearPostEntryMidTimers();
-    priceTickRecorder.shutdown();
-    if (priceTickCleanupTimer) clearInterval(priceTickCleanupTimer);
-    clearInterval(positionContextRefreshTimer);
-    positionCache.clear();
-    signalRegistry.clear();
-    surveillanceRecorder.shutdown();
-    strategyRunner.stop();
-    try {
-      await selectionLoader.stop();
-    } catch (err) {
-      log.warn({ err }, 'failed to stop selection loader');
-    }
-    const safeQuit = (r: Redis) => r.quit().catch(() => {});
-    await safeQuit(redisCmd);
-    await safeQuit(redisPub);
-    await safeQuit(redisSub);
-    await ds.destroy().catch(() => {});
-    process.exit(0);
-  };
+  const shutdown = createShutdownHandler({
+    log,
+    clearProcessTimers: () => {
+      if (marketJanitorTimer) clearInterval(marketJanitorTimer);
+      clearInterval(heartbeatTimer);
+      clearInterval(surveillanceRefreshTimer);
+      stopSurveillanceJanitor();
+      clearPostEntryMidTimers();
+      priceTickRecorder.shutdown();
+      if (priceTickCleanupTimer) clearInterval(priceTickCleanupTimer);
+      clearInterval(positionContextRefreshTimer);
+      positionCache.clear();
+      signalRegistry.clear();
+      surveillanceRecorder.shutdown();
+    },
+    strategyRunner,
+    selectionLoader,
+    redisClients: [redisCmd, redisPub, redisSub],
+    dataSource: ds,
+  });
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => {
+    void shutdown();
+  });
+  process.on('SIGINT', () => {
+    void shutdown();
+  });
 }
 
 main().catch((err) => {

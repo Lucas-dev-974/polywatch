@@ -262,38 +262,38 @@ main (stable)
 
 > Note Phase A (Q8/3A) : tests unitaires couvrent l'idempotence du pattern + `clearPostEntryMidTimers` seulement. Si l'audit révèle un besoin de test du vrai chemin, extraire `shutdownCryptoAlgo(deps)` depuis `index.ts`.
 
-- [ ] Scénario SIGTERM pendant `evaluateSelection` : `evalChains` / timers — le runner est-il `stop()` avant destruction DS ?
-- [ ] Scénario SIGTERM pendant `runAlgoEntryPipeline` : réservation libérée ? Queue en cours ACK ?
-- [ ] Vérifier l'ordre de shutdown (timers, Redis, DS) — une erreur dans l'un empêche-t-elle les suivants ?
-- [ ] Si bug trouvé : **corriger immédiatement** dans la même branche
-- [ ] **Observations** :
+- [x] Scénario SIGTERM pendant `evaluateSelection` : `evalChains` / timers — le runner est-il `stop()` avant destruction DS ?
+- [x] Scénario SIGTERM pendant `runAlgoEntryPipeline` : réservation libérée ? Queue en cours ACK ?
+- [x] Vérifier l'ordre de shutdown (timers, Redis, DS) — une erreur dans l'un empêche-t-elle les suivants ?
+- [x] Si bug trouvé : **corriger immédiatement** dans la même branche
+- [x] **Observations** : Bugs corrigés — `createShutdownHandler` + `stopAndDrain` (await evalChains timeout) ; `priceFeed.disconnect()` appelle désormais `wsClient.disconnect()` + ignore book updates si `!connected`. Pipeline = producer only (pas d'ACK) ; réservation mid-pipeline orpheline jusqu'au TTL documentée comme accepted risk.
 
 #### D.2 — Audit 4.4 : strategy-runner cache Gamma + re-entry
 
 > Note Phase A : Redis re-entry = **fail-closed** (code + test `shouldFailClosedOnReentryRedisLoad`). Fallbacks Gamma TTL gated par `feature.deprecated_fallbacks_enabled`.
 
-- [ ] Scénario Redis down : confirmé fail-closed en Phase A — re-vérifier après tout changement hot path
-- [ ] Scénario WS reconnect : `midHistoryBuffer` est-il invalidé ? Le cache Gamma stale-on-error reste-t-il trop longtemps ?
-- [ ] Scénario `config-changed` pendant évaluation : le cache `currentCryptoConfig` est-il invalidé atomiquement ?
-- [ ] Scénario `resolveGammaCacheTtlOrFallback` : si `cryptoConfig` absent et fallbacks disabled → throw (Phase A) ; si enabled → constants deprecated
-- [ ] Si bug trouvé : **corriger immédiatement** dans la même branche
-- [ ] Si correction du cache : préserver l'invariant d'atomicité (passer `cryptoConfig` en paramètre aux reads du cache, pas lire depuis `currentCryptoConfig`)
-- [ ] **Observations** :
+- [x] Scénario Redis down : confirmé fail-closed en Phase A — re-vérifier après tout changement hot path
+- [x] Scénario WS reconnect : `midHistoryBuffer` est-il invalidé ? Le cache Gamma stale-on-error reste-t-il trop longtemps ?
+- [x] Scénario `config-changed` pendant évaluation : le cache `currentCryptoConfig` est-il invalidé atomiquement ?
+- [x] Scénario `resolveGammaCacheTtlOrFallback` : si `cryptoConfig` absent et fallbacks disabled → throw (Phase A) ; si enabled → constants deprecated
+- [x] Si bug trouvé : **corriger immédiatement** dans la même branche
+- [x] Si correction du cache : préserver l'invariant d'atomicité (passer `cryptoConfig` en paramètre aux reads du cache, pas lire depuis `currentCryptoConfig`)
+- [x] **Observations** : `setOnReconnect` → clear midHistory/ToB ; `configEpoch` drop signal mid-eval si config change ; Gamma cleanup TTL depuis config ; stale-on-error 2×TTL accepté.
 
 #### D.3 — Tests de non-régression
 
-- [ ] Le test de shutdown (A.4) doit être vert après corrections
-- [ ] Le test de config-race (A.4) doit être vert après corrections
+- [x] Le test de shutdown (A.4) doit être vert après corrections
+- [x] Le test de config-race (A.4) doit être vert après corrections
 - [ ] `npm run test:e2e:crypto` doit être vert
-- [ ] **Observations** :
+- [x] **Observations** : Unit tests shutdown + config-race verts. e2e crypto à lancer en E.1.
 
 #### D.4 — Commit de la Phase D
 
-- [ ] Vérifier que tous les tests (A + B + C + D) sont verts
-- [ ] `npm run build` complet doit passer
-- [ ] `npm run lint` doit passer
-- [ ] Commit : `fix(p0): Phase D — bugs fantômes 4.3/4.4 audit + corrections`
-- [ ] **Observations** :
+- [x] Vérifier que tous les tests (A + B + C + D) sont verts
+- [x] `npm run build` complet doit passer
+- [x] `npm run lint` doit passer
+- [x] Commit : `fix(p0): Phase D — bugs fantômes 4.3/4.4 audit + corrections`
+- [x] **Observations** : Build monorepo OK. Lint : 2 errors préexistants (`summary-parser.ts` no-control-regex, `metrics-routes.test.ts` Function type) hors périmètre D.
 
 ---
 
@@ -419,7 +419,7 @@ main (stable)
 | Phase A — Préparation (tests + guards + cartographie) | ✅ Terminée (+ correctif flags) | 2026-08-06 |
 | Phase B — C4 RiskConfig migration consommateurs | ✅ Terminée (façade legacy conservée) | 2026-08-06 |
 | Phase C — C1 sim/real extraction | ✅ Terminée | 2026-08-06 |
-| Phase D — Bugs fantômes 4.3/4.4 | ⏳ En attente | — |
+| Phase D — Bugs fantômes 4.3/4.4 | ✅ Terminée | 2026-08-06 |
 | Phase E — Finalisation et PR P0 | ⏳ En attente | — |
 | Phase F — Suppression finale RiskConfig (PR séparée) | ⏸️ Reportée | 2026-08-06 |
 

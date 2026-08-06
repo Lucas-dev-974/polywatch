@@ -133,6 +133,10 @@ export class StrategyRunner {
   private wsConnected = false;
   private pollMs = DEFAULT_POLL_MS;
   private currentCryptoConfig: CryptoConfig | null = null;
+  /** Bumped on every applyRiskTunables — eval aborts if epoch drifts mid-flight. */
+  private configEpoch = 0;
+  /** Set by stop() to reject new evaluations during shutdown. */
+  private stopping = false;
   /** Cached from SystemConfig `feature.deprecated_fallbacks_enabled` (default true). */
   private deprecatedFallbacksEnabled = true;
   private onSelectionResolved?: (conditionId: string) => Promise<void>;
@@ -237,6 +241,7 @@ export class StrategyRunner {
    * Also starts the janitor for resolved markets.
    */
   start(pollMs: number = DEFAULT_POLL_MS): NodeJS.Timeout {
+    this.stopping = false;
     this.pollMs = pollMs;
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
@@ -332,6 +337,7 @@ export class StrategyRunner {
   /** Apply risk tunables to all configurable strategies (registry-driven). */
   applyRiskTunables(cryptoConfig: CryptoConfig): void {
     this.currentCryptoConfig = cryptoConfig;
+    this.configEpoch += 1;
     for (const strategy of this.registry.getAllStrategies()) {
       if (isConfigurableStrategy(strategy)) {
         strategy.applyTunables(cryptoConfig);
@@ -347,8 +353,10 @@ export class StrategyRunner {
     this.deprecatedFallbacksEnabled = enabled;
   }
 
-  /** Stop the evaluation loop. */
+  /** Stop the evaluation loop (sync). Prefer {@link stopAndDrain} on shutdown. */
   stop(): void {
+    this.stopping = true;
+    this.stopJanitor();
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
@@ -357,6 +365,23 @@ export class StrategyRunner {
       this.priceFeed.disconnect();
       this.wsConnected = false;
     }
+  }
+
+  /** Await in-flight eval chains (best-effort timeout) then clear caches. */
+  async drainInFlightEvals(timeoutMs = 5_000): Promise<void> {
+    const pending = Array.from(this.evalChains.values());
+    if (pending.length === 0) return;
+    await Promise.race([
+      Promise.allSettled(pending),
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  }
+
+  async stopAndDrain(timeoutMs = 5_000): Promise<void> {
+    this.stop();
+    await this.drainInFlightEvals(timeoutMs);
+    this.evalChains.clear();
+    this.gammaCache.clear();
   }
 
   /**
@@ -449,10 +474,15 @@ export class StrategyRunner {
   private cleanupGammaCache(): void {
     const now = Date.now();
     let removed = 0;
+    const ttlMs = this.currentCryptoConfig
+      ? Math.max(
+          resolveGammaCacheTtlMs(this.currentCryptoConfig, null),
+          resolveGammaCacheTtlMs(this.currentCryptoConfig, '5m'),
+        )
+      : OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS;
 
     for (const entry of Array.from(this.gammaCache.entries())) {
-      // Use the longer default TTL so short-interval entries are not kept forever.
-      if (now - entry[1].fetchedAt > OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS) {
+      if (now - entry[1].fetchedAt > ttlMs) {
         this.gammaCache.delete(entry[0]);
         removed++;
       }
@@ -551,6 +581,9 @@ export class StrategyRunner {
   private evaluateSelection(
     selection: { conditionId: string; enabled: boolean; question?: string | null; cryptoSymbol?: string | null; interval?: string | null; slug?: string | null },
   ): Promise<boolean> {
+    if (this.stopping) {
+      return Promise.resolve(false);
+    }
     const conditionId = selection.conditionId;
     const existing = this.evalChains.get(conditionId);
     if (existing) {
@@ -578,6 +611,9 @@ export class StrategyRunner {
   private async evaluateSelectionUnlocked(
     selection: { conditionId: string; enabled: boolean; question?: string | null; cryptoSymbol?: string | null; interval?: string | null; slug?: string | null },
   ): Promise<boolean> {
+    if (this.stopping) {
+      return false;
+    }
     let cryptoConfig: CryptoConfig;
     try {
       cryptoConfig = await this.cryptoConfigService.getConfig();
@@ -593,6 +629,7 @@ export class StrategyRunner {
     }
 
     this.applyRiskTunables(cryptoConfig);
+    const evalEpoch = this.configEpoch;
 
     const enabledIds = getCryptoAlgoStrategies(cryptoConfig);
     if (enabledIds.length === 0) {
@@ -783,6 +820,14 @@ export class StrategyRunner {
     }
 
     // Fire the signal
+    if (this.stopping || this.configEpoch !== evalEpoch) {
+      log.info(
+        { conditionId: selection.conditionId, stopping: this.stopping },
+        'dropping signal — config changed or shutting down mid-eval',
+      );
+      this.runtimeStatus?.recordSkip('config changée pendant évaluation', selection.conditionId);
+      return false;
+    }
     let accepted = false;
     try {
       accepted = await this.onSignal(fired);

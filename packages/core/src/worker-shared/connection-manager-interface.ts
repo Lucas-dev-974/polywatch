@@ -32,6 +32,10 @@ export interface IBookWsClient {
   syncAll(): Promise<void>;
   isHealthy(): boolean;
   setOnMarketResolved(cb: (conditionId: string) => void): void;
+  /** Tear down WS + cancel reconnect (graceful shutdown). */
+  disconnect(): void;
+  /** Fired after a successful reconnect (not the initial connect). */
+  setOnReconnect(cb: () => void): void;
 }
 
 /**

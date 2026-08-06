@@ -52,12 +52,27 @@ describe('strategy-runner config race', () => {
       .toBe(configB);
   });
 
-  it('stop clears evaluation timers without throwing', () => {
+  it('applyRiskTunables bumps configEpoch so mid-eval can detect drift', () => {
+    const runner = createRunnerStub();
+    runner.applyRiskTunables(minimalCryptoConfig({ cryptoAlgoMaxOpenPositions: 1 }));
+    const epoch1 = (runner as unknown as { configEpoch: number }).configEpoch;
+    runner.applyRiskTunables(minimalCryptoConfig({ cryptoAlgoMaxOpenPositions: 2 }));
+    const epoch2 = (runner as unknown as { configEpoch: number }).configEpoch;
+    expect(epoch2).toBe(epoch1 + 1);
+  });
+
+  it('stop sets stopping and stopAndDrain clears evalChains', async () => {
     const runner = createRunnerStub();
     runner.applyRiskTunables(minimalCryptoConfig());
-    runner.start(50);
-    expect(() => runner.stop()).not.toThrow();
-    runner.stopJanitor();
+    (runner as unknown as { evalChains: Map<string, Promise<boolean>> }).evalChains.set(
+      'c1',
+      Promise.resolve(false),
+    );
+    await runner.stopAndDrain(50);
+    expect((runner as unknown as { stopping: boolean }).stopping).toBe(true);
+    expect((runner as unknown as { evalChains: Map<string, Promise<boolean>> }).evalChains.size).toBe(
+      0,
+    );
   });
 
   it('Redis re-entry throttle is fail-closed when load fails', async () => {

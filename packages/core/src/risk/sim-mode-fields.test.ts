@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { GlobalConfig } from '../entities/GlobalConfig.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import {
   CRYPTO_ALGO_SNAPSHOT_KEYS,
   extractSimConfigSnapshot,
+  extractSimConfigSnapshotFromIsolated,
   extractRealConfigSnapshot,
+  extractRealConfigSnapshotFromIsolated,
   REAL_RISK_CONFIG_KEYS,
   SIM_RISK_CONFIG_KEYS,
+  realRotationChanged,
+  realRotationChangedFromIsolated,
 } from '../risk/sim-mode-fields.js';
 
 function baseRiskConfig(): RiskConfig {
@@ -104,5 +111,58 @@ describe('extractRealConfigSnapshot', () => {
     }
     expect(snapshot.realAllowedMarketTags).toEqual(['crypto']);
     expect(snapshot.realCashOverride).toBe(250);
+  });
+});
+
+describe('extract*FromIsolated parity', () => {
+  it('matches extractSimConfigSnapshot for the same field values', () => {
+    const composed = {
+      ...baseRiskConfig(),
+      cryptoAlgoEnabled: true,
+      cryptoAlgoBaseThreshold: 0.55,
+      cryptoAlgoSlBidPoints: 0.1,
+    } as RiskConfig;
+    const fromIsolated = extractSimConfigSnapshotFromIsolated(
+      composed as unknown as GlobalConfig,
+      composed as unknown as CopyConfig,
+      composed as unknown as CryptoConfig,
+    );
+    expect(fromIsolated).toEqual(extractSimConfigSnapshot(composed));
+  });
+
+  it('matches extractRealConfigSnapshot for the same field values', () => {
+    const composed = {
+      ...baseRiskConfig(),
+      realSizingMode: 'fixed_usdc',
+      realCopyRatio: 0.5,
+      realAllowedMarketTags: '["crypto"]',
+      realCashOverride: 250,
+      cryptoAlgoEnabled: false,
+    } as RiskConfig;
+    const fromIsolated = extractRealConfigSnapshotFromIsolated(
+      composed as unknown as GlobalConfig,
+      composed as unknown as CopyConfig,
+      composed as unknown as CryptoConfig,
+    );
+    expect(fromIsolated).toEqual(extractRealConfigSnapshot(composed));
+  });
+
+  it('realRotationChangedFromIsolated matches realRotationChanged', () => {
+    const before = {
+      ...baseRiskConfig(),
+      realSizingMode: 'fixed_usdc',
+      realCopyRatio: 0.5,
+      cryptoAlgoEnabled: true,
+    } as RiskConfig;
+    const after = { ...before, realCopyRatio: 0.8 } as RiskConfig;
+    const bundle = (cfg: RiskConfig) => ({
+      global: cfg as unknown as GlobalConfig,
+      copy: cfg as unknown as CopyConfig,
+      crypto: cfg as unknown as CryptoConfig,
+    });
+    expect(realRotationChangedFromIsolated(bundle(before), bundle(after))).toBe(
+      realRotationChanged(before, after),
+    );
+    expect(realRotationChangedFromIsolated(bundle(before), bundle(before))).toBe(false);
   });
 });

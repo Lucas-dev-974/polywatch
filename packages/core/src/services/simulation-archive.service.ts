@@ -202,18 +202,18 @@ export class SimulationArchiveService {
       positions.length === 0 &&
       executions.length === 0
     ) {
-      const riskConfig = await this.riskService.getConfig({
+      const globalConfig = await this.riskService.getGlobalConfig({
         manager,
         bypassCache: true,
       });
-      if (!riskConfig.simAutoSnapshotEmptySession) {
+      if (!globalConfig.simAutoSnapshotEmptySession) {
         return null;
       }
     }
 
     const snapshotAt = new Date();
     const portfolio = await this.simulationService.getSnapshot(algoKind, manager);
-    const riskConfig = await this.riskService.getConfig({
+    const globalConfig = await this.riskService.getGlobalConfig({
       manager,
       bypassCache: true,
     });
@@ -228,7 +228,7 @@ export class SimulationArchiveService {
     const decisionPayload = await collectSimDecisionPayload(manager, {
       algoKind,
       snapshotAt,
-      windowHours: riskConfig.simSnapshotDecisionWindowHours ?? 24,
+      windowHours: globalConfig.simSnapshotDecisionWindowHours ?? 24,
       positions,
       watchlistEntries,
     });

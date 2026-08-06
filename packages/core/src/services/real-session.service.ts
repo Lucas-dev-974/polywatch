@@ -7,7 +7,7 @@ import { RealStateSnapshot } from '../entities/RealStateSnapshot.js';
 import { RiskService } from './risk.service.js';
 import { RealPortfolioService } from './real-portfolio.service.js';
 import {
-  extractRealConfigSnapshot,
+  extractRealConfigSnapshotFromIsolated,
   type RealRiskConfigSnapshot,
 } from '../risk/sim-mode-fields.js';
 import type {
@@ -94,11 +94,13 @@ export class RealSessionService {
     manager: EntityManager,
     sessionId: number,
   ): Promise<void> {
-    const riskConfig = await this.riskService.getConfig({
-      manager,
-      bypassCache: true,
-    });
-    const config = extractRealConfigSnapshot(riskConfig);
+    const opts = { manager, bypassCache: true } as const;
+    const [global, copy, crypto] = await Promise.all([
+      this.riskService.getGlobalConfig(opts),
+      this.riskService.getCopyConfig(opts),
+      this.riskService.getCryptoConfig(opts),
+    ]);
+    const config = extractRealConfigSnapshotFromIsolated(global, copy, crypto);
     await manager.getRepository(RealSession).update(sessionId, {
       configJson: JSON.stringify(config),
     });

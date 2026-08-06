@@ -1,4 +1,7 @@
 import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { GlobalConfig } from '../entities/GlobalConfig.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import { parseAllowedMarketTags } from '../market/tags.js';
 
 /** Keys of RiskConfig that belong to sim mode settings (single source of truth). */
@@ -142,6 +145,23 @@ export function extractSimConfigSnapshot(config: RiskConfig): SimRiskConfigSnaps
   return snapshot as SimRiskConfigSnapshot;
 }
 
+/**
+ * Same JSON shape as {@link extractSimConfigSnapshot} for DB/session compat,
+ * built from isolated tables (no RiskConfig entity required).
+ */
+export function extractSimConfigSnapshotFromIsolated(
+  global: GlobalConfig,
+  copy: CopyConfig,
+  crypto: CryptoConfig,
+): SimRiskConfigSnapshot {
+  return extractSimConfigSnapshot({
+    ...global,
+    ...copy,
+    ...crypto,
+    id: 0,
+  } as unknown as RiskConfig);
+}
+
 export const REAL_RISK_CONFIG_KEYS = [
   'realSizingMode',
   'realCopyRatio',
@@ -205,6 +225,29 @@ export function extractRealConfigSnapshot(config: RiskConfig): RealRiskConfigSna
   mergeCryptoAlgoIntoSnapshot(snapshot, config);
   return snapshot as RealRiskConfigSnapshot;
 }
+
+/**
+ * Same JSON shape as {@link extractRealConfigSnapshot} for DB/session compat,
+ * built from isolated tables (no RiskConfig entity required).
+ */
+export function extractRealConfigSnapshotFromIsolated(
+  global: GlobalConfig,
+  copy: CopyConfig,
+  crypto: CryptoConfig,
+): RealRiskConfigSnapshot {
+  return extractRealConfigSnapshot({
+    ...global,
+    ...copy,
+    ...crypto,
+    id: 0,
+  } as unknown as RiskConfig);
+}
+
+/** Isolated-table key union for session rotation (no RiskConfig entity). */
+export type IsolatedSessionRotationKey =
+  | keyof GlobalConfig
+  | keyof CopyConfig
+  | keyof CryptoConfig;
 
 /**
  * Subset of sim config keys that trigger a session rotation when changed.
@@ -421,4 +464,49 @@ export function realRotationChanged(
 ): boolean {
   return pickRotationKeys(before, REAL_SESSION_ROTATION_KEYS) !==
     pickRotationKeys(after, REAL_SESSION_ROTATION_KEYS);
+}
+
+/** Same keys as {@link SIM_SESSION_ROTATION_KEYS}, typed for isolated configs. */
+export const SIM_SESSION_ROTATION_KEYS_ISOLATED =
+  SIM_SESSION_ROTATION_KEYS as unknown as readonly IsolatedSessionRotationKey[];
+
+/** Same keys as {@link REAL_SESSION_ROTATION_KEYS}, typed for isolated configs. */
+export const REAL_SESSION_ROTATION_KEYS_ISOLATED =
+  REAL_SESSION_ROTATION_KEYS as unknown as readonly IsolatedSessionRotationKey[];
+
+/**
+ * Pick rotation-relevant keys from isolated configs (stable JSON for comparison).
+ */
+export function pickRotationKeysFromIsolated(
+  global: GlobalConfig,
+  copy: CopyConfig,
+  crypto: CryptoConfig,
+  keys: readonly IsolatedSessionRotationKey[],
+): string {
+  const merged = { ...global, ...copy, ...crypto } as Record<string, unknown>;
+  const picked: Record<string, unknown> = {};
+  for (const key of keys) {
+    picked[key as string] = merged[key as string];
+  }
+  return JSON.stringify(picked, Object.keys(picked).sort());
+}
+
+export function realRotationChangedFromIsolated(
+  before: { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig },
+  after: { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig },
+): boolean {
+  return (
+    pickRotationKeysFromIsolated(
+      before.global,
+      before.copy,
+      before.crypto,
+      REAL_SESSION_ROTATION_KEYS_ISOLATED,
+    ) !==
+    pickRotationKeysFromIsolated(
+      after.global,
+      after.copy,
+      after.crypto,
+      REAL_SESSION_ROTATION_KEYS_ISOLATED,
+    )
+  );
 }

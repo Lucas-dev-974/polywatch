@@ -11,6 +11,7 @@ import {
   RealPortfolioService,
   RealPeriodArchiveService,
   realRotationChanged,
+  realRotationChangedFromIsolated,
   resolveSimRotationTargets,
   resolveSimRotationTargetsFromConfigs,
   collectSimRedisPurgeHints,
@@ -115,7 +116,11 @@ export class SessionRotationService {
       result.sim = await this.performSimHardRotate(afterRisk, simTargets);
     }
 
-    if (realRotationChanged(beforeRisk, afterRisk)) {
+    if (
+      beforeIsolated && afterIsolated
+        ? realRotationChangedFromIsolated(beforeIsolated, afterIsolated)
+        : realRotationChanged(beforeRisk, afterRisk)
+    ) {
       result.real = await this.performRealSoftRotate(afterRisk);
     }
 

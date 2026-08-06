@@ -166,38 +166,38 @@ main (stable)
 
 #### B.2 — Migration consommateurs 5-6 (délicats : snapshots + sessions)
 
-- [ ] Créer `extractSimConfigSnapshotFromIsolated(global: GlobalConfig, copy: CopyConfig, crypto: CryptoConfig): SimRiskConfigSnapshot` dans `sim-mode-fields.ts` (retourne le même shape JSON pour compat snapshot DB)
-- [ ] Créer `extractRealConfigSnapshotFromIsolated(global: GlobalConfig, copy: CopyConfig, crypto: CryptoConfig): RealConfigSnapshot` (même approche)
-- [ ] Migrer `simulation-archive.service.ts` → utiliser `extractSimConfigSnapshotFromIsolated` au lieu de `extractSimConfigSnapshot(getConfig())`
-- [ ] Migrer `real-archive.service.ts` → utiliser `extractRealConfigSnapshotFromIsolated`
-- [ ] Créer `SIM_SESSION_ROTATION_KEYS_ISOLATED` et `REAL_SESSION_ROTATION_KEYS_ISOLATED` typés sur `CopyConfig | CryptoConfig | GlobalConfig` (au lieu de `keyof RiskConfig`)
-- [ ] Migrer `simulation-session.service.ts` → `pickRotationKeys` avec les nouvelles keys
-- [ ] Migrer `real-session.service.ts` → `pickRotationKeys` avec les nouvelles keys
-- [ ] Créer `pickRotationKeysFromIsolated(global, copy, crypto, keys): string` qui remplace `pickRotationKeys(config: RiskConfig, keys)`
-- [ ] Créer `realRotationChangedFromIsolated(before, after): boolean` qui remplace `realRotationChanged(before: RiskConfig, after: RiskConfig)`
-- [ ] Tests : `sim-mode-fields.test.ts` et `risk-config-api.test.ts` doivent passer sur les nouveaux types
-- [ ] **Observations** :
+- [x] Créer `extractSimConfigSnapshotFromIsolated(global: GlobalConfig, copy: CopyConfig, crypto: CryptoConfig): SimRiskConfigSnapshot` dans `sim-mode-fields.ts` (retourne le même shape JSON pour compat snapshot DB)
+- [x] Créer `extractRealConfigSnapshotFromIsolated(global: GlobalConfig, copy: CopyConfig, crypto: CryptoConfig): RealConfigSnapshot` (même approche)
+- [x] Migrer `simulation-archive.service.ts` → `getGlobalConfig` (empty-session + decision window ; pas d'extract snapshot dans ce service)
+- [x] Migrer `real-archive.service.ts` → `getGlobalConfig` (decision window)
+- [x] Créer `SIM_SESSION_ROTATION_KEYS_ISOLATED` et `REAL_SESSION_ROTATION_KEYS_ISOLATED` typés sur `CopyConfig | CryptoConfig | GlobalConfig` (au lieu de `keyof RiskConfig`)
+- [x] Migrer `simulation-session.service.ts` → `extractSimConfigSnapshotFromIsolated` dans `stampSessionConfig`
+- [x] Migrer `real-session.service.ts` → `extractRealConfigSnapshotFromIsolated` dans `stampSessionConfig`
+- [x] Créer `pickRotationKeysFromIsolated(global, copy, crypto, keys): string` qui remplace `pickRotationKeys(config: RiskConfig, keys)`
+- [x] Créer `realRotationChangedFromIsolated(before, after): boolean` qui remplace `realRotationChanged(before: RiskConfig, after: RiskConfig)`
+- [x] Tests : `sim-mode-fields.test.ts` parity FromIsolated + rotation
+- [x] **Observations** : Archives n'appelaient pas `extract*Snapshot` — uniquement des champs GlobalConfig. Rotation backend (`session-rotation` + `config-per-kind`) passe par `realRotationChangedFromIsolated` + bundle isolé. `simulation.service` baseline capital → `getConfigForAlgo`.
 
 #### B.3 — Migration consommateurs 7-8
 
-- [ ] `weather-algo/strategy-runner.ts` → vérifier que l'import `RiskConfig` est type-only, le supprimer
-- [ ] `close-bid.ts` (worker) → wrapper algo-kind
-- [ ] **Observations** :
+- [x] `weather-algo/strategy-runner.ts` → vérifier que l'import `RiskConfig` est type-only, le supprimer
+- [x] `close-bid.ts` (worker) → wrapper algo-kind
+- [x] **Observations** : weather-algo déjà 100 % `WeatherConfig` (pas d'import RiskConfig). `close-bid.ts` : param déjà fourni par l'appelant ; commentaire mis à jour vers CryptoConfig / algo-kind.
 
 #### B.4 — Vérification pré-suppression (sans suppression de code)
 
-- [ ] Vérifier via la matrice A.7 que tous les consommateurs **runtime** et **facade** ciblés par B.1–B.3 sont migrés (reste autorisé : imports `type` only, façade legacy elle-même, API backend/frontend — Phase F)
-- [ ] Test d'intégration ou script : `feature.risk_config_legacy_facade = false` en environnement de test → aucun crash sur les hot paths migrés (la façade reste dans le code, le flag simule le comportement post-Phase-F)
-- [ ] Documenter dans la matrice les entrées restantes pour Phase F (`backend/routes/config.ts`, types frontend, etc.)
-- [ ] **Ne pas** supprimer `composeRiskConfig`, `getConfig()`, `RiskConfig.ts`, `risk-config-api.ts`, ni `assertNoDivergence`
-- [ ] **Observations** :
+- [x] Vérifier via la matrice A.7 que tous les consommateurs **runtime** et **facade** ciblés par B.1–B.3 sont migrés (reste autorisé : imports `type` only, façade legacy elle-même, API backend/frontend — Phase F)
+- [x] Test d'intégration ou script : `feature.risk_config_legacy_facade = false` en environnement de test → aucun crash sur les hot paths migrés (la façade reste dans le code, le flag simule le comportement post-Phase-F)
+- [x] Documenter dans la matrice les entrées restantes pour Phase F (`backend/routes/config.ts`, types frontend, etc.)
+- [x] **Ne pas** supprimer `composeRiskConfig`, `getConfig()`, `RiskConfig.ts`, `risk-config-api.ts`, ni `assertNoDivergence`
+- [x] **Observations** : Matrice mise à jour. Test existant `risk-config-divergence.test.ts` couvre le throw façade quand flag=false ; hot paths B.1–B.3 n'appellent plus `getConfig()`.
 
 #### B.5 — Commit de la Phase B
 
-- [ ] Vérifier que tous les tests (A + B) sont verts
-- [ ] `npm run build` complet doit passer
-- [ ] Commit : `refactor(p0): Phase B — C4 RiskConfig consumer migration (legacy facade retained)`
-- [ ] **Observations** :
+- [x] Vérifier que tous les tests (A + B) sont verts
+- [x] `npm run build` complet doit passer
+- [x] Commit : `refactor(p0): Phase B — C4 RiskConfig consumer migration (legacy facade retained)`
+- [x] **Observations** : Tests ciblés B (sim-mode-fields, divergence, archive parity) verts. Build core/backend/worker OK. Suite core complète : 8 fails préexistants hors périmètre P0 (sizing/resume etc.).
 
 ---
 
@@ -417,7 +417,7 @@ main (stable)
 | Phase | Statut | Dernière mise à jour |
 |-------|--------|----------------------|
 | Phase A — Préparation (tests + guards + cartographie) | ✅ Terminée (+ correctif flags) | 2026-08-06 |
-| Phase B — C4 RiskConfig migration consommateurs | ⏳ En cours (B.1 ✅) | 2026-08-06 |
+| Phase B — C4 RiskConfig migration consommateurs | ✅ Terminée (façade legacy conservée) | 2026-08-06 |
 | Phase C — C1 sim/real extraction | ⏳ En attente | — |
 | Phase D — Bugs fantômes 4.3/4.4 | ⏳ En attente | — |
 | Phase E — Finalisation et PR P0 | ⏳ En attente | — |

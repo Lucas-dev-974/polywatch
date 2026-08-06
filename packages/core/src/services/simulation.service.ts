@@ -81,7 +81,9 @@ export class SimulationService {
       const repo = m.getRepository(SimulationBalance);
       let balance = await repo.findOne({ where: { algoKind } });
       if (!balance) {
-        const risk = await new RiskService(this.ds).getConfig({ manager: m });
+        const risk = await new RiskService(this.ds).getConfigForAlgo(algoKind, {
+          manager: m,
+        });
         const baseline = getSimInitialCapital(risk, algoKind);
         balance = await repo.save(
           repo.create({
@@ -138,7 +140,10 @@ export class SimulationService {
     if (balance.baselineCapital != null && balance.baselineCapital > 0) {
       return balance.baselineCapital;
     }
-    const risk = await new RiskService(this.ds).getConfig({ manager });
+    const risk = await new RiskService(this.ds).getConfigForAlgo(
+      balance.algoKind,
+      { manager },
+    );
     return getSimInitialCapital(risk, balance.algoKind);
   }
 
@@ -188,7 +193,9 @@ export class SimulationService {
       const repo = m.getRepository(SimulationBalance);
       let balance = await repo.findOne({ where: { algoKind } });
       if (!balance) {
-        const risk = await new RiskService(this.ds).getConfig({ manager: m });
+        const risk = await new RiskService(this.ds).getConfigForAlgo(algoKind, {
+          manager: m,
+        });
         const baseline = getSimInitialCapital(risk, algoKind);
         balance = await repo.save(
           repo.create({

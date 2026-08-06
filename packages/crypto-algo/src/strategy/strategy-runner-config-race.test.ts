@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CryptoConfig } from '@polywatch/core';
 import { tryLoadCryptoReentryState } from '@polywatch/core';
 import { StrategyRegistry } from './index.js';
-import { StrategyRunner } from './strategy-runner.js';
+import {
+  StrategyRunner,
+  resolveGammaCacheTtlOrFallback,
+  shouldFailClosedOnReentryRedisLoad,
+} from './strategy-runner.js';
 
 function minimalCryptoConfig(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
   return {
@@ -38,8 +42,12 @@ describe('strategy-runner config race', () => {
     const configB = minimalCryptoConfig({ cryptoAlgoMaxOpenPositions: 9 });
 
     runner.applyRiskTunables(configA);
+    const midFlightRef = (runner as unknown as { currentCryptoConfig: CryptoConfig })
+      .currentCryptoConfig;
     runner.applyRiskTunables(configB);
 
+    // Eval paths that captured midFlightRef keep configA; field points at configB.
+    expect(midFlightRef).toBe(configA);
     expect((runner as unknown as { currentCryptoConfig: CryptoConfig }).currentCryptoConfig)
       .toBe(configB);
   });
@@ -60,8 +68,35 @@ describe('strategy-runner config race', () => {
     };
     const loaded = await tryLoadCryptoReentryState(redis, '0xabc', 'YES');
     expect(loaded.ok).toBe(false);
-    if (!loaded.ok) {
-      expect(loaded.error).toBeInstanceOf(Error);
-    }
+    expect(shouldFailClosedOnReentryRedisLoad(loaded)).toBe(true);
+  });
+
+  it('does not fail-closed when Redis load succeeds', async () => {
+    const redis = {
+      get: vi.fn(async () => null),
+    };
+    const loaded = await tryLoadCryptoReentryState(redis, '0xabc', 'YES');
+    expect(loaded.ok).toBe(true);
+    expect(shouldFailClosedOnReentryRedisLoad(loaded)).toBe(false);
+  });
+});
+
+describe('resolveGammaCacheTtlOrFallback', () => {
+  it('returns deprecated short TTL when fallbacks enabled', () => {
+    expect(resolveGammaCacheTtlOrFallback('5m', true)).toBe(10_000);
+  });
+
+  it('throws when deprecated fallbacks are disabled', () => {
+    expect(() => resolveGammaCacheTtlOrFallback('5m', false)).toThrow(
+      /deprecated_fallbacks_disabled/,
+    );
+  });
+
+  it('setDeprecatedFallbacksEnabled wires the runner flag', () => {
+    const runner = createRunnerStub();
+    runner.setDeprecatedFallbacksEnabled(false);
+    expect(
+      (runner as unknown as { deprecatedFallbacksEnabled: boolean }).deprecatedFallbacksEnabled,
+    ).toBe(false);
   });
 });

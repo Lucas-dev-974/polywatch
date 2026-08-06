@@ -4,6 +4,13 @@ import type { GlobalConfig } from '../entities/GlobalConfig.js';
 import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
 
+/**
+ * Lightweight integrity check on the composed facade.
+ *
+ * With pure-spread `composeRiskConfig`, this only fires if the composed object
+ * is mutated after compose, or if field names collide across isolated tables.
+ * The real Strangler Fig gate is `feature.risk_config_legacy_facade` (see RiskService.getConfig).
+ */
 const GLOBAL_CRITICAL_FIELDS = [
   'realTradingEnabled',
   'maxSlippagePercent',
@@ -70,6 +77,16 @@ export class RiskConfigDivergenceError extends Error {
   constructor(public readonly divergences: string[]) {
     super(`risk_config_divergence: ${divergences.join(',')}`);
     this.name = 'RiskConfigDivergenceError';
+  }
+}
+
+/** Thrown when `feature.risk_config_legacy_facade` is false — callers must use isolated getters. */
+export class RiskConfigLegacyFacadeDisabledError extends Error {
+  constructor() {
+    super(
+      'risk_config_legacy_facade_disabled: use getGlobalConfig/getCopyConfig/getCryptoConfig/getWeatherConfig/getConfigForAlgo',
+    );
+    this.name = 'RiskConfigLegacyFacadeDisabledError';
   }
 }
 

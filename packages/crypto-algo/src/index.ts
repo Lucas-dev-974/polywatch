@@ -31,6 +31,7 @@ import {
   type CryptoConfig,
   type GlobalConfig,
   WORKER_QUEUES,
+  getFeatureFlag,
 } from '@polywatch/core';
 import { config } from './config.js';
 import { seedCryptoAlgoWatchlistEntry } from './watchlist-seed.js';
@@ -60,13 +61,28 @@ const log = pino({ name: 'crypto-algo' });
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const BACKEND_READY_TIMEOUT_MS = 60_000;
 
-function applyCryptoAlgoRiskTunables(
+async function applyCryptoAlgoRiskTunables(
   cryptoConfig: CryptoConfig,
   strategyRunner: StrategyRunner,
   priceFeed: CryptoAlgoPriceFeed,
   priceTickRecorder: PriceTickRecorder,
-): void {
+  ds: Awaited<ReturnType<typeof initializeDataSource>>,
+): Promise<void> {
   strategyRunner.applyRiskTunables(cryptoConfig);
+  try {
+    const deprecatedFallbacksEnabled = await getFeatureFlag(
+      ds,
+      'deprecated_fallbacks_enabled',
+      true,
+    );
+    strategyRunner.setDeprecatedFallbacksEnabled(deprecatedFallbacksEnabled);
+  } catch (err) {
+    log.warn(
+      { err },
+      'failed to read feature.deprecated_fallbacks_enabled — keeping fallbacks enabled (fail-open)',
+    );
+    strategyRunner.setDeprecatedFallbacksEnabled(true);
+  }
   strategyRunner.reconfigurePollMs(resolvePollMs(cryptoConfig, config.pollMs));
   priceFeed.setDebounceMs(resolveWsDebounceMs(cryptoConfig));
   priceTickRecorder.configure({
@@ -224,7 +240,7 @@ async function main() {
     signalRegistry.recordAbstain(conditionId, reason, detail);
   });
 
-  applyCryptoAlgoRiskTunables(cryptoConfig, strategyRunner, priceFeed, priceTickRecorder);
+  await applyCryptoAlgoRiskTunables(cryptoConfig, strategyRunner, priceFeed, priceTickRecorder, ds);
 
   // 16b. Create percent publisher for live market updates
   const percentPublisher = new AlgoMarketPercentPublisher(
@@ -507,11 +523,12 @@ async function main() {
           'crypto config reloaded',
         );
 
-        applyCryptoAlgoRiskTunables(
+        await applyCryptoAlgoRiskTunables(
           refreshed,
           strategyRunner,
           priceFeed,
           priceTickRecorder,
+          ds,
         );
 
         // Reconfigure price tick cleanup timer if settings changed

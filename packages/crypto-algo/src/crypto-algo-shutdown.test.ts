@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { clearPostEntryMidTimers } from './post-entry-mid-logger.js';
 
+/**
+ * Lightweight shutdown invariants (Phase A / 3A).
+ * Full SIGTERM mid-eval coverage stays Phase D (requires extracting createShutdownHandler).
+ */
 describe('crypto-algo shutdown invariants', () => {
   it('clearPostEntryMidTimers cancels pending timers without throwing', () => {
-    const timer = setTimeout(() => {}, 60_000);
     expect(() => clearPostEntryMidTimers()).not.toThrow();
-    clearTimeout(timer);
   });
 
   it('shutdown handler pattern is idempotent (double SIGTERM safe)', async () => {

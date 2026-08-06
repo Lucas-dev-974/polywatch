@@ -30,5 +30,6 @@
 ## Notes
 
 - Table `risk_config` dropped (migration 0088); facade composes from `global_config`, `copy_config`, `crypto_config`, `weather_config`.
-- `feature.risk_config_legacy_facade` keeps `getConfig()` active until Phase F.
-- `assertNoDivergence` guard runs on every `getConfig()` call (log-only by default).
+- `feature.risk_config_legacy_facade` (**wired**): `true` → `getConfig`/`updateConfig` allowed; `false` → throw `RiskConfigLegacyFacadeDisabledError`. Flag read failures fail-open to `true`.
+- `feature.deprecated_fallbacks_enabled` (**wired** in StrategyRunner): `false` → Gamma TTL without cryptoConfig throws.
+- `assertNoDivergence` remains a light compose integrity check (log-only by default); Strangler gate is the legacy_facade flag.

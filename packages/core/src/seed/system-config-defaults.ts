@@ -62,19 +62,21 @@ export const SYSTEM_CONFIG_DEFAULTS: { key: string; value: string; category: str
     key: 'feature.risk_config_legacy_facade',
     value: 'true',
     category: 'feature_flag',
-    description: 'Keep getConfig() / composeRiskConfig() legacy facade active (Strangler Fig)',
+    description:
+      'When true, RiskService.getConfig()/updateConfig() legacy facade is allowed. When false, those methods throw (force isolated getters).',
   },
   {
     key: 'feature.risk_config_strict',
     value: 'false',
     category: 'feature_flag',
-    description: 'RiskConfig divergence guard: false = log-only, true = fail-closed (throw)',
+    description: 'RiskConfig compose integrity guard: false = log-only, true = fail-closed (throw). Unreadable flag → fail-open (log-only).',
   },
   {
     key: 'feature.deprecated_fallbacks_enabled',
     value: 'true',
     category: 'feature_flag',
-    description: 'Keep deprecated constant fallbacks active; false = explicit throws',
+    description:
+      'When true, deprecated Gamma TTL constants may be used if cryptoConfig is absent. When false, that path throws.',
   },
 ];
 

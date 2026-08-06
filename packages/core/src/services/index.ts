@@ -21,6 +21,10 @@ export {
   type MoveSkipReasonsUpdate,
 } from './move-event.service.js';
 export { RiskService } from './risk.service.js';
+export {
+  SystemConfigService,
+  getFeatureFlag,
+} from './system-config.service.js';
 export { GlobalConfigService } from './global-config.service.js';
 export { CopyConfigService } from './copy-config.service.js';
 export { CryptoConfigService } from './crypto-config.service.js';

@@ -23,6 +23,7 @@ import { toWeatherConfigEntityUpdate } from '../risk/weather-config-api.js';
 import {
   detectRiskConfigDivergences,
   handleRiskConfigDivergence,
+  RiskConfigLegacyFacadeDisabledError,
 } from '../risk/risk-config-divergence.js';
 import { SystemConfigService } from './system-config.service.js';
 import type { KillSwitchAction, TradingMode } from '../types/index.js';
@@ -30,6 +31,23 @@ import type { SimAlgoKind } from '../simulation/algo-kind.js';
 import pino from 'pino';
 
 const log = pino({ name: 'risk-service' });
+
+/** Fail-open: if system_config is unreachable, use the provided fallback (never block trading). */
+async function readFeatureFlagSafe(
+  ds: DataSource,
+  shortKey: string,
+  fallback: boolean,
+): Promise<boolean> {
+  try {
+    return await new SystemConfigService(ds).getFeatureFlag(shortKey, fallback);
+  } catch (err) {
+    log.warn(
+      { err, key: shortKey, fallback },
+      'feature flag read failed — using fallback (fail-open)',
+    );
+    return fallback;
+  }
+}
 
 export interface RiskCheckResult {
   killSwitchTriggered: boolean;
@@ -62,6 +80,15 @@ export class RiskService {
   // ─── Legacy merged config (rétro-compat facade over isolated tables) ─
 
   async getConfig(options?: GetRiskConfigOptions): Promise<RiskConfig> {
+    const legacyFacadeEnabled = await readFeatureFlagSafe(
+      this.ds,
+      'risk_config_legacy_facade',
+      true,
+    );
+    if (!legacyFacadeEnabled) {
+      throw new RiskConfigLegacyFacadeDisabledError();
+    }
+
     const bypassCache = options?.bypassCache === true || options?.manager != null;
     if (!bypassCache) {
       const cached = RiskService.configCache;
@@ -92,6 +119,15 @@ export class RiskService {
   }
 
   async updateConfig(partial: Partial<RiskConfig>): Promise<RiskConfig> {
+    const legacyFacadeEnabled = await readFeatureFlagSafe(
+      this.ds,
+      'risk_config_legacy_facade',
+      true,
+    );
+    if (!legacyFacadeEnabled) {
+      throw new RiskConfigLegacyFacadeDisabledError();
+    }
+
     if (partial.realTradingEnabled === true) {
       const allowed = canEnableRealTrading({
         masterEncryptionKey: process.env.MASTER_ENCRYPTION_KEY ?? '',
@@ -287,8 +323,8 @@ export class RiskService {
     weather: WeatherConfig,
   ): Promise<void> {
     const divergences = detectRiskConfigDivergences(composed, global, copy, crypto, weather);
-    const systemConfig = new SystemConfigService(this.ds);
-    const strict = await systemConfig.getFeatureFlag('risk_config_strict', false);
+    // Fail-open: if the flag cannot be read, stay in log-only mode (strict=false).
+    const strict = await readFeatureFlagSafe(this.ds, 'risk_config_strict', false);
     handleRiskConfigDivergence(divergences, strict, log);
   }
 

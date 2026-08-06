@@ -133,6 +133,8 @@ export class StrategyRunner {
   private wsConnected = false;
   private pollMs = DEFAULT_POLL_MS;
   private currentCryptoConfig: CryptoConfig | null = null;
+  /** Cached from SystemConfig `feature.deprecated_fallbacks_enabled` (default true). */
+  private deprecatedFallbacksEnabled = true;
   private onSelectionResolved?: (conditionId: string) => Promise<void>;
   private onAbstain?: (
     conditionId: string,
@@ -337,6 +339,14 @@ export class StrategyRunner {
     }
   }
 
+  /**
+   * Wire `feature.deprecated_fallbacks_enabled` (cached; refresh on config-changed).
+   * When false, Gamma TTL without cryptoConfig throws instead of using deprecated constants.
+   */
+  setDeprecatedFallbacksEnabled(enabled: boolean): void {
+    this.deprecatedFallbacksEnabled = enabled;
+  }
+
   /** Stop the evaluation loop. */
   stop(): void {
     if (this.tickTimer) {
@@ -400,7 +410,7 @@ export class StrategyRunner {
     const effectiveCfg = cryptoConfig ?? this.currentCryptoConfig;
     const ttlMs = effectiveCfg
       ? resolveGammaCacheTtlMs(effectiveCfg, interval)
-      : gammaCacheTtlFallback(interval);
+      : resolveGammaCacheTtlOrFallback(interval, this.deprecatedFallbacksEnabled);
     const staleFactor = effectiveCfg
       ? resolveGammaStaleOnErrorFactor(effectiveCfg)
       : GAMMA_STALE_ON_ERROR_TTL_FACTOR;
@@ -730,7 +740,7 @@ export class StrategyRunner {
           selection.conditionId,
           fired.outcome,
         );
-        if (!loaded.ok) {
+        if (shouldFailClosedOnReentryRedisLoad(loaded)) {
           // Fail-closed: Redis down must not allow revenge re-entry after restart.
           log.warn(
             { err: loaded.error, conditionId: selection.conditionId, outcome: fired.outcome },
@@ -944,7 +954,29 @@ export class StrategyRunner {
   }
 }
 
-function gammaCacheTtlFallback(interval: string | null | undefined): number {
+/**
+ * Fail-closed gate for Redis-backed re-entry throttle.
+ * When the load fails, entry must be suppressed (never fail-open).
+ */
+export function shouldFailClosedOnReentryRedisLoad(
+  loaded: { ok: true; state: unknown } | { ok: false; error: unknown },
+): loaded is { ok: false; error: unknown } {
+  return !loaded.ok;
+}
+
+/**
+ * Resolve Gamma cache TTL from cryptoConfig, or deprecated interval constants.
+ * Throws when `deprecatedFallbacksEnabled` is false and cryptoConfig is absent.
+ */
+export function resolveGammaCacheTtlOrFallback(
+  interval: string | null | undefined,
+  deprecatedFallbacksEnabled: boolean,
+): number {
+  if (!deprecatedFallbacksEnabled) {
+    throw new Error(
+      'deprecated_fallbacks_disabled: cryptoConfig required for Gamma cache TTL (feature.deprecated_fallbacks_enabled=false)',
+    );
+  }
   log.warn(
     { interval: interval ?? null },
     'gammaCacheTtlFallback used — cryptoConfig absent; using deprecated interval TTL constants',

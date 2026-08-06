@@ -89,13 +89,13 @@ main (stable)
 - [x] Ajouter 3 entrées `feature.*` au seed `packages/core/src/seed/system-config-defaults.ts` ✅ 2026-08-06
 - [x] Ajouter un helper `getFeatureFlag(ds, key, fallback)` dans `core/services/system-config.service.ts` (wrapping `getBoolean` avec préfixe `feature.`) ✅ 2026-08-06
 - [x] Vérifier que `seedDefaults()` est appelé au boot (grep `seedDefaults`) ✅ 2026-08-06 — `packages/backend/src/index.ts`, `packages/core/src/seed/defaults.ts`
-- [x] **Observations** : flags seedés via `seedSystemConfigDefaults` appelé depuis `seedDefaults()`.
+- [x] **Observations** : flags seedés via `seedSystemConfigDefaults`. Correctif post-audit : `risk_config_legacy_facade=false` fait throw `getConfig`/`updateConfig` ; lecture flag fail-open ; `deprecated_fallbacks_enabled` branché dans StrategyRunner.
 
 #### A.2 — Tests d'arête C4 (RiskConfig divergence)
 
 - [x] Créer `packages/core/src/risk/risk-config-divergence.test.ts` ✅ 2026-08-06
 - [x] Vérifier que le test passe en mode log-only (default) ✅ 2026-08-06
-- [x] **Observations** : guard extrait dans `risk-config-divergence.ts` (testable unitairement + intégration RiskService).
+- [x] **Observations** : guard extrait dans `risk-config-divergence.ts`. Sémantique documentée : check compose léger ; vrai gate Strangler = `feature.risk_config_legacy_facade`.
 
 #### A.3 — Tests d'arête C1 (parity sim/real)
 

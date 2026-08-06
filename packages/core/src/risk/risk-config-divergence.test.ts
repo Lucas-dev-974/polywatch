@@ -11,6 +11,7 @@ import { RiskService } from '../services/risk.service.js';
 import { SystemConfigService } from '../services/system-config.service.js';
 import {
   RiskConfigDivergenceError,
+  RiskConfigLegacyFacadeDisabledError,
   detectRiskConfigDivergences,
   handleRiskConfigDivergence,
 } from './risk-config-divergence.js';
@@ -119,17 +120,59 @@ describe('RiskService divergence guard', () => {
 
   beforeEach(async () => {
     ds = await initializeDataSource(createTestDataSource());
+    RiskService.invalidateConfigCache();
+    SystemConfigService.invalidateCache();
+    // Shared test DB: reset Strangler flag before seedDefaults (may call getConfig).
+    await new SystemConfigService(ds).set('feature.risk_config_legacy_facade', 'true');
+    SystemConfigService.invalidateCache();
     await seedDefaults(ds);
     RiskService.invalidateConfigCache();
     SystemConfigService.invalidateCache();
   });
 
   afterEach(async () => {
+    await new SystemConfigService(ds).set('feature.risk_config_legacy_facade', 'true').catch(() => {});
+    SystemConfigService.invalidateCache();
+    RiskService.invalidateConfigCache();
     await ds.destroy();
   });
 
   it('getConfig does not throw when isolated tables are consistent', async () => {
     const risk = new RiskService(ds);
     await expect(risk.getConfig()).resolves.toBeDefined();
+  });
+
+  it('getConfig throws when feature.risk_config_legacy_facade is false', async () => {
+    const sys = new SystemConfigService(ds);
+    await sys.set('feature.risk_config_legacy_facade', 'false');
+    SystemConfigService.invalidateCache();
+    RiskService.invalidateConfigCache();
+
+    const risk = new RiskService(ds);
+    await expect(risk.getConfig()).rejects.toThrow(RiskConfigLegacyFacadeDisabledError);
+  });
+
+  it('isolated getters still work when legacy facade is disabled', async () => {
+    const sys = new SystemConfigService(ds);
+    await sys.set('feature.risk_config_legacy_facade', 'false');
+    SystemConfigService.invalidateCache();
+    RiskService.invalidateConfigCache();
+
+    const risk = new RiskService(ds);
+    await expect(risk.getCryptoConfig()).resolves.toBeDefined();
+    await expect(risk.getGlobalConfig()).resolves.toBeDefined();
+  });
+
+  it('getConfig fail-opens when feature flag read throws', async () => {
+    const spy = vi
+      .spyOn(SystemConfigService.prototype, 'getFeatureFlag')
+      .mockRejectedValue(new Error('db down'));
+    try {
+      const risk = new RiskService(ds);
+      RiskService.invalidateConfigCache();
+      await expect(risk.getConfig()).resolves.toBeDefined();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

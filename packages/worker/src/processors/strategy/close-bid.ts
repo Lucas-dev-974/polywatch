@@ -22,7 +22,7 @@ export function resolveCloseBid(
   allowStaleLastBid = false,
   /** Top-of-book bid with size > 0 when liveBestBid was absent. */
   sizedBestBid?: number | null,
-  /** Max age for last-closeable freshness (RiskConfig tunable). */
+  /** Max age for last-closeable freshness (CryptoConfig / algo-kind tunable). */
   lastCloseableBidMaxAgeMs?: number,
 ): number {
   if (executableBidVwap > 0) return executableBidVwap;

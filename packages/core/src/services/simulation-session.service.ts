@@ -6,7 +6,7 @@ import { DEFAULT_SIM_BALANCE } from '../simulation/constants.js';
 import type { SimAlgoKind } from '../simulation/algo-kind.js';
 import { RiskService } from './risk.service.js';
 import {
-  extractSimConfigSnapshot,
+  extractSimConfigSnapshotFromIsolated,
   type SimRiskConfigSnapshot,
 } from '../risk/sim-mode-fields.js';
 import type {
@@ -88,11 +88,13 @@ export class SimulationSessionService {
     manager: EntityManager,
     sessionId: number,
   ): Promise<void> {
-    const riskConfig = await this.riskService.getConfig({
-      manager,
-      bypassCache: true,
-    });
-    const config = extractSimConfigSnapshot(riskConfig);
+    const opts = { manager, bypassCache: true } as const;
+    const [global, copy, crypto] = await Promise.all([
+      this.riskService.getGlobalConfig(opts),
+      this.riskService.getCopyConfig(opts),
+      this.riskService.getCryptoConfig(opts),
+    ]);
+    const config = extractSimConfigSnapshotFromIsolated(global, copy, crypto);
     await manager.getRepository(SimulationSession).update(sessionId, {
       configJson: JSON.stringify(config),
     });

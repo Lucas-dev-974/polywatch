@@ -4,14 +4,14 @@ import {
   DEFAULT_SIM_EXEC_LATENCY_MS,
   resolveSimExecutionTunables,
 } from '@polywatch/core';
-import type { RiskConfig } from '@polywatch/core';
+import type { GlobalConfig } from '@polywatch/core';
 import {
   invalidateLatencySampleCache,
   sampleLatencyMs,
 } from './latency-calibrator.js';
 
-function risk(overrides: Partial<RiskConfig> = {}): RiskConfig {
-  return { id: 1, ...overrides } as RiskConfig;
+function globalCfg(overrides: Partial<GlobalConfig> = {}): GlobalConfig {
+  return { id: 1, ...overrides } as GlobalConfig;
 }
 
 function emptyDs(): DataSource {
@@ -31,7 +31,7 @@ describe('sampleLatencyMs', () => {
     const ms = await sampleLatencyMs(
       emptyDs(),
       resolveSimExecutionTunables(
-        risk({ simExecLatencyMs: 42, simExecLatencyMode: 'fixed' }),
+        globalCfg({ simExecLatencyMs: 42, simExecLatencyMode: 'fixed' }),
       ),
     );
     expect(ms).toBe(42);
@@ -39,7 +39,7 @@ describe('sampleLatencyMs', () => {
 
   it('falls back to fixed when calibrated but no samples', async () => {
     const tunables = resolveSimExecutionTunables(
-      risk({
+      globalCfg({
         simExecLatencyMode: 'calibrated',
         simExecLatencyMs: null,
       }),

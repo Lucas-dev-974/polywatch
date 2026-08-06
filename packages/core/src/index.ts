@@ -94,6 +94,12 @@ export * from './risk/crypto-algo-tunables.js';
 export * from './risk/crypto-algo-strategy-params.js';
 export * from './risk/weather-exit-params.js';
 export * from './risk/sim-execution-tunables.js';
+export {
+  detectRiskConfigDivergences,
+  handleRiskConfigDivergence,
+  RiskConfigDivergenceError,
+  RiskConfigLegacyFacadeDisabledError,
+} from './risk/risk-config-divergence.js';
 export * from './market/tags.js';
 export * from './market/leaderboard-categories.js';
 export { createTtlCache } from './lib/ttl-cache.js';

@@ -78,6 +78,11 @@ export class SystemConfigService {
     return this.repo.find();
   }
 
+  async getFeatureFlag(shortKey: string, fallback: boolean): Promise<boolean> {
+    const key = shortKey.startsWith('feature.') ? shortKey : `feature.${shortKey}`;
+    return this.getBoolean(key, fallback);
+  }
+
   async seedDefaults(
     defaults: { key: string; value: string; category?: string; description?: string }[],
   ): Promise<void> {
@@ -96,4 +101,13 @@ export class SystemConfigService {
     }
     SystemConfigService.cache.clear();
   }
+}
+
+/** Convenience wrapper for feature flags stored under `feature.*` keys. */
+export async function getFeatureFlag(
+  ds: DataSource,
+  shortKey: string,
+  fallback: boolean,
+): Promise<boolean> {
+  return new SystemConfigService(ds).getFeatureFlag(shortKey, fallback);
 }

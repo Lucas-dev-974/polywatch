@@ -133,6 +133,12 @@ export class StrategyRunner {
   private wsConnected = false;
   private pollMs = DEFAULT_POLL_MS;
   private currentCryptoConfig: CryptoConfig | null = null;
+  /** Bumped on every applyRiskTunables — eval aborts if epoch drifts mid-flight. */
+  private configEpoch = 0;
+  /** Set by stop() to reject new evaluations during shutdown. */
+  private stopping = false;
+  /** Cached from SystemConfig `feature.deprecated_fallbacks_enabled` (default true). */
+  private deprecatedFallbacksEnabled = true;
   private onSelectionResolved?: (conditionId: string) => Promise<void>;
   private onAbstain?: (
     conditionId: string,
@@ -235,6 +241,7 @@ export class StrategyRunner {
    * Also starts the janitor for resolved markets.
    */
   start(pollMs: number = DEFAULT_POLL_MS): NodeJS.Timeout {
+    this.stopping = false;
     this.pollMs = pollMs;
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
@@ -246,6 +253,12 @@ export class StrategyRunner {
       pollMs,
       'strategy-runner:tick',
     );
+
+    if (!this.currentCryptoConfig) {
+      log.warn(
+        'StrategyRunner started before applyRiskTunables — crypto tunables and Gamma TTL may use deprecated fallbacks',
+      );
+    }
 
     log.info({ pollMs, wsConnected: this.wsConnected }, 'strategy runner started');
     return this.tickTimer;
@@ -324,6 +337,7 @@ export class StrategyRunner {
   /** Apply risk tunables to all configurable strategies (registry-driven). */
   applyRiskTunables(cryptoConfig: CryptoConfig): void {
     this.currentCryptoConfig = cryptoConfig;
+    this.configEpoch += 1;
     for (const strategy of this.registry.getAllStrategies()) {
       if (isConfigurableStrategy(strategy)) {
         strategy.applyTunables(cryptoConfig);
@@ -331,8 +345,18 @@ export class StrategyRunner {
     }
   }
 
-  /** Stop the evaluation loop. */
+  /**
+   * Wire `feature.deprecated_fallbacks_enabled` (cached; refresh on config-changed).
+   * When false, Gamma TTL without cryptoConfig throws instead of using deprecated constants.
+   */
+  setDeprecatedFallbacksEnabled(enabled: boolean): void {
+    this.deprecatedFallbacksEnabled = enabled;
+  }
+
+  /** Stop the evaluation loop (sync). Prefer {@link stopAndDrain} on shutdown. */
   stop(): void {
+    this.stopping = true;
+    this.stopJanitor();
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
@@ -341,6 +365,23 @@ export class StrategyRunner {
       this.priceFeed.disconnect();
       this.wsConnected = false;
     }
+  }
+
+  /** Await in-flight eval chains (best-effort timeout) then clear caches. */
+  async drainInFlightEvals(timeoutMs = 5_000): Promise<void> {
+    const pending = Array.from(this.evalChains.values());
+    if (pending.length === 0) return;
+    await Promise.race([
+      Promise.allSettled(pending),
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  }
+
+  async stopAndDrain(timeoutMs = 5_000): Promise<void> {
+    this.stop();
+    await this.drainInFlightEvals(timeoutMs);
+    this.evalChains.clear();
+    this.gammaCache.clear();
   }
 
   /**
@@ -394,7 +435,7 @@ export class StrategyRunner {
     const effectiveCfg = cryptoConfig ?? this.currentCryptoConfig;
     const ttlMs = effectiveCfg
       ? resolveGammaCacheTtlMs(effectiveCfg, interval)
-      : gammaCacheTtlFallback(interval);
+      : resolveGammaCacheTtlOrFallback(interval, this.deprecatedFallbacksEnabled);
     const staleFactor = effectiveCfg
       ? resolveGammaStaleOnErrorFactor(effectiveCfg)
       : GAMMA_STALE_ON_ERROR_TTL_FACTOR;
@@ -433,10 +474,15 @@ export class StrategyRunner {
   private cleanupGammaCache(): void {
     const now = Date.now();
     let removed = 0;
+    const ttlMs = this.currentCryptoConfig
+      ? Math.max(
+          resolveGammaCacheTtlMs(this.currentCryptoConfig, null),
+          resolveGammaCacheTtlMs(this.currentCryptoConfig, '5m'),
+        )
+      : OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS;
 
     for (const entry of Array.from(this.gammaCache.entries())) {
-      // Use the longer default TTL so short-interval entries are not kept forever.
-      if (now - entry[1].fetchedAt > OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS) {
+      if (now - entry[1].fetchedAt > ttlMs) {
         this.gammaCache.delete(entry[0]);
         removed++;
       }
@@ -535,6 +581,9 @@ export class StrategyRunner {
   private evaluateSelection(
     selection: { conditionId: string; enabled: boolean; question?: string | null; cryptoSymbol?: string | null; interval?: string | null; slug?: string | null },
   ): Promise<boolean> {
+    if (this.stopping) {
+      return Promise.resolve(false);
+    }
     const conditionId = selection.conditionId;
     const existing = this.evalChains.get(conditionId);
     if (existing) {
@@ -562,6 +611,9 @@ export class StrategyRunner {
   private async evaluateSelectionUnlocked(
     selection: { conditionId: string; enabled: boolean; question?: string | null; cryptoSymbol?: string | null; interval?: string | null; slug?: string | null },
   ): Promise<boolean> {
+    if (this.stopping) {
+      return false;
+    }
     let cryptoConfig: CryptoConfig;
     try {
       cryptoConfig = await this.cryptoConfigService.getConfig();
@@ -577,6 +629,7 @@ export class StrategyRunner {
     }
 
     this.applyRiskTunables(cryptoConfig);
+    const evalEpoch = this.configEpoch;
 
     const enabledIds = getCryptoAlgoStrategies(cryptoConfig);
     if (enabledIds.length === 0) {
@@ -724,7 +777,7 @@ export class StrategyRunner {
           selection.conditionId,
           fired.outcome,
         );
-        if (!loaded.ok) {
+        if (shouldFailClosedOnReentryRedisLoad(loaded)) {
           // Fail-closed: Redis down must not allow revenge re-entry after restart.
           log.warn(
             { err: loaded.error, conditionId: selection.conditionId, outcome: fired.outcome },
@@ -767,6 +820,14 @@ export class StrategyRunner {
     }
 
     // Fire the signal
+    if (this.stopping || this.configEpoch !== evalEpoch) {
+      log.info(
+        { conditionId: selection.conditionId, stopping: this.stopping },
+        'dropping signal — config changed or shutting down mid-eval',
+      );
+      this.runtimeStatus?.recordSkip('config changée pendant évaluation', selection.conditionId);
+      return false;
+    }
     let accepted = false;
     try {
       accepted = await this.onSignal(fired);
@@ -938,7 +999,33 @@ export class StrategyRunner {
   }
 }
 
-function gammaCacheTtlFallback(interval: string | null | undefined): number {
+/**
+ * Fail-closed gate for Redis-backed re-entry throttle.
+ * When the load fails, entry must be suppressed (never fail-open).
+ */
+export function shouldFailClosedOnReentryRedisLoad(
+  loaded: { ok: true; state: unknown } | { ok: false; error: unknown },
+): loaded is { ok: false; error: unknown } {
+  return !loaded.ok;
+}
+
+/**
+ * Resolve Gamma cache TTL from cryptoConfig, or deprecated interval constants.
+ * Throws when `deprecatedFallbacksEnabled` is false and cryptoConfig is absent.
+ */
+export function resolveGammaCacheTtlOrFallback(
+  interval: string | null | undefined,
+  deprecatedFallbacksEnabled: boolean,
+): number {
+  if (!deprecatedFallbacksEnabled) {
+    throw new Error(
+      'deprecated_fallbacks_disabled: cryptoConfig required for Gamma cache TTL (feature.deprecated_fallbacks_enabled=false)',
+    );
+  }
+  log.warn(
+    { interval: interval ?? null },
+    'gammaCacheTtlFallback used — cryptoConfig absent; using deprecated interval TTL constants',
+  );
   const normalized = interval ? normalizeInterval(interval) : null;
   if (
     normalized === '5m' ||

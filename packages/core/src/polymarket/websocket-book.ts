@@ -25,6 +25,8 @@ export class PolymarketBookWebSocket {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private onBookUpdate?: (assetId: string) => void;
   private onMarketResolved?: (conditionId: string) => void;
+  private onReconnect?: () => void;
+  private hasConnectedOnce = false;
   private metricsCache: MarketMetricsCache | null = null;
   private readonly config: PolymarketConnectionConfig;
 
@@ -42,6 +44,10 @@ export class PolymarketBookWebSocket {
 
   setOnMarketResolved(cb: (conditionId: string) => void): void {
     this.onMarketResolved = cb;
+  }
+
+  setOnReconnect(cb: () => void): void {
+    this.onReconnect = cb;
   }
 
   isHealthy(): boolean {
@@ -65,9 +71,18 @@ export class PolymarketBookWebSocket {
 
         this.ws.on('open', () => {
           log.info('polymarket ws connected');
+          const isReconnect = this.hasConnectedOnce;
+          this.hasConnectedOnce = true;
           this.healthy = true;
           this.reconnectAttempts = 0;
           this.startHeartbeat();
+          if (isReconnect) {
+            try {
+              this.onReconnect?.();
+            } catch (err) {
+              log.warn({ err }, 'onReconnect callback failed');
+            }
+          }
           this.sendInitialSubscription();
           resolve();
         });

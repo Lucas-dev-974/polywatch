@@ -11,7 +11,7 @@ import {
   computeCryptoAlgoConfigFingerprint,
   canEnableRealTrading,
   resolveSimRotationTargetsFromConfigs,
-  realRotationChanged,
+  realRotationChangedFromIsolated,
   extractSimConfigSnapshot,
   extractRealConfigSnapshot,
   presentCryptoConfigForApi,
@@ -302,16 +302,10 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
     after: { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
   ): Promise<{ simTargets: string[]; realRotated: boolean }> {
     const simTargets = resolveSimRotationTargetsFromConfigs(before, after);
-    const realRotated = realRotationChanged(
-      { ...before.global, ...before.copy, ...before.crypto, ...before.weather, id: 0 } as any,
-      { ...after.global, ...after.copy, ...after.crypto, ...after.weather, id: 0 } as any,
-    );
+    const realRotated = realRotationChangedFromIsolated(before, after);
 
     if (simTargets.length > 0 || realRotated) {
-      await rotationService.rotateOnConfigChange(
-        { ...before.global, ...before.copy, ...before.crypto, ...before.weather, id: 0 } as any,
-        { ...after.global, ...after.copy, ...after.crypto, ...after.weather, id: 0 } as any,
-      );
+      await rotationService.rotateOnConfigChange(before, after);
     }
     return { simTargets, realRotated };
   }

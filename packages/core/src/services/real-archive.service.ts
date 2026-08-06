@@ -184,7 +184,7 @@ export class RealArchiveService {
       manager,
       options.observedCash,
     );
-    const riskConfig = await this.riskService.getConfig({
+    const globalConfig = await this.riskService.getGlobalConfig({
       manager,
       bypassCache: true,
     });
@@ -198,7 +198,7 @@ export class RealArchiveService {
 
     const decisionPayload = await collectRealDecisionPayload(manager, {
       snapshotAt,
-      windowHours: riskConfig.realSnapshotDecisionWindowHours ?? 24,
+      windowHours: globalConfig.realSnapshotDecisionWindowHours ?? 24,
       positions,
       watchlistEntries,
     });

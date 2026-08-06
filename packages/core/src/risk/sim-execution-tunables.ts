@@ -1,5 +1,4 @@
 import type { GlobalConfig } from '../entities/GlobalConfig.js';
-import type { RiskConfig } from '../entities/RiskConfig.js';
 
 export type SimExecLatencyMode = 'fixed' | 'calibrated';
 
@@ -29,7 +28,7 @@ export interface SimExecutionTunables {
 }
 
 export function resolveSimExecutionTunables(
-  cfg: RiskConfig | GlobalConfig,
+  cfg: GlobalConfig,
 ): SimExecutionTunables {
   const latencyMode: SimExecLatencyMode =
     cfg.simExecLatencyMode === 'calibrated' ? 'calibrated' : 'fixed';

@@ -103,6 +103,9 @@ export class CryptoAlgoPriceFeed {
     this.wsClient.setOnMarketResolved((conditionId: string) => {
       this.handleMarketResolved(conditionId);
     });
+    this.wsClient.setOnReconnect(() => {
+      this.handleWsReconnect();
+    });
   }
 
   dispatchBookUpdate(assetId: string): void {
@@ -148,8 +151,21 @@ export class CryptoAlgoPriceFeed {
     }
     this.pendingEvals.clear();
     this.midHistory.clearAll();
+    this.topOfBook.clear();
+    try {
+      this.wsClient?.disconnect();
+    } catch (err) {
+      log.warn({ err }, 'price feed WS disconnect failed');
+    }
     this.connected = false;
     log.info('crypto-algo price feed disconnected');
+  }
+
+  /** Clear mid-history / ToB after WS gap so curve filters do not span an outage. */
+  handleWsReconnect(): void {
+    this.midHistory.clearAll();
+    this.topOfBook.clear();
+    log.info('ws reconnect — cleared midHistory and topOfBook');
   }
 
   async subscribeToMarkets(
@@ -373,6 +389,9 @@ export class CryptoAlgoPriceFeed {
   }
 
   private handleBookUpdate(assetId: string): void {
+    if (!this.connected) {
+      return;
+    }
     const conditionId = this.assetToCondition.get(assetId);
     if (!conditionId) {
       return;

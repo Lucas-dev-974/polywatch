@@ -5,28 +5,25 @@ import type { CopiedPosition } from '../entities/CopiedPosition.js';
 import { RealSessionState } from '../entities/RealSessionState.js';
 import { RealStateSnapshot } from '../entities/RealStateSnapshot.js';
 import type { WatchlistEntry } from '../entities/Watchlist.js';
-import { isOpenLikePositionStatus } from '../positions/mark.js';
 import type { ExitAttemptEventDto } from '../services/exit-attempt-event.service.js';
+import {
+  SNAPSHOT_DECISION_MAX_EVENTS,
+  SNAPSHOT_DECISION_MAX_JSON_BYTES,
+  buildPositionBreakdown,
+  estimateDecisionPayloadJsonBytes,
+  incrementCount,
+  toExitAttemptDto,
+  toMoveEventDto,
+  truncateEvents,
+  type SnapshotMoveEvent,
+} from '../snapshot/decision-collector-shared.js';
 
-export const SNAPSHOT_DECISION_MAX_EVENTS = 500;
-export const SNAPSHOT_DECISION_MAX_JSON_BYTES = 2_000_000;
+export {
+  SNAPSHOT_DECISION_MAX_EVENTS,
+  SNAPSHOT_DECISION_MAX_JSON_BYTES,
+} from '../snapshot/decision-collector-shared.js';
 
-export interface RealSnapshotMoveEvent {
-  id: string;
-  traderAddress: string;
-  conditionId: string;
-  assetId: string;
-  outcome: string | null;
-  eventType: string;
-  previousTraderSize: number;
-  traderSize: number;
-  traderAvgPrice: number | null;
-  snapshotSeq: number;
-  processed: boolean;
-  detectedAt: string;
-  skipReasonsSim: string | null;
-  skipReasonsReal: string | null;
-}
+export type RealSnapshotMoveEvent = SnapshotMoveEvent;
 
 export interface RealSnapshotDecisionSummary {
   exitAttemptsTotal: number;
@@ -48,76 +45,6 @@ export interface RealSnapshotDecisionPayload {
   exitAttempts: ExitAttemptEventDto[];
   moveEvents: RealSnapshotMoveEvent[];
   summary: RealSnapshotDecisionSummary;
-}
-
-function toExitAttemptDto(row: ExitAttemptEvent): ExitAttemptEventDto {
-  return {
-    id: row.id,
-    copiedPositionId: row.copiedPositionId,
-    kind: row.kind,
-    closeReason: row.closeReason,
-    blockReason: row.blockReason,
-    error: row.error,
-    executionId: row.executionId,
-    markBid: row.markBid,
-    createdAt:
-      row.createdAt instanceof Date
-        ? row.createdAt.toISOString()
-        : String(row.createdAt),
-  };
-}
-
-function toMoveEventDto(row: MoveEventEntity): RealSnapshotMoveEvent {
-  return {
-    id: row.id,
-    traderAddress: row.traderAddress,
-    conditionId: row.conditionId,
-    assetId: row.assetId,
-    outcome: row.outcome,
-    eventType: row.eventType,
-    previousTraderSize: row.previousTraderSize,
-    traderSize: row.traderSize,
-    traderAvgPrice: row.traderAvgPrice,
-    snapshotSeq: row.snapshotSeq,
-    processed: row.processed,
-    detectedAt:
-      row.detectedAt instanceof Date
-        ? row.detectedAt.toISOString()
-        : String(row.detectedAt),
-    skipReasonsSim: row.skipReasons?.sim ?? null,
-    skipReasonsReal: row.skipReasons?.real ?? null,
-  };
-}
-
-function incrementCount(map: Record<string, number>, key: string): void {
-  map[key] = (map[key] ?? 0) + 1;
-}
-
-function buildPositionBreakdown(positions: CopiedPosition[]): {
-  openPositionCount: number;
-  closedPositionCount: number;
-  otherPositionCount: number;
-  positionsByStatus: Record<string, number>;
-} {
-  let openPositionCount = 0;
-  let closedPositionCount = 0;
-  const positionsByStatus: Record<string, number> = {};
-
-  for (const pos of positions) {
-    incrementCount(positionsByStatus, pos.status);
-    if (isOpenLikePositionStatus(pos.status)) {
-      openPositionCount += 1;
-    } else if (pos.status === 'closed') {
-      closedPositionCount += 1;
-    }
-  }
-
-  return {
-    openPositionCount,
-    closedPositionCount,
-    otherPositionCount: positions.length - openPositionCount - closedPositionCount,
-    positionsByStatus,
-  };
 }
 
 export async function resolveRealDecisionWindowFrom(
@@ -148,13 +75,6 @@ export async function resolveRealDecisionWindowFrom(
   }
 
   return new Date(Math.max(...candidates));
-}
-
-function truncateEvents<T>(items: T[], max: number): { items: T[]; truncated: boolean } {
-  if (items.length <= max) {
-    return { items, truncated: false };
-  }
-  return { items: items.slice(items.length - max), truncated: true };
 }
 
 export async function collectRealDecisionPayload(
@@ -247,12 +167,5 @@ export async function collectRealDecisionPayload(
 export function estimateRealDecisionPayloadBytes(
   payload: RealSnapshotDecisionPayload,
 ): number {
-  return Buffer.byteLength(
-    JSON.stringify({
-      exitAttempts: payload.exitAttempts,
-      moveEvents: payload.moveEvents,
-      summary: payload.summary,
-    }),
-    'utf8',
-  );
+  return estimateDecisionPayloadJsonBytes(payload);
 }

@@ -1,5 +1,4 @@
 import pino from 'pino';
-import type { Redis } from 'ioredis';
 import {
   assertDatabaseExists,
   createDataSource,
@@ -31,8 +30,10 @@ import {
   type CryptoConfig,
   type GlobalConfig,
   WORKER_QUEUES,
+  getFeatureFlag,
 } from '@polywatch/core';
 import { config } from './config.js';
+import { createShutdownHandler } from './shutdown.js';
 import { seedCryptoAlgoWatchlistEntry } from './watchlist-seed.js';
 import { SelectionLoader } from './selection-loader.js';
 import { StrategyRegistry, type AlgoSignal } from './strategy/index.js';
@@ -60,13 +61,28 @@ const log = pino({ name: 'crypto-algo' });
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const BACKEND_READY_TIMEOUT_MS = 60_000;
 
-function applyCryptoAlgoRiskTunables(
+async function applyCryptoAlgoRiskTunables(
   cryptoConfig: CryptoConfig,
   strategyRunner: StrategyRunner,
   priceFeed: CryptoAlgoPriceFeed,
   priceTickRecorder: PriceTickRecorder,
-): void {
+  ds: Awaited<ReturnType<typeof initializeDataSource>>,
+): Promise<void> {
   strategyRunner.applyRiskTunables(cryptoConfig);
+  try {
+    const deprecatedFallbacksEnabled = await getFeatureFlag(
+      ds,
+      'deprecated_fallbacks_enabled',
+      true,
+    );
+    strategyRunner.setDeprecatedFallbacksEnabled(deprecatedFallbacksEnabled);
+  } catch (err) {
+    log.warn(
+      { err },
+      'failed to read feature.deprecated_fallbacks_enabled — keeping fallbacks enabled (fail-open)',
+    );
+    strategyRunner.setDeprecatedFallbacksEnabled(true);
+  }
   strategyRunner.reconfigurePollMs(resolvePollMs(cryptoConfig, config.pollMs));
   priceFeed.setDebounceMs(resolveWsDebounceMs(cryptoConfig));
   priceTickRecorder.configure({
@@ -224,7 +240,7 @@ async function main() {
     signalRegistry.recordAbstain(conditionId, reason, detail);
   });
 
-  applyCryptoAlgoRiskTunables(cryptoConfig, strategyRunner, priceFeed, priceTickRecorder);
+  await applyCryptoAlgoRiskTunables(cryptoConfig, strategyRunner, priceFeed, priceTickRecorder, ds);
 
   // 16b. Create percent publisher for live market updates
   const percentPublisher = new AlgoMarketPercentPublisher(
@@ -507,11 +523,12 @@ async function main() {
           'crypto config reloaded',
         );
 
-        applyCryptoAlgoRiskTunables(
+        await applyCryptoAlgoRiskTunables(
           refreshed,
           strategyRunner,
           priceFeed,
           priceTickRecorder,
+          ds,
         );
 
         // Reconfigure price tick cleanup timer if settings changed
@@ -542,38 +559,33 @@ async function main() {
   log.info('Polywatch crypto-algo started (WebSocket + polling hybrid mode)');
 
   // 22. Graceful shutdown
-  let shuttingDown = false;
-  const shutdown = async () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    log.info('shutting down...');
-    if (marketJanitorTimer) clearInterval(marketJanitorTimer);
-    clearInterval(heartbeatTimer);
-    clearInterval(surveillanceRefreshTimer);
-    stopSurveillanceJanitor();
-    clearPostEntryMidTimers();
-    priceTickRecorder.shutdown();
-    if (priceTickCleanupTimer) clearInterval(priceTickCleanupTimer);
-    clearInterval(positionContextRefreshTimer);
-    positionCache.clear();
-    signalRegistry.clear();
-    surveillanceRecorder.shutdown();
-    strategyRunner.stop();
-    try {
-      await selectionLoader.stop();
-    } catch (err) {
-      log.warn({ err }, 'failed to stop selection loader');
-    }
-    const safeQuit = (r: Redis) => r.quit().catch(() => {});
-    await safeQuit(redisCmd);
-    await safeQuit(redisPub);
-    await safeQuit(redisSub);
-    await ds.destroy().catch(() => {});
-    process.exit(0);
-  };
+  const shutdown = createShutdownHandler({
+    log,
+    clearProcessTimers: () => {
+      if (marketJanitorTimer) clearInterval(marketJanitorTimer);
+      clearInterval(heartbeatTimer);
+      clearInterval(surveillanceRefreshTimer);
+      stopSurveillanceJanitor();
+      clearPostEntryMidTimers();
+      priceTickRecorder.shutdown();
+      if (priceTickCleanupTimer) clearInterval(priceTickCleanupTimer);
+      clearInterval(positionContextRefreshTimer);
+      positionCache.clear();
+      signalRegistry.clear();
+      surveillanceRecorder.shutdown();
+    },
+    strategyRunner,
+    selectionLoader,
+    redisClients: [redisCmd, redisPub, redisSub],
+    dataSource: ds,
+  });
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => {
+    void shutdown();
+  });
+  process.on('SIGINT', () => {
+    void shutdown();
+  });
 }
 
 main().catch((err) => {

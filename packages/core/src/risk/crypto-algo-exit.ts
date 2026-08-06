@@ -1,6 +1,5 @@
 import type { CopiedPosition } from '../entities/CopiedPosition.js';
 import type { CryptoConfig } from '../entities/CryptoConfig.js';
-import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { MarketLifecycleState } from '../market/lifecycle.js';
 import { getPositionMarkPrice } from '../positions/mark.js';
 import type { LiquidityStatus } from '../types/index.js';
@@ -375,7 +374,7 @@ const WS_BEST_BID_MIN_RATIO = 0.5;
  * 2. WebSocket best bid (filtered: excluded when anomalously low vs bookBid).
  * 3. Last trade price, when it signals a worse (lower) market value than the
  *    bid/last-closeable bid AND is fresh enough (≤ lastCloseableBidMaxAgeMs,
- *    from RiskConfig / {@link LAST_CLOSEABLE_BID_MAX_AGE_MS} default).
+ *    from CryptoConfig / {@link LAST_CLOSEABLE_BID_MAX_AGE_MS} default).
  *    This prevents stale bids from hiding sharp drops on thinly traded crypto-algo
  *    markets where the last print is the best available mark. When no timestamp
  *    is available, the price is included unconditionally (backward compat for the
@@ -397,7 +396,7 @@ export function resolveExitDecisionMarkPrice(
   options?: ExitDecisionMarkOptions,
   /** Timestamp of the last trade, for staleness detection. */
   lastTradeTimestamp?: Date | null,
-  /** Max age for last-closeable / last-trade freshness (RiskConfig tunable). */
+  /** Max age for last-closeable / last-trade freshness (CryptoConfig tunable). */
   lastCloseableBidMaxAgeMs: number = LAST_CLOSEABLE_BID_MAX_AGE_MS,
 ): number {
   const useConservativeMin =

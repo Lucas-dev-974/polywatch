@@ -1,9 +1,11 @@
 # PLAN P0 — Implémentation des priorités critiques
 
 > **Date de création** : 2026-08-06
-> **Dernière révision** : 2026-08-06 — B.4 (suppression finale RiskConfig) sortie du périmètre PR P0 → Phase F (PR séparée)
+> **Dernière révision** : 2026-08-06 — Phase A corrigée (flags branchés, fail-open) ; B.4 reportée en Phase F
 > **Périmètre PR P0** : 3 chantiers P0 + filet de tests + feature flags + migration consommateurs RiskConfig (sans suppression legacy)
 > **Hors périmètre PR P0** : Phase F — suppression physique du code legacy RiskConfig (ex-B.4)
+> **Branche** : `audit/p0-implementation`
+> **Commits Phase A** : `6762b85` (filet initial) · `ff24ab0` (flags branchés + fail-open)
 > **Plan parent** : [`docs/plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md)
 > **Annexe mitigations** : [`docs/plans/2026-08-06_ANNEXE-risques-mitigations.md`](2026-08-06_ANNEXE-risques-mitigations.md)
 > **Règle d'or** : Ce plan est **vivant**. À chaque étape terminée, mettre à jour ce fichier (statut, dates, observations). Voir §0 du plan parent.
@@ -38,22 +40,23 @@ L'annexe de mitigations (§R1, §R2, §R4, §RT) propose des stratégies concrè
 | Q5 | Feature flags | **Via SystemConfig (DB)** | Vérification : `SystemConfig` (table `system_config`, clé/valeur) existe avec `getBoolean()`, `getNumber()`, cache 10s, et `seedDefaults()`. Les 3 flags ne sont pas encore présents → les ajouter au seed `system-config-defaults.ts` et les lire via `SystemConfigService.getBoolean()`. Pattern existant du projet : `process.env` pour les secrets, `SystemConfig` pour la config opérationnelle. Les feature flags = config opérationnelle → SystemConfig. |
 | Q6 | Compat snapshots DB | **Créer `extractSimConfigSnapshotFromIsolated(global, copy, crypto)` qui retourne le même shape JSON** | Le shape JSON persisté dans `SimulationStateSnapshot.configSnapshot` doit rester identique pour ne pas casser la lecture des snapshots existants. La nouvelle fonction prend les 4 entités isolées et retourne le même type `SimRiskConfigSnapshot`. |
 | Q7 | Suppression finale RiskConfig (ex-B.4) | **Hors PR P0 — Phase F / PR séparée** | La suppression de `composeRiskConfig`, `getConfig()`, `RiskConfig.ts`, `risk-config-api.ts`, etc. neutralise le rollback par feature flag. La PR P0 migre tous les consommateurs et garde la façade legacy + le guard `assertNoDivergence` en production. La Phase F n'est mergeable qu'après période d'observation (logs propres, `feature.risk_config_strict` testé en pré-prod). |
+| Q8 | Correctifs post-audit Phase A | **1A + 2A + 3A** | (1A) `legacy_facade=false` → `getConfig`/`updateConfig` throw ; vrai gate Strangler. Guard compose reste léger. Lecture flags fail-open. (2A) `deprecated_fallbacks_enabled=false` → throw sur Gamma TTL sans cryptoConfig. (3A) renforcer tests StrategyRunner/Redis sans extraire le shutdown de `index.ts` (extract = Phase D si besoin). |
 
 ---
 
-## 3. Feature flags (SystemConfig)
+## 3. Feature flags (SystemConfig) — **branchés** ✅
 
-Ajouter 3 entrées au seed `packages/core/src/seed/system-config-defaults.ts` :
+Entrées seedées dans `packages/core/src/seed/system-config-defaults.ts` et lues via `getFeatureFlag()` / `SystemConfigService.getFeatureFlag()` :
 
-| Clé | Default | Category | Description |
-|-----|---------|----------|-------------|
-| `feature.risk_config_legacy_facade` | `true` | `feature_flag` | Garde `getConfig()` / `composeRiskConfig()` actifs (Strangler Fig). Reste `true` après merge PR P0. Passer à `false` uniquement en pré-prod/staging pour valider Phase F, puis suppression code en Phase F. |
-| `feature.risk_config_strict` | `false` | `feature_flag` | Guard divergence RiskConfig : `false` = log-only, `true` = fail-closed (throw). **Conservé en production après merge PR P0** jusqu'à Phase F. |
-| `feature.deprecated_fallbacks_enabled` | `true` | `feature_flag` | Garde les fallbacks constants deprecated actifs. `false` → remplace par throws explicites. |
+| Clé | Default | Category | Comportement runtime |
+|-----|---------|----------|----------------------|
+| `feature.risk_config_legacy_facade` | `true` | `feature_flag` | `true` → `RiskService.getConfig()` / `updateConfig()` autorisés. `false` → throw `RiskConfigLegacyFacadeDisabledError` (force getters isolés). Lecture échouée → **fail-open** (`true`). |
+| `feature.risk_config_strict` | `false` | `feature_flag` | Guard compose `assertNoDivergence` : `false` = log-only, `true` = throw. Lecture échouée → **fail-open** (`false` / log-only). Check léger (spread compose) — le vrai gate Strangler est `legacy_facade`. |
+| `feature.deprecated_fallbacks_enabled` | `true` | `feature_flag` | Lu au boot / config-changed dans crypto-algo → `StrategyRunner.setDeprecatedFallbacksEnabled`. `false` → `resolveGammaCacheTtlOrFallback` throw si cryptoConfig absent. Lecture échouée → **fail-open** (`true`). |
 
-**Lecture** : `systemConfigService.getBoolean('feature.risk_config_legacy_facade', true)`
+**Lecture** : `getFeatureFlag(ds, 'risk_config_legacy_facade', true)` (préfixe `feature.` ajouté automatiquement).
 
-**Rollback instantané C4 (PR P0)** : tant que la façade legacy existe (jusqu'à Phase F), `UPDATE system_config SET value = 'true' WHERE key = 'feature.risk_config_legacy_facade'` réactive le chemin legacy si une migration consommateur pose problème (cache TTL 10s).
+**Rollback C4 (PR P0)** : `UPDATE system_config SET value = 'true' WHERE key = 'feature.risk_config_legacy_facade'` (cache TTL 10s) → réautorise la façade legacy tant que Phase F non mergée.
 
 ---
 
@@ -107,19 +110,19 @@ main (stable)
 
 - [x] Créer `packages/crypto-algo/src/crypto-algo-shutdown.test.ts` ✅ 2026-08-06
 - [x] Créer `packages/crypto-algo/src/strategy/strategy-runner-config-race.test.ts` ✅ 2026-08-06
-- [x] **Observations** : re-entry Redis = fail-closed (documenté via test `tryLoadCryptoReentryState`). Code utilise `evalChains` (pas flag `evaluating`).
+- [x] **Observations** : re-entry Redis = fail-closed (`shouldFailClosedOnReentryRedisLoad`). Tests renforcés (config atomique, fallbacks throw). **Hors scope 3A** : extract du vrai `shutdown` de `index.ts` → Phase D si audit le justifie. Code utilise `evalChains` (pas flag `evaluating`).
 
 #### A.5 — Guard de divergence RiskConfig
 
 - [x] Ajouter `assertNoDivergence()` dans `risk.service.ts` après `composeRiskConfig` ✅ 2026-08-06
 - [x] Vérifier que le guard ne casse pas les tests existants ✅ 2026-08-06
-- [x] **Observations** : lit `feature.risk_config_strict` via SystemConfig.
+- [x] **Observations** : lit `feature.risk_config_strict` via `readFeatureFlagSafe` (fail-open). Sémantique = intégrité compose ; gate Strangler = `legacy_facade`.
 
 #### A.6 — Log.warn temporaire sur les fallbacks deprecated (C9 préparation)
 
-- [x] Ajouter `log.warn` dans `gammaCacheTtlFallback` (strategy-runner.ts) ✅ 2026-08-06
-- [x] Ajouter `log.warn` dans le constructor de `StrategyRunner` si `currentCryptoConfig` est null après `applyRiskTunables` ✅ 2026-08-06 — warn dans `start()` si config absente
-- [x] **Observations** :
+- [x] Ajouter `log.warn` dans `resolveGammaCacheTtlOrFallback` (ex-`gammaCacheTtlFallback`) ✅ 2026-08-06
+- [x] Ajouter `log.warn` dans `StrategyRunner.start()` si `currentCryptoConfig` est null ✅ 2026-08-06
+- [x] **Observations** : `deprecated_fallbacks_enabled=false` → throw. Flag refreshé via `applyCryptoAlgoRiskTunables` (boot + config-changed).
 
 #### A.7 — Cartographie exhaustive des consommateurs RiskConfig
 
@@ -136,11 +139,12 @@ main (stable)
 
 #### A.9 — Commit de la Phase A
 
-- [ ] Vérifier que tous les tests d'arête (A.2, A.3, A.4) sont verts
-- [ ] Vérifier que le guard (A.5) ne casse pas les tests existants
-- [ ] `npm run build` complet doit passer
-- [ ] Commit : `feat(p0): Phase A — tests d'arête + guards + feature flags + cartographie`
-- [ ] **Observations** :
+- [x] Vérifier que tous les tests d'arête (A.2, A.3, A.4) sont verts ✅ 2026-08-06
+- [x] Vérifier que le guard (A.5) ne casse pas les tests existants ✅ 2026-08-06
+- [x] `npm run build` core + crypto-algo doit passer ✅ 2026-08-06
+- [x] Commit initial : `6762b85` `feat(p0): Phase A — edge tests, guards, and feature flags` ✅ 2026-08-06
+- [x] Commit correctif : `ff24ab0` `fix(p0): wire feature flags and fail-open RiskConfig guards` ✅ 2026-08-06
+- [x] **Observations** : Phase A complète et prête pour Phase B. e2e crypto encore à lancer avant merge PR (A.8).
 
 ---
 
@@ -378,11 +382,11 @@ main (stable)
 
 ### Feature flags de sécurité
 
-| Flag | Default | Quand passer à `false` | Rollback |
-|------|---------|------------------------|----------|
-| `feature.risk_config_legacy_facade` | `true` | Phase F uniquement — après validation staging avec `false` | `UPDATE system_config SET value='true'` (efficace tant que Phase F non mergée) |
-| `feature.risk_config_strict` | `false` | 1 semaine post-merge PR P0 sans divergence → `true` en pré-prod, avant Phase F | `UPDATE system_config SET value='false'` |
-| `feature.deprecated_fallbacks_enabled` | `true` | Après D.2 (si fallback confirmé inutile) → `false` | `UPDATE system_config SET value='true'` |
+| Flag | Default | Quand passer à `false` / `true` | Rollback | État code |
+|------|---------|--------------------------------|----------|-----------|
+| `feature.risk_config_legacy_facade` | `true` | Staging Phase F : passer à `false` pour valider que plus aucun hot path n'appelle `getConfig` | `UPDATE … SET value='true'` | ✅ Branché (`RiskService`) |
+| `feature.risk_config_strict` | `false` | 1 semaine post-merge PR P0 sans warn compose → `true` en pré-prod, avant Phase F | `UPDATE … SET value='false'` | ✅ Branché (fail-open si illisible) |
+| `feature.deprecated_fallbacks_enabled` | `true` | Après D.2 (si fallback confirmé inutile) → `false` | `UPDATE … SET value='true'` | ✅ Branché (`StrategyRunner`) |
 
 ### Règle d'or
 
@@ -395,11 +399,12 @@ main (stable)
 | Scénario | Action |
 |----------|--------|
 | PR P0 entière casse la production | `git revert` la PR consolidée → retour à l'état pré-P0 |
-| C4 migration casse (PR P0, façade encore présente) | `feature.risk_config_legacy_facade = true` (SystemConfig, cache TTL 10s) → chemin legacy réactivé sans revert |
+| C4 migration casse (PR P0, façade encore présente) | `feature.risk_config_legacy_facade = true` (SystemConfig, cache TTL 10s) → `getConfig`/`updateConfig` réautorisés sans revert |
 | Phase F casse après purge | `git revert` PR Phase F — **ou** restaurer la façade depuis le tag `p0-complete` si revert insuffisant |
+| Feature flag illisible (DB) | Fail-open automatique : façade legacy reste autorisée ; strict reste log-only ; fallbacks deprecated restent actifs |
 | Feature flag casse | `UPDATE system_config SET value = '<default>' WHERE key = 'feature.*'` |
 
-> Note : en conservant la façade legacy dans la PR P0, le rollback C4 par feature flag redevient effectif. La Phase F reintroduit un rollback principalement via `git revert` (le flag `risk_config_legacy_facade` n'a plus de code à piloter après purge).
+> Note : en conservant la façade legacy dans la PR P0, le rollback C4 par feature flag est **effectif** (`false` throw, `true` réautorise). La Phase F reintroduit un rollback principalement via `git revert` (le flag n'a plus de code à piloter après purge).
 
 ---
 
@@ -407,7 +412,7 @@ main (stable)
 
 | Phase | Statut | Dernière mise à jour |
 |-------|--------|----------------------|
-| Phase A — Préparation (tests + guards + cartographie) | ✅ Terminée | 2026-08-06 |
+| Phase A — Préparation (tests + guards + cartographie) | ✅ Terminée (+ correctif flags) | 2026-08-06 |
 | Phase B — C4 RiskConfig migration consommateurs | ⏳ En attente | — |
 | Phase C — C1 sim/real extraction | ⏳ En attente | — |
 | Phase D — Bugs fantômes 4.3/4.4 | ⏳ En attente | — |

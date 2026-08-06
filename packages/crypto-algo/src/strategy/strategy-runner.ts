@@ -247,6 +247,12 @@ export class StrategyRunner {
       'strategy-runner:tick',
     );
 
+    if (!this.currentCryptoConfig) {
+      log.warn(
+        'StrategyRunner started before applyRiskTunables — crypto tunables and Gamma TTL may use deprecated fallbacks',
+      );
+    }
+
     log.info({ pollMs, wsConnected: this.wsConnected }, 'strategy runner started');
     return this.tickTimer;
   }
@@ -939,6 +945,10 @@ export class StrategyRunner {
 }
 
 function gammaCacheTtlFallback(interval: string | null | undefined): number {
+  log.warn(
+    { interval: interval ?? null },
+    'gammaCacheTtlFallback used — cryptoConfig absent; using deprecated interval TTL constants',
+  );
   const normalized = interval ? normalizeInterval(interval) : null;
   if (
     normalized === '5m' ||

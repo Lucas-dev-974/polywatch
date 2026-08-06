@@ -180,6 +180,22 @@ describe('SystemConfigService', () => {
     });
   });
 
+  describe('getFeatureFlag', () => {
+    it('prefixes feature. when reading boolean flags', async () => {
+      const repo = createMockRepo();
+      (repo.findOne as ReturnType<typeof vi.fn>).mockResolvedValue({
+        key: 'feature.risk_config_strict',
+        value: 'true',
+      } as SystemConfig);
+      const svc = new SystemConfigService(createMockDs(repo));
+
+      expect(await svc.getFeatureFlag('risk_config_strict', false)).toBe(true);
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { key: 'feature.risk_config_strict' },
+      });
+    });
+  });
+
   describe('seedDefaults', () => {
     it('inserts missing keys and skips existing ones', async () => {
       const repo = createMockRepo();

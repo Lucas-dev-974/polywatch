@@ -20,8 +20,16 @@ import {
   getWeatherKillSwitchAction,
 } from '../risk/policy.js';
 import { toWeatherConfigEntityUpdate } from '../risk/weather-config-api.js';
+import {
+  detectRiskConfigDivergences,
+  handleRiskConfigDivergence,
+} from '../risk/risk-config-divergence.js';
+import { SystemConfigService } from './system-config.service.js';
 import type { KillSwitchAction, TradingMode } from '../types/index.js';
 import type { SimAlgoKind } from '../simulation/algo-kind.js';
+import pino from 'pino';
+
+const log = pino({ name: 'risk-service' });
 
 export interface RiskCheckResult {
   killSwitchTriggered: boolean;
@@ -72,6 +80,7 @@ export class RiskService {
     // Compose a RiskConfig-shaped object from the four isolated tables so that
     // legacy callers (and the few remaining legacy getters) keep working.
     const composed = this.composeRiskConfig(global, copy, crypto, weather);
+    await this.assertNoDivergence(composed, global, copy, crypto, weather);
 
     if (!bypassCache) {
       RiskService.configCache = {
@@ -268,6 +277,19 @@ export class RiskService {
       ...weather,
       id: 0,
     } as unknown as RiskConfig;
+  }
+
+  private async assertNoDivergence(
+    composed: RiskConfig,
+    global: GlobalConfig,
+    copy: CopyConfig,
+    crypto: CryptoConfig,
+    weather: WeatherConfig,
+  ): Promise<void> {
+    const divergences = detectRiskConfigDivergences(composed, global, copy, crypto, weather);
+    const systemConfig = new SystemConfigService(this.ds);
+    const strict = await systemConfig.getFeatureFlag('risk_config_strict', false);
+    handleRiskConfigDivergence(divergences, strict, log);
   }
 
   // ─── New per-algo getters ─────────────────────────────────────────────

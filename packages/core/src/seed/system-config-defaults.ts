@@ -56,6 +56,26 @@ export const SYSTEM_CONFIG_DEFAULTS: { key: string; value: string; category: str
   { key: 'backend.auth.refresh_token.ttl_seconds', value: '604800', category: 'backend', description: 'Refresh token TTL' },
   { key: 'backend.polygonscan.max_offset', value: '1000', category: 'backend', description: 'Polygonscan max offset' },
   { key: 'backend.polygonscan.max_windows', value: '1000', category: 'backend', description: 'Polygonscan max windows' },
+
+  // Feature flags (P0 audit)
+  {
+    key: 'feature.risk_config_legacy_facade',
+    value: 'true',
+    category: 'feature_flag',
+    description: 'Keep getConfig() / composeRiskConfig() legacy facade active (Strangler Fig)',
+  },
+  {
+    key: 'feature.risk_config_strict',
+    value: 'false',
+    category: 'feature_flag',
+    description: 'RiskConfig divergence guard: false = log-only, true = fail-closed (throw)',
+  },
+  {
+    key: 'feature.deprecated_fallbacks_enabled',
+    value: 'true',
+    category: 'feature_flag',
+    description: 'Keep deprecated constant fallbacks active; false = explicit throws',
+  },
 ];
 
 export async function seedSystemConfigDefaults(ds: DataSource): Promise<void> {

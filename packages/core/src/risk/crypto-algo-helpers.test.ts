@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import {
   getCryptoAlgoEffectivePreCloseSeconds,
   getPositionPreCloseParams,
@@ -7,7 +8,17 @@ import {
   isCryptoAlgoPreCloseEnabled,
 } from './crypto-algo-helpers.js';
 
-function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
+function makeCrypto(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
+  return {
+    cryptoAlgoPreCloseEnabled: null,
+    cryptoAlgoPreCloseSeconds: null,
+    cryptoAlgoPreCloseKeepEnabled: null,
+    cryptoAlgoPreCloseKeepBidThreshold: null,
+    ...overrides,
+  } as CryptoConfig;
+}
+
+function makeCopy(overrides: Partial<CopyConfig> = {}): CopyConfig {
   return {
     simPreCloseEnabled: true,
     simPreCloseSeconds: 60,
@@ -17,12 +28,8 @@ function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
     realPreCloseSeconds: 120,
     realPreCloseKeepEnabled: false,
     realPreCloseKeepBidThreshold: 0.80,
-    cryptoAlgoPreCloseEnabled: null,
-    cryptoAlgoPreCloseSeconds: null,
-    cryptoAlgoPreCloseKeepEnabled: null,
-    cryptoAlgoPreCloseKeepBidThreshold: null,
     ...overrides,
-  } as RiskConfig;
+  } as CopyConfig;
 }
 
 describe('crypto-algo pre-close helpers', () => {
@@ -31,24 +38,24 @@ describe('crypto-algo pre-close helpers', () => {
     expect(isAlgoPositionReason('COPY_OPEN')).toBe(false);
   });
 
-  it('uses algo pre-close defaults when overrides are null', () => {
-    const risk = makeRisk();
-    expect(getPositionPreCloseParams(risk, 'sim', 'ALGO_OPEN')).toEqual({
-      preCloseEnabled: true,
-      preCloseSeconds: 60,
+  it('fail-closes algo pre-close when overrides are null', () => {
+    const crypto = makeCrypto();
+    expect(getPositionPreCloseParams(crypto, 'sim', 'ALGO_OPEN')).toEqual({
+      preCloseEnabled: false,
+      preCloseSeconds: 0,
       keepEnabled: false,
       keepBidThreshold: 0.80,
     });
   });
 
   it('applies crypto-algo overrides for algo positions', () => {
-    const risk = makeRisk({
+    const crypto = makeCrypto({
       cryptoAlgoPreCloseEnabled: true,
       cryptoAlgoPreCloseSeconds: 30,
       cryptoAlgoPreCloseKeepEnabled: true,
       cryptoAlgoPreCloseKeepBidThreshold: 0.85,
     });
-    expect(getPositionPreCloseParams(risk, 'sim', 'ALGO_OPEN')).toEqual({
+    expect(getPositionPreCloseParams(crypto, 'sim', 'ALGO_OPEN')).toEqual({
       preCloseEnabled: true,
       preCloseSeconds: 30,
       keepEnabled: true,
@@ -56,47 +63,41 @@ describe('crypto-algo pre-close helpers', () => {
     });
   });
 
-  it('can disable pre-close for algo while copy keeps it', () => {
-    const risk = makeRisk({ cryptoAlgoPreCloseEnabled: false });
-    expect(getPositionPreCloseParams(risk, 'sim', 'ALGO_OPEN').preCloseEnabled).toBe(
-      false,
-    );
-    expect(getPositionPreCloseParams(risk, 'sim', 'COPY_OPEN').preCloseEnabled).toBe(
-      true,
-    );
+  it('uses copy pre-close for copy positions independently of crypto config', () => {
+    const copy = makeCopy();
+    expect(getPositionPreCloseParams(copy, 'sim', 'COPY_OPEN')).toEqual({
+      preCloseEnabled: true,
+      preCloseSeconds: 60,
+      keepEnabled: false,
+      keepBidThreshold: 0.80,
+    });
+
+    const cryptoDisabled = makeCrypto({ cryptoAlgoPreCloseEnabled: false });
+    expect(
+      getPositionPreCloseParams(cryptoDisabled, 'sim', 'ALGO_OPEN').preCloseEnabled,
+    ).toBe(false);
   });
 
-  it('reports crypto-algo pre-close enabled state', () => {
-    expect(isCryptoAlgoPreCloseEnabled(makeRisk())).toBe(true);
+  it('reports crypto-algo pre-close enabled only when explicitly true', () => {
+    expect(isCryptoAlgoPreCloseEnabled(makeCrypto())).toBe(false);
     expect(
-      isCryptoAlgoPreCloseEnabled(
-        makeRisk({
-          simPreCloseEnabled: false,
-          cryptoAlgoPreCloseEnabled: true,
-        }),
-      ),
+      isCryptoAlgoPreCloseEnabled(makeCrypto({ cryptoAlgoPreCloseEnabled: true })),
     ).toBe(true);
     expect(
-      isCryptoAlgoPreCloseEnabled(
-        makeRisk({
-          simPreCloseEnabled: false,
-          realPreCloseEnabled: false,
-          cryptoAlgoPreCloseEnabled: false,
-        }),
-      ),
+      isCryptoAlgoPreCloseEnabled(makeCrypto({ cryptoAlgoPreCloseEnabled: false })),
     ).toBe(false);
   });
 
   it('resolves effective pre-close seconds for market refresh', () => {
-    expect(getCryptoAlgoEffectivePreCloseSeconds(makeRisk())).toBe(60);
+    expect(getCryptoAlgoEffectivePreCloseSeconds(makeCrypto())).toBe(0);
     expect(
       getCryptoAlgoEffectivePreCloseSeconds(
-        makeRisk({ cryptoAlgoPreCloseSeconds: 45 }),
+        makeCrypto({ cryptoAlgoPreCloseSeconds: 45 }),
       ),
     ).toBe(45);
     expect(
       getCryptoAlgoEffectivePreCloseSeconds(
-        makeRisk({ cryptoAlgoPreCloseEnabled: false }),
+        makeCrypto({ cryptoAlgoPreCloseEnabled: false }),
       ),
     ).toBe(0);
   });

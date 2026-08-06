@@ -160,7 +160,8 @@ Voir [`docs/code/07-crypto-algo.md`](code/07-crypto-algo.md) pour le détail.
 
 ### Weather-Algo (`packages/weather-algo/src/index.ts`)
 
-Process sans serveur HTTP — trading météo **par ville**. Détail : [`weather-algo.md`](./weather-algo.md).
+Process sans serveur HTTP — trading météo **par ville**. Détail :
+[`weather-algo.md`](./weather-algo.md) · [`docs/code/08-weather-algo.md`](code/08-weather-algo.md).
 
 - Sélection : `WeatherAutoTrackRule` (ville + `highest_temp` + horizon).
 - Cycle : **sorties d'abord**, puis entrées ; max **1 position ouverte / ville**.

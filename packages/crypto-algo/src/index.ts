@@ -16,6 +16,7 @@ import {
   RedisQueue,
   ALGO_SL_QUOTA_INVALIDATE_CHANNEL,
   ALGO_REENTRY_FILL_CHANNEL,
+  ALGO_POSITION_CLOSED_CHANNEL,
   SIMULATION_RESET_CHANNEL,
   parseSimulationResetPayload,
   publishAlgoSelectionsChanged,
@@ -31,6 +32,7 @@ import {
   type GlobalConfig,
   WORKER_QUEUES,
   getFeatureFlag,
+  PostEntryMidSample,
 } from '@polywatch/core';
 import { config } from './config.js';
 import { createShutdownHandler } from './shutdown.js';
@@ -51,7 +53,9 @@ import { SignalStateRegistry } from './signal-state-registry.js';
 import { PositionContextCache } from './position-context-cache.js';
 import { buildSurveillanceTargets } from './surveillance-targets.js';
 import {
+  cancelPostEntryMidTimersForPosition,
   clearPostEntryMidTimers,
+  POST_ENTRY_MID_RETENTION_MS,
   schedulePostEntryMidLog,
 } from './post-entry-mid-logger.js';
 import { startSurveillanceJanitor } from './surveillance-janitor.js';
@@ -417,6 +421,25 @@ async function main() {
     'crypto-algo:position-context-refresh',
   );
 
+  // Retention: drop post-entry mid samples older than 14 days (hourly).
+  const postEntryMidCleanupTimer = safeInterval(
+    async () => {
+      try {
+        const cutoff = Date.now() - POST_ENTRY_MID_RETENTION_MS;
+        await ds
+          .getRepository(PostEntryMidSample)
+          .createQueryBuilder()
+          .delete()
+          .where('sampled_at_ms < :cutoff', { cutoff: String(cutoff) })
+          .execute();
+      } catch (err) {
+        log.warn({ err }, 'post-entry mid sample cleanup failed');
+      }
+    },
+    60 * 60_000,
+    'crypto-algo:post-entry-mid-cleanup',
+  );
+
   // 21. Heartbeat: publish every 30s
   const heartbeatTimer = safeInterval(
     async () => {
@@ -436,7 +459,13 @@ async function main() {
   );
 
   // 21. Subscribe to config-changed on redisSub — reload selections + risk config
-  redisSub.subscribe('config-changed', ALGO_SL_QUOTA_INVALIDATE_CHANNEL, ALGO_REENTRY_FILL_CHANNEL, SIMULATION_RESET_CHANNEL, (err: Error | null | undefined) => {
+  redisSub.subscribe(
+    'config-changed',
+    ALGO_SL_QUOTA_INVALIDATE_CHANNEL,
+    ALGO_REENTRY_FILL_CHANNEL,
+    ALGO_POSITION_CLOSED_CHANNEL,
+    SIMULATION_RESET_CHANNEL,
+    (err: Error | null | undefined) => {
     if (err) log.error({ err }, 'failed to subscribe to config-changed channel');
   });
 
@@ -479,10 +508,34 @@ async function main() {
             positionId: payload.positionId,
             filledAtMs: payload.filledAtMs,
             priceFeed,
+            onSample: async (sample) => {
+              await ds.getRepository(PostEntryMidSample).save({
+                conditionId: payload.conditionId!,
+                outcome: payload.outcome!,
+                positionId: payload.positionId ?? null,
+                filledAtMs: String(payload.filledAtMs ?? Date.now()),
+                offsetMs: sample.offsetMs,
+                upMid: sample.upMid,
+                downMid: sample.downMid,
+                sampledAtMs: String(sample.sampledAtMs),
+              });
+            },
           });
         }
       } catch (err) {
         log.warn({ err, message }, 'malformed algo re-entry fill payload');
+      }
+      return;
+    }
+
+    if (channel === ALGO_POSITION_CLOSED_CHANNEL) {
+      try {
+        const payload = JSON.parse(message ?? '') as { positionId?: number };
+        if (typeof payload.positionId === 'number') {
+          cancelPostEntryMidTimersForPosition(payload.positionId);
+        }
+      } catch (err) {
+        log.warn({ err, message }, 'malformed algo-position-closed payload');
       }
       return;
     }
@@ -570,6 +623,7 @@ async function main() {
       priceTickRecorder.shutdown();
       if (priceTickCleanupTimer) clearInterval(priceTickCleanupTimer);
       clearInterval(positionContextRefreshTimer);
+      clearInterval(postEntryMidCleanupTimer);
       positionCache.clear();
       signalRegistry.clear();
       surveillanceRecorder.shutdown();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import {
   CRYPTO_MIN_TIME_TO_CLOSE_BUFFER_SECONDS,
   normalizeCryptoInterval,
@@ -12,38 +12,26 @@ import {
   resolveMarketInterval,
 } from './crypto-algo-exit.js';
 
-function makeExitRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
+function makeExitRisk(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
   return {
-    simSlEnabled: true,
-    simTpEnabled: true,
-    simTrailingEnabled: true,
-    simTrailingBidPoints: 0.1,
-    simTrailingActivationBidPoints: 0,
-    realSlEnabled: true,
-    realTpEnabled: true,
-    realTrailingEnabled: true,
-    realTrailingBidPoints: 0.1,
-    realTrailingActivationBidPoints: 0,
     cryptoAlgoSlEnabled: true,
     cryptoAlgoTpEnabled: true,
     cryptoAlgoTrailingEnabled: true,
     cryptoAlgoTrailingBidPoints: null,
     cryptoAlgoTrailingActivationBidPoints: null,
+    cryptoAlgoSlBidPoints: null,
+    cryptoAlgoTpBidPoints: null,
     ...overrides,
-  } as RiskConfig;
+  } as CryptoConfig;
 }
 
-function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
+function makeRisk(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
   return {
-    simPreCloseEnabled: true,
-    simPreCloseSeconds: 15,
-    realPreCloseEnabled: true,
-    realPreCloseSeconds: 15,
     cryptoAlgoPreCloseEnabled: true,
     cryptoAlgoPreCloseSeconds: null,
     cryptoAlgoMinTimeToClose: null,
     ...overrides,
-  } as RiskConfig;
+  } as CryptoConfig;
 }
 
 describe('resolveCryptoAlgoPreCloseSeconds', () => {
@@ -171,17 +159,9 @@ describe('resolveAlgoEntryExitParams', () => {
     expect(params.tpBidPoints).toBeNull();
   });
 
-  it('uses interval defaults even when sim copy SL/TP is disabled', () => {
+  it('uses interval defaults when algo exit legs are enabled', () => {
     expect(
-      resolveAlgoEntryExitParams(
-        makeExitRisk({
-          simSlEnabled: false,
-          simTpEnabled: false,
-          simTrailingEnabled: false,
-        }),
-        'sim',
-        '5m',
-      ).slBidPoints,
+      resolveAlgoEntryExitParams(makeExitRisk(), 'sim', '5m').slBidPoints,
     ).toBe(0.10);
   });
 
@@ -267,7 +247,7 @@ describe('resolveExitDecisionMarkPrice', () => {
     expect(mark).toBe(0.52);
   });
 
-  it('respects lastCloseableBidMaxAgeMs override from RiskConfig', () => {
+  it('respects lastCloseableBidMaxAgeMs override from CryptoConfig', () => {
     const staleAt = new Date(Date.now() - 45_000);
     const stalePos = { ...pos, lastCloseableBidAt: staleAt };
     // Default 60s → still fresh

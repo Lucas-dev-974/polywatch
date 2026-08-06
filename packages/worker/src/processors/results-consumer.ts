@@ -41,6 +41,7 @@ import type { OpenPositionTracker } from './market-tracking/open-position-tracke
 import type { MarketTickRecorder } from './market-tracking/market-tick-recorder.js';
 import pino from 'pino';
 import { notifyAlgoReentryFillFromOpen } from '../algo-reentry-fill.js';
+import { notifyAlgoPositionClosed } from '../algo-position-closed.js';
 
 const log = pino({ name: 'results-consumer' });
 
@@ -94,6 +95,7 @@ export class ResultsConsumer {
     if (pos) {
       void notifyBackendExecution(buildExecutionNotifyPayload(result));
       notifyAlgoReentryFillFromOpen(pos, execution, result);
+      notifyAlgoPositionClosed(pos);
       this.syncPositionTracking(execution, pos, result);
       await this.maybeRetryForcedExitClose(pos, execution, result);
     }

@@ -282,7 +282,26 @@ avec metriques enrichies (spread, liquidite, positions ouvertes, etc.).
 
 ---
 
-## 8. Rapport d'optimisation (sim)
+## 8. Modules runtime (complément)
+
+| Module | Rôle |
+|--------|------|
+| `surveillance-targets.ts` | `buildSurveillanceTargets` — fusion sélections actives + marchés futurs auto-track pour `MarketSurveillanceRecorder` |
+| `signal-state-registry.ts` | Dernier signal / dernière abstention par `conditionId` (enrichit `algo_price_ticks`) |
+| `position-context-cache.ts` | Cache batch positions algo ouvertes (`count`, exposure, uPnL) rafraîchi toutes les 5 s |
+| `algo-percent-publisher.ts` | Push live % Up/Down → `POST /api/internal/market-pct-updates` (batch, flush 250 ms) |
+| `algo-chart-tick-publisher.ts` | Push ticks chart → `POST /api/internal/algo-chart-ticks` (WS `algo_chart_tick`) |
+| `curve-descending-gate.ts` | `evaluateCurveDescendingGate` — `delta = last.mid − first.mid` ; `pass` / `insufficient` / `descending` |
+| `post-entry-mid-logger.ts` | Samples mid +1s/+5s/+30s après fill ALGO_OPEN → table `post_entry_mid_samples` ; cancel si position fermée (`algo-position-closed`) |
+| `scripts/monitor.ts` | CLI offline monitoring (DB+Redis → JSON) ; lancé aussi via `POST /api/system/crypto-algo-monitor` |
+
+**Abstentions** (`AbstainReasonCode`, 15) : `neutral_zone`, `spread_gate`, `illiquid_book`, `no_outcome_prices`, `invalid_price_sum`, `stale_book`, `no_price_source`, `invalid_interval`, `unknown_outcomes`, `missing_token`, `re_entry_limit`, `sl_quota_reached`, `price_band`, `curve_descending`, `curve_insufficient`.
+
+**Timers `index.ts`** : selection refresh, strategy poll, market janitor, surveillance refresh/janitor, price-tick cleanup, position-context 5 s, heartbeat 30 s, post-entry mid (+1/+5/+30), rétention samples mid (horaire).
+
+---
+
+## 9. Rapport d'optimisation (sim)
 
 Analyse agreegee des positions `ALGO_OPEN` en simulation : PnL par `close_reason`,
 whipsaw SL, buckets d'entree, leviers et recommandations `crypto_algo_*`.

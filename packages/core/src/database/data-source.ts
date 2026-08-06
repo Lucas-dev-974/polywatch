@@ -129,9 +129,11 @@ import { EnsureRiskConfigFingerprintNullable1700000000090 } from '../migrations/
 import { AddWeatherAlgoMinForecastProbability1700000000092 } from '../migrations/AddWeatherAlgoMinForecastProbability1700000000092.js';
 import { CryptoAlgoStopBleed1700000000093 } from '../migrations/CryptoAlgoStopBleed1700000000093.js';
 import { AddCryptoAlgoStrategyParams1700000000094 } from '../migrations/AddCryptoAlgoStrategyParams1700000000094.js';
+import { CreatePostEntryMidSamples1700000000095 } from '../migrations/CreatePostEntryMidSamples1700000000095.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
+import { PostEntryMidSample } from '../entities/PostEntryMidSample.js';
 
 export const migrations = [
   Baseline1700000000000,
@@ -212,6 +214,7 @@ export const migrations = [
   AddWeatherAlgoMinForecastProbability1700000000092,
   CryptoAlgoStopBleed1700000000093,
   AddCryptoAlgoStrategyParams1700000000094,
+  CreatePostEntryMidSamples1700000000095,
 ];
 
 export const entities = [
@@ -264,6 +267,7 @@ export const entities = [
   CopyConfig,
   CryptoConfig,
   WeatherConfig,
+  PostEntryMidSample,
 ];
 
 /**

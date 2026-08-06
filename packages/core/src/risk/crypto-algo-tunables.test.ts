@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import {
   clampCurveLookbackMs,
   DEFAULT_CRYPTO_ALGO_BASE_THRESHOLD,
@@ -20,7 +20,7 @@ import {
   validateCryptoAlgoTunablesUpdate,
 } from './crypto-algo-tunables.js';
 
-function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
+function makeRisk(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
   return {
     cryptoAlgoBaseThreshold: null,
     cryptoAlgoSpreadAdjustmentFactor: null,
@@ -49,7 +49,7 @@ function makeRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
     cryptoAlgoCurveLookbackMs: null,
     cryptoAlgoCurveMinDelta: null,
     ...overrides,
-  } as RiskConfig;
+  } as CryptoConfig;
 }
 
 describe('mergeIntervalNumberMap', () => {

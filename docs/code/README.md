@@ -1,6 +1,7 @@
-# Documentation du code — Polywatch v0.1.0
+# Documentation du code — Polywatch
 
-Documentation technique du code (dernière mise à jour : séparation copy-trading / worker 2026-07-22).
+Documentation technique du code (dernière mise à jour : 2026-08-06 — ajout
+`08-weather-algo.md`, post-purge RiskConfig).
 
 ## Sommaire
 
@@ -13,8 +14,8 @@ Documentation technique du code (dernière mise à jour : séparation copy-tradi
 | [05-copy-trading.md](05-copy-trading.md) | Package `@polywatch/copy-trading` : détection moves, pipelines entry/exit copy |
 | [05-backend.md](05-backend.md) | Package `@polywatch/backend` : API REST, Socket.IO, crypto, flux dépôt/retrait |
 | [06-frontend.md](06-frontend.md) | Package `@polywatch/frontend` : SolidJS, composants, hooks, flux utilisateur |
-| [07-crypto-algo.md](07-crypto-algo.md) | Package `@polywatch/crypto-algo` : auto-track, stratégies ML, publication temps réel |
-| [`../weather-algo.md`](../weather-algo.md) | Package `@polywatch/weather-algo` : marchés température, Open-Meteo, entrées/sorties, auto-track |
+| [07-crypto-algo.md](07-crypto-algo.md) | Package `@polywatch/crypto-algo` : auto-track, stratégies, publication temps réel |
+| [08-weather-algo.md](08-weather-algo.md) | Package `@polywatch/weather-algo` : city-first, forecast, entry/exit, miroir crypto |
 
 ## Rappel du produit
 

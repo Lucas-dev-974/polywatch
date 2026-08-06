@@ -216,10 +216,11 @@ crypto-algo/src/
 ├── price-tick-recorder.ts          ticks 1 Hz → AlgoPriceTick (chart API)
 ├── signal-state-registry.ts        état signaux récents (enrichissement ticks)
 ├── position-context-cache.ts       cache positions algo ouvertes
+├── post-entry-mid-logger.ts        samples mid +1s/+5s/+30s → post_entry_mid_samples
 ├── processors/
-│   └── algo-entry-pipeline.ts      sizing + réservation + file order-signals
+│   └── algo-entry-pipeline.ts      sizing + réservation + file algo-order-signals
 └── strategy/
-    ├── strategy.ts                 interface CryptoAlgoStrategy, AlgoSignal, StrategyContext
+    ├── strategy.ts                 interface CryptoAlgoStrategy, AlgoSignal, StrategyContext, AbstainReasonCode (15)
     ├── registry.ts                 StrategyRegistry (filtre par cryptoAlgoStrategies)
     ├── strategy-runner.ts          boucle d'évaluation + re-entry guard + WS
     ├── constants.ts                VALID_INTERVALS, SPREAD_BY_INTERVAL, helpers
@@ -227,7 +228,7 @@ crypto-algo/src/
         └── naive-momentum.strategy.ts
 ```
 
-## Configuration (extrait `RiskConfig`)
+## Configuration (extrait `CryptoConfig`)
 
 | Champ | Défaut | Rôle |
 |---|---|---|

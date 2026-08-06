@@ -335,6 +335,12 @@ export {
   type AlgoReentryFillPayload,
 } from './redis/algo-reentry-fill.js';
 export {
+  ALGO_POSITION_CLOSED_CHANNEL,
+  publishAlgoPositionClosed,
+  shouldPublishAlgoPositionClosed,
+  type AlgoPositionClosedPayload,
+} from './redis/algo-position-closed.js';
+export {
   ALGO_ENTRY_COOLDOWN_SECONDS,
   algoEntryCooldownKey,
   hasAlgoEntryCooldown,

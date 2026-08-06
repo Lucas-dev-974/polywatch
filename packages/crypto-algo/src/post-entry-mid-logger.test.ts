@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  cancelPostEntryMidTimersForPosition,
   clearPostEntryMidTimers,
+  getActivePostEntryMidTimerCount,
   POST_ENTRY_MID_OFFSETS_MS,
   schedulePostEntryMidLog,
 } from './post-entry-mid-logger.js';
@@ -31,7 +33,9 @@ describe('schedulePostEntryMidLog', () => {
       }) as typeof setTimeout,
       clearTimeoutFn: (() => undefined) as typeof clearTimeout,
       nowMs: () => now,
-      onSample: (s) => samples.push({ offsetMs: s.offsetMs, upMid: s.upMid }),
+      onSample: (s) => {
+        samples.push({ offsetMs: s.offsetMs, upMid: s.upMid });
+      },
     });
 
     expect(timers.map((t) => t.delay)).toEqual([...POST_ENTRY_MID_OFFSETS_MS]);
@@ -89,5 +93,34 @@ describe('schedulePostEntryMidLog', () => {
     });
     clearPostEntryMidTimers();
     expect(cleared).toEqual([10, 11, 12]);
+  });
+
+  it('cancelPostEntryMidTimersForPosition clears only that position', () => {
+    const cleared: number[] = [];
+    let nextId = 100;
+    const makeTimers = (positionId: number) =>
+      schedulePostEntryMidLog({
+        conditionId: '0xabc',
+        outcome: 'YES',
+        positionId,
+        filledAtMs: Date.now(),
+        priceFeed: {
+          getOutcomePrices: () => ({ upPrice: 0.5, downPrice: 0.5 }),
+        },
+        setTimeoutFn: ((_fn: () => void, _delay: number) => {
+          return (nextId++) as unknown as ReturnType<typeof setTimeout>;
+        }) as typeof setTimeout,
+        clearTimeoutFn: ((id: ReturnType<typeof setTimeout>) => {
+          cleared.push(id as unknown as number);
+        }) as typeof clearTimeout,
+      });
+
+    makeTimers(1);
+    makeTimers(2);
+    expect(getActivePostEntryMidTimerCount()).toBe(6);
+    expect(cancelPostEntryMidTimersForPosition(1)).toBe(true);
+    expect(cleared).toEqual([100, 101, 102]);
+    expect(getActivePostEntryMidTimerCount()).toBe(3);
+    expect(cancelPostEntryMidTimersForPosition(1)).toBe(false);
   });
 });

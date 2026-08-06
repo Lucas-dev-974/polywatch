@@ -369,3 +369,24 @@ sous-marché) renvoie **410 Gone**.
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/weather-algo-forecasts/:city/:date?metric=highest_temp` | Prévision météo (cache DB → fallback Open-Meteo) |
+
+### Capital & exécutions
+
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| GET | `/api/weather-algo/capital` | JWT | Capital sim (`SimulationService.getSnapshot('weather')`) + cash réel on-chain pUSD (wallet partagé) |
+| GET | `/api/weather-algo/executions` | JWT | Exécutions `WEATHER_*` (pagination `limit`/`offset`, filtres `conditionId`, `mode`, `status`/`statusGroup=pending`, `from`/`to`) — enrichi marchés + `WeatherPositionForecast` |
+
+## Système — audit & monitor
+
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| POST | `/api/system/audit` | JWT | Lance un script d'audit (`body: { script, confirm? }`) → `202 { runId }` ; `409` si déjà en cours ; scripts dangereux exigent `confirm: true` |
+| GET | `/api/system/crypto-algo-monitor` | JWT | Run actif du monitor crypto-algo (`204` si aucun) — récupération UI après reload |
+| POST | `/api/system/crypto-algo-monitor` | JWT | Démarre `scripts/monitor.ts` (`durationHours`, `intervalSeconds`) → `202` ; `409` si déjà en cours |
+| GET | `/api/system/crypto-algo-monitor/:runId` | JWT | État + logs + dernier snapshot JSON |
+| POST | `/api/system/crypto-algo-monitor/:runId/stop` | JWT | Arrête le run |
+
+Événements WS associés : `crypto-algo-monitor:log`, `crypto-algo-monitor:snapshot`, `crypto-algo-monitor:finished`.
+
+> Config per-kind (`GET/PUT /api/config/{global,copy,crypto,weather}`) : déjà documentée en tête de fichier (`config-per-kind.ts`).

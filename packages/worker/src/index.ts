@@ -45,6 +45,7 @@ import { PositionLockRegistry } from './clob/position-lock-registry.js';
 import { refreshWorkerContext } from './worker-context-refresh.js';
 import { configureAlgoSlQuotaInvalidatePublisher } from './algo-sl-quota-invalidate.js';
 import { configureAlgoReentryFillPublisher } from './algo-reentry-fill.js';
+import { configureAlgoPositionClosedPublisher } from './algo-position-closed.js';
 import { safeInterval } from './helpers.js';
 import {
   HEARTBEAT_INTERVAL_MS,
@@ -94,6 +95,7 @@ async function main() {
   const redisSub = createRedis();
   configureAlgoSlQuotaInvalidatePublisher(redisPub);
   configureAlgoReentryFillPublisher(redisPub, ds);
+  configureAlgoPositionClosedPublisher(redisPub);
   const redisOrderConsumer = createRedis();
   const redisAlgoOrderConsumer = createRedis();
   const redisWeatherOrderConsumer = createRedis();

@@ -28,7 +28,8 @@
     "test:e2e:crypto:real": "cross-env RUN_REAL_SIM_E2E=1 vitest run -c e2e/crypto-algo/vitest.config.ts e2e/crypto-algo/crypto-algo.real-sim.e2e.test.ts",
     "test:e2e:weather": "vitest run -c e2e/weather-algo/vitest.config.ts e2e/weather-algo",
     "validate:redemption": "node scripts/validate-redemption-onchain.mjs",
-    "audit:stale-entries": "tsx tools/detect-stale-entry-timestamps.ts"
+    "audit:stale-entries": "tsx tools/detect-stale-entry-timestamps.ts",
+    "diff:sim-real-snapshot": "tsx tools/diff-sim-real-snapshot.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

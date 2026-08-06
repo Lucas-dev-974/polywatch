@@ -210,44 +210,44 @@ main (stable)
 
 #### C.1 — Extraire decision-collector-shared.ts
 
-- [ ] Créer `packages/core/src/snapshot/decision-collector-shared.ts` :
+- [x] Créer `packages/core/src/snapshot/decision-collector-shared.ts` :
   - `toExitAttemptDto` (identique, sim:54-69 = real:53-68)
   - `toMoveEventDto` (identique, sim:71-91 = real:70-90)
   - `incrementCount` (identique)
   - `buildPositionBreakdown` (identique, sim:97-122 = real:96-121)
   - `truncateEvents` (identique, sim:157-162 = real:153-158)
   - Constantes `SNAPSHOT_DECISION_MAX_EVENTS = 500` et `SNAPSHOT_DECISION_MAX_JSON_BYTES = 2_000_000`
-- [ ] **Observations** :
+- [x] **Observations** : Aussi `estimateDecisionPayloadJsonBytes` + type `SnapshotMoveEvent` partagé.
 
 #### C.2 — Refactor simulation/snapshot-decision-collector.ts
 
-- [ ] Importer les fonctions et constantes depuis `decision-collector-shared.ts`
-- [ ] Supprimer les définitions locales dupliquées
-- [ ] Garder les parties spécifiques (algoKind, filtre watchlist sim, query SimulationStateSnapshot)
-- [ ] `npm run test -w @polywatch/core` doit être vert
-- [ ] **Observations** :
+- [x] Importer les fonctions et constantes depuis `decision-collector-shared.ts`
+- [x] Supprimer les définitions locales dupliquées
+- [x] Garder les parties spécifiques (algoKind, filtre watchlist sim, query SimulationStateSnapshot)
+- [x] `npm run test -w @polywatch/core` doit être vert
+- [x] **Observations** : Parity + archive parity verts ; constantes re-exportées pour les archives.
 
 #### C.3 — Refactor real/snapshot-decision-collector.ts
 
-- [ ] Importer les fonctions et constantes depuis `decision-collector-shared.ts`
-- [ ] Supprimer les définitions locales dupliquées
-- [ ] Garder les parties spécifiques (pas d'algoKind, filtre watchlist real, query RealStateSnapshot)
-- [ ] `npm run test -w @polywatch/core` doit être vert
-- [ ] Le test de parity (A.3) doit être vert
-- [ ] **Observations** :
+- [x] Importer les fonctions et constantes depuis `decision-collector-shared.ts`
+- [x] Supprimer les définitions locales dupliquées
+- [x] Garder les parties spécifiques (pas d'algoKind, filtre watchlist real, query RealStateSnapshot)
+- [x] `npm run test -w @polywatch/core` doit être vert
+- [x] Le test de parity (A.3) doit être vert
+- [x] **Observations** :
 
 #### C.4 — Ajouter le script de diff CI
 
-- [ ] Créer `tools/diff-sim-real-snapshot.ts` qui compare les deux fichiers `snapshot-decision-collector.ts` et alerte si un fix appliqué d'un côté n'est pas de l'autre
-- [ ] Documenter la convention de commit : `fix(sim): ... [mirror: real/snapshot-decision-collector.ts]`
-- [ ] **Observations** :
+- [x] Créer `tools/diff-sim-real-snapshot.ts` qui compare les deux fichiers `snapshot-decision-collector.ts` et alerte si un fix appliqué d'un côté n'est pas de l'autre
+- [x] Documenter la convention de commit : `fix(sim): ... [mirror: real/snapshot-decision-collector.ts]`
+- [x] **Observations** : Script vérifie import shared + absence de redéfinition locale. npm script `diff:sim-real-snapshot`.
 
 #### C.5 — Commit de la Phase C
 
-- [ ] Vérifier que tous les tests (A + B + C) sont verts
-- [ ] `npm run build` complet doit passer
-- [ ] Commit : `refactor(p0): Phase C — C1 sim/real extraction fonctions pures + constantes`
-- [ ] **Observations** :
+- [x] Vérifier que tous les tests (A + B + C) sont verts
+- [x] `npm run build` complet doit passer
+- [x] Commit : `refactor(p0): Phase C — C1 sim/real extraction fonctions pures + constantes`
+- [x] **Observations** :
 
 ---
 
@@ -418,7 +418,7 @@ main (stable)
 |-------|--------|----------------------|
 | Phase A — Préparation (tests + guards + cartographie) | ✅ Terminée (+ correctif flags) | 2026-08-06 |
 | Phase B — C4 RiskConfig migration consommateurs | ✅ Terminée (façade legacy conservée) | 2026-08-06 |
-| Phase C — C1 sim/real extraction | ⏳ En attente | — |
+| Phase C — C1 sim/real extraction | ✅ Terminée | 2026-08-06 |
 | Phase D — Bugs fantômes 4.3/4.4 | ⏳ En attente | — |
 | Phase E — Finalisation et PR P0 | ⏳ En attente | — |
 | Phase F — Suppression finale RiskConfig (PR séparée) | ⏸️ Reportée | 2026-08-06 |

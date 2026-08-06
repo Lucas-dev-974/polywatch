@@ -1,7 +1,6 @@
 # PLAN — Audit global codebase : alignement doc, structure, conflits, bugs fantômes
 
-> **Date de création** : 2026-08-06
-> **Périmètre** : Monorepo Polywatch-v1.1 (7 packages + docs + tools + e2e) **Règle d'or** : Ce plan est **vivant**. À chaque étape terminée, mettre à jour ce fichier (statut, dates, observations, écarts détectés). Toute modification de code ou de doc effectuée pendant l'audit doit être reflétée ici.
+> **Date de création** : 2026-08-06 **Périmètre** : Monorepo Polywatch-v1.1 (7 packages + docs + tools + e2e) **Règle d'or** : Ce plan est **vivant**. À chaque étape terminée, mettre à jour ce fichier (statut, dates, observations, écarts détectés). Toute modification de code ou de doc effectuée pendant l'audit doit être reflétée ici.
 
 ---
 
@@ -679,8 +678,7 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 ### 5.3 Risques et mitigations
 
-> **Référence annexe** : `[docs/plans/2026-08-06_ANNEXE-risques-mitigations.md](2026-08-06_ANNEXE-risques-mitigations.md)`
-> **Date** : 2026-08-06 — 9 risques + 1 risque transversal identifiés et mitigés.
+> **Référence annexe** : `[docs/plans/2026-08-06_ANNEXE-risques-mitigations.md](2026-08-06_ANNEXE-risques-mitigations.md)` **Date** : 2026-08-06 — 9 risques + 1 risque transversal identifiés et mitigés.
 
 L'analyse des risques a couvert les 9 zones critiques du plan (C1, C4, C5, C6, C8, C9, C10, C12 + process discipline) ainsi qu'un risque transversal (absence de filet de tests). L'annexe détaillée contient pour chaque risque : le contexte précis (avec références fichier:ligne), la stratégie de mitigation adaptée à la codebase, les garde-fous concrets, le plan de rollback et le séquencement recommandé.
 
@@ -712,9 +710,7 @@ L'analyse des risques a couvert les 9 zones critiques du plan (C1, C4, C5, C6, C
 
 ### 5.4 Plan d'implémentation P0
 
-> **Référence** : `[docs/plans/2026-08-06_PLAN-p0-implementation.md](2026-08-06_PLAN-p0-implementation.md)`
-> **Date** : 2026-08-06 — Plan d'implémentation des priorités P0 (C4 RiskConfig, C1 sim/real, bugs fantômes 4.3/4.4 + filet de tests).
-> **Statut** : ✅ **Phases A–E mergées** dans `main` via [PR #1](https://github.com/Lucas-dev-974/polywatch/pull/1) (`81571ba`). ✅ **Phase F implémentée** sur `main` (`b219a7f` — purge physique RiskConfig legacy). PR GitHub Phase F / tags optionnels encore ouverts côté plan P0 enfant.
+> **Référence** : `[docs/plans/2026-08-06_PLAN-p0-implementation.md](2026-08-06_PLAN-p0-implementation.md)` **Date** : 2026-08-06 — Plan d'implémentation des priorités P0 (C4 RiskConfig, C1 sim/real, bugs fantômes 4.3/4.4 + filet de tests). **Statut** : ✅ **Phases A–E mergées** dans `main` via [PR #1](https://github.com/Lucas-dev-974/polywatch/pull/1) (`81571ba`). ✅ **Phase F implémentée** sur `main` (`b219a7f` — purge physique RiskConfig legacy). PR GitHub Phase F / tags optionnels encore ouverts côté plan P0 enfant.
 
 Ce plan opérationnalise les mitigations de l'annexe §R1, §R2, §R4, §RT pour les 3 chantiers P0. Il contient :
 

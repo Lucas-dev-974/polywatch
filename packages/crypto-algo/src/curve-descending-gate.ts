@@ -17,7 +17,7 @@ export interface CurveDescendingGateParams {
 
 /**
  * Evaluate whether the mid series shows a descending curve over the lookback window.
- * Returns `insufficient` when history is too sparse (fail-open at caller).
+ * Returns `insufficient` when history is too sparse (caller should fail-closed).
  */
 export function evaluateCurveDescendingGate(
   series: MidHistorySample[],

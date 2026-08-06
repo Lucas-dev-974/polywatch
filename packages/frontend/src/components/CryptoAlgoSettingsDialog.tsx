@@ -7,6 +7,7 @@ import {
 } from '../api';
 import { loadAutoTrackRules } from '../stores/autoTrackStore';
 import { CryptoAlgoSettingsAutotrackTab } from './CryptoAlgoSettingsAutotrackTab';
+import { CryptoAlgoSettingsEntryTab } from './CryptoAlgoSettingsEntryTab';
 import { CryptoAlgoSettingsExitTab } from './CryptoAlgoSettingsExitTab';
 import { CryptoAlgoSettingsGeneralTab } from './CryptoAlgoSettingsGeneralTab';
 import {
@@ -16,10 +17,11 @@ import {
 import { type EnvSettings } from './env-settings-types';
 import { Dialog } from './Dialog';
 
-type SettingsTab = 'general' | 'exit' | 'autotrack';
+type SettingsTab = 'general' | 'entry' | 'exit' | 'autotrack';
 
 const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: 'general', label: 'Général' },
+  { id: 'entry', label: 'Entrée' },
   { id: 'exit', label: 'Sortie' },
   { id: 'autotrack', label: 'Suivi auto' },
 ];
@@ -201,6 +203,13 @@ export function CryptoAlgoSettingsDialog(props: CryptoAlgoSettingsDialogProps) {
             <div class="settings-scroll">
               <Show when={activeTab() === 'general'}>
                 <CryptoAlgoSettingsGeneralTab
+                  config={c()}
+                  onChange={patchConfig}
+                  onJsonValidityChange={onJsonValidityChange}
+                />
+              </Show>
+              <Show when={activeTab() === 'entry'}>
+                <CryptoAlgoSettingsEntryTab
                   config={c()}
                   onChange={patchConfig}
                   onJsonValidityChange={onJsonValidityChange}

@@ -9,6 +9,7 @@ function baseConfig(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
   return {
     id: 1,
     cryptoAlgoStrategies: '["naive-momentum"]',
+    cryptoAlgoStrategyParams: '{}',
     cryptoAlgoAllowedMarketTags: '["crypto"]',
     cryptoAlgoSpreadAbsByInterval: null,
     cryptoAlgoExitDefaultsByInterval: null,

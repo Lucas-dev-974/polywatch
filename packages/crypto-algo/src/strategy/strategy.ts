@@ -17,6 +17,10 @@ export interface TopOfBookData {
   bid: number | null;
   /** Best ask price (null if no asks). */
   ask: number | null;
+  /** Size at best bid (null if no bids). */
+  bidSize: number | null;
+  /** Size at best ask (null if no asks). */
+  askSize: number | null;
   /** Spread (ask - bid), null if either side missing. */
   spread: number | null;
   /** Mid price ((bid + ask) / 2), null if either side missing. */
@@ -25,6 +29,17 @@ export interface TopOfBookData {
   spreadPercent: number | null;
   /** Epoch ms when this snapshot was last updated. */
   updatedAt: number;
+}
+
+/** Optional oracle / spot slot for data-stream strategies (nullable in book_only). */
+export interface SpotDataSlot {
+  spot: number | null;
+  twap: number | null;
+  strikeK: number | null;
+  sigma: number | null;
+  timestamp: number | null;
+  source: string | null;
+  fresh: boolean;
 }
 
 /**
@@ -60,7 +75,8 @@ export type AbstainReasonCode =
   | 're_entry_limit'
   | 'sl_quota_reached'
   | 'price_band'
-  | 'curve_descending';
+  | 'curve_descending'
+  | 'curve_insufficient';
 
 export type EvaluationResult =
   | { kind: 'signal'; signal: AlgoSignal }
@@ -80,6 +96,10 @@ export interface StrategyContext {
     up: MidHistorySample[];
     down: MidHistorySample[];
   };
+  /** Seconds until market end (null if endDate unknown). */
+  secondsUntilEnd: number | null;
+  /** Oracle / spot slot — null when data stream is book_only or unavailable. */
+  spotData: SpotDataSlot | null;
   /** Current timestamp */
   now: Date;
 }
@@ -91,6 +111,19 @@ export interface StrategyContext {
 export interface CryptoAlgoStrategy {
   readonly id: string;
   evaluate(market: MarketListItemDto, ctx: StrategyContext): Promise<EvaluationResult>;
+}
+
+/**
+ * Optional tunables hook — registry-driven applyRiskTunables calls this when present.
+ */
+export interface ConfigurableCryptoAlgoStrategy extends CryptoAlgoStrategy {
+  applyTunables(cryptoConfig: import('@polywatch/core').CryptoConfig): void;
+}
+
+export function isConfigurableStrategy(
+  strategy: CryptoAlgoStrategy,
+): strategy is ConfigurableCryptoAlgoStrategy {
+  return typeof (strategy as ConfigurableCryptoAlgoStrategy).applyTunables === 'function';
 }
 
 /** True when both sides are present and mid can be used as a price. */

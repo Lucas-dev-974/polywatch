@@ -3,6 +3,7 @@ dist/
 packages/frontend/dist/
 data/
 backups/
+exports/
 .env
 *.db
 *.db-*

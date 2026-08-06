@@ -63,10 +63,11 @@ export function NullableNumberField(props: {
   step?: number | string;
   hint?: string;
   placeholder?: string;
+  disabled?: boolean;
   onChange: (value: number | null) => void;
 }) {
   return (
-    <div class="form-field">
+    <div class="form-field" classList={{ 'form-field--disabled': !!props.disabled }}>
       <label>{props.label}</label>
       <input
         class="input"
@@ -75,8 +76,10 @@ export function NullableNumberField(props: {
         max={props.max}
         step={props.step}
         placeholder={props.placeholder}
+        disabled={props.disabled}
         value={props.value ?? ''}
         onInput={(e) => {
+          if (props.disabled) return;
           const raw = e.currentTarget.value.trim();
           if (raw === '') {
             props.onChange(null);

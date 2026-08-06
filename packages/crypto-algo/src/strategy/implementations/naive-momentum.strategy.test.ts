@@ -45,6 +45,8 @@ function makeBook(
     assetId: overrides.assetId,
     bid,
     ask,
+    bidSize: overrides.bidSize ?? (bid != null ? 100 : null),
+    askSize: overrides.askSize ?? (ask != null ? 100 : null),
     spread: overrides.spread ?? spread,
     midPrice:
       overrides.midPrice ??
@@ -62,7 +64,13 @@ function ctxWithBooks(
   now = new Date(),
   midHistory?: StrategyContext['midHistory'],
 ): StrategyContext {
-  return { now, books: { up, down }, midHistory };
+  return {
+    now,
+    books: { up, down },
+    midHistory,
+    secondsUntilEnd: null,
+    spotData: null,
+  };
 }
 
 function makeMidHistory(
@@ -108,13 +116,13 @@ describe('NaiveMomentumStrategy', () => {
 
   it('abstains when outcomePrices is empty', async () => {
     const market = makeMarket({ outcomePrices: [] });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result).toEqual({ kind: 'abstain', reason: 'no_outcome_prices' });
   });
 
   it('abstains when outcomePrices is missing', async () => {
     const market = makeMarket({ outcomePrices: undefined as unknown as [] });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result).toEqual({ kind: 'abstain', reason: 'no_outcome_prices' });
   });
 
@@ -195,7 +203,7 @@ describe('NaiveMomentumStrategy', () => {
         { outcome: 'No', price: 0.35 },
       ],
     });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result.kind).toBe('abstain');
     if (result.kind !== 'abstain') return;
     expect(result.reason).toBe('illiquid_book');
@@ -239,13 +247,13 @@ describe('NaiveMomentumStrategy', () => {
         { outcome: 'No', price: 0.5 },
       ],
     });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result.kind).toBe('abstain');
     if (result.kind !== 'abstain') return;
     expect(result.reason).toBe('price_band');
   });
 
-  it('returns YES signal at 0.55 when books are liquid', async () => {
+  it('abstains price_band at exclusive entryPriceMin 0.55', async () => {
     const market = makeMarket({
       outcomePrices: [
         { outcome: 'Yes', price: 0.55 },
@@ -266,6 +274,37 @@ describe('NaiveMomentumStrategy', () => {
           assetId: '0xno',
           bid: 0.447,
           ask: 0.453,
+          updatedAt: now.getTime(),
+        }),
+        now,
+      ),
+    );
+    expect(result.kind).toBe('abstain');
+    if (result.kind !== 'abstain') return;
+    expect(result.reason).toBe('price_band');
+  });
+
+  it('returns YES signal at 0.60 when books are liquid', async () => {
+    const market = makeMarket({
+      outcomePrices: [
+        { outcome: 'Yes', price: 0.6 },
+        { outcome: 'No', price: 0.4 },
+      ],
+    });
+    const now = new Date();
+    const result = await strategy.evaluate(
+      market,
+      ctxWithBooks(
+        makeBook({
+          assetId: '0xyes',
+          bid: 0.597,
+          ask: 0.603,
+          updatedAt: now.getTime(),
+        }),
+        makeBook({
+          assetId: '0xno',
+          bid: 0.397,
+          ask: 0.403,
           updatedAt: now.getTime(),
         }),
         now,
@@ -340,7 +379,7 @@ describe('NaiveMomentumStrategy', () => {
         { outcome: 'Other', price: 0.34 },
       ],
     });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result).toEqual({ kind: 'abstain', reason: 'unknown_outcomes' });
   });
 
@@ -384,7 +423,7 @@ describe('NaiveMomentumStrategy', () => {
         { outcome: 'No', price: 0.35 },
       ],
     });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result.kind).toBe('abstain');
     if (result.kind !== 'abstain') return;
     expect(result.reason).toBe('invalid_price_sum');
@@ -640,7 +679,7 @@ describe('NaiveMomentumStrategy', () => {
         { outcome: 'No', price: 0.3 },
       ],
     });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result).toEqual({
       kind: 'abstain',
       reason: 'invalid_interval',
@@ -749,13 +788,13 @@ describe('NaiveMomentumStrategy', () => {
         { outcome: 'No', price: 0.85 },
       ],
     });
-    const result = await strategy.evaluate(market, { now: new Date() });
+    const result = await strategy.evaluate(market, ctxWithBooks(null, null));
     expect(result.kind).toBe('abstain');
     if (result.kind !== 'abstain') return;
     expect(result.reason).toBe('price_band');
   });
 
-  it('returns YES signal for yesPrice 0.52 within entry band', async () => {
+  it('abstains price_band for yesPrice 0.52 under stop-bleed min 0.55', async () => {
     const market = makeMarket({
       outcomePrices: [
         { outcome: 'Yes', price: 0.52 },
@@ -781,9 +820,9 @@ describe('NaiveMomentumStrategy', () => {
         now,
       ),
     );
-    expect(result.kind).toBe('signal');
-    if (result.kind !== 'signal') return;
-    expect(result.signal.outcome).toBe('YES');
+    expect(result.kind).toBe('abstain');
+    if (result.kind !== 'abstain') return;
+    expect(result.reason).toBe('price_band');
   });
 
   it('abstains curve_descending when YES target Up mid is descending', async () => {
@@ -925,6 +964,41 @@ describe('NaiveMomentumStrategy', () => {
       ),
     );
     expect(result.kind).toBe('signal');
+  });
+
+  it('abstains curve_insufficient when history too sparse (fail-closed)', async () => {
+    const custom = new NaiveMomentumStrategy();
+    custom.setConfig({ curveFilterEnabled: true, curveLookbackMs: 10_000, curveMinDelta: 0.01 });
+    const market = makeMarket({
+      outcomePrices: [
+        { outcome: 'Yes', price: 0.65 },
+        { outcome: 'No', price: 0.35 },
+      ],
+    });
+    const now = new Date();
+    const nowMs = now.getTime();
+    const result = await custom.evaluate(
+      market,
+      ctxWithBooks(
+        makeBook({
+          assetId: '0xyes',
+          bid: 0.647,
+          ask: 0.653,
+          updatedAt: nowMs,
+        }),
+        makeBook({
+          assetId: '0xno',
+          bid: 0.347,
+          ask: 0.353,
+          updatedAt: nowMs,
+        }),
+        now,
+        makeMidHistory('up', 0.65, 0.65, 1_000, 2, nowMs),
+      ),
+    );
+    expect(result.kind).toBe('abstain');
+    if (result.kind !== 'abstain') return;
+    expect(result.reason).toBe('curve_insufficient');
   });
 
   it('abstains illiquid_book before curve_descending when YES target book missing', async () => {

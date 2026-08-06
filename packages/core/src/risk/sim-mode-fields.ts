@@ -64,6 +64,7 @@ export const CRYPTO_ALGO_SNAPSHOT_KEYS = [
   'cryptoAlgoPriceTickCleanupEnabled',
   'cryptoAlgoPriceTickCleanupIntervalMinutes',
   'cryptoAlgoStrategies',
+  'cryptoAlgoStrategyParams',
   'cryptoAlgoSlEnabled',
   'cryptoAlgoTpEnabled',
   'cryptoAlgoTrailingEnabled',
@@ -258,6 +259,7 @@ export const SIM_SESSION_ROTATION_KEYS: readonly (keyof RiskConfig)[] = [
   // crypto-algo trading keys (shared with real)
   'cryptoAlgoEnabled',
   'cryptoAlgoStrategies',
+  'cryptoAlgoStrategyParams',
   'cryptoAlgoSlEnabled',
   'cryptoAlgoTpEnabled',
   'cryptoAlgoTrailingEnabled',
@@ -349,6 +351,7 @@ export const REAL_SESSION_ROTATION_KEYS: readonly (keyof RiskConfig)[] = [
   // crypto-algo trading keys (shared with sim)
   'cryptoAlgoEnabled',
   'cryptoAlgoStrategies',
+  'cryptoAlgoStrategyParams',
   'cryptoAlgoSlEnabled',
   'cryptoAlgoTpEnabled',
   'cryptoAlgoTrailingEnabled',

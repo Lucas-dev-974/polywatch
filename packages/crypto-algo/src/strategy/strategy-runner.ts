@@ -35,6 +35,7 @@ import type {
   StrategyContext,
   StrategyRegistry,
 } from './index.js';
+import { isConfigurableStrategy } from './strategy.js';
 import { CryptoAlgoPriceFeed } from '../price-feed.js';
 import type { CryptoAlgoRuntimeStatusPublisher } from '../runtime-status.js';
 import {
@@ -46,7 +47,6 @@ import {
   shouldSuppressReEntry,
 } from './re-entry-throttle.js';
 import { normalizeInterval } from './constants.js';
-import { NaiveMomentumStrategy } from './implementations/naive-momentum.strategy.js';
 import { cleanupGlobalSlQuotaCache, invalidateGlobalSlQuotaCache } from './sl-quota.js';
 
 const log = pino({ name: 'crypto-algo:strategy-runner' });
@@ -321,28 +321,13 @@ export class StrategyRunner {
     this.start(pollMs);
   }
 
-  /** Apply risk tunables to strategies and gamma cache settings. */
+  /** Apply risk tunables to all configurable strategies (registry-driven). */
   applyRiskTunables(cryptoConfig: CryptoConfig): void {
     this.currentCryptoConfig = cryptoConfig;
-    const naive = this.registry.getStrategy('naive-momentum');
-    if (naive instanceof NaiveMomentumStrategy) {
-      const tunables = resolveNaiveMomentumConfig(cryptoConfig);
-      naive.setConfig({
-        baseThreshold: tunables.baseThreshold,
-        maxSpreadAbs: tunables.maxSpreadAbs,
-        spreadAdjustmentFactor: tunables.spreadAdjustmentFactor,
-        minSpreadAbsForAdjustment: tunables.minSpreadAbsForAdjustment,
-        priceSumTolerance: tunables.priceSumTolerance,
-        warnPriceDeviation: tunables.warnPriceDeviation,
-        maxBookAgeMs: tunables.maxBookAgeMs,
-        spreadAbsByInterval: tunables.spreadAbsByInterval,
-        entryPriceBandEnabled: tunables.entryPriceBandEnabled,
-        entryPriceMin: tunables.entryPriceMin,
-        entryPriceMax: tunables.entryPriceMax,
-        curveFilterEnabled: tunables.curveFilterEnabled,
-        curveLookbackMs: tunables.curveLookbackMs,
-        curveMinDelta: tunables.curveMinDelta,
-      });
+    for (const strategy of this.registry.getAllStrategies()) {
+      if (isConfigurableStrategy(strategy)) {
+        strategy.applyTunables(cryptoConfig);
+      }
     }
   }
 
@@ -652,12 +637,18 @@ export class StrategyRunner {
           now.getTime(),
         )
       : undefined;
+    const endMs = market.endDate ? new Date(market.endDate).getTime() : NaN;
+    const secondsUntilEnd = Number.isFinite(endMs)
+      ? Math.max(0, Math.floor((endMs - now.getTime()) / 1000))
+      : null;
     const ctx: StrategyContext = {
       now,
       books: books
         ? { up: books.up, down: books.down }
         : undefined,
       midHistory: midHistory ?? undefined,
+      secondsUntilEnd,
+      spotData: null,
     };
 
     // Build DTO and context

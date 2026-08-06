@@ -666,11 +666,12 @@ export function getCryptoKillSwitchAction(
   return mode === 'sim' ? cfg.cryptoAlgoKillSwitchAction : cfg.cryptoAlgoKillSwitchAction;
 }
 
+/** @deprecated Dead field — never called by crypto-algo entry/sizing paths. */
 export function getCryptoMinBidToAskRatio(
   cfg: CryptoConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
 ): number {
-  return mode === 'sim' ? cfg.cryptoAlgoMinBidToAskRatio : cfg.cryptoAlgoMinBidToAskRatio;
+  return cfg.cryptoAlgoMinBidToAskRatio;
 }
 
 export function getCryptoSlConfirmationTicks(cfg: CryptoConfig): number {

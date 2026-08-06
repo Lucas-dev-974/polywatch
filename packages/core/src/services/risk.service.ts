@@ -181,7 +181,8 @@ export class RiskService {
 
     // Crypto fields
     const cryptoFields: (keyof CryptoConfig)[] = [
-      'cryptoAlgoEnabled', 'cryptoAlgoStrategies', 'cryptoAlgoSlEnabled', 'cryptoAlgoTpEnabled',
+      'cryptoAlgoEnabled', 'cryptoAlgoStrategies', 'cryptoAlgoStrategyParams',
+      'cryptoAlgoSlEnabled', 'cryptoAlgoTpEnabled',
       'cryptoAlgoTrailingEnabled', 'cryptoAlgoSlBidPoints', 'cryptoAlgoTpBidPoints',
       'cryptoAlgoTrailingBidPoints', 'cryptoAlgoTrailingActivationBidPoints',
       'cryptoAlgoPreCloseEnabled', 'cryptoAlgoPreCloseSeconds', 'cryptoAlgoPreCloseKeepEnabled',

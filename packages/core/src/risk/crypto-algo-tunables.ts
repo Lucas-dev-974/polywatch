@@ -31,7 +31,7 @@ const INTERVAL_ALIASES: Readonly<Record<string, CryptoAlgoValidInterval>> = {
 
 /** Code defaults — naive-momentum strategy. */
 export const DEFAULT_CRYPTO_ALGO_BASE_THRESHOLD = 0.55;
-export const DEFAULT_CRYPTO_ALGO_ENTRY_PRICE_MIN = 0.5;
+export const DEFAULT_CRYPTO_ALGO_ENTRY_PRICE_MIN = 0.55;
 export const DEFAULT_CRYPTO_ALGO_ENTRY_PRICE_MAX = 0.8;
 export const DEFAULT_CRYPTO_ALGO_ENTRY_PRICE_BAND_ENABLED = true;
 export const DEFAULT_CRYPTO_ALGO_CURVE_FILTER_ENABLED = false;

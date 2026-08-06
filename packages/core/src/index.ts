@@ -91,6 +91,7 @@ export {
 export * from './risk/crypto-algo-helpers.js';
 export * from './risk/crypto-algo-exit.js';
 export * from './risk/crypto-algo-tunables.js';
+export * from './risk/crypto-algo-strategy-params.js';
 export * from './risk/weather-exit-params.js';
 export * from './risk/sim-execution-tunables.js';
 export * from './market/tags.js';

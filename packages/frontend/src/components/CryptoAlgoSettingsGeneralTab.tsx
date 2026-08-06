@@ -1,9 +1,5 @@
 import { For, Show } from 'solid-js';
-import {
-  CODE_DEFAULT_SPREAD_ABS_BY_INTERVAL,
-  type CryptoAlgoSettings,
-} from './crypto-algo-settings-types';
-import { JsonIntervalMapField } from './JsonIntervalMapField';
+import type { CryptoAlgoSettings } from './crypto-algo-settings-types';
 import { NumberField, NullableNumberField, ToggleField } from './settings-fields';
 
 const CRYPTO_ALGO_STRATEGIES: { id: string; label: string }[] = [
@@ -20,7 +16,8 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
   return (
     <section class="settings-section settings-section-full">
       <p class="form-hint settings-intro">
-        Kill-switch, stratégies et paramètres du worker de trading algorithmique crypto.
+        Kill-switch, stratégies actives et infra worker. Sizing / entrée → onglet Entrée ;
+        SL/TP/trailing → onglet Sortie.
       </p>
       <ToggleField
         label="Activer le crypto algo (kill-switch)"
@@ -29,7 +26,11 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
         onChange={(checked) => props.onChange({ cryptoAlgoEnabled: checked })}
       />
       <div class="form-field">
-        <label>Stratégies activées</label>
+        <label>Stratégies activées (catalogue)</label>
+        <p class="form-hint">
+          Ordre = priorité d&apos;évaluation (first-wins). Une seule stratégie active à la fois
+          recommandé en sim.
+        </p>
         <div class="settings-checkbox-group">
           <For each={CRYPTO_ALGO_STRATEGIES}>
             {(strategy) => (
@@ -62,7 +63,7 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
       <ToggleField
         label="Nettoyage automatique des ticks de prix"
         checked={props.config.cryptoAlgoPriceTickCleanupEnabled}
-        hint="Supprime périodiquement les anciens ticks de prix (AlgoPriceTick) pour limiter l'utilisation disque."
+        hint="OFF recommandé pour backtest (stop-bleed Phase 0) : exportez avant de réactiver. Supprime périodiquement les anciens AlgoPriceTick."
         onChange={(checked) => props.onChange({ cryptoAlgoPriceTickCleanupEnabled: checked })}
       />
       {props.config.cryptoAlgoPriceTickCleanupEnabled && (
@@ -88,209 +89,6 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
           </p>
         </div>
       )}
-
-      <h3 class="settings-subheading">Sizing</h3>
-      <p class="form-hint settings-intro">
-        Mode de dimensionnement des entrées pour le trading algorithmique crypto.
-      </p>
-      <div class="form-field">
-        <label for="crypto-algo-sizing-mode">Mode de sizing</label>
-        <select
-          id="crypto-algo-sizing-mode"
-          value={props.config.cryptoAlgoSizingMode ?? 'fixed_usdc'}
-          onChange={(e) =>
-            props.onChange({ cryptoAlgoSizingMode: e.currentTarget.value as 'fixed_usdc' | 'fixed_shares' })
-          }
-        >
-          <option value="fixed_usdc">Montant fixe (USDC)</option>
-          <option value="fixed_shares">Nombre de parts fixe</option>
-        </select>
-      </div>
-      <Show when={(props.config.cryptoAlgoSizingMode ?? 'fixed_usdc') === 'fixed_usdc'}>
-        <div class="form-field">
-          <label for="crypto-algo-entry-usdc">Montant entrée (USDC)</label>
-          <input
-            id="crypto-algo-entry-usdc"
-            type="number"
-            min={1}
-            max={100000}
-            value={props.config.cryptoAlgoEntryUsdcAmount ?? ''}
-            onInput={(e) => {
-              const v = e.currentTarget.value;
-              props.onChange({
-                cryptoAlgoEntryUsdcAmount: v === '' ? undefined : Number(v),
-              });
-            }}
-          />
-          <p class="form-hint">Montant en USDC par entrée (1 – 100 000).</p>
-        </div>
-      </Show>
-      <Show when={(props.config.cryptoAlgoSizingMode ?? 'fixed_usdc') === 'fixed_shares'}>
-        <div class="form-field">
-          <label for="crypto-algo-entry-shares">Nombre de parts à l'entrée</label>
-          <input
-            id="crypto-algo-entry-shares"
-            type="number"
-            min={1}
-            max={1000000}
-            value={props.config.cryptoAlgoEntryShareCount ?? ''}
-            onInput={(e) => {
-              const v = e.currentTarget.value;
-              props.onChange({
-                cryptoAlgoEntryShareCount: v === '' ? undefined : Number(v),
-              });
-            }}
-          />
-          <p class="form-hint">Nombre de parts par entrée (1 – 1 000 000).</p>
-        </div>
-      </Show>
-
-      <h3 class="settings-subheading">Stratégie (naive-momentum)</h3>
-      <p class="form-hint settings-intro">
-        Vide = valeur par défaut du code. Les overrides sont rechargés à chaud via Redis config-changed.
-      </p>
-      <ToggleField
-        label="Bande d'entrée activée"
-        checked={props.config.cryptoAlgoEntryPriceBandEnabled ?? true}
-        hint="Quand activée, remplace le seuil momentum : YES si Up ∈ (min, max), NO si Down ∈ (min, max)."
-        onChange={(checked) =>
-          props.onChange({ cryptoAlgoEntryPriceBandEnabled: checked })
-        }
-      />
-      <Show when={props.config.cryptoAlgoEntryPriceBandEnabled ?? true}>
-        <NullableNumberField
-          label="Prix min entrée (exclusif)"
-          value={props.config.cryptoAlgoEntryPriceMin}
-          min={0.01}
-          max={0.98}
-          step={0.01}
-          placeholder="0.50"
-          hint="Prix du token acheté (Up ou Down). Entrée refusée si ≤ cette valeur."
-          onChange={(value) => props.onChange({ cryptoAlgoEntryPriceMin: value })}
-        />
-        <NullableNumberField
-          label="Prix max entrée (exclusif)"
-          value={props.config.cryptoAlgoEntryPriceMax}
-          min={0.02}
-          max={0.99}
-          step={0.01}
-          placeholder="0.80"
-          hint="Prix du token acheté. Entrée refusée si ≥ cette valeur."
-          onChange={(value) => props.onChange({ cryptoAlgoEntryPriceMax: value })}
-        />
-      </Show>
-      <ToggleField
-        label="Filtre courbe descendante"
-        checked={props.config.cryptoAlgoCurveFilterEnabled ?? false}
-        hint="Bloque l'entrée si le mid du token acheté (Up pour YES, Down pour NO) baisse sur la fenêtre. Flat et montée autorisés. Nécessite le carnet WS — prévoir ~lookback de warm-up après activation."
-        onChange={(checked) =>
-          props.onChange({ cryptoAlgoCurveFilterEnabled: checked })
-        }
-      />
-      <Show when={props.config.cryptoAlgoCurveFilterEnabled ?? false}>
-        <NullableNumberField
-          label="Fenêtre courbe (ms)"
-          value={props.config.cryptoAlgoCurveLookbackMs}
-          min={1000}
-          max={60_000}
-          step={1000}
-          placeholder="10000"
-          hint="Durée sur laquelle mesurer la pente du mid (1 000 – 60 000 ms, max = buffer WS)."
-          onChange={(value) => props.onChange({ cryptoAlgoCurveLookbackMs: value })}
-        />
-        <NullableNumberField
-          label="Seuil descente (min delta)"
-          value={props.config.cryptoAlgoCurveMinDelta}
-          min={0.001}
-          max={0.2}
-          step={0.001}
-          placeholder="0.01"
-          hint="Descente bloquante si delta mid < −seuil (points de proba). Ex. 0.01 = −1 pt."
-          onChange={(value) => props.onChange({ cryptoAlgoCurveMinDelta: value })}
-        />
-      </Show>
-      <NullableNumberField
-        label="Seuil de base (threshold)"
-        value={props.config.cryptoAlgoBaseThreshold}
-        min={0.5}
-        max={0.99}
-        step={0.01}
-        placeholder="0.55"
-        hint="Ignoré quand la bande d'entrée est activée. Sinon : prix au-dessus → YES, en dessous de (1 − seuil) → NO."
-        onChange={(value) => props.onChange({ cryptoAlgoBaseThreshold: value })}
-      />
-      <NullableNumberField
-        label="Facteur d'ajustement spread"
-        value={props.config.cryptoAlgoSpreadAdjustmentFactor}
-        min={0}
-        max={5}
-        step={0.1}
-        placeholder="0.5"
-        hint="adjustedThreshold = base + spreadAbs × facteur"
-        onChange={(value) => props.onChange({ cryptoAlgoSpreadAdjustmentFactor: value })}
-      />
-      <NullableNumberField
-        label="Spread min pour ajustement"
-        value={props.config.cryptoAlgoMinSpreadAbsForAdjustment}
-        min={0}
-        max={0.5}
-        step={0.001}
-        placeholder="0.01"
-        onChange={(value) =>
-          props.onChange({ cryptoAlgoMinSpreadAbsForAdjustment: value })
-        }
-      />
-      <NullableNumberField
-        label="Spread max (intervalle inconnu)"
-        value={props.config.cryptoAlgoMaxSpreadAbs}
-        min={0.001}
-        max={0.5}
-        step={0.001}
-        placeholder="0.02"
-        onChange={(value) => props.onChange({ cryptoAlgoMaxSpreadAbs: value })}
-      />
-      <NullableNumberField
-        label="Tolérance somme YES+NO (Gamma)"
-        value={props.config.cryptoAlgoPriceSumTolerance}
-        min={0.001}
-        max={0.2}
-        step={0.001}
-        placeholder="0.02"
-        onChange={(value) => props.onChange({ cryptoAlgoPriceSumTolerance: value })}
-      />
-      <NullableNumberField
-        label="Écart WS/Gamma (warn)"
-        value={props.config.cryptoAlgoWarnPriceDeviation}
-        min={0.01}
-        max={0.5}
-        step={0.01}
-        placeholder="0.05"
-        onChange={(value) => props.onChange({ cryptoAlgoWarnPriceDeviation: value })}
-      />
-      <NullableNumberField
-        label="Âge max carnet WS (ms)"
-        value={props.config.cryptoAlgoMaxBookAgeMs}
-        min={1000}
-        max={300_000}
-        step={1000}
-        placeholder="15000"
-        onChange={(value) => props.onChange({ cryptoAlgoMaxBookAgeMs: value })}
-      />
-      <JsonIntervalMapField
-        label="Spread absolu max par intervalle (JSON)"
-        hint="Merge partiel : seules les clés présentes remplacent les defaults code. Vide = table code."
-        placeholder={JSON.stringify(CODE_DEFAULT_SPREAD_ABS_BY_INTERVAL, null, 2)}
-        value={props.config.cryptoAlgoSpreadAbsByInterval as Record<string, unknown> | null}
-        valueKind="number"
-        onValidityChange={(valid) =>
-          props.onJsonValidityChange?.('cryptoAlgoSpreadAbsByInterval', valid)
-        }
-        onChange={(value) =>
-          props.onChange({
-            cryptoAlgoSpreadAbsByInterval: value as Record<string, number> | null,
-          })
-        }
-      />
 
       <h3 class="settings-subheading">Fraîcheur & timing</h3>
       <NullableNumberField
@@ -369,37 +167,10 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
         onChange={(value) => props.onChange({ cryptoAlgoPriceTickRefQty: value })}
       />
 
-      <h3 class="settings-subheading">Re-entrée</h3>
-      <p class="form-hint settings-intro">
-        Limite les entrées répétées sur le même marché. Seul un enqueue réussi consomme un slot.
-        YES et NO sont comptés séparément.
-      </p>
-      <NullableNumberField
-        label="Fenêtre re-entrée (ms)"
-        value={props.config.cryptoAlgoReentryWindowMs}
-        min={1}
-        max={86_400_000}
-        step={1000}
-        placeholder="auto (durée intervalle marché)"
-        hint="Vide = durée de l'intervalle du marché (ex. 5m → 300 000 ms), sinon 1 h."
-        onChange={(value) => props.onChange({ cryptoAlgoReentryWindowMs: value })}
-      />
-      <NullableNumberField
-        label="Max entrées / fenêtre"
-        value={props.config.cryptoAlgoMaxEntriesPerWindow}
-        min={1}
-        max={20}
-        step={1}
-        placeholder="1"
-        hint="Nombre max d'entrées enqueued par outcome (YES/NO) dans la fenêtre."
-        onChange={(value) => props.onChange({ cryptoAlgoMaxEntriesPerWindow: value })}
-      />
-
       <h3 class="settings-subheading">Quota SL par marché</h3>
       <p class="form-hint settings-intro">
         Limite les sorties SL sur un même marché et bloque toute nouvelle entrée
-        (YES et NO) une fois le quota atteint. Une seule position algo ouverte à
-        la fois par marché quand cette règle est activée.
+        (YES et NO) une fois le quota atteint.
       </p>
       <ToggleField
         label="Activer le quota SL"
@@ -415,7 +186,6 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
           max={20}
           step={1}
           placeholder="1"
-          hint="Nombre max de sorties SL déclenchées avant blocage des entrées sur ce marché."
           onChange={(value) => props.onChange({ cryptoAlgoSlQuotaPerMarket: value })}
         />
         <NullableNumberField
@@ -425,7 +195,6 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
           max={600}
           step={5}
           placeholder="30"
-          hint="Fréquence de rafraîchissement du compteur SL depuis la DB."
           onChange={(value) => props.onChange({ cryptoAlgoSlQuotaCacheTtlSeconds: value })}
         />
       </Show>

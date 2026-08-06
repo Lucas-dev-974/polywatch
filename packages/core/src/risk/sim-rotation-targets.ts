@@ -146,6 +146,7 @@ export function resolveSimRotationTargetsFromConfigs(
     'cryptoAlgoTrailingBidPoints', 'cryptoAlgoTrailingActivationBidPoints',
     'cryptoAlgoPreCloseEnabled', 'cryptoAlgoPreCloseSeconds', 'cryptoAlgoPreCloseKeepEnabled',
     'cryptoAlgoPreCloseKeepBidThreshold', 'cryptoAlgoMinTimeToClose',
+    'cryptoAlgoStrategyParams',
     'cryptoAlgoReentryWindowMs', 'cryptoAlgoMaxEntriesPerWindow', 'cryptoAlgoBaseThreshold',
     'cryptoAlgoEntryPriceMin', 'cryptoAlgoEntryPriceMax', 'cryptoAlgoEntryPriceBandEnabled',
     'cryptoAlgoCurveFilterEnabled', 'cryptoAlgoCurveLookbackMs', 'cryptoAlgoCurveMinDelta',

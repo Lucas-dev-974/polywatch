@@ -1,8 +1,10 @@
 import pino from 'pino';
 import type { MarketListItemDto } from '@polywatch/core';
+import type { CryptoConfig } from '@polywatch/core';
+import { resolveNaiveMomentumConfig } from '@polywatch/core';
 import type {
   AlgoSignal,
-  CryptoAlgoStrategy,
+  ConfigurableCryptoAlgoStrategy,
   EvaluationResult,
   StrategyContext,
   TopOfBookData,
@@ -89,7 +91,7 @@ export interface NaiveMomentumConfig {
    */
   entryPriceBandEnabled: boolean;
 
-  /** Lower entry band bound (exclusive) on bought-token price. @default 0.50 */
+  /** Lower entry band bound (exclusive) on bought-token price. @default 0.55 */
   entryPriceMin: number;
 
   /** Upper entry band bound (exclusive) on bought-token price. @default 0.80 */
@@ -114,7 +116,7 @@ const DEFAULT_CONFIG: NaiveMomentumConfig = {
   warnPriceDeviation: 0.05,
   maxBookAgeMs: MAX_BOOK_AGE_MS,
   entryPriceBandEnabled: true,
-  entryPriceMin: 0.5,
+  entryPriceMin: 0.55,
   entryPriceMax: 0.8,
   curveFilterEnabled: false,
   curveLookbackMs: 10_000,
@@ -142,7 +144,7 @@ export function resolveEntryCandidateFromBand(
  * Spread gate and threshold adjustment use the book of the token the signal
  * would buy (Up for YES, Down for NO), in absolute probability points.
  */
-export class NaiveMomentumStrategy implements CryptoAlgoStrategy {
+export class NaiveMomentumStrategy implements ConfigurableCryptoAlgoStrategy {
   readonly id = 'naive-momentum';
   private config: NaiveMomentumConfig;
   private readonly lastInsufficientLogByCondition = new Map<string, number>();
@@ -154,6 +156,27 @@ export class NaiveMomentumStrategy implements CryptoAlgoStrategy {
   /** Hot-reload tunables from CryptoConfig (called by strategy runner). */
   setConfig(config: Partial<NaiveMomentumConfig>): void {
     this.config = { ...this.config, ...config };
+  }
+
+  /** Registry-driven tunables application (Phase 2.3). */
+  applyTunables(cryptoConfig: CryptoConfig): void {
+    const tunables = resolveNaiveMomentumConfig(cryptoConfig);
+    this.setConfig({
+      baseThreshold: tunables.baseThreshold,
+      maxSpreadAbs: tunables.maxSpreadAbs,
+      spreadAdjustmentFactor: tunables.spreadAdjustmentFactor,
+      minSpreadAbsForAdjustment: tunables.minSpreadAbsForAdjustment,
+      priceSumTolerance: tunables.priceSumTolerance,
+      warnPriceDeviation: tunables.warnPriceDeviation,
+      maxBookAgeMs: tunables.maxBookAgeMs,
+      spreadAbsByInterval: tunables.spreadAbsByInterval,
+      entryPriceBandEnabled: tunables.entryPriceBandEnabled,
+      entryPriceMin: tunables.entryPriceMin,
+      entryPriceMax: tunables.entryPriceMax,
+      curveFilterEnabled: tunables.curveFilterEnabled,
+      curveLookbackMs: tunables.curveLookbackMs,
+      curveMinDelta: tunables.curveMinDelta,
+    });
   }
 
   async evaluate(
@@ -294,6 +317,11 @@ export class NaiveMomentumStrategy implements CryptoAlgoStrategy {
           curveSeries.length,
           nowMs,
         );
+        return {
+          kind: 'abstain',
+          reason: 'curve_insufficient',
+          detail: `points=${curveSeries.length} lookbackMs=${this.config.curveLookbackMs}`,
+        };
       }
     }
 

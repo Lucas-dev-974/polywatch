@@ -30,7 +30,7 @@ export class CryptoConfig {
   @Column({ type: 'text', name: 'crypto_algo_kill_switch_action', default: 'block_entries' })
   cryptoAlgoKillSwitchAction!: string;
 
-  // ── Min bid/ask ratio ─────────────────────────────────────────────
+  // ── Min bid/ask ratio (dead — unused by crypto-algo; kept for DB compat) ─
 
   @Column({ type: 'real', name: 'crypto_algo_min_bid_to_ask_ratio', default: 0.9 })
   cryptoAlgoMinBidToAskRatio!: number;
@@ -53,12 +53,12 @@ export class CryptoConfig {
   @Column({ type: 'integer', name: 'crypto_algo_min_time_to_close', nullable: true })
   cryptoAlgoMinTimeToClose!: number | null;
 
-  // ── Allowed market tags ───────────────────────────────────────────
+  // ── Allowed market tags (dead — serialized in API only, no filter) ─
 
   @Column({ type: 'text', name: 'crypto_algo_allowed_market_tags', default: '[]' })
   cryptoAlgoAllowedMarketTags!: string;
 
-  // ── Signal score sizing ───────────────────────────────────────────
+  // ── Signal score sizing (dead — sizing hardcodes false) ───────────
 
   @Column({ type: 'boolean', name: 'crypto_algo_signal_score_sizing_enabled', default: true })
   cryptoAlgoSignalScoreSizingEnabled!: boolean;
@@ -70,7 +70,7 @@ export class CryptoConfig {
 
   // ── Price tick cleanup ────────────────────────────────────────────
 
-  @Column({ type: 'boolean', name: 'crypto_algo_price_tick_cleanup_enabled', default: true })
+  @Column({ type: 'boolean', name: 'crypto_algo_price_tick_cleanup_enabled', default: false })
   cryptoAlgoPriceTickCleanupEnabled!: boolean;
 
   @Column({ type: 'integer', name: 'crypto_algo_price_tick_cleanup_interval_minutes', default: 60 })
@@ -80,6 +80,13 @@ export class CryptoConfig {
 
   @Column({ type: 'text', name: 'crypto_algo_strategies', default: '["naive-momentum"]' })
   cryptoAlgoStrategies!: string;
+
+  /**
+   * Per-strategy JSON bag: `{ [strategyId]: { minTimeToClose?, exitProfile?, ... } }`.
+   * Empty object `{}` = no overrides.
+   */
+  @Column({ type: 'text', name: 'crypto_algo_strategy_params', default: '{}' })
+  cryptoAlgoStrategyParams!: string;
 
   // ── Trailing ──────────────────────────────────────────────────────
 
@@ -105,7 +112,7 @@ export class CryptoConfig {
 
   // ── SL/TP toggles ──────────────────────────────────────────────────
 
-  @Column({ type: 'boolean', name: 'crypto_algo_sl_enabled', default: true })
+  @Column({ type: 'boolean', name: 'crypto_algo_sl_enabled', default: false })
   cryptoAlgoSlEnabled!: boolean;
 
   @Column({ type: 'boolean', name: 'crypto_algo_tp_enabled', default: true })

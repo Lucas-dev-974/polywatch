@@ -15,6 +15,11 @@ import {
   presentIntervalExitMapForApi,
   presentIntervalNumberMapForApi,
 } from './risk-config-api.js';
+import {
+  parseCryptoAlgoStrategyParams,
+  serializeCryptoAlgoStrategyParams,
+  type CryptoAlgoStrategyParamsMap,
+} from './crypto-algo-strategy-params.js';
 
 export type CryptoConfigApi = Omit<
   CryptoConfig,
@@ -23,17 +28,20 @@ export type CryptoConfigApi = Omit<
   | 'cryptoAlgoSpreadAbsByInterval'
   | 'cryptoAlgoExitDefaultsByInterval'
   | 'cryptoAlgoPreCloseSecondsByInterval'
+  | 'cryptoAlgoStrategyParams'
 > & {
   cryptoAlgoStrategies: string[];
   cryptoAlgoAllowedMarketTags: string[];
   cryptoAlgoSpreadAbsByInterval: CryptoAlgoNumberIntervalMap | null;
   cryptoAlgoExitDefaultsByInterval: CryptoAlgoExitDefaultsIntervalMap | null;
   cryptoAlgoPreCloseSecondsByInterval: CryptoAlgoNumberIntervalMap | null;
+  cryptoAlgoStrategyParams: CryptoAlgoStrategyParamsMap;
 };
 
 type CryptoJsonArrayUpdate = {
   cryptoAlgoStrategies?: string[];
   cryptoAlgoAllowedMarketTags?: string[];
+  cryptoAlgoStrategyParams?: CryptoAlgoStrategyParamsMap;
 };
 
 type CryptoAlgoJsonUpdate = {
@@ -47,6 +55,7 @@ export function presentCryptoConfigForApi(config: CryptoConfig): CryptoConfigApi
     ...config,
     cryptoAlgoStrategies: parseCryptoAlgoStrategies(config.cryptoAlgoStrategies),
     cryptoAlgoAllowedMarketTags: parseAllowedMarketTags(config.cryptoAlgoAllowedMarketTags),
+    cryptoAlgoStrategyParams: parseCryptoAlgoStrategyParams(config.cryptoAlgoStrategyParams),
     cryptoAlgoSpreadAbsByInterval: presentIntervalNumberMapForApi(
       'cryptoAlgoSpreadAbsByInterval',
       config.cryptoAlgoSpreadAbsByInterval,
@@ -71,6 +80,7 @@ export function toCryptoConfigEntityUpdate<
   const {
     cryptoAlgoStrategies,
     cryptoAlgoAllowedMarketTags,
+    cryptoAlgoStrategyParams,
     cryptoAlgoSpreadAbsByInterval,
     cryptoAlgoExitDefaultsByInterval,
     cryptoAlgoPreCloseSecondsByInterval,
@@ -84,6 +94,11 @@ export function toCryptoConfigEntityUpdate<
   if (cryptoAlgoAllowedMarketTags !== undefined) {
     update.cryptoAlgoAllowedMarketTags = serializeAllowedMarketTags(
       cryptoAlgoAllowedMarketTags,
+    );
+  }
+  if (cryptoAlgoStrategyParams !== undefined) {
+    update.cryptoAlgoStrategyParams = serializeCryptoAlgoStrategyParams(
+      cryptoAlgoStrategyParams,
     );
   }
   if (cryptoAlgoSpreadAbsByInterval !== undefined) {

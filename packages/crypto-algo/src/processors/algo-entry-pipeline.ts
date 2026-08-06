@@ -15,6 +15,7 @@ import {
   ExecutionService,
   resolveAlgoEntryExitParams,
   resolveCryptoAlgoMinTimeToClose,
+  resolveStrategyMinTimeToClose,
   resolveMarketInterval,
   resolveEntryBalances,
   resumeEntryFromReservation,
@@ -115,7 +116,12 @@ export async function runAlgoEntryPipeline(
 
   const marketInterval = resolveMarketInterval(market, signal.interval);
 
-  const minTimeToClose = resolveCryptoAlgoMinTimeToClose(risk, marketInterval);
+  // Phase 2.5: strategy-bag override only → else global/interval via resolveCryptoAlgoMinTimeToClose.
+  const strategyOverride = resolveStrategyMinTimeToClose(risk, signal.strategyId);
+  const minTimeToClose =
+    strategyOverride != null
+      ? strategyOverride
+      : resolveCryptoAlgoMinTimeToClose(risk, marketInterval);
   if (minTimeToClose > 0 && market.endDate) {
     const timeToEndMs = new Date(market.endDate).getTime() - Date.now();
     if (timeToEndMs <= minTimeToClose * 1000) {

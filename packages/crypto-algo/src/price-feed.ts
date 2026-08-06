@@ -24,6 +24,8 @@ interface TopOfBook {
   assetId: string;
   bid: number | null;
   ask: number | null;
+  bidSize: number | null;
+  askSize: number | null;
   spread: number | null;
   midPrice: number | null;
   spreadPercent: number | null;
@@ -60,6 +62,8 @@ function toTopOfBookData(tob: TopOfBook): TopOfBookData {
     assetId: tob.assetId,
     bid: tob.bid,
     ask: tob.ask,
+    bidSize: tob.bidSize,
+    askSize: tob.askSize,
     spread: tob.spread,
     midPrice: tob.midPrice,
     spreadPercent: tob.spreadPercent,
@@ -390,6 +394,14 @@ export class CryptoAlgoPriceFeed {
       asks.length > 0 && typeof asks[0]?.price === 'number' && asks[0].price > 0
         ? asks[0].price
         : null;
+    const bidSize =
+      bestBid != null && typeof bids[0]?.size === 'number' && bids[0].size > 0
+        ? bids[0].size
+        : null;
+    const askSize =
+      bestAsk != null && typeof asks[0]?.size === 'number' && asks[0].size > 0
+        ? asks[0].size
+        : null;
 
     // Always refresh updatedAt — including empty / unilateral books — so
     // consumers do not keep a frozen bilateral snapshot during collapse.
@@ -407,6 +419,8 @@ export class CryptoAlgoPriceFeed {
       assetId,
       bid: bestBid,
       ask: bestAsk,
+      bidSize,
+      askSize,
       spread,
       midPrice,
       spreadPercent,

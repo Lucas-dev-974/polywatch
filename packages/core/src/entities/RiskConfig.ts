@@ -402,6 +402,10 @@ export class RiskConfig {
   @Column({ type: 'text', name: 'crypto_algo_strategies', default: '["naive-momentum"]' })
   cryptoAlgoStrategies!: string;
 
+  /** Per-strategy JSON params bag (composed from crypto_config). */
+  @Column({ type: 'text', name: 'crypto_algo_strategy_params', default: '{}' })
+  cryptoAlgoStrategyParams!: string;
+
   /** Crypto-algo trailing stop in bid points (absolute). Null = inherit interval default. */
   @Column({ type: 'real', name: 'crypto_algo_trailing_bid_points', nullable: true })
   cryptoAlgoTrailingBidPoints!: number | null;

@@ -35,7 +35,8 @@ import {
 import { config } from './config.js';
 import { seedCryptoAlgoWatchlistEntry } from './watchlist-seed.js';
 import { SelectionLoader } from './selection-loader.js';
-import { StrategyRegistry, NaiveMomentumStrategy, type AlgoSignal } from './strategy/index.js';
+import { StrategyRegistry, type AlgoSignal } from './strategy/index.js';
+import { registerBuiltinStrategies } from './strategy/register-builtin-strategies.js';
 import { StrategyRunner } from './strategy/strategy-runner.js';
 import { CryptoAlgoPriceFeed } from './price-feed.js';
 import { runAlgoEntryPipeline } from './processors/algo-entry-pipeline.js';
@@ -48,6 +49,10 @@ import { PriceTickRecorder } from './price-tick-recorder.js';
 import { SignalStateRegistry } from './signal-state-registry.js';
 import { PositionContextCache } from './position-context-cache.js';
 import { buildSurveillanceTargets } from './surveillance-targets.js';
+import {
+  clearPostEntryMidTimers,
+  schedulePostEntryMidLog,
+} from './post-entry-mid-logger.js';
 import { startSurveillanceJanitor } from './surveillance-janitor.js';
 
 const log = pino({ name: 'crypto-algo' });
@@ -99,9 +104,9 @@ async function main() {
   // 6. Create SelectionLoader
   const selectionLoader = new SelectionLoader(algoSelectionService, redisSub);
 
-  // 7. Create StrategyRegistry and register strategies
+  // 7. Create StrategyRegistry and auto-register built-ins (Phase 2.4)
   const registry = new StrategyRegistry();
-  registry.register(new NaiveMomentumStrategy());
+  registerBuiltinStrategies(registry);
 
   // 8. Create real connection manager (for WebSocket)
   const connectionManager = new PolymarketConnectionManager({
@@ -452,6 +457,13 @@ async function main() {
             payload.positionId,
             payload.windowMs,
           );
+          schedulePostEntryMidLog({
+            conditionId: payload.conditionId,
+            outcome: payload.outcome,
+            positionId: payload.positionId,
+            filledAtMs: payload.filledAtMs,
+            priceFeed,
+          });
         }
       } catch (err) {
         log.warn({ err, message }, 'malformed algo re-entry fill payload');
@@ -539,6 +551,7 @@ async function main() {
     clearInterval(heartbeatTimer);
     clearInterval(surveillanceRefreshTimer);
     stopSurveillanceJanitor();
+    clearPostEntryMidTimers();
     priceTickRecorder.shutdown();
     if (priceTickCleanupTimer) clearInterval(priceTickCleanupTimer);
     clearInterval(positionContextRefreshTimer);

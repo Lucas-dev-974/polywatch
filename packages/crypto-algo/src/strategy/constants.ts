@@ -34,20 +34,6 @@ export const SPREAD_ABS_BY_INTERVAL: Record<ValidInterval, number> =
   DEFAULT_CRYPTO_ALGO_SPREAD_ABS_BY_INTERVAL as Record<ValidInterval, number>;
 
 /**
- * @deprecated Prefer {@link SPREAD_ABS_BY_INTERVAL}. Kept for reference / migration.
- * Maximum spread percentage by interval (relative to ask).
- */
-export const SPREAD_BY_INTERVAL: Record<ValidInterval, number> = {
-  '5m': 10,
-  '10m': 8,
-  '15m': 7,
-  '30m': 6,
-  '1h': 5,
-  '4h': 5,
-  '1d': 5,
-};
-
-/**
  * Normalize an interval string to its canonical form.
  * E.g., '5min' -> '5m', '5m' -> '5m'
  */
@@ -77,21 +63,6 @@ export function getMaxSpreadAbsForInterval(
   }
 
   return SPREAD_ABS_BY_INTERVAL[normalized];
-}
-
-/**
- * @deprecated Prefer {@link getMaxSpreadAbsForInterval}.
- */
-export function getMaxSpreadForInterval(
-  interval: string | undefined,
-  defaultSpread: number,
-): number {
-  if (!interval) return defaultSpread;
-
-  const normalized = normalizeInterval(interval);
-  if (!normalized) return defaultSpread;
-
-  return SPREAD_BY_INTERVAL[normalized];
 }
 
 /**

@@ -114,7 +114,9 @@ Après le commit transactionnel du reset, le backend appelle
    - marqueurs dedup/retry du périmètre ; cooldown
      `algo-entry-cooldown:{conditionId}:sim` (jamais keyed par logicalKey) ;
    - **weather** : marqueurs `close-signals:enqueued:weather-close:{posId}:{reason}`
-     pour les positions wipees.
+     pour les positions wipees ;
+   - mêmes filtres sim sur les listes **`${queue}:dead`** + suppression des clés
+     RedisQueue `` `${raw}::retries` `` pour chaque job LREM'd.
 3. Les autres kinds et le trading **réel** (`mode:real`) ne sont **pas** touchés.
 
 Réponse API : champ `redisPurge` (compteurs). Pub/sub `simulation-reset` inclut

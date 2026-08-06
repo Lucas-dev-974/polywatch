@@ -38,7 +38,7 @@ export type SignalExecutionStatus =
  * execution on the same conditionId within `SIGNAL_MATCH_TOLERANCE_MS`.
  *
  * Non-ambiguity relies on the crypto-algo re-entry throttle
- * (`MAX_ENTRIES_PER_WINDOW = 1` in production): at most one signal is active
+ * (`cryptoAlgoMaxEntriesPerWindow` default 1 in production): at most one signal is active
  * per conditionId at any time, so the first timestamp match is authoritative.
  */
 export function resolveSignalExecutionStatus(

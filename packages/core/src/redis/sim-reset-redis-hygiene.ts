@@ -8,7 +8,7 @@ import { WatchlistEntry } from '../entities/Watchlist.js';
 import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
 import { hashAlgoLogicalKey } from '../idempotence/hash.js';
 import { resolveMarketInterval } from '../risk/crypto-algo-exit.js';
-import { WORKER_QUEUES } from '../queue/worker-queues.js';
+import { deadLetterQueueKey, WORKER_QUEUES } from '../queue/worker-queues.js';
 import { algoEntryCooldownKey } from './algo-entry-cooldown.js';
 import { weatherReentryThrottleKey } from './weather-reentry-throttle.js';
 import { weatherBucketHysteresisKey } from './weather-bucket-hysteresis.js';
@@ -57,10 +57,23 @@ export interface SimResetRedisPurgeResult {
   moveEventsRemoved?: number;
   weatherReentryKeysRemoved?: number;
   weatherHysteresisKeysRemoved?: number;
+  /** Sim-filtered jobs removed from `${queue}:dead` lists. */
+  deadLetterRemoved?: number;
+  /** `${raw}::retries` keys deleted after LREM (main/processing/dead). */
+  jobRetryKeysRemoved?: number;
 }
 
 function processingKey(queueName: string): string {
   return `${queueName}:processing`;
+}
+
+/** RedisQueue retry counter for a concrete list payload (`redis-queue.ts`). */
+function jobRetryKey(raw: string): string {
+  return `${raw}::retries`;
+}
+
+async function deleteJobRetryKey(redis: Redis, raw: string): Promise<number> {
+  return redis.del(jobRetryKey(raw));
 }
 
 function parseStrategies(raw: string | null | undefined): string[] {
@@ -241,24 +254,29 @@ async function removeSimEntryJobsFromList(
   redis: Redis,
   queueName: string,
   algoKind: SimAlgoKind,
-): Promise<number> {
+): Promise<{ removed: number; retryKeysRemoved: number }> {
   const items = await redis.lrange(queueName, 0, -1);
   let removed = 0;
+  let retryKeysRemoved = 0;
   for (const raw of items) {
     if (!entryJobMatchesAlgoKind(raw, algoKind)) continue;
     const count = await redis.lrem(queueName, 0, raw);
-    if (count > 0) removed += count;
+    if (count > 0) {
+      removed += count;
+      retryKeysRemoved += await deleteJobRetryKey(redis, raw);
+    }
   }
-  return removed;
+  return { removed, retryKeysRemoved };
 }
 
 async function removeSimCloseJobsFromList(
   redis: Redis,
   queueName: string,
   copiedPositionIds: Set<number>,
-): Promise<{ removed: number; closeSignalIds: Set<string> }> {
+): Promise<{ removed: number; closeSignalIds: Set<string>; retryKeysRemoved: number }> {
   const items = await redis.lrange(queueName, 0, -1);
   let removed = 0;
+  let retryKeysRemoved = 0;
   const closeSignalIds = new Set<string>();
   for (const raw of items) {
     if (!isSimJob(raw)) continue;
@@ -267,12 +285,15 @@ async function removeSimCloseJobsFromList(
       if (!copiedPositionIds.has(job.copiedPositionId)) continue;
       closeSignalIds.add(job.id);
       const count = await redis.lrem(queueName, 0, raw);
-      if (count > 0) removed += count;
+      if (count > 0) {
+        removed += count;
+        retryKeysRemoved += await deleteJobRetryKey(redis, raw);
+      }
     } catch {
       /* skip */
     }
   }
-  return { removed, closeSignalIds };
+  return { removed, closeSignalIds, retryKeysRemoved };
 }
 
 async function removeSimExecutionResultsFromList(
@@ -281,10 +302,11 @@ async function removeSimExecutionResultsFromList(
   hints: SimRedisPurgeHints,
   closeSignalIds: Set<string>,
   algoKind: SimAlgoKind,
-): Promise<number> {
+): Promise<{ removed: number; retryKeysRemoved: number }> {
   const reservationIds = new Set(hints.copySignalIds);
   const items = await redis.lrange(queueName, 0, -1);
   let removed = 0;
+  let retryKeysRemoved = 0;
   for (const raw of items) {
     if (!isSimJob(raw)) continue;
     try {
@@ -298,12 +320,15 @@ async function removeSimExecutionResultsFromList(
         algoKindFromReason(job.reason) === algoKind;
       if (!matchBySignal && !matchByReason) continue;
       const count = await redis.lrem(queueName, 0, raw);
-      if (count > 0) removed += count;
+      if (count > 0) {
+        removed += count;
+        retryKeysRemoved += await deleteJobRetryKey(redis, raw);
+      }
     } catch {
       /* skip */
     }
   }
-  return removed;
+  return { removed, retryKeysRemoved };
 }
 
 /**
@@ -315,9 +340,10 @@ async function removeMoveEventsForTraders(
   redis: Redis,
   queueName: string,
   traders: Set<string>,
-): Promise<{ removed: number; moveIds: Set<string> }> {
+): Promise<{ removed: number; moveIds: Set<string>; retryKeysRemoved: number }> {
   const items = await redis.lrange(queueName, 0, -1);
   let removed = 0;
+  let retryKeysRemoved = 0;
   const moveIds = new Set<string>();
   for (const raw of items) {
     try {
@@ -327,12 +353,15 @@ async function removeMoveEventsForTraders(
       }
       if (job.id) moveIds.add(job.id);
       const count = await redis.lrem(queueName, 0, raw);
-      if (count > 0) removed += count;
+      if (count > 0) {
+        removed += count;
+        retryKeysRemoved += await deleteJobRetryKey(redis, raw);
+      }
     } catch {
       /* skip */
     }
   }
-  return { removed, moveIds };
+  return { removed, moveIds, retryKeysRemoved };
 }
 
 /**
@@ -346,23 +375,27 @@ export async function purgeSimExecutionRedisState(
 ): Promise<SimResetRedisPurgeResult> {
   let algoOrderSignalsRemoved = 0;
   let orderSignalsRemoved = 0;
+  let deadLetterRemoved = 0;
+  let jobRetryKeysRemoved = 0;
+
+  const accumulateEntry = async (queueName: string): Promise<number> => {
+    const result = await removeSimEntryJobsFromList(redis, queueName, algoKind);
+    jobRetryKeysRemoved += result.retryKeysRemoved;
+    return result.removed;
+  };
 
   if (algoKind === 'crypto') {
     algoOrderSignalsRemoved =
-      (await removeSimEntryJobsFromList(redis, ALGO_QUEUE, algoKind)) +
-      (await removeSimEntryJobsFromList(redis, processingKey(ALGO_QUEUE), algoKind));
+      (await accumulateEntry(ALGO_QUEUE)) +
+      (await accumulateEntry(processingKey(ALGO_QUEUE)));
   } else if (algoKind === 'weather') {
     algoOrderSignalsRemoved =
-      (await removeSimEntryJobsFromList(redis, WEATHER_QUEUE, algoKind)) +
-      (await removeSimEntryJobsFromList(
-        redis,
-        processingKey(WEATHER_QUEUE),
-        algoKind,
-      ));
+      (await accumulateEntry(WEATHER_QUEUE)) +
+      (await accumulateEntry(processingKey(WEATHER_QUEUE)));
   } else if (algoKind === 'copy') {
     orderSignalsRemoved =
-      (await removeSimEntryJobsFromList(redis, COPY_QUEUE, algoKind)) +
-      (await removeSimEntryJobsFromList(redis, processingKey(COPY_QUEUE), algoKind));
+      (await accumulateEntry(COPY_QUEUE)) +
+      (await accumulateEntry(processingKey(COPY_QUEUE)));
   }
 
   const positionIdSet = new Set(hints.copiedPositionIds);
@@ -382,6 +415,7 @@ export async function purgeSimExecutionRedisState(
       positionIdSet,
     );
     closeSignalsRemoved += closeMain.removed + closeProcessing.removed;
+    jobRetryKeysRemoved += closeMain.retryKeysRemoved + closeProcessing.retryKeysRemoved;
     for (const id of closeMain.closeSignalIds) allCloseSignalIds.add(id);
     for (const id of closeProcessing.closeSignalIds) allCloseSignalIds.add(id);
   }
@@ -389,39 +423,77 @@ export async function purgeSimExecutionRedisState(
   // Re-scan entry queues once more after the close passes (same TOCTOU window).
   if (algoKind === 'crypto') {
     algoOrderSignalsRemoved +=
-      (await removeSimEntryJobsFromList(redis, ALGO_QUEUE, algoKind)) +
-      (await removeSimEntryJobsFromList(redis, processingKey(ALGO_QUEUE), algoKind));
+      (await accumulateEntry(ALGO_QUEUE)) +
+      (await accumulateEntry(processingKey(ALGO_QUEUE)));
   } else if (algoKind === 'weather') {
     algoOrderSignalsRemoved +=
-      (await removeSimEntryJobsFromList(redis, WEATHER_QUEUE, algoKind)) +
-      (await removeSimEntryJobsFromList(
-        redis,
-        processingKey(WEATHER_QUEUE),
-        algoKind,
-      ));
+      (await accumulateEntry(WEATHER_QUEUE)) +
+      (await accumulateEntry(processingKey(WEATHER_QUEUE)));
   } else if (algoKind === 'copy') {
     orderSignalsRemoved +=
-      (await removeSimEntryJobsFromList(redis, COPY_QUEUE, algoKind)) +
-      (await removeSimEntryJobsFromList(redis, processingKey(COPY_QUEUE), algoKind));
+      (await accumulateEntry(COPY_QUEUE)) +
+      (await accumulateEntry(processingKey(COPY_QUEUE)));
   }
 
   let executionResultsRemoved = 0;
   for (let pass = 0; pass < 2; pass++) {
-    executionResultsRemoved +=
-      (await removeSimExecutionResultsFromList(
-        redis,
-        RESULTS_QUEUE,
-        hints,
-        allCloseSignalIds,
-        algoKind,
-      )) +
-      (await removeSimExecutionResultsFromList(
-        redis,
-        processingKey(RESULTS_QUEUE),
-        hints,
-        allCloseSignalIds,
-        algoKind,
-      ));
+    const resultsMain = await removeSimExecutionResultsFromList(
+      redis,
+      RESULTS_QUEUE,
+      hints,
+      allCloseSignalIds,
+      algoKind,
+    );
+    const resultsProcessing = await removeSimExecutionResultsFromList(
+      redis,
+      processingKey(RESULTS_QUEUE),
+      hints,
+      allCloseSignalIds,
+      algoKind,
+    );
+    executionResultsRemoved += resultsMain.removed + resultsProcessing.removed;
+    jobRetryKeysRemoved +=
+      resultsMain.retryKeysRemoved + resultsProcessing.retryKeysRemoved;
+  }
+
+  // Dead-letter lists use the same sim filters (do not wipe real-mode dead jobs).
+  const entryDeadQueue =
+    algoKind === 'weather'
+      ? deadLetterQueueKey(WEATHER_QUEUE)
+      : algoKind === 'copy'
+        ? deadLetterQueueKey(COPY_QUEUE)
+        : deadLetterQueueKey(ALGO_QUEUE);
+  if (algoKind === 'crypto' || algoKind === 'weather') {
+    const deadEntry = await accumulateEntry(entryDeadQueue);
+    algoOrderSignalsRemoved += deadEntry;
+    deadLetterRemoved += deadEntry;
+  } else {
+    const deadEntry = await accumulateEntry(entryDeadQueue);
+    orderSignalsRemoved += deadEntry;
+    deadLetterRemoved += deadEntry;
+  }
+  {
+    const deadClose = await removeSimCloseJobsFromList(
+      redis,
+      deadLetterQueueKey(CLOSE_QUEUE),
+      positionIdSet,
+    );
+    closeSignalsRemoved += deadClose.removed;
+    deadLetterRemoved += deadClose.removed;
+    jobRetryKeysRemoved += deadClose.retryKeysRemoved;
+    for (const id of deadClose.closeSignalIds) allCloseSignalIds.add(id);
+  }
+  {
+    const deadResults = await removeSimExecutionResultsFromList(
+      redis,
+      deadLetterQueueKey(RESULTS_QUEUE),
+      hints,
+      allCloseSignalIds,
+      algoKind,
+    );
+    executionResultsRemoved += deadResults.removed;
+    deadLetterRemoved += deadResults.removed;
+    jobRetryKeysRemoved += deadResults.retryKeysRemoved;
   }
 
   const markerKeysToDelete: string[] = [];
@@ -500,9 +572,20 @@ export async function purgeSimExecutionRedisState(
         traders,
       );
       moveEventsRemoved += moveMain.removed + moveProcessing.removed;
+      jobRetryKeysRemoved += moveMain.retryKeysRemoved + moveProcessing.retryKeysRemoved;
       for (const id of moveMain.moveIds) moveIds.add(id);
       for (const id of moveProcessing.moveIds) moveIds.add(id);
     }
+    const moveDead = await removeMoveEventsForTraders(
+      redis,
+      deadLetterQueueKey(MOVE_EVENTS_QUEUE),
+      traders,
+    );
+    moveEventsRemoved += moveDead.removed;
+    deadLetterRemoved += moveDead.removed;
+    jobRetryKeysRemoved += moveDead.retryKeysRemoved;
+    for (const id of moveDead.moveIds) moveIds.add(id);
+
     const moveDedupeKeys = [...moveIds].flatMap((id) =>
       markerKeys(MOVE_EVENTS_QUEUE, id),
     );
@@ -549,6 +632,8 @@ export async function purgeSimExecutionRedisState(
     moveEventsRemoved,
     weatherReentryKeysRemoved,
     weatherHysteresisKeysRemoved,
+    deadLetterRemoved,
+    jobRetryKeysRemoved,
   };
 }
 

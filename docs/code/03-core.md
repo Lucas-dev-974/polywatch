@@ -25,17 +25,37 @@ core/src/
 ├── sizing/        compute, entry-sizing, entry-mos / resolve-entry-mos, depth-retry, enqueue, resume-reserved
 ├── types/         types partagés (TradingMode, OrderSignal, etc.)
 ├── crypto-algo/   optimize-report, config-fingerprint, comparaison rapports
-├── lib/           utilitaires (ttl-cache, algo-price-tick-snapshot, `safe-parse-json`)
+├── lib/           utilitaires (`ttl-cache`, `algo-price-tick-snapshot`, `safe-parse-json`, `to-iso`, `is-postgres`)
 ├── real/          trader-rollup (wrapper), snapshot-decision-collector, locks advisory rotation/auto-snapshot
-├── redis/         factory, sim-reset hygiene, algo-entry-cooldown, crypto-reentry-throttle, weather-reentry/hysteresis, pub/sub
+├── redis/         factory, sim-reset hygiene (incl. `:dead` + `::retries`), algo-entry-cooldown, crypto-reentry-throttle, weather-reentry/hysteresis, pub/sub
 ├── trader-insight/ construction des profils trader (capital, funding, insight)
 ├── worker/        paramétrage MoveDetector (move-detector-settings)
-├── worker-shared/ RedisQueue, safe-interval, backend client/readiness, connection-manager interface
+├── worker-shared/ RedisQueue (`JobDiscardedError`), safe-interval, backend client/readiness, connection-manager interface
 ├── weather/       découverte marchés météo, Open-Meteo, forecast distribution, edge, exit helpers
 ├── migrate.ts     création du schéma + seed (one-shot)
 ├── migration-backfill.ts  backfill colonnes héritées
-└── migrations/    80 migrations TypeORM (Baseline, Algo*, CryptoAlgo*, AlgoPriceTick*, MarketPositionTicks*, MarketPriceTicks*, E2e*, SnapshotSystemV2, RealSessions, SimulationSessions, AnalysisReports, WeatherAlgo*, SplitRiskConfig 0087, DropLegacyRiskConfig 0088, PostEntryMidSamples 0095, etc.)
+└── migrations/    **80** fichiers TypeORM — inventaire récent ci-dessous
 ```
+
+### Migrations récentes (0081–0095)
+
+| # | Fichier | Objet |
+|---|---------|--------|
+| 0081 | `WeatherPositionForecastUnique…` | Unique forecast par position |
+| 0082 | `WeatherCityFollow…` | Colonnes city-follow |
+| 0083 | `AddWeatherAlgoModeToggles…` | Toggles sim/real weather |
+| 0084 | `SimBalancePerAlgoKind…` | `simulation_balances.algo_kind` |
+| 0085 | `SimSessionsPerAlgoKind…` | Sessions par algo kind |
+| 0086 | `AddSimInitialCapitalPerAlgoKind…` | Capital initial par kind |
+| 0087 | `SplitRiskConfigPerAlgoKind…` | Split → Global/Copy/Crypto/Weather |
+| 0088 | `DropLegacyRiskConfig…` | Drop table `risk_config` |
+| 0089 | `WeatherCityFirstSelection…` | City-first + hysteresis/throttle |
+| 0090 | `EnsureRiskConfigFingerprintNullable…` | `config_fingerprint` nullable |
+| 0091 | `DropWeatherMarketSelections…` | Drop `weather_market_selections` |
+| 0092 | `AddWeatherAlgoMinForecastProbability…` | Min forecast probability |
+| 0093 | `CryptoAlgoStopBleed…` | Stop-bleed (SL off, band floor…) |
+| 0094 | `AddCryptoAlgoStrategyParams…` | `crypto_algo_strategy_params` JSON |
+| 0095 | `CreatePostEntryMidSamples…` | Table `post_entry_mid_samples` |
 
 ## Entités (PostgreSQL)
 

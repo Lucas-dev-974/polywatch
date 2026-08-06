@@ -223,7 +223,7 @@ crypto-algo/src/
     ├── strategy.ts                 interface CryptoAlgoStrategy, AlgoSignal, StrategyContext, AbstainReasonCode (15)
     ├── registry.ts                 StrategyRegistry (filtre par cryptoAlgoStrategies)
     ├── strategy-runner.ts          boucle d'évaluation + re-entry guard + WS
-    ├── constants.ts                VALID_INTERVALS, SPREAD_BY_INTERVAL, helpers
+    ├── constants.ts                VALID_INTERVALS, SPREAD_ABS_BY_INTERVAL, helpers
     └── implementations/
         └── naive-momentum.strategy.ts
 ```

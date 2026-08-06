@@ -15,13 +15,7 @@ import type {
   UpdateSimSessionOptions,
 } from '../types/sim-session.js';
 import type { SimArchiveSummary } from '../types/sim-session-archive.js';
-
-function toIso(value: Date | null | undefined): string | null {
-  if (!value) return null;
-  return value instanceof Date
-    ? value.toISOString()
-    : new Date(value).toISOString();
-}
+import { toIso } from '../lib/to-iso.js';
 
 function parseArchiveSummary(json: string | null): SimArchiveSummary | null {
   if (!json) return null;

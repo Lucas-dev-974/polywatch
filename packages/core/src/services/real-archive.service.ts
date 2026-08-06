@@ -15,11 +15,10 @@ import {
 import { buildRealTraderRollup } from '../real/trader-rollup.js';
 import {
   collectRealDecisionPayload,
-  estimateRealDecisionPayloadBytes,
-  SNAPSHOT_DECISION_MAX_EVENTS,
-  SNAPSHOT_DECISION_MAX_JSON_BYTES,
   type RealSnapshotDecisionSummary,
 } from '../real/snapshot-decision-collector.js';
+import { applyDecisionPayloadByteBudget } from '../snapshot/decision-collector-shared.js';
+import { isPostgres } from '../lib/is-postgres.js';
 import {
   CopiedPositionPresenter,
   type EnrichedCopiedPosition,
@@ -140,8 +139,7 @@ export class RealArchiveService {
   private async lastAutoSnapshotAgeSeconds(
     manager: EntityManager,
   ): Promise<number | null> {
-    const isPostgres = this.ds.options.type === 'postgres';
-    const sql = isPostgres
+    const sql = isPostgres(this.ds)
       ? `SELECT EXTRACT(EPOCH FROM (now() - created_at)) AS age
          FROM real_state_snapshots
          WHERE source = 'auto'
@@ -202,15 +200,7 @@ export class RealArchiveService {
       positions,
       watchlistEntries,
     });
-    if (
-      estimateRealDecisionPayloadBytes(decisionPayload) >
-      SNAPSHOT_DECISION_MAX_JSON_BYTES
-    ) {
-      decisionPayload.summary.truncated = true;
-      const half = Math.floor(SNAPSHOT_DECISION_MAX_EVENTS / 2);
-      decisionPayload.exitAttempts = decisionPayload.exitAttempts.slice(-half);
-      decisionPayload.moveEvents = decisionPayload.moveEvents.slice(-half);
-    }
+    applyDecisionPayloadByteBudget(decisionPayload);
 
     const openPositionCount = decisionPayload.summary.openPositionCount;
     const closedPositionCount = decisionPayload.summary.closedPositionCount;

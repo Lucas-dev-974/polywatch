@@ -126,3 +126,29 @@ export function estimateDecisionPayloadJsonBytes(payload: {
     'utf8',
   );
 }
+
+type DecisionPayloadByteBudget = {
+  exitAttempts: unknown[];
+  moveEvents: unknown[];
+  summary: { truncated?: boolean };
+};
+
+/**
+ * Second-pass archive byte budget: if the JSON payload exceeds
+ * {@link SNAPSHOT_DECISION_MAX_JSON_BYTES}, keep the newest half of each
+ * event array and mark `summary.truncated`.
+ */
+export function applyDecisionPayloadByteBudget<T extends DecisionPayloadByteBudget>(
+  payload: T,
+): T {
+  if (
+    estimateDecisionPayloadJsonBytes(payload) <= SNAPSHOT_DECISION_MAX_JSON_BYTES
+  ) {
+    return payload;
+  }
+  payload.summary.truncated = true;
+  const half = Math.floor(SNAPSHOT_DECISION_MAX_EVENTS / 2);
+  payload.exitAttempts = payload.exitAttempts.slice(-half);
+  payload.moveEvents = payload.moveEvents.slice(-half);
+  return payload;
+}

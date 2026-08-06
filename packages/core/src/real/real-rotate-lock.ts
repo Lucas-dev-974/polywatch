@@ -1,14 +1,11 @@
 import type { DataSource, EntityManager } from 'typeorm';
+import { isPostgres } from '../lib/is-postgres.js';
 
 /** Serializes real period rotation across concurrent requests/processes. */
 export const REAL_ROTATE_ADVISORY_LOCK_KEY = 847263101;
 
 /** Serializes real auto snapshot creation across concurrent backend ticks/processes. */
 export const REAL_AUTO_SNAPSHOT_ADVISORY_LOCK_KEY = 847263102;
-
-function isPostgres(ds: DataSource): boolean {
-  return ds.options.type === 'postgres';
-}
 
 export async function withRealRotateLock<T>(
   ds: DataSource,

@@ -112,8 +112,13 @@ Voir aussi [simulation-execution.md](../simulation-execution.md) pour le pipelin
 | `websocket-user.ts` | Canal user authentifié ; réconciliation `placing` à la reconnexion |
 | `sync-book-subscriptions.ts` | Resync abonnements book (10 s) + assets pending move (TTL 30 s) |
 | `connection-manager.ts` | Hub central des connexions WebSocket et carnets d'ordres ; importé par 20+ fichiers |
-| `circuit-breaker.ts` / `token-bucket.ts` / `rate-limited-fetch.ts` | Résilience / rate-limit (copies C5) |
+| `circuit-breaker.ts` / `token-bucket.ts` / `rate-limited-fetch.ts` | Résilience / rate-limit (**shims** → `@polywatch/core`) |
 | `book-freshness.ts` / `ensure-book-ready.ts` | Fraîcheur book + gate avant entry |
+
+### Politique book stale — SL/TP (acceptée)
+
+- **Entry** (algo) : fail-closed ~15 s (`stale_book` / `ALGO_BOOK_FRESH_MS`).
+- **SL/TP / exits worker** : warn-only à 30 s (`BOOK_FRESHNESS_WARN_MAX_AGE_MS` dans `constants.ts`) — `warnStaleData` logue puis **l'évaluation continue** (`position-exit-evaluator`). Préventif fail-closed non activé (décision plan §4.8).
 
 ## Watchdogs
 

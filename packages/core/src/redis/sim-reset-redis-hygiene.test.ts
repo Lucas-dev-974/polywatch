@@ -112,6 +112,42 @@ describe('purgeSimExecutionRedisState — copy phantom re-entry', () => {
     expect(redis._store.has(`algo-entry-cooldown:${logicalKey}:sim`)).toBe(true);
   });
 
+  it('purges sim dead-letter jobs and ::retries keys', async () => {
+    const algoQueue = WORKER_QUEUES.ALGO_ORDER_SIGNALS;
+    const dead = `${algoQueue}:dead`;
+    const simJob = JSON.stringify({
+      id: 'sig-sim-dead',
+      mode: 'sim',
+      reason: 'ALGO_OPEN',
+      copiedPositionId: 1,
+    });
+    const realJob = JSON.stringify({
+      id: 'sig-real-dead',
+      mode: 'real',
+      reason: 'ALGO_OPEN',
+      copiedPositionId: 2,
+    });
+    const redis = makeRedis(
+      { [dead]: [simJob, realJob] },
+      {
+        [`${simJob}::retries`]: '2',
+        [`${realJob}::retries`]: '1',
+      },
+    );
+
+    const result = await purgeSimExecutionRedisState(
+      redis as never,
+      baseHints,
+      'crypto',
+    );
+
+    expect(result.deadLetterRemoved).toBe(1);
+    expect(result.jobRetryKeysRemoved).toBe(1);
+    expect(redis._lists.get(dead)).toEqual([realJob]);
+    expect(redis._store.has(`${simJob}::retries`)).toBe(false);
+    expect(redis._store.has(`${realJob}::retries`)).toBe(true);
+  });
+
   it('purges weather-close enqueueUnique markers for wiped positions', async () => {
     const closeQueue = WORKER_QUEUES.CLOSE_SIGNALS;
     const redis = makeRedis(

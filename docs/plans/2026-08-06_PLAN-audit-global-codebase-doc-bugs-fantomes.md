@@ -31,7 +31,7 @@
 | Phase 2 — Audit doc↔code (par module)         | ✅ Terminée                                                             | 2026-08-06           |
 | Phase 3 — Audit structurel & refactor         | ✅ Terminée (extracts C1/C2/C5 ; C8 doc ; C9 audit sans purge aveugle)   | 2026-08-07           |
 | Phase 4 — Audit bugs fantômes                 | ✅ Terminée (P2 worker abort+shuttingDown clos 2026-08-07)              | 2026-08-07           |
-| Phase 5 — Synthèse & corrections              | ✅ Rapport final + resync doc/plan ; reste P3 (C9, inventaire)          | 2026-08-07           |
+| Phase 5 — Synthèse & corrections              | ✅ Clos ; reste ops fallbacks Gamma                                     | 2026-08-07           |
 
 
 > **Resync 2026-08-06** : plan parent aligné sur le code post-PR #1 + Phase F (`b219a7f`). Les todos ci-dessous marqués ✅ P0 / ✅ F ne doivent pas être rejoués.
@@ -85,7 +85,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | C12 | `docs/audit-api-alignement.md` **obsolète** — routes `system-audit`, weather capital/executions, crypto-algo-monitor **ajoutées à** `api.md` (2026-08-06). `config-per-kind` déjà documenté. Audit historique encore stale.                                                                                                                                                                                                                                                                                                                                                                                                                                       | 🟢 Mineure (audit historique) | `docs/api.md`                                                                                                               |
 | C13 | **Lacune doc weather-algo** : ~~pas de~~ `docs/code/08-weather-algo.md` → **créé 2026-08-06**. `docs/weather-algo.md` = 67 lignes (synthèse)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | ✅ Clos (doc)                  | `docs/code/08-weather-algo.md`                                                                                              |
 | C14 | **Modules non documentés** : `backend/src/e2e/` (absent de `05-backend.md`), `tools/recover-stranded-redemption/` (README non référencé dans `docs/README.md`), `crypto-algo/scripts/monitor.ts` (absent de `configuration.md`). NB : `e2e/` racine EST documenté (`01-architecture.md:20` + `configuration.md:301-304`) — plan initial inexact sur ce point                                                                                                                                                                                                                                                                                                      | 🟡 Moyenne                    | multiple                                                                                                                    |
-| C15 | **14 migrations récentes** (0081-0094) + `0095` post-entry-mid. Compteur `03-core.md` corrigé → **80** fichiers. **Reste P3** : inventaire tabulaire exhaustif 0081–0095 (citations partielles OK).                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 🟢 Mineure (inventaire)       | `core/migrations/`                                                                                                          |
+| C15 | **15 migrations** 0081–0095. Compteur **80** fichiers. Inventaire tabulaire ✅ dans `03-core.md` (2026-08-07).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | ✅ Clos (doc)                  | `docs/code/03-core.md`                                                                                                      |
 | C16 | Modules runtime crypto-algo — ✅ documentés dans `docs/crypto-algo.md` §8 (2026-08-06)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | ✅ Clos                        | `docs/crypto-algo.md`                                                                                                       |
 | C17 | `monitor.ts` **(672 lignes)** : 3 requêtes SQL interpolent `${hours}` (`:84`, `:135`, `:172`), `hours = Math.max(1, Number(env))` sans garde NaN. Source = env var (pas HTTP) → risque actuel proche de zéro. NB : `conditionId` n'est **jamais interpolé** (plan initial inexact). Sévérité reclassée 🟢 Mineure (était 🟡)                                                                                                                                                                                                                                                                                                                                      | 🟢 Mineure                    | `crypto-algo/src/scripts/monitor.ts`                                                                                        |
 
@@ -119,7 +119,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | C12     | ⚠️ Corrigé                    | `api.md` = 295 lignes (pas 231) ; `market-chart` EST documenté (`api.md:217`) — retiré des routes manquantes                                                                   |
 | C13     | ⚠️ Corrigé                    | `docs/weather-algo.md` = 67 lignes (pas 89)                                                                                                                                    |
 | C14     | ⚠️ Corrigé                    | `e2e/` racine EST documenté (`01-architecture.md:20` + `configuration.md:301-304`) — sous-affirmation "non documenté" réfutée                                                  |
-| C15     | ⚠️ Corrigé puis resync        | Compteur doc → **80** ; inventaire tabulaire 0081–0095 encore ouvert (P3)                                                                                                      |
+| C15     | ✅ Clos (doc)                  | Compteur **80** ; inventaire 0081–0095 dans `03-core.md` (2026-08-07)                                                                                                          |
 | C16     | ⚠️ Corrigé                    | `mid-history-buffer` (`:51`) et `auto-track-janitor` (`:33`) SONT mentionnés — retirés de la liste                                                                             |
 | C17     | ⚠️ Corrigé                    | `conditionId` jamais interpolé (plan inexact) ; sévérité reclassée 🟢 Mineure (risque actuel proche de zéro, source = env var)                                                 |
 
@@ -220,7 +220,7 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 - [x] Créer un inventaire des migrations 0081-0094 (récentes) … ✅ partiel : 0084–0086/0088/0095 cités ; inventaire exhaustif reporté P2
 - [x] Vérifier `docs/configuration.md` (bande, curve, SL quota) ✅ bande/curve OK ; SL quota `0044` ajouté
 - [ ] **Observations** :
-  - ✅ 2026-08-06 C15 : 69→80. **Reste P2** : tableau inventaire 0081–0095 dans `03-core.md`.
+  - ✅ 2026-08-06 C15 : 69→80. ✅ 2026-08-07 inventaire tabulaire 0081–0095 dans `03-core.md`.
 
 
 
@@ -343,7 +343,7 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 - [ ] **Observations** :
   - ✅ 2026-08-06 P0-C : extract DTO/constantes collectors.
   - ✅ 2026-08-06 mesure drift : rollup quasi-identique ; archive/session = squelette cloné + divergences légitimes. Pas de `ModeSession`.
-  - ✅ 2026-08-07 : `snapshot/trader-rollup-shared.ts` (`buildTraderRollup` + helpers) ; sim/real = thin wrappers ; `safeParseJson` unique. Truncate decision archive encore local (P3 optionnel). Tests `trader-rollup.test.ts` verts.
+  - ✅ 2026-08-07 : `snapshot/trader-rollup-shared.ts` (`buildTraderRollup` + helpers) ; sim/real = thin wrappers ; `safeParseJson` unique ; `applyDecisionPayloadByteBudget` + `lib/to-iso` / `lib/is-postgres`.
 
 
 
@@ -393,17 +393,11 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 - [x] Vérifier consommateurs de `buildMarkdownReport` (monitor.ts) — ✅ 2026-08-07 mort confirmé (défini, 0 appel)
 - [x] Vérifier `resolveGammaCacheTtlOrFallback` + TTL locales — ✅ flag `deprecated_fallbacks_enabled` branché ; log warn si fallback ; **ne pas purger** sans semaine de logs propres
 - [x] Vérifier exports `@deprecated` (sl-quota, constants, strategy-runner) ✅ 2026-08-07
-- [x] Planifier la purge (après observation logs) ✅ plan ci-dessous — **pas de purge code cette étape**
+- [x] Planifier la purge (après observation logs) ✅
+- [x] **Purge code mort sûr** ✅ 2026-08-07 — `buildMarkdownReport`, `loadSlQuotaCount`/`isSlQuotaReached`, `SPREAD_BY_INTERVAL`/`getMaxSpreadForInterval`, `MAX_ENTRIES_PER_WINDOW`
 - [ ] **Observations** :
-  - ✅ 2026-08-07 inventaire :
-    | Symbole | Statut | Action |
-    |---|---|---|
-    | `buildMarkdownReport` | mort | purge safe (P3 commit dédié) |
-    | `loadSlQuotaCount` / `isSlQuotaReached` | 0 import runtime | purge safe |
-    | `SPREAD_BY_INTERVAL` / `getMaxSpreadForInterval` | remplacés par `getMaxSpreadAbsForInterval` | purge safe |
-    | `MAX_ENTRIES_PER_WINDOW` | export sans import ; valeur conceptuelle | purge avec constantes re-entry |
-    | `RE_ENTRY_WINDOW_MS` + TTL `OUTCOME_PRICES_CACHE_TTL_*` | **actifs** via ctor / `resolveGammaCacheTtlOrFallback` | **garder** jusqu'à `feature.deprecated_fallbacks_enabled=false` + logs sans warn |
-  - Purge aveugle **refusée**. Prochaine étape ops : observer warn `gammaCacheTtlFallback used` puis couper flag puis supprimer fallbacks.
+  - ✅ 2026-08-07 inventaire + purge safe appliquée.
+  - ⏳ **Gardé** (actifs) : `RE_ENTRY_WINDOW_MS` + TTL `OUTCOME_PRICES_CACHE_TTL_*` / `resolveGammaCacheTtlOrFallback` tant que `feature.deprecated_fallbacks_enabled` + warn logs. Ops : observer `gammaCacheTtlFallback used` → flag off → purge fallbacks.
 
 
 
@@ -491,7 +485,8 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
     - **Bug P0 corrigé** : cooldown purgéait `algo-entry-cooldown:{logicalKey}:sim` alors que prod écrit `{conditionId}:sim` (`algo-entry-cooldown.ts`). Fix : `hints.conditionIds` + `algoEntryCooldownKey`. Tests unit + e2e alignés. Doc `snapshots-simulation.md` corrigée.
     - **Bug P1 corrigé** : marqueurs `close-signals:enqueued:weather-close:{posId}:{reason}` non purgés → DEL ciblé pour weather.
     - **Mitigation TOCTOU** : double passe LREM main/`:processing` (entry/close/results/move-events).
-    - ✅ 2026-08-07 **P2 clos** : `SimResetGeneration` + `wrapSimResetAwareHandler` → `JobDiscardedError` (pas de RPUSH post-purge sur échec sim in-flight). `recoverOrphans` OK si LREM `:processing` réussi. Dead-letter / `::retries` non purgés (bas risque, P3). Pub/sub = publish only (N/A).
+    - ✅ 2026-08-07 **P2 clos** : `SimResetGeneration` + `wrapSimResetAwareHandler` → `JobDiscardedError` (pas de RPUSH post-purge sur échec sim in-flight).
+    - ✅ 2026-08-07 **P3 clos** : purge sim-filtrée des listes `${queue}:dead` + DEL `` `${raw}::retries` `` (compteurs `deadLetterRemoved` / `jobRetryKeysRemoved`). Pub/sub = publish only (N/A).
 
 
 
@@ -587,8 +582,8 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 5. ~~**Bugs** : 4.6 → 4.7 → 4.8 → 4.10.~~ ✅ (+ `shuttingDown` worker 2026-08-07).
 6. ~~**Phase 2 + Phase 5 rapport**.~~ ✅
 7. ~~**Suite Phase 3** : 3.1 extract / 3.2 / 3.3/C5 / 3.4 éval / 3.7 doc / 3.6 audit.~~ ✅ 2026-08-07
-8. **C9 suite** : purger code mort sûr (`buildMarkdownReport`, sl-quota deprecated, spread %) ; fallbacks Gamma/re-entry **après** observation logs + flag off.
-9. ~~Follow-ups P2 worker (abort sim-reset, `shuttingDown`).~~ ✅ 2026-08-07. Reste : SL/TP stale policy ; dead-letter/`::retries` purge (bas risque).
+8. ~~**C9 suite** : purge code mort sûr.~~ ✅ 2026-08-07. Fallbacks Gamma/re-entry **après** observation logs + flag off (ops).
+9. ~~Follow-ups P2/P3 : abort sim-reset, `shuttingDown`, dead-letter/`::retries`, inventaire C15, truncate/`toIso`/`isPostgres`, doc SL/TP stale.~~ ✅ 2026-08-07.
 
 > **Migration** : ✅ `CreatePostEntryMidSamples1700000000095` jouée (`npm run migration:run -w @polywatch/core`, 2026-08-06).
 
@@ -813,17 +808,26 @@ Ce plan opérationnalise les mitigations de l'annexe §R1, §R2, §R4, §RT pour
 | 4.7 | `shuttingDown` worker | CODE | Pattern copy-trading |
 | Doc | RiskConfig / 4 files / §5.1 C5+canvas / §4.2 | DOC | Resync plan + architecture / 01 / 07 / pipeline / 03-core |
 
-#### Ouvert — tickets (validation user)
+#### Clos follow-ups P3 (2026-08-07)
+
+| # | Finding | Type | Action |
+|---|---------|------|--------|
+| C9 | Code mort sûr | CODE | Purge monitor/sl-quota/spread%/MAX_ENTRIES ; fallbacks Gamma **gardés** |
+| C15 | Inventaire migrations 0081–0095 | DOC | Tableau `03-core.md` |
+| 4.5 | Dead-letter / `::retries` sim-reset | CODE | Filtre sim sur `:dead` + DEL retry keys |
+| C3 | `toIso` / `isPostgres` + truncate archive | CODE | `lib/to-iso`, `lib/is-postgres`, `applyDecisionPayloadByteBudget` |
+| 4.8 | SL/TP book stale | DOC | Policy warn-only documentée (`04-worker.md`) — fail-closed non activé |
+
+#### Ouvert — ops / produit
 
 | Prio | Item | Type |
 |------|------|------|
-| 🟢 P3 | Purge C9 code mort sûr ; fallbacks Gamma après logs + flag off | CODE |
-| 🟢 P3 | Truncate decision archive partagé ; `toIso`/`isPostgres` lib (optionnel) | CODE |
-| 🟢 P2/P3 | SL/TP book stale policy ; inventaire migrations C15 ; dead-letter/`::retries` sim-reset | CODE/DOC |
+| 🟢 Ops | Observer warn `gammaCacheTtlFallback used` → `deprecated_fallbacks_enabled=false` → purge fallbacks Gamma/re-entry | CODE |
+| 🟢 Produit | Éventuel fail-closed SL/TP sur book stale (aujourd'hui warn-only accepté) | CODE |
 
 #### Verdict
 
-Phases **1–5** terminées + follow-ups P2 worker clos (2026-08-07). Suite recommandée : purge C9 code mort (après logs) puis polish P3.
+Phases **1–5** + follow-ups P2/P3 clos (2026-08-07). Reste ops : couper fallbacks C9 après logs propres.
 
 ---
 

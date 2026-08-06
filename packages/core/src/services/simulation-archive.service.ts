@@ -16,11 +16,10 @@ import { buildSimTraderRollup } from '../simulation/trader-rollup.js';
 import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
 import {
   collectSimDecisionPayload,
-  estimateDecisionPayloadBytes,
-  SNAPSHOT_DECISION_MAX_EVENTS,
-  SNAPSHOT_DECISION_MAX_JSON_BYTES,
   type SimSnapshotDecisionSummary,
 } from '../simulation/snapshot-decision-collector.js';
+import { applyDecisionPayloadByteBudget } from '../snapshot/decision-collector-shared.js';
+import { isPostgres } from '../lib/is-postgres.js';
 import {
   CopiedPositionPresenter,
   type EnrichedCopiedPosition,
@@ -156,8 +155,7 @@ export class SimulationArchiveService {
     manager: EntityManager,
     algoKind: SimAlgoKind,
   ): Promise<number | null> {
-    const isPostgres = this.ds.options.type === 'postgres';
-    const sql = isPostgres
+    const sql = isPostgres(this.ds)
       ? `SELECT EXTRACT(EPOCH FROM (now() - created_at)) AS age
          FROM simulation_state_snapshots
          WHERE source = 'auto' AND algo_kind = $1
@@ -232,15 +230,7 @@ export class SimulationArchiveService {
       positions,
       watchlistEntries,
     });
-    if (
-      estimateDecisionPayloadBytes(decisionPayload) >
-      SNAPSHOT_DECISION_MAX_JSON_BYTES
-    ) {
-      decisionPayload.summary.truncated = true;
-      const half = Math.floor(SNAPSHOT_DECISION_MAX_EVENTS / 2);
-      decisionPayload.exitAttempts = decisionPayload.exitAttempts.slice(-half);
-      decisionPayload.moveEvents = decisionPayload.moveEvents.slice(-half);
-    }
+    applyDecisionPayloadByteBudget(decisionPayload);
 
     const openPositionCount = decisionPayload.summary.openPositionCount;
     const closedPositionCount = decisionPayload.summary.closedPositionCount;

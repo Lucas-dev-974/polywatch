@@ -18,6 +18,7 @@ import type {
   RealArchiveSummary,
   RealArchiveType,
 } from '../types/real-session-archive.js';
+import { toIso } from '../lib/to-iso.js';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -33,13 +34,6 @@ async function insertInChunks(
   for (let i = 0; i < rows.length; i += chunkSize) {
     await manager.insert(entity, rows.slice(i, i + chunkSize) as never);
   }
-}
-
-function toIso(value: Date | null | undefined): string | null {
-  if (!value) return null;
-  return value instanceof Date
-    ? value.toISOString()
-    : new Date(value).toISOString();
 }
 
 function parseSummary(json: string | null): RealArchiveSummary | null {

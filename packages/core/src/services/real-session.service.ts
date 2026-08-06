@@ -16,13 +16,7 @@ import type {
   UpdateRealSessionOptions,
 } from '../types/real-session.js';
 import type { RealArchiveSummary } from '../types/real-session-archive.js';
-
-function toIso(value: Date | null | undefined): string | null {
-  if (!value) return null;
-  return value instanceof Date
-    ? value.toISOString()
-    : new Date(value).toISOString();
-}
+import { toIso } from '../lib/to-iso.js';
 
 function parseArchiveSummary(json: string | null): RealArchiveSummary | null {
   if (!json) return null;

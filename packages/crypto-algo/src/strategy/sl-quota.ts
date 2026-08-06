@@ -81,15 +81,6 @@ export async function loadOpenAlgoPositionsOnMarket(
   return result[0]?.cnt ?? 0;
 }
 
-/** @deprecated Use {@link loadSlQuotaConsumed}. */
-export async function loadSlQuotaCount(
-  ds: DataSource,
-  conditionId: string,
-  mode: TradingMode,
-): Promise<number> {
-  return loadSlQuotaConsumed(ds, conditionId, mode);
-}
-
 export interface SlQuotaBlockResult {
   blocked: boolean;
   detail?: SlQuotaBlockDetail;
@@ -108,11 +99,6 @@ export function shouldBlockSlQuotaEntry(
     return { blocked: true, detail: 'sl_slots_consumed' };
   }
   return { blocked: false };
-}
-
-/** @deprecated Use {@link shouldBlockSlQuotaEntry}. */
-export function isSlQuotaReached(count: number, quota: number): boolean {
-  return count >= quota;
 }
 
 function slQuotaSkipReason(detail: SlQuotaBlockDetail): string {

@@ -54,18 +54,14 @@ const log = pino({ name: 'crypto-algo:strategy-runner' });
 /**
  * Re-entry window length in ms when interval and risk config do not override.
  * @deprecated Prefer {@link resolveCryptoAlgoReentryParams} via risk config.
+ * Kept as active ctor fallback while `feature.deprecated_fallbacks_enabled` is on.
  */
 export const RE_ENTRY_WINDOW_MS = 60 * 60 * 1000;
 
 /**
- * Maximum number of successful enqueues per re-entry window per outcome.
- * @deprecated Prefer {@link resolveCryptoAlgoReentryParams} via risk config.
- */
-export const MAX_ENTRIES_PER_WINDOW = 1;
-
-/**
  * Default Gamma cache TTL for longer intervals (1h+).
  * @deprecated Prefer {@link resolveGammaCacheTtlMs} via risk config.
+ * Kept as active fallback while `feature.deprecated_fallbacks_enabled` is on.
  */
 const OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS = 30_000;
 

@@ -26,7 +26,7 @@
 | Phase 1 — Cartographie initiale | ✅ Terminée | 2026-08-06 |
 | Phase 1b — Vérification des constats (C1-C17) | ✅ Terminée | 2026-08-06 |
 | Phase 1c — Analyse des risques & mitigations | ✅ Terminée | 2026-08-06 |
-| Phase 1d — Plan d'implémentation P0 | ✅ Terminée | 2026-08-06 |
+| Phase 1d — Plan d'implémentation P0 | ✅ Terminée (A–E mergés PR #1 ; F reportée) | 2026-08-06 |
 | Phase 2 — Audit doc↔code (par module) | ⏳ En cours | — |
 | Phase 3 — Audit structurel & refactor | ⏳ En cours | — |
 | Phase 4 — Audit bugs fantômes | ⏳ En cours | — |
@@ -546,21 +546,24 @@ L'analyse des risques a couvert les 9 zones critiques du plan (C1, C4, C5, C6, C
 
 > **Référence** : [`docs/plans/2026-08-06_PLAN-p0-implementation.md`](2026-08-06_PLAN-p0-implementation.md)
 > **Date** : 2026-08-06 — Plan d'implémentation des priorités P0 (C4 RiskConfig, C1 sim/real, bugs fantômes 4.3/4.4 + filet de tests).
+> **Statut** : ✅ **Phases A–E mergées** dans `main` via [PR #1](https://github.com/Lucas-dev-974/polywatch/pull/1) (`81571ba`). Phase F (purge physique RiskConfig) reportée — PR séparée.
 
 Ce plan opérationnalise les mitigations de l'annexe §R1, §R2, §R4, §RT pour les 3 chantiers P0. Il contient :
 - **6 zones d'ombre résolues** (décisions utilisateur sur branching, périmètre C1, action sur bugs, tests, feature flags via SystemConfig, compat snapshots)
-- **5 phases séquentielles sur 1 branche unique** : A (préparation — tests d'arête + guards + cartographie), B (C4 Strangler Fig — 8 consommateurs migrés un par un), C (C1 extraction fonctions pures), D (bugs fantômes 4.3/4.4 — audit + correction), E (finalisation)
-- **1 PR consolidée** (`audit/p0-implementation` → `main`) avec commits atomiques par sous-étape
+- **5 phases séquentielles sur 1 branche unique** : A (préparation — tests d'arête + guards + cartographie), B (C4 Strangler Fig — consommateurs migrés, façade legacy conservée), C (C1 extraction fonctions pures), D (bugs fantômes 4.3/4.4 — audit + correction), E (finalisation)
+- **1 PR consolidée** (`audit/p0-implementation` → `main`) avec commits atomiques par sous-étape — **mergée**
 - **3 feature flags** via `SystemConfig` (table `system_config`) : `feature.risk_config_legacy_facade`, `feature.risk_config_strict`, `feature.deprecated_fallbacks_enabled`
 - **Rollback global** documenté (feature flag SystemConfig pour rollback granulaire C4 + `git revert` pour rollback complet)
+- **Suite** : Phase F = purge physique legacy RiskConfig (branche `audit/p0-riskconfig-purge`, PR séparée) après période d'observation
 
-| Phase | Chantier | Branche |
-|-------|----------|---------|
-| A | Préparation (tests + guards + cartographie) | `audit/p0-implementation` |
-| B | C4 RiskConfig Strangler Fig (8 consommateurs + suppression) | `audit/p0-implementation` |
-| C | C1 sim/real extraction (fonctions pures + constantes) | `audit/p0-implementation` |
-| D | Bugs fantômes 4.3/4.4 (audit + correction) | `audit/p0-implementation` |
-| E | Finalisation + PR consolidée | `audit/p0-implementation` → `main` |
+| Phase | Chantier | Statut |
+|-------|----------|--------|
+| A | Préparation (tests + guards + cartographie) | ✅ Mergée |
+| B | C4 RiskConfig Strangler Fig (migration consommateurs ; façade retenue) | ✅ Mergée |
+| C | C1 sim/real extraction (fonctions pures + constantes) | ✅ Mergée |
+| D | Bugs fantômes 4.3/4.4 (audit + correction) | ✅ Mergée |
+| E | Finalisation + PR consolidée | ✅ Mergée (PR #1) |
+| F | Purge physique RiskConfig | ⏸️ Reportée |
 
 ---
 

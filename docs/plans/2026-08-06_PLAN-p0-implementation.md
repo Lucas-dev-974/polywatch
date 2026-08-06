@@ -1,10 +1,11 @@
 # PLAN P0 — Implémentation des priorités critiques
 
 > **Date de création** : 2026-08-06
-> **Dernière révision** : 2026-08-06 — Phase A corrigée (flags branchés, fail-open) ; B.4 reportée en Phase F
+> **Dernière révision** : 2026-08-06 — PR #1 mergée dans `main` (`81571ba`) ; Phase F reste hors périmètre
 > **Périmètre PR P0** : 3 chantiers P0 + filet de tests + feature flags + migration consommateurs RiskConfig (sans suppression legacy)
 > **Hors périmètre PR P0** : Phase F — suppression physique du code legacy RiskConfig (ex-B.4)
-> **Branche** : `audit/p0-implementation`
+> **Branche** : `audit/p0-implementation` → **mergée** dans `main` via [PR #1](https://github.com/Lucas-dev-974/polywatch/pull/1)
+> **Merge** : `81571ba` (2026-08-06)
 > **Commits Phase A** : `6762b85` (filet initial) · `ff24ab0` (flags branchés + fail-open)
 > **Plan parent** : [`docs/plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md)
 > **Annexe mitigations** : [`docs/plans/2026-08-06_ANNEXE-risques-mitigations.md`](2026-08-06_ANNEXE-risques-mitigations.md)
@@ -360,11 +361,11 @@ main (stable)
 
 #### E.2 — Création de la PR
 
-- [ ] Créer la PR depuis `audit/p0-implementation` vers `main` — **bloqué : `gh` non authentifié**
+- [x] Créer la PR depuis `audit/p0-implementation` vers `main`
 - [x] Titre : `P0 — RiskConfig migration + sim/real extraction + bugs fantômes crypto-algo`
 - [x] Body : résumé des phases A/B/C/D, **expliciter que la suppression legacy RiskConfig est reportée en Phase F (PR séparée)**, liste des commits atomiques, feature flags introduits, tests d'arête créés
-- [ ] Tag : `p0-complete` après merge (Phase F = tag `p0-riskconfig-purge` séparé)
-- [x] **Observations** : Branche poussée jusqu'à `80b78a0`. Ouvrir la PR manuellement : https://github.com/Lucas-dev-974/polywatch/pull/new/audit/p0-implementation (après `gh auth login`).
+- [ ] Tag : `p0-complete` après merge (Phase F = tag `p0-riskconfig-purge` séparé) — **à poser manuellement** sur `81571ba` si souhaité
+- [x] **Observations** : [PR #1](https://github.com/Lucas-dev-974/polywatch/pull/1) créée et mergée manuellement depuis GitHub (2026-08-06). Merge commit `81571ba`.
 
 ---
 
@@ -420,8 +421,8 @@ main (stable)
 | Phase B — C4 RiskConfig migration consommateurs | ✅ Terminée (façade legacy conservée) | 2026-08-06 |
 | Phase C — C1 sim/real extraction | ✅ Terminée | 2026-08-06 |
 | Phase D — Bugs fantômes 4.3/4.4 | ✅ Terminée | 2026-08-06 |
-| Phase E — Finalisation et PR P0 | ✅ Terminée | 2026-08-06 |
-| Phase F — Suppression finale RiskConfig (PR séparée) | ⏸️ Reportée | 2026-08-06 |
+| Phase E — Finalisation et PR P0 | ✅ Mergée (`main` / PR #1 / `81571ba`) | 2026-08-06 |
+| Phase F — Suppression finale RiskConfig (PR séparée) | ⏸️ Reportée (prochaine) | 2026-08-06 |
 
 ---
 

@@ -11,7 +11,12 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 |--------|-------|------|
 | `User` | `users` | Comptes (admin seede au demarrage) |
 | `WatchlistEntry` | `watchlist` | Traders surveilles et flags de copie |
-| `RiskConfig` | `risk_config` | Configuration globale du risque/sizing/sorties (singleton) |
+| `GlobalConfig` | `global_config` | Config transversale (slippage, kill-switch, realism sim, snapshots) — API `GET/PUT /api/config/global` |
+| `CopyConfig` | `copy_config` | Config copy-trading (limites, sizing, sorties, filtres) — API `GET/PUT /api/config/copy` |
+| `CryptoConfig` | `crypto_config` | Config crypto-algo (sizing, SL/TP, re-entry, tunables) — API `GET/PUT /api/config/crypto` |
+| `RiskConfigRevision` | `risk_config_revisions` | Journal append-only des mises à jour config (`configKind` = global/copy/crypto/weather) |
+| `AnalysisReport` | `analysis_reports` | Snapshots de rapports d'analyse persistés |
+| `PostEntryMidSample` | `post_entry_mid_samples` | Mid Up/Down post-entrée algo (+1s/+5s/+30s) — rétention 14 j |
 | `ClobCredentials` | `clob_credentials` | Credentials CLOB/relayer chiffres (trading reel) |
 | `WalletAccount` | `wallet_accounts` | Comptes/wallets de depot Polymarket |
 | `TraderSnapshot` | `trader_snapshots` | Dernier etat connu des positions d'un trader |
@@ -78,98 +83,27 @@ MoveEventEntity ---> (declenche) CopiedPosition
 Trader surveille. `traderAddress`, `nickname`, `active`, `simEnabled`,
 `realEnabled`. Les flags determinent quels modes le `CopyProcessor` applique.
 
-### `RiskConfig` (`risk_config`)
-Singleton de configuration. Couvre :
-- **Limites** par mode (`sim*` / `real*`) : `simMaxOpenPositions`/`realMaxOpenPositions`,
-  `simMaxExposureUsdc`/`realMaxExposureUsdc`, `simMaxDailyLossUsdc`/`realMaxDailyLossUsdc`,
-  `simMaxPositionSizeUsdc`/`realMaxPositionSizeUsdc`, `maxSlippagePercent`, `exitSlippageGuardPercent`.
-- **Limites globales résiduelles** : `maxSlippagePercent`, `exitSlippageGuardPercent`
-  (appliqués aux deux modes, non surchargés par mode).
-- **Entree — liquidite** par mode : `simMinBidToAskRatio`, `realMinBidToAskRatio`
-  (ratio bid VWAP / ask VWAP minimum pour `COPY_OPEN` / `COPY_INCREASE` ; `0` =
-  desactive, defaut `0.9`).
-- **Filtre momentum** par mode : `simMomentumFilterEnabled`, `realMomentumFilterEnabled`
-  (refuse la copie si le ask VWAP est inferieur au prix moyen du trader — position deja
-  sous l'eau). Fails open si le prix moyen est indisponible.
-- **Activation reel** : `realTradingEnabled`, `killSwitchAction`, `simKillSwitchAction`,
-  `realKillSwitchAction`.
-- **Sizing copy trading** par mode (`sim*` / `real*`) : `sizingMode`
-  (`fixed_ratio` | `fixed_usdc` | `fixed_shares` | `proportional_capital` | `kelly_fractional` | `risk_based`),
-  `copyRatio`, `entryUsdcAmount`, `entryShareCount`, `simInitialCapitalCrypto`,
-  `simInitialCapitalWeather`, `simInitialCapitalCopy` (`simInitialCapital` déprécié,
-  alias lecture = crypto), `kellyFraction`, `riskBudgetUsdc`,
-  `defaultWinProbability`.
-- **Sizing crypto-algo** : `cryptoAlgoSizingMode` (`fixed_usdc` | `fixed_shares`),
-  `cryptoAlgoEntryUsdcAmount`, `cryptoAlgoEntryShareCount`.
-- **Signal score sizing** : `simSignalScoreSizingEnabled`, `realSignalScoreSizingEnabled`
-  (ajuste la taille d'entree selon un score de qualite du signal).
-- **Sorties** par mode : `slBidPoints`, `tpBidPoints`, `slEnabled`, `tpEnabled`, `trailingEnabled`,
-  `trailingBidPoints`, `trailingActivationBidPoints`, `minTimeToClose`.
-- **Pre-cloture** par mode : `preCloseEnabled`, `preCloseSeconds`, `preCloseKeepEnabled`,
-  `preCloseKeepBidThreshold` (si keepEnabled et bid >= seuil, la position reste ouverte
-  jusqu'a la resolution).
-- **Copie** : `copyIncreaseEnabled`, `copyDecreaseEnabled` (global),
-  `simCopyIncreaseEnabled`, `realCopyIncreaseEnabled`, `simCopyDecreaseEnabled`,
-  `realCopyDecreaseEnabled`, `maxIncreasesPerPosition` (global),
-  `simMaxIncreasesPerPosition`, `realMaxIncreasesPerPosition`.
-- **Proximite SL** par mode : `simCopyIncreaseSlProximityEnabled`,
-  `realCopyIncreaseSlProximityEnabled`, `simCopyIncreaseSlProximityPercent`,
-  `realCopyIncreaseSlProximityPercent` (bloque l'augmentation si la position est
-  deja proche du SL).
-- **Filtre marche** par mode : `simAllowedMarketTags`, `realAllowedMarketTags`
-  (JSON `string[]` de slugs Gamma ; `[]` = pas de filtre). Applique par le
-  `CopyProcessor` sur les entrees (`OPENED` / `COPY_INCREASE`) uniquement.
-- **Snapshots simulation** : `simAutoSnapshotEnabled`, `simAutoSnapshotIntervalSeconds`
-  (intervalle min 60 s), `simAutoSnapshotEmptySession` (snapshot config-only sur session vide),
-  `simSnapshotDecisionWindowHours` (fenetre journal decisionnel, defaut 24 h),
-  `simSnapshotMaxCount`, `simSnapshotRetentionDays`.
-  Voir [`snapshots-simulation.md`](./snapshots-simulation.md).
-- **Snapshots reel** : `realAutoSnapshotEnabled`, `realAutoSnapshotIntervalSeconds`,
-  `realSnapshotDecisionWindowHours`, `realSnapshotMaxCount`, `realSnapshotRetentionDays`.
-  Voir [`snapshots-real.md`](./snapshots-real.md).
-- **Polling** : `moveDetectorIntervalMs` (intervalle du detecteur de mouvements,
-  defaut 2000 ms).
-- **Crypto-algo SL quota** : `cryptoAlgoSlQuotaEnabled` (activation, defaut `false`),
-  `cryptoAlgoSlQuotaPerMarket` (max sorties SL declenchees avant blocage, defaut `1`),
-  `cryptoAlgoSlQuotaCacheTtlSeconds` (TTL cache compteur, defaut `30` s).
-  Comptage des `beginClose(SL)` via `copied_positions.closing_reason` ; max 1 position
-  algo `open`/`closing` par `condition_id` quand active.
-- **Crypto-algo trailing** : `cryptoAlgoTrailingBidPoints`, `cryptoAlgoTrailingActivationBidPoints`
-  (overrides nullables, defaults par intervalle).
-- **Crypto-algo pre-close** : `cryptoAlgoPreCloseEnabled`, `cryptoAlgoPreCloseSeconds`,
-  `cryptoAlgoPreCloseKeepEnabled`, `cryptoAlgoPreCloseKeepBidThreshold`
-  (overrides nullables, heritent du mode).
-- **Crypto-algo SL/TP/trailing toggles** : `cryptoAlgoSlEnabled`, `cryptoAlgoTpEnabled`,
-  `cryptoAlgoTrailingEnabled` (master toggles, defaut `true`).
-- **Crypto-algo SL/TP bid points** : `cryptoAlgoSlBidPoints`, `cryptoAlgoTpBidPoints`
-  (overrides nullables, bid absolu pour marchés binaires).
-- **Crypto-algo re-entry** : `cryptoAlgoReentryWindowMs` (fenêtre throttle par conditionId:outcome),
-  `cryptoAlgoMaxEntriesPerWindow` (max enqueues par fenêtre).
-- **Crypto-algo entry price band** : `cryptoAlgoEntryPriceMin` (defaut 0.50),
-  `cryptoAlgoEntryPriceMax` (defaut 0.80), `cryptoAlgoEntryPriceBandEnabled` (defaut `true`).
-- **Crypto-algo curve filter** : `cryptoAlgoCurveFilterEnabled` (defaut `false`),
-  `cryptoAlgoCurveLookbackMs` (defaut 10000, max 60000), `cryptoAlgoCurveMinDelta` (defaut 0.01).
-- **Crypto-algo sizing** : `cryptoAlgoSizingMode` (`fixed_usdc` | `fixed_shares`),
-  `cryptoAlgoEntryUsdcAmount` (defaut 10), `cryptoAlgoEntryShareCount` (nullable).
-- **Crypto-algo tunables stratégie** : `cryptoAlgoBaseThreshold` (defaut 0.55),
-  `cryptoAlgoSpreadAdjustmentFactor` (defaut 0.5), `cryptoAlgoMinSpreadAbsForAdjustment` (defaut 0.01),
-  `cryptoAlgoMaxSpreadAbs` (defaut 0.02), `cryptoAlgoPriceSumTolerance` (defaut 0.02),
-  `cryptoAlgoWarnPriceDeviation` (defaut 0.05), `cryptoAlgoMaxBookAgeMs` (defaut 15000),
-  `cryptoAlgoGammaCacheTtlShortMs` (defaut 10000), `cryptoAlgoGammaCacheTtlDefaultMs` (defaut 30000),
-  `cryptoAlgoGammaStaleOnErrorFactor` (defaut 2), `cryptoAlgoWsDebounceMs` (defaut 5000),
-  `cryptoAlgoPollMs` (defaut 30000), `cryptoAlgoTickIntervalMs` (defaut 1000),
-  `cryptoAlgoTickRetentionHours` (defaut 24), `cryptoAlgoPriceTickRefQty` (defaut 50),
-  `cryptoAlgoMinTimeToCloseBufferSeconds` (defaut 30), `cryptoAlgoLastCloseableBidMaxAgeMs` (defaut 60000),
-  `cryptoAlgoSpreadAbsByInterval` (JSON override), `cryptoAlgoExitDefaultsByInterval` (JSON override),
-  `cryptoAlgoPreCloseSecondsByInterval` (JSON override).
-- **Crypto-algo cleanup** : `cryptoAlgoPriceTickCleanupEnabled` (defaut `true`),
-  `cryptoAlgoPriceTickCleanupIntervalMinutes` (defaut 60).
-- **Sim realism** : `simExecLatencyMode` (`fixed` | null), `simExecLatencyMs` (defaut 150),
-  `simSelfImpactEnabled` (defaut `false`), `simSelfImpactTtlSeconds` (defaut 8),
-  `simWalletPreflightEnabled` (defaut `false`), `simShadowLoggingEnabled` (defaut `false`),
-  `shadowSampleRetentionDays` (defaut 14).
-- **SL confirmation** : `slConfirmationTicks` (nombre d'évaluations consécutives
-  requises avant d'émettre le signal SL, defaut 2).
+### Config isolées (post-split RiskConfig)
+
+> **Legacy** : la table monolithique `risk_config` / entité `RiskConfig` a été
+> **purgée** (migration `0088` + Phase F). Source de vérité runtime =
+> 4 singletons TypeORM + getters `RiskService.get*Config`.
+
+| Entité | Table | Périmètre | API |
+|--------|-------|-----------|-----|
+| `GlobalConfig` | `global_config` | Slippage, `realTradingEnabled`, realism sim, auto-snapshots sim/real | `/api/config/global` |
+| `CopyConfig` | `copy_config` | Limites/sizing/sorties/filtres copy-trading (paires sim/real), polling MoveDetector | `/api/config/copy` |
+| `CryptoConfig` | `crypto_config` | Enable/stratégies, sizing, SL/TP/trailing/pre-close, re-entry, SL quota, curve/band, tunables | `/api/config/crypto` |
+| `WeatherConfig` | `weather_config` | Edge, switch mode, hysteresis, throttle, capital sim weather | `/api/config/weather` |
+
+Détail des champs et défauts : entités `packages/core/src/entities/*Config.ts`,
+seed `packages/core/src/seed/defaults.ts`, et [`configuration.md`](./configuration.md).
+Journal des mises à jour : `RiskConfigRevision` (`configKind` ∈ global/copy/crypto/weather).
+
+### `PostEntryMidSample` (`post_entry_mid_samples`)
+Échantillons mid Up/Down après fill `ALGO_OPEN` confirmé (`offsetMs` 1000/5000/30000).
+Colonnes : `conditionId`, `outcome`, `positionId`, `filledAtMs`, `upMid`/`downMid`,
+`sampledAtMs`. Rétention 14 j (janitor crypto-algo). Voir [`crypto-algo.md`](./crypto-algo.md).
 
 ### `SimulationStateSnapshot` (`simulation_state_snapshots`)
 
@@ -406,5 +340,6 @@ backoff en cas d'erreur, limites de concurrence. Exposee via
 
 Au premier demarrage du backend :
 - Utilisateur admin (`ADMIN_USERNAME` / `ADMIN_PASSWORD`, hash bcrypt).
-- `RiskConfig` par defaut (valeurs des decorateurs `@Column`).
-- `SimulationBalance` pUSD = `DEFAULT_SIM_BALANCE`.
+- `GlobalConfig` / `CopyConfig` / `CryptoConfig` / `WeatherConfig` par defaut
+  (valeurs des decorateurs `@Column`, seed `seed/defaults.ts`).
+- `SimulationBalance` pUSD = `DEFAULT_SIM_BALANCE` (par `algoKind`).

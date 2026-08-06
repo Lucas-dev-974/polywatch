@@ -11,22 +11,21 @@ pour restaurer l'access token en mémoire.
 
 | Page | Composition |
 |---|---|
-| `simulation` | `SimulationPage` : `SimHero` + 2 onglets — Activité (`PositionCard`, `EventsPanel`, `ExecutionLog`), Analytics (`SimAnalyticsPanel`, `SimMarketAnalyticsPanel`) — voir [`snapshots-simulation.md`](../snapshots-simulation.md) |
-| `real` | `RealHero` (snapshot + clôture période) + `PositionCard mode="real"` + `EventsPanel` + `ExecutionLog mode="real"` |
-| `snapshots` | `SnapshotsPage` : switch Simulation / Réel — `SimulationSnapshotsPanel` ou `RealSnapshotsPanel` (sessions, snapshots, comparaison, archives) — voir [`snapshots-simulation.md`](../snapshots-simulation.md) et [`snapshots-real.md`](../snapshots-real.md) |
-| `reports` | `ReportsPage` — hub rapports Crypto Algo |
-| `leaderboard` | `Leaderboard` (pagination, filtres, bouton « Suivre ») |
-| `markets` | `MarketsPage` : liste des marchés Gamma avec filtres (`MarketsCryptoFilterBar`, `MarketsIntervalSidebar`, `MarketsTagBar`), métriques (`MarketMetricsPanel`, `MarketCard`) |
-| `wallet` | `WalletPage` (comptes, dépôt/retrait, credentials CLOB, historique) |
-| `crypto-algo` | `CryptoAlgoPage` : marchés sélectionnés par l'algo, surveillance, settings (`CryptoAlgoSettingsDialog`), notifications (`CryptoAlgoNotificationsDialog`), auto-track |
-| `weather-algo` | `WeatherAlgoPage` : villes surveillées + discovery (« Surveiller cette ville »), positions, paramètres switch/hysteresis/throttle (voir [`../weather-algo.md`](../weather-algo.md)) |
-| `e2e-tests` | `E2eTestsPage` : lancement et suivi des runs de tests E2E (via `/api/e2e-runs`) |
+| `simulation` | `SimulationPage` : Activité + Analytics (snapshots → `system`) |
+| `real` | `RealHero` + positions / events / executions réel |
+| `leaderboard` | `Leaderboard` (+ Trader Insight en panneau, pas page top-level) |
+| `markets` | `MarketsPage` + `MarketChartDialog` → `UpDownPriceChart` (SVG ~1219 L) |
+| `wallet` | `WalletPage` |
+| `crypto-algo` | `CryptoAlgoPage` + settings (General/Entrée/Sortie/Autotrack) |
+| `weather-algo` | `WeatherAlgoPage` (Marchés/Positions/Villes/Paramètres) — composants `Weather*` ; voir [`../frontend.md`](../frontend.md) §3 |
+| `system` | Overview, Rapports, Snapshots, E2E, Metrics, **Crypto Algo Monitor** |
 
-Header permanent : `WatchlistEditor` + déconnexion. `AlertBanner` (max 10 alertes Socket.IO).
+Header : `WatchlistEditor`, `NotificationCenter`, déconnexion. `AlertBanner`.
 
 ## Couche réseau
 
-**`api.ts`** : wrapper `fetch` avec `Authorization: Bearer`. L'access token est gardé **en mémoire** uniquement (mitigation XSS) ; seul le refresh token — single-use, invalidé à chaque rotation côté backend — est en localStorage. Sur 401 `invalid_token` : refresh singleton (`ensureFreshAccessToken`, une seule promesse en vol) puis retry unique ; échec → `notifySessionExpired()` → logout global.
+**`api.ts`** : Bearer + refresh singleton ; cache GET TTL + dedupe ; retry 429 ;
+façade `/api/config/{global,copy,crypto,weather}`. Catalogue routes = [`api.md`](../api.md).
 
 **`socket.ts`** : Socket.IO singleton, `auth: { token }`, reconnexion infinie. `attachAuthRecovery` rafraîchit le token sur `connect_error: unauthorized` et reconnecte.
 
@@ -79,11 +78,12 @@ Header permanent : `WatchlistEditor` + déconnexion. `AlertBanner` (max 10 alert
 - **Settings** : `EnvSettingsDialog` (onglets Entrée — sizing, ratio bid/ask min, tags marché, plafond position ; Sortie — SL/TP/trailing, pré-clôture ; Risque — limites, kill switch), `MarketTagsSection` (whitelist types de marché via `GET /api/market-tags`), `settings-sections/fields`, `lib/market-tags.ts` (labels FR).
 - **Wallet** : `WalletPage`, `PusdTransferDialog` (dépôt MetaMask/bridge, retrait routé), `BridgeDepositPanel` (quote + polling statut 15 s), `WalletAccountsDialog` (CRUD + validation live de la clé privée), `ClobCredentialsDialog`, `WalletHistorySection`/`Panel`, `WalletPolywatchExecutions`.
 - **Autres** : `Login`, `WatchlistEditor` (optimistic updates avec rollback), `Leaderboard`, `ExecutionLog`, `EventsPanel` (événements copy-trading + algo, filtrable par source Copy/Algo), `AlertBanner`, `Dialog` (portal), `MetaMaskButton`, `CredField(s)`.
-- **Crypto-Algo** : `CryptoAlgoPage` (page dédiée, mode plein écran), `CryptoAlgoSettingsDialog`, `CryptoAlgoNotificationsDialog`, `AlgoMarketCard`, `SurveillanceHistoryCard`, `AlgoEventRow` (ligne d'événement algo dans le panneau Événements).
-- **Marchés** : `MarketsPage`, `MarketCard`, `MarketMetricsPanel`, `MarketsCryptoFilterBar`, `MarketsCryptoCurrencyFilterBar`, `MarketsIntervalSidebar`, `MarketsTagBar`.
-- **Trader Insight** : `TraderProfilePage`, `TraderActivityTimelineChart`, `TraderCapitalEvolutionChart`, `TraderFundingSection`, `TraderFundingTimelineChart`, `TraderMarketBreakdownChart`, `TraderPnlEvolutionChart`.
-- **Analytics simulation** : `SimAnalyticsPanel`, `SimAnalyticsChartSection`, `SimAnalyticsTable`, `SimAnalyticsCategoryChart`, `SimMarketAnalyticsPanel`, `SimMarketAnalyticsChartSection`, `SimMarketAnalyticsTable`, `SimMarketAnalyticsRank`, `SimMarketYesNoBreakdown`.
-- **Utilitaires** : `CollapsiblePanel`, `CountdownContext`, `CountdownTimer`, `NavClock`, `PolygonscanSettingsDialog`, `TimeSeriesLineChart`, `WithdrawTransferFields`, `PusdTransferSummary`.
+- **Crypto-Algo** : `CryptoAlgoPage`, panels Live/Inactive/Future/Positions/Executions/Capital/Surveillance, `CryptoAlgoSettingsDialog` (+ EntryTab), `CryptoAlgoMonitorPage` (Système).
+- **Weather-Algo** : `WeatherAlgoPage` + Header/CapitalHero/ActiveMarkets/Discover/Positions/Executions/AutoTrack/Settings/`WeatherCityGroup`.
+- **Marchés / chart** : `MarketsPage`, `MarketChartDialog`, `UpDownPriceChart` (SVG overlays SL/TP/signals).
+- **Trader Insight** : via Leaderboard → `TraderProfilePage` + charts.
+- **Analytics / snapshots** : panels Sim* ; snapshots sous page Système.
+- **Stores** : `autoTrackStore`, `algoMarketsStore`, `marketChartStore`, `notificationStore`, `watchlistStore`.
 
 ## Flux utilisateur
 

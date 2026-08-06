@@ -54,6 +54,31 @@ kill switch, limites d'exposition).
 >
 > Résilience unhandled promise rejections & durcissement reset simulation (2026-07-17) :
 > [`patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md`](./patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md)
+>
+> Ops — recovery rédemption stranded :
+> [`../tools/recover-stranded-redemption/README.md`](../tools/recover-stranded-redemption/README.md)
+>
+> Audit global codebase / doc / bugs fantômes (2026-08-06) — **Phase 2 close ; Phase 5 synthèse** :
+> [`plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](./plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) ·
+> [`plans/2026-08-06_ANNEXE-risques-mitigations.md`](./plans/2026-08-06_ANNEXE-risques-mitigations.md)
+>
+> Purge RiskConfig / P0 (2026-08-06) — **appliqué** (Phase F) :
+> [`plans/2026-08-06_PLAN-p0-implementation.md`](./plans/2026-08-06_PLAN-p0-implementation.md) ·
+> [`plans/riskconfig-consumer-matrix.md`](./plans/riskconfig-consumer-matrix.md)
+>
+> Audit weather-algo + correctifs (2026-08-04) — **appliqué** :
+> [`audit-weather-algo-2026-08-04.md`](./audit-weather-algo-2026-08-04.md) ·
+> [`code/08-weather-algo.md`](./code/08-weather-algo.md)
+>
+> Sim-reset Redis hygiene (2026-07-12 + fixes 4.5) — **appliqué** (reste abort worker in-flight) :
+> [`plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](./plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)
+>
+> Post-entry-mid logger (C10) — **appliqué** : migration `0095` / plan global §3.8
+>
+> Audits crypto août (diagnostic) :
+> [`audits/2026-08-04_audit-crypto-algo-code-et-positions.md`](./audits/2026-08-04_audit-crypto-algo-code-et-positions.md) ·
+> [`audits/2026-08-05_audit-naive-momentum-config.md`](./audits/2026-08-05_audit-naive-momentum-config.md) ·
+> [`plans/2026-08-05_PLAN-strategies-crypto-algo-5min.md`](./plans/2026-08-05_PLAN-strategies-crypto-algo-5min.md)
 
 ## Vue d'ensemble rapide
 

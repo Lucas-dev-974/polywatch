@@ -6,6 +6,17 @@ const log = pino({ name: 'redis-queue' });
 const MAX_RETRIES = 3;
 
 /**
+ * Throw from a job handler to drop the job without retry / requeue.
+ * Used when a simulation-reset invalidates an in-flight sim job.
+ */
+export class JobDiscardedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'JobDiscardedError';
+  }
+}
+
+/**
  * Callback invoked when a job is moved to the dead-letter queue after
  * exceeding the maximum retry count. The worker wires this to its
  * `notifyBackendAlert` function; other packages can provide their own.
@@ -140,11 +151,15 @@ export class RedisQueue<T> {
         await this.handler(job);
         await this.redis.lrem(processing, 1, raw);
       } catch (err) {
+        await this.redis.lrem(processing, 1, raw);
+        if (err instanceof JobDiscardedError) {
+          log.info({ queue: this.name, reason: err.message }, 'job discarded without requeue');
+          continue;
+        }
         log.error({ err, queue: this.name }, 'job failed');
         const retryKey = `${raw}::retries`;
         const retries = Number((await this.redis.get(retryKey)) ?? 0) + 1;
         await this.redis.set(retryKey, String(retries), 'EX', 3600);
-        await this.redis.lrem(processing, 1, raw);
 
         if (retries >= MAX_RETRIES) {
           await this.redis.rpush(dead, raw);

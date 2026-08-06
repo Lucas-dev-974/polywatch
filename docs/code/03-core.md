@@ -8,32 +8,33 @@ Domaine partagé entre backend et worker : entités, services, calculs métier. 
 core/src/
 ├── config/        env (.env racine, chemins), secrets (validation prod)
 ├── database/      DataSource TypeORM PostgreSQL (pg driver)
-├── entities/      47 entités TypeORM
+├── entities/      50 entités TypeORM
 ├── idempotence/   hashes SHA-256 des événements et ordres
-├── market/        cycle de vie marché (settled, payoff, polling) + tags Gamma (whitelist, enrichissement events)
+├── market/        domaine métier : lifecycle (settled/payoff), classifier, tags Gamma, market-type
 ├── move-events/   règles de pertinence des événements
 ├── orders/        construction des signaux de fermeture
-├── polymarket/    signature CLOB, contrats, métadonnées marché, pUSD, rédemption
+├── polymarket/    intégration API/WS/on-chain : signature, market-list, book-freshness, rate-limit, discovery, pUSD
 ├── positions/     prix mark, labels d'outcome
 ├── pricing/       VWAP (walkBook), frais taker
-├── queue/         définition des 4 files worker + dead-letter
-├── risk/          policy SL/TP/trailing/pre-close, extraction par mode
+├── queue/         définition des 5 files worker + dead-letter
+├── risk/          policy + exit-decision + crypto/weather tunables & config-api + sim-execution-tunables
 ├── seed/          défauts initiaux + backfill config héritée
-├── services/      41 modules de services (incluant algo-auto-track, algo-market-selection, algo-surveillance, algo-events, market-position-tick, market-price-tick, market-price-history-sync, market-sync-config, real-archive, real-session, real-portfolio, simulation-session, simulation-reset-archive, sim-execution-stats, risk-config-revision, analysis-report, system-config, exit-attempt-event, crypto-algo-runtime-status)
-├── simulation/    comptabilité cash sim
-├── sizing/        calcul de quantité copiée
+├── services/      68 fichiers / 49 hors tests / 39 `*.service.ts` (incluant quartet Global/Copy/Crypto/WeatherConfigService étendant `BaseConfigService<T>` ; + market-*-tick, real-*, simulation-*, algo-surveillance helpers, market-price-history-backfill)
+├── simulation/    accounting cash, algo-kind, trader-rollup (wrapper), analytics, snapshot-decision-collector, auto-snapshot
+├── snapshot/      helpers purs partagés sim/real — `decision-collector-shared`, `trader-rollup-shared` (`buildTraderRollup`)
+├── sizing/        compute, entry-sizing, entry-mos / resolve-entry-mos, depth-retry, enqueue, resume-reserved
 ├── types/         types partagés (TradingMode, OrderSignal, etc.)
 ├── crypto-algo/   optimize-report, config-fingerprint, comparaison rapports
-├── lib/           utilitaires (ttl-cache, algo-price-tick-snapshot)
-├── real/          rollup/périodes réel, locks advisory rotation/auto-snapshot
-├── redis/         factory Redis, invalidation SL quota, cooldown, sim-reset hygiene
+├── lib/           utilitaires (ttl-cache, algo-price-tick-snapshot, `safe-parse-json`)
+├── real/          trader-rollup (wrapper), snapshot-decision-collector, locks advisory rotation/auto-snapshot
+├── redis/         factory, sim-reset hygiene, algo-entry-cooldown, crypto-reentry-throttle, weather-reentry/hysteresis, pub/sub
 ├── trader-insight/ construction des profils trader (capital, funding, insight)
 ├── worker/        paramétrage MoveDetector (move-detector-settings)
 ├── worker-shared/ RedisQueue, safe-interval, backend client/readiness, connection-manager interface
 ├── weather/       découverte marchés météo, Open-Meteo, forecast distribution, edge, exit helpers
 ├── migrate.ts     création du schéma + seed (one-shot)
 ├── migration-backfill.ts  backfill colonnes héritées
-└── migrations/    69 migrations TypeORM (Baseline, Algo*, CryptoAlgo*, AlgoPriceTick*, MarketPositionTicks*, MarketPriceTicks*, E2e*, SnapshotSystemV2, RealSessions, SimulationSessions, AnalysisReports, WeatherAlgo*, SimSessionsPerAlgoKind, etc.)
+└── migrations/    80 migrations TypeORM (Baseline, Algo*, CryptoAlgo*, AlgoPriceTick*, MarketPositionTicks*, MarketPriceTicks*, E2e*, SnapshotSystemV2, RealSessions, SimulationSessions, AnalysisReports, WeatherAlgo*, SplitRiskConfig 0087, DropLegacyRiskConfig 0088, PostEntryMidSamples 0095, etc.)
 ```
 
 ## Entités (PostgreSQL)
@@ -42,7 +43,10 @@ core/src/
 |---|---|---|
 | `User` | `users` | Mono-utilisateur, `password_hash` bcrypt (coût 12) |
 | `WatchlistEntry` | `watchlist` | Adresse trader lowercase, flags `active`/`simEnabled`/`realEnabled`, max 20 |
-| `RiskConfig` | `risk_config` | Tous les paramètres en paires `*Sim`/`*Real` : simMaxPositionSizeUsdc/realMaxPositionSizeUsdc, simMaxOpenPositions/realMaxOpenPositions, simMaxExposureUsdc/realMaxExposureUsdc, simSlBidPoints/realSlBidPoints, simTpBidPoints/realTpBidPoints, slEnabled/tpEnabled, trailing (activation + stop), preClose (window + holdIfWinning), simMaxDailyLossUsdc/realMaxDailyLossUsdc, simKillSwitchAction/realKillSwitchAction, sizing, `simAllowedMarketTags`/`realAllowedMarketTags` (JSON whitelist slugs marché) ; params crypto-algo : `cryptoAlgoEnabled`, `cryptoAlgoStrategies` (JSON), `cryptoAlgoSlEnabled`/`cryptoAlgoTpEnabled`/`cryptoAlgoTrailingEnabled`, `cryptoAlgoSlBidPoints`/`cryptoAlgoTpBidPoints` (bid absolu pour marchés binaires), `cryptoAlgoTrailingBidPoints`/`cryptoAlgoTrailingActivationBidPoints`, `cryptoAlgoPreCloseEnabled`/`PreCloseSeconds`/`PreCloseKeepEnabled`/`PreCloseKeepBidThreshold`, `cryptoAlgoMinTimeToClose`, `cryptoAlgoSizingMode`/`EntryUsdcAmount`/`EntryShareCount`, `cryptoAlgoReentryWindowMs`/`MaxEntriesPerWindow`, `cryptoAlgoSlQuotaEnabled`/`QuotaPerMarket`/`QuotaCacheTtlSeconds`, `cryptoAlgoEntryPriceMin`/`EntryPriceMax`/`EntryPriceBandEnabled`, `cryptoAlgoCurveFilterEnabled`/`CurveLookbackMs`/`CurveMinDelta`, tunables stratégie (`cryptoAlgoBaseThreshold`, `cryptoAlgoSpreadAdjustmentFactor`, `cryptoAlgoMaxSpreadAbs`, etc.), sim realism (`simExecLatencyMode`, `simSelfImpactEnabled`, `simShadowLoggingEnabled`) |
+| `GlobalConfig` | `global_config` | Slippage, real trading flag, realism sim, auto-snapshots — **remplace** l'ancienne façade monolithique `RiskConfig` (purgée) |
+| `CopyConfig` | `copy_config` | Limites/sizing/sorties/filtres copy-trading (paires sim/real), MoveDetector interval |
+| `CryptoConfig` | `crypto_config` | Enable/stratégies, sizing, SL/TP/trailing/pre-close, re-entry, SL quota, curve/band, tunables stratégie |
+| `PostEntryMidSample` | `post_entry_mid_samples` | Mid Up/Down post-entrée algo (+1s/+5s/+30s), rétention 14 j |
 | `ClobCredentials` | `clob_credentials` | apiKey/secret/passphrase/signerPrivateKey **chiffrés AES-256-GCM**, signatureType |
 | `WalletAccount` | `wallet_accounts` | Deposit address + funder + signer PK chiffré |
 | `TraderSnapshot` | `trader_snapshots` | UNIQUE(trader, conditionId, assetId) — dernière position connue |
@@ -79,7 +83,7 @@ core/src/
 | `SimArchiveExitAttempt` | `sim_archive_exit_attempts` | Tentatives de sortie sim archivées |
 | `SimArchiveSurveillance` | `sim_archive_surveillance` | Surveillance algo archivée |
 | `SimArchivePriceCandle` | `sim_archive_price_candles` | Bougies 1 min agrégées (ticks) |
-| `RiskConfigRevision` | `risk_config_revisions` | Journal append-only des mises à jour `risk_config` (source, patch_json, config_json, config_fingerprint) |
+| `RiskConfigRevision` | `risk_config_revisions` | Journal append-only des mises à jour config isolées (`configKind` = global/copy/crypto/weather ; source, patch_json, config_json, config_fingerprint) |
 | `AnalysisReport` | `analysis_reports` | Snapshots de rapports d'analyse persistés (type, label, params_json, payload_json, config_fingerprint) |
 | `MarketPriceTick` | `market_price_ticks` | Ticks de marché par `conditionId` (timer 1s, indépendant des positions) pour graphique UI non-crypto |
 | `MarketPriceHistorySync` | `market_price_history_sync` | Registre de synchronisation de l'historique des prix de marché |
@@ -115,45 +119,34 @@ alors que « marché » reste proche de 0 %. Le filtre `*MinBidToAskRatio` dans
 
 **`fees.ts`** : frais taker Polymarket `C × (bps/10000) × p × (1−p)`, arrondi 5 décimales, plancher 0.00001.
 
-## Risque (`risk/policy.ts`)
+## Risque (`risk/`)
 
-- `pickModeValue` extrait la variante `Sim`/`Real` d'un paramètre.
-- `getModeMinBidToAskRatio` / `isEntryBidAskRatioAcceptable` : garde-fou
-  d'entrée — refuse la copie si `bidVwap / askVwap` est sous le seuil du mode
-  (`0` désactive).
-- `getModeAllowedMarketTags` / `isMarketTagAllowedForMode` : whitelist vide = tout autorisé ; sinon intersection avec les slugs résolus du marché.
-- `evaluateSlTpTrailing` : ordre d'évaluation **SL → TP → TRAILING**.
-  - **SL hybride (OR)** : déclenché si `effectiveTrigger ≤ −slPercent` **OU**
-    `effectiveClosure ≤ −slPercent`. `effectiveTrigger` compare le bid actuel au
-    bid d'entrée, et `effectiveClosure` compare le bid actuel au prix d'entrée
-    plus frais. Protège contre les spreads extrêmes à l'entrée où le marché
-    reste plat mais la clôture montre une perte massive.
-  - **TP hybride (AND)** : déclenché uniquement si `effectiveTrigger ≥ tpPercent`
-    **ET** `effectiveClosure ≥ tpPercent`. Évite les TP « fantômes » sur spread
-    d'entrée (gain marché mais perte clôture).
-  - **Trailing** : s'arme quand `peakClosurePnlPercent ≥ trailingActivationPercent`,
-    puis se déclenche sur drawdown ≥ `trailingStopPercent` depuis le pic de
-    clôture. Protection des gains réellement réalisables.
-  - **Marché illiquide / lastTradePrice** : quand le book est illiquide ou figé,
-    `resolveExitDecisionMarkPrice` peut tomber sur un `lastTradePrice` connu
-    plus défavorable que le bid affiché. Dans ce cas l'évaluation utilise
-    `min(availableBid, lastTradePrice)` comme prix de référence, ce qui permet
-    de déclencher la sortie sur le dernier trade réel plutôt que sur un bid
-    fantôme proche de l'entrée.
-  - Valeur `0`/`null` = paramètre désactivé.
-- `evaluatePreCloseExit` : dans la fenêtre pre-close (`endDate − preCloseWindow`, ou après `endDate` si `acceptingOrders=true`) :
-  - Si `preCloseHoldIfWinning` et PnL de vente projeté ≥ 0 USDC (`projectedRealizedPnlUsdc`) : aucune sortie — la position reste ouverte jusqu'à la résolution (`RedemptionHandler`). L'exécuteur annule aussi un `PRE_CLOSE_LOSS` si le fill simulé/réel serait non négatif (`pre_close_hold_winning`).
-  - Sinon : `PRE_CLOSE_LOSS` si `trigger < 0` **OU** `closure < 0` (logique hybride OR, alignée sur le SL).
-  - **Note** : le pipeline copy-trading n'émet jamais `PRE_CLOSE_WIN`. Le module
-    crypto-algo peut émettre `PRE_CLOSE_WIN` lorsque `cryptoAlgoPreCloseWinConfidenceBid`
-    est configuré (tenue des positions gagnantes quasi certaines en fenêtre pre-close).
-  - Cas typique retenu par `holdIfWinning` : spread d'entrée où `trigger < 0` mais `closure ≥ 0` (position économiquement gagnante malgré un bid sous le bid d'entrée).
+Source de vérité config = 4 tables isolées (`GlobalConfig` / `CopyConfig` /
+`CryptoConfig` / `WeatherConfig`). Getters algo-kind dans `policy.ts`
+(`getCopy*` / `getCrypto*` / `getWeather*`) — plus de `pickModeValue` /
+`getMode*` legacy.
+
+- `policy.ts` : `isEntryBidAskRatioAcceptable` ; `getCopyMinBidToAskRatio` /
+  `getCrypto…` / `getWeather…` ; `getCopyAllowedMarketTags` ; `evaluateSlTpTrailing`
+  (ordre **SL → TP → TRAILING**, SL hybride OR, TP hybride AND, trailing sur peak
+  closure).
+- `exit-decision.ts` : `evaluatePreCloseExit` — fenêtre pre-close ; keep si
+  `keepEnabled` et `markBid >= keepBidThreshold` ; sinon `PRE_CLOSE_LOSS` /
+  `PRE_CLOSE_WIN` selon PnL. (L'ancien vocabulaire `preCloseHoldIfWinning` /
+  `cryptoAlgoPreCloseWinConfidenceBid` n'existe plus.)
+- `crypto-algo-exit.ts` : `resolveExitDecisionMarkPrice`, seuils absolus binaires,
+  interval helpers.
+- `crypto-algo-tunables.ts` / `crypto-algo-strategy-params.ts` / `crypto-config-api.ts`
+- `weather-exit-params.ts` / `weather-config-api.ts`
+- `sim-execution-tunables.ts` / `sim-mode-fields.ts` / `sim-rotation-targets.ts`
 
 ## Sizing (`sizing/`)
 
-- `compute.ts` : quantité copiée proportionnelle (taille du mouvement du trader / portefeuille du trader × capital utilisateur), plafonnée par `maxPositionSizeUsdc` et le solde disponible.
-- `entry-sizing.ts` : orchestration avec le triple-pass VWAP (estimation qty, ask exact, bid/ask final pour filtre liquidité).
-- `resume-reserved-entry.ts` : `resumeEntryFromReservation` — ré-enfile un BUY après réservation réussie mais enqueue Redis échoué ; libère la réservation sur skip permanent (partagé copy + crypto-algo).
+- `compute.ts` : quantité copiée proportionnelle, plafonnée par `maxPositionSizeUsdc` et le solde disponible.
+- `entry-sizing.ts` : orchestration triple-pass VWAP (estimation qty, ask exact, bid/ask final).
+- `entry-mos.ts` / `resolve-entry-mos.ts` / `apply-entry-mos-gate.ts` : Minimum Order Size gate.
+- `entry-depth-retry.ts` / `gate-algo-entry-liquidity.ts` : profondeur ask + retries (book frais).
+- `enqueue-entry-signal.ts` / `resume-reserved-entry.ts` : enqueue Redis + reprise après réserve sans enqueue.
 
 ## Simulation (`simulation/accounting.ts`)
 
@@ -163,17 +156,20 @@ alors que « marché » reste proche de 0 %. Le filtre `*MinBidToAskRatio` dans
   `cashCredit = proceeds − exitFees`.
 - Rédemption : vente à payoff 0/1 sans frais de sortie.
 
-## Marché & rédemption (`market/`, `polymarket/`)
+## Marché (`market/`) — domaine métier
 
-- `isMarketSettled` : `winningTokenId` connu **ET** (`resolved` OU (`closed` ET `acceptingOrders=false`)).
-- `getRedemptionPayoff(winningTokenId, assetId)` → 0|1.
-- `market/tags.ts` : parsing slugs Gamma (`parseTagSlugsFromGammaRaw`), whitelist (`isMarketTagAllowed`), catalogue nav (`NAV_MARKET_TAG_SLUGS`, `buildNavMarketTags`), enrichissement via `GET /events?slug=…` (`enrichGammaMarketTags`).
-- `market-metadata.ts` : `fetchGammaMarket` tente Gamma (ouverts puis fermés) puis CLOB en fallback ; mapping outcomes→tokenIdYes/No (`yes/up`, `no/down`, fallback par ordre).
-- `MarketService.resolveTagSlugs` : lit `markets.tag_slugs` en cache PostgreSQL, sinon fetch Gamma + persistance.
-- `clob-signature.ts` : résolution du type de signature — deposit wallets ⇒ POLY_1271 (type 3).
-- `pusd-amount.ts` : conversions BigInt ↔ number en 6 décimales (`parsePusdAmount`, `formatPusdAmount`, tolérance ±1 micro-unité).
-- `clob-contracts.ts` : adresses Polygon mainnet (Exchange, NegRiskAdapter, CTF, collatéral).
-- `collateral-tokens.ts` : adresses pUSD, USDC.e (`USDC_NATIVE_ADDRESS` Circle complète), helpers de résolution collatéral.
+- `lifecycle.ts` : `isMarketSettled` (`winningTokenId` connu **ET** (`resolved` OU (`closed` ET `acceptingOrders=false`))) ; `getRedemptionPayoff` → 0|1.
+- `tags.ts` : parsing slugs Gamma, whitelist, catalogue nav, enrichissement events.
+- `classifier` / `market-type` : classification métier (crypto up/down, weather, etc.).
+
+## Polymarket (`polymarket/`) — intégration API / WS / on-chain
+
+Frontière C7 : le domaine vit dans `market/` ; `polymarket/` transporte et
+réexporte (ex. `market-list.ts` réexporte `marketClassifier` et définit
+`isMarketActive`). Autres modules clés : `book-freshness`, `circuit-breaker`,
+`rate-limited-fetch`, `token-bucket`, `connection-manager`, `websocket-book`,
+`auto-track-discovery`, `gamma-market-cache`, `market-metadata`, `clob-signature`,
+`pusd-amount`, `clob-contracts`, `collateral-tokens`, `redemption`.
 
 ## Services
 
@@ -186,7 +182,9 @@ alors que « marché » reste proche de 0 %. Le filtre `*MinBidToAskRatio` dans
 | `MarketResolutionService` | Détection des marchés réglés → positions `pending_resolution` |
 | `MarketService` | fetch+persist métadonnées, enrichissement des positions, `saveResolution` |
 | `MoveEventService` | `loadRecent` (filtré pertinence), `loadUnprocessed`, `markProcessed` batch |
-| `RiskService` | Config risque ; `checkKillSwitch` (PnL réalisé du jour UTC vs `maxDailyLossUsdc`) |
+| `RiskService` | Getters config isolés (`getGlobalConfig` / `getCopyConfig` / `getCryptoConfig` / `getWeatherConfig` / `getConfigForAlgo`) ; `checkKillSwitch` |
+| `GlobalConfigService` / `CopyConfigService` / `CryptoConfigService` / `WeatherConfigService` | Quartet C2 — héritent de `BaseConfigService<T>` (cache TTL 5 s + `getConfig`/`updateConfig`) ; cache slot + `invalidateConfigCache()` static par sous-classe |
+| `MarketPriceHistoryBackfillService` | `ensureHistorySynced` — backfill historique prix marché |
 | `SimulationService` | cash, `adjustCash` transactionnel, snapshot (cash + positions mark-to-market), `reset` |
 | `SimulationArchiveService` | `createSnapshot`, `listSnapshots` (filtres), `getSnapshotDetail`, `deleteAllSnapshots` |
 | `WatchlistService` | CRUD (limite 20, adresses lowercase) |
@@ -207,13 +205,12 @@ alors que « marché » reste proche de 0 %. Le filtre `*MinBidToAskRatio` dans
 | `SimulationSessionService` | Gestion des sessions de simulation **scopées par `algoKind`** |
 | `SimulationResetArchiveService` | Archivage reset simulation (création session close + archivage) |
 | `SimExecutionStatsService` | Statistiques d'exécution simulation (latence p50/p90, shadow fills) |
-| `RiskConfigRevisionService` | Journal append-only des révisions `risk_config` |
+| `RiskConfigRevisionService` | Journal append-only des révisions config isolées (`configKind`) |
 | `AnalysisReportService` | CRUD rapports d'analyse persistés |
 | `SystemConfigService` | CRUD configuration système (clés/valeurs, catégories) |
 | `ExitAttemptEventService` | `listByPosition` — journal des tentatives de sortie |
 | `CryptoAlgoRuntimeStatusService` | Publication/lecture du statut runtime crypto-algo via Redis |
 | `WeatherAutoTrackService` / `WeatherForecastService` / `WeatherPositionForecastService` | Auto-track, cache Open-Meteo, snapshot forecast d'entrée (voir [`../weather-algo.md`](../weather-algo.md)) |
-| `MarketResolutionService` | Détection des marchés réglés → positions `pending_resolution` |
 | `AlgoSurveillanceService` | `findLiveMarkets`, gestion snapshots de surveillance OHLC |
 | `AlgoSelectionBookAssets` | Résolution des assets de book pour les sélections algo |
 

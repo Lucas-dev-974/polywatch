@@ -39,5 +39,15 @@ Correctifs audit pipelines P0 (2026-07-05) :
 Correctifs rédemption réelle (2026-07-12) :
 [`patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md`](../patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md)
 
-Résilience unhandled promise rejections & durcissement reset simulation (2026-07-17) :
+Résilience unhandled promise rejections & durcissement reset simulation (2026-07-17) — **appliqué** :
 [`patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md`](../patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md)
+
+Audit global / purge RiskConfig / post-entry-mid (2026-08-06) — **appliqué** (C4, C10, C11/C13 doc) :
+[`plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](../plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) ·
+[`plans/2026-08-06_PLAN-p0-implementation.md`](../plans/2026-08-06_PLAN-p0-implementation.md)
+
+Audit weather-algo (2026-08-04) — **appliqué** :
+[`audit-weather-algo-2026-08-04.md`](../audit-weather-algo-2026-08-04.md)
+
+Sim-reset Redis (2026-07-12 + 4.5) — **appliqué** :
+[`plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](../plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)

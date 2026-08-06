@@ -24,7 +24,7 @@ enregistre une surveillance de marché (snapshots open/close) pour analyse.
    sont **composés** via `dispatchBookUpdate()` (price feed + percent publisher
    partagent le même handler `setOnBookUpdate` sans s'écraser).
 9. `waitForBackendReady` (canal Redis `backend-ready`, timeout 60 s) avant de continuer.
-10. Lecture `RiskConfig.cryptoAlgoEnabled` — si désactivé, démarre en *standby*.
+10. Lecture `CryptoConfig.cryptoAlgoEnabled` — si désactivé, démarre en *standby*.
 11. `StrategyRunner` (évaluation + WebSocket), `AlgoMarketPercentPublisher`, `MarketSurveillanceRecorder`, **`PriceTickRecorder`** (1 Hz).
 12. Connexion WebSocket + abonnement aux `conditionId` actifs (fallback polling si échec).
 13. Boucles : `strategyRunner.start(pollMs)` (polling de secours), **market janitor** (délai adaptatif selon les règles auto-track), `surveillance-refresh` (60 s), `surveillance-janitor` (snapshots non résolus), **`price-tick-recorder`** (1 s), `heartbeat` (30 s).
@@ -91,7 +91,7 @@ Stratégie d'entrée par **bande de prix** (token acheté) + garde spread sur le
 - Confiance pénalisée par le spread au-dessus de `minSpreadAbsForAdjustment`.
 
 Le registre des stratégies (`strategy/registry.ts`) filtre aux ids activés dans
-`RiskConfig.cryptoAlgoStrategies` (JSON, défaut `["naive-momentum"]`).
+`CryptoConfig.cryptoAlgoStrategies` (JSON, défaut `["naive-momentum"]`).
 
 ## Re-entry guard (`strategy-runner.ts`)
 
@@ -113,7 +113,7 @@ enqueue. Configurable dans Settings → Crypto algo → Re-entrée.
 - **Reprise réservation** : même mécanisme que le copy-trading via
   `resumeEntryFromReservation` (`@polywatch/core`) si l'enqueue Redis échoue
   après `reserve`.
-- Paramètres de sortie hérités du mode, surchargeables par `RiskConfig.cryptoAlgo*`
+- Paramètres de sortie hérités du mode, surchargeables par `CryptoConfig.cryptoAlgo*`
   (`getCryptoAlgoExitParams`, `resolveCryptoAlgoMinTimeToClose`).
 - En mode réel : solde disponible on-chain via `fetchAvailableRealCash`.
 - Enfile un `OrderSignal` dans la file Redis `order-signals` (consommée par les
@@ -227,6 +227,14 @@ crypto-algo/src/
     └── implementations/
         └── naive-momentum.strategy.ts
 ```
+
+## Miroir weather-algo (C8)
+
+Même squelette que `@polywatch/weather-algo` (sentinelle, Redis, pipelines, janitors).
+Drift légitime : crypto = WS price-feed + SL/TP worker ; weather = poll + exit
+in-package + forecast. **Pas** d'`AlgoStrategyRunner` partagé — copie consciente
+uniquement. Voir [`08-weather-algo.md`](./08-weather-algo.md) § Miroir et
+[`../crypto-algo.md`](../crypto-algo.md) §10.
 
 ## Configuration (extrait `CryptoConfig`)
 

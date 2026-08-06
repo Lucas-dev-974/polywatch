@@ -83,7 +83,7 @@ Process sans serveur HTTP, **sans credentials CLOB**, qui possède entièrement
 la détection copy :
 
 - **MoveDetector** — polling Data API des traders (intervalle
-  `RiskConfig.moveDetectorIntervalMs`, défaut 2 s) ; enqueue interne
+  `CopyConfig.moveDetectorIntervalMs`, défaut 2 s) ; enqueue interne
   `move-events`.
 - **CopyProcessor** — consomme `move-events`, gates risque, pipelines
   entry/exit → enqueue `COPY_*` sur `order-signals` (frontière vers le worker).
@@ -106,7 +106,7 @@ risque (SL/TP/pre-close/kill-switch). Il n'héberge plus MoveDetector /
 CopyProcessor. Il établit **plusieurs connexions Redis distinctes** et démarre :
 
 - **Consommateurs de files** : `order-signals`, `algo-order-signals`,
-  `close-signals`, `execution-results`.
+  `weather-order-signals`, `close-signals`, `execution-results`.
 - **Processeurs** : deux `Executor` (entrées / sorties), `ResultsConsumer`.
 - **Stratégie** (`StrategyProcessing`) — évaluation SL/TP/trailing toutes les ~100 ms
   sur **toutes** les positions ; émet sur `close-signals`.
@@ -123,7 +123,7 @@ CopyProcessor. Il établit **plusieurs connexions Redis distinctes** et démarre
 - **Canal utilisateur CLOB** : `UserChannelManager`.
 - Souscriptions Redis : `config-changed`, `backend-ready`, `simulation-reset`,
   `algo-selections-changed`.
-- Boot : `ensureCashIntegrity`, `recoverOrphans` sur les 4 files d'exécution,
+- Boot : `ensureCashIntegrity`, `recoverOrphans` sur les 5 files d'exécution,
   `waitForBackendReady`.
 - Heartbeat Redis `worker:heartbeat` (EX 60 s).
 

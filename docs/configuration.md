@@ -38,7 +38,7 @@ en remontant jusqu'au `package.json` nommé `polywatch`. Partir de
 | `WEATHER_ALGO_POLL_MS` | `1800000` | weather-algo | Fréquence de polling pour le StrategyRunner météo (ms, defaut 30min) |
 | `WEATHER_FORECAST_CACHE_TTL_MS` | `3600000` | weather-algo | TTL du cache de prévisions Open-Meteo (ms, defaut 1h) |
 | `ALLOW_SYNCHRONIZE_PROD` | — | core | Si present, autorise `synchronize: true` en production (dangereux, reserve debug) |
-| `SIM_EXECUTION_LATENCY_MS` | — | core / worker | Surcharge de la latence d'execution simulee (ms) ; ecrase la valeur de `RiskConfig.simExecutionLatencyMs` |
+| `SIM_EXECUTION_LATENCY_MS` | — | core / worker | Surcharge de la latence d'execution simulee (ms) ; ecrase la valeur de `GlobalConfig.simExecLatencyMs` |
 | `POLYGON_RPC_URL` | `https://polygon-bor-rpc.publicnode.com` | core | URL RPC Polygon pour les verifications on-chain |
 | `POLYMARKET_BRIDGE_URL` | `https://bridge.polymarket.com` | backend | URL du bridge Polymarket |
 | `REDIS_SENTINEL_NAME` | — | core | Nom du master Redis Sentinel (si deploiement Sentinel) |
@@ -123,9 +123,11 @@ Répartie en `global_config`, `copy_config`, `crypto_config`, `weather_config`, 
 | `cryptoAlgoSlQuotaPerMarket` | Nombre max de sorties SL declenchees avant blocage des nouvelles entrees (defaut `1`). |
 | `cryptoAlgoSlQuotaCacheTtlSeconds` | TTL du cache compteur SL en secondes (defaut `30`). Evite de frapper la DB a chaque cycle. |
 
+Migration : `AddCryptoAlgoSlQuotaConfig1700000000044` (colonnes sur `crypto_config` post-split).
+
 #### Weather Algo (`weatherAlgo*`)
 
-Parametres du trading algorithmique meteo, stockes dans `weather_config` et modifiables via `GET/PUT /api/config/weather` (UI : page Weather Algo → onglet Parametres ; le legacy `PUT /api/risk-config` peut encore relayer certains champs). Voir aussi [`weather-algo.md`](./weather-algo.md).
+Parametres du trading algorithmique meteo, stockes dans `weather_config` et modifiables via `GET/PUT /api/config/weather` (UI : page Weather Algo → onglet Parametres). Voir aussi [`weather-algo.md`](./weather-algo.md).
 
 | Parametre | Defaut | Effet |
 |-----------|--------|-------|
@@ -152,7 +154,7 @@ Regle d'entree de la strategie `naive-momentum` quand `cryptoAlgoEntryPriceBandE
 | Parametre | Defaut | Effet |
 |-----------|--------|-------|
 | `cryptoAlgoEntryPriceBandEnabled` | `true` | Active la bande ; si `false`, retour au seuil momentum `cryptoAlgoBaseThreshold` |
-| `cryptoAlgoEntryPriceMin` | `0.50` | Prix minimum **exclusif** du token achete (Up ou Down) |
+| `cryptoAlgoEntryPriceMin` | `0.55` | Prix minimum **exclusif** du token achete (Up ou Down) |
 | `cryptoAlgoEntryPriceMax` | `0.80` | Prix maximum **exclusif** du token achete |
 
 Exemples (bande par defaut) :
@@ -162,8 +164,8 @@ Exemples (bande par defaut) :
 | 0,65 | Up (YES) | Entree YES |
 | 0,85 | Up | Abstention `price_band` |
 | 0,35 | Down (NO) | Entree NO |
-| 0,52 | Up (YES) | Entree YES (zone auparavant neutre avec threshold 0,55) |
-| 0,50 exact | — | Abstention (borne stricte) |
+| 0,56 | Up (YES) | Entree YES (au-dessus du min exclusif 0,55) |
+| 0,55 exact | — | Abstention (borne stricte exclusive) |
 
 Validation PATCH : `min < max`, chaque borne dans `[0,01 ; 0,99]`. Hot-reload via `config-changed`. Migration `AddCryptoAlgoEntryPriceBand1700000000056`.
 
@@ -225,7 +227,7 @@ encore des ordres apres `endDate`.
 #### Surcharge crypto-algo (`cryptoAlgoPreClose*`)
 
 Les positions `ALGO_OPEN` peuvent surcharger les parametres de pre-cloture du
-mode (sim/real) via les colonnes `crypto_algo_pre_close_*` de `risk_config` :
+mode (sim/real) via les colonnes `crypto_algo_pre_close_*` de `crypto_config` :
 
 | Parametre | Effet |
 |-----------|-------|
@@ -242,7 +244,7 @@ mathematiquement impossible pour les entries hautes, whipsaw). Un mode
 **bid absolu** (en points de probabilite) est utilise exclusivement.
 
 `crypto_algo_sl_bid_points` / `crypto_algo_tp_bid_points` dans
-`risk_config` surchargent les defaults d'intervalle (5m : SL 0,10 /
+`crypto_config` surchargent les defaults d'intervalle (5m : SL 0,10 /
 TP 0,12).
 
 - `null` = herite du default d'intervalle.
@@ -266,7 +268,7 @@ pour le design complet et les decisions post-audit.
 
 Le trailing stop utilise desormais des points de bid absolus, comme le copy trading.
 `crypto_algo_trailing_bid_points` et `crypto_algo_trailing_activation_bid_points`
-dans `risk_config` surchargent les defaults d'intervalle. `null` = herite du default
+dans `crypto_config` surchargent les defaults d'intervalle. `null` = herite du default
 d'intervalle.
 
 #### Suppression du SL/TP (`shouldSuppressSlTp`)
@@ -390,9 +392,23 @@ ils attaquent directement PostgreSQL / Redis. Pré-requis commun : `DATABASE_URL
 | `audit-crypto-algo-exits.ts` | Audit analytique des positions fermées crypto-algo (joint markets, PnL, SL/TP, durée) | PostgreSQL |
 | `audit-crypto-algo-exits-detail.ts` | Détail des positions `REDEMPTION` (sim, ALGO_OPEN) avec exécutions et timing vs `end_date` | PostgreSQL |
 | `audit-summary.ts` | Synthèse simulation : cash, capital initial, positions groupées par statut, PnL réalisé/latent, mark-to-market | PostgreSQL |
-| `analyze-config.ts` | Affiche la `risk_config` courante et analyse la distribution du sizing pour entrées réussies vs échouées | PostgreSQL |
+| `analyze-config.ts` | Affiche les configs isolées courantes (`global`/`copy`/`crypto`/`weather`) et analyse la distribution du sizing pour entrées réussies vs échouées | PostgreSQL |
 | `analyze-performance.ts` | Agrège les raisons d'échec d'exécution et échantillonne les exécutions failed (sim) | PostgreSQL |
 | `audit-db-direct.ts` | Dump complet PostgreSQL : balances, copied_positions, exécutions (JSON par ligne) — vue brute de la DB | PostgreSQL |
+| `weather-algo-audit.ts` | Audit positions / config weather-algo | PostgreSQL |
+| `apply-weather-algo-fixes.ts` | Patch config weather en BDD | PostgreSQL |
+| `diff-sim-real-snapshot.ts` | Garde CI mirroring sim/real | fichiers snapshot |
+| `recover-stranded-redemption/` | Recovery on-chain positions stranded — voir README du dossier | Redis + chain |
+| `e2e/` | Suites compliance Vitest (`npm run test:compliance`) | Vitest |
+
+**Monitor crypto-algo** (`packages/crypto-algo/src/scripts/monitor.ts`) : CLI /
+API `POST /api/system/crypto-algo-monitor` ; env `CRYPTO_MONITOR_DURATION_HOURS`
+(1–48), `CRYPTO_MONITOR_INTERVAL_SECONDS`, `CRYPTO_MONITOR_OUTPUT_DIR`. Voir
+[`crypto-algo.md`](./crypto-algo.md) § Monitor.
+
+**E2E racine** : `e2e/tests/` (Playwright), `e2e/crypto-algo/`, `e2e/weather-algo/` ;
+scripts npm `test:e2e`, `test:e2e:crypto`, `test:e2e:crypto:hardening`,
+`test:e2e:crypto:sim-reset`, `test:e2e:weather`.
 
 ### Scripts ponctuels (investigation ciblée, IDs codés en dur)
 

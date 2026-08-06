@@ -16,7 +16,7 @@ export function useChartWidth(ref: Accessor<HTMLElement | undefined>) {
       setWidth(w);
     };
 
-    requestAnimationFrame(update);
+    const rafId = requestAnimationFrame(update);
 
     const observer = new ResizeObserver(update);
     observer.observe(el);
@@ -24,6 +24,7 @@ export function useChartWidth(ref: Accessor<HTMLElement | undefined>) {
     const timers = [50, 150, 500].map((ms) => setTimeout(update, ms));
 
     onCleanup(() => {
+      cancelAnimationFrame(rafId);
       observer.disconnect();
       timers.forEach(clearTimeout);
     });

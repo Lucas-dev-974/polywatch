@@ -396,7 +396,7 @@ export { safeInterval, sleep } from './worker-shared/safe-interval.js';
 export { waitForBackendReady, parseBackendReadyPayload } from './worker-shared/backend-readiness.js';
 export { createBackendClient, BACKEND_HTTP_TIMEOUT_MS } from './worker-shared/backend-client.js';
 export type { BackendClientConfig } from './worker-shared/backend-client.js';
-export { RedisQueue } from './worker-shared/redis-queue.js';
+export { RedisQueue, JobDiscardedError } from './worker-shared/redis-queue.js';
 export type { DeadLetterNotifier, RedisQueueOptions } from './worker-shared/redis-queue.js';
 export type {
   IPolymarketConnectionManager,

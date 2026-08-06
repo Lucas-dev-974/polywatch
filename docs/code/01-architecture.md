@@ -85,4 +85,4 @@ Workspaces npm. `core` est compilé (`dist/`) et consommé par `backend`, `worke
 | Résultat | Immédiat (synchrone) | Parse de la réponse + canal WS user + réconciliation au démarrage et à chaque reconnexion WS |
 | Rédemption | Crédit cash simulé (payoff 0/1) | `redeemPositions` on-chain via relayer (`POST /api/internal/redeem`, collatéral détecté via `assetId`, auto-wrap USDC.e→pUSD) |
 
-Chaque entrée de watchlist a deux flags indépendants `simEnabled` / `realEnabled` ; la `RiskConfig` duplique tous ses paramètres par mode (`*Sim` / `*Real`).
+Chaque entrée de watchlist a deux flags indépendants `simEnabled` / `realEnabled` ; les configs isolées (`CopyConfig` / `CryptoConfig` / `WeatherConfig` / `GlobalConfig`) portent les paramètres par mode (`*Sim` / `*Real` ou champs dédiés).

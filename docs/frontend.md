@@ -12,7 +12,7 @@ CSS + classes utilitaires de type BEM).
 
 ```typescript:packages/frontend/src/lib/ui-persistence.ts
 export const APP_PAGES = ['simulation', 'real', 'leaderboard', 'markets', 'wallet', 'crypto-algo', 'weather-algo', 'system'] as const;
-export const SYSTEM_PAGE_TABS = ['overview', 'reports', 'snapshots', 'e2e-tests', 'metrics'] as const;
+export const SYSTEM_PAGE_TABS = ['overview', 'reports', 'snapshots', 'e2e-tests', 'metrics', 'crypto-algo-monitor'] as const;
 ```
 
 > Les anciennes pages `reports`, `e2e-tests`, `metrics`, `snapshots` ont été
@@ -20,29 +20,26 @@ export const SYSTEM_PAGE_TABS = ['overview', 'reports', 'snapshots', 'e2e-tests'
 
 | Page | Composants principaux |
 |------|-----------------------|
-| **Simulation** | `SimulationPage` : onglets **Activité** (`SimHero`, `PositionCard`, `EventsPanel`, `ExecutionLog` — tous reçoivent `algoKind` actif), **Snapshots** (voir [`snapshots-simulation.md`](./snapshots-simulation.md)), **Analytics** (`SimAnalyticsPanel algoKind` — affiché seulement pour `copy`, placeholder sinon) |
+| **Simulation** | `SimulationPage` : onglets **Activité** (`SimHero`, `PositionCard`, `EventsPanel`, `ExecutionLog` — `algoKind` actif) et **Analytics** (`SimAnalyticsPanel` pour `copy`). Snapshots → page **Système** |
 | **Réel** | `RealHero`, `PositionCard mode="real"`, `EventsPanel`, `ExecutionLog mode="real"` |
-| **Leaderboard** | `Leaderboard` |
-| **Marchés** | `MarketsPage` : liste des marchés Gamma avec filtres (`MarketsCryptoFilterBar`, `MarketsIntervalSidebar`, `MarketsTagBar`), métriques (`MarketMetricsPanel`, `MarketCard`) |
-| **Trader Insight** | `TraderProfilePage` : profil trader Polymarket avec statistiques, timeline d'activité (`TraderActivityTimelineChart`), évolution du capital (`TraderCapitalEvolutionChart`), répartition par marché (`TraderMarketBreakdownChart`), PnL (`TraderPnlEvolutionChart`), analyse de financement (`TraderFundingSection`) |
+| **Leaderboard** | `Leaderboard` (+ panneau **Trader Insight** / `TraderProfilePage` — pas une page top-level) |
+| **Marchés** | `MarketsPage` : filtres Gamma, métriques, `MarketChartDialog` → `UpDownPriceChart` |
 | **Portefeuille** | `WalletPage` |
-| **Crypto-Algo** | `CryptoAlgoPage` : marchés sélectionnés par l'algo, surveillance OHLC (`SurveillanceHistoryCard`), settings (`CryptoAlgoSettingsDialog`), **Rapport** (dialog preview) + lien **Hub** → onglet Rapports |
-| **Weather Algo** | `WeatherAlgoPage` : onglets **Marchés** (villes surveillées + découverte « Surveiller cette ville »), **Positions**, **Villes**, **Paramètres** (edge, switch `close_and_reenter`/`hold`, hysteresis, throttle re-entry). Sélection = ville (`highest_temp`) ; 1 position max / ville ; BUY YES sur palier forecast. Voir [`weather-algo.md`](./weather-algo.md). |
-| **Système** | `SystemPage` : onglets **Overview** (`SystemOverviewPage` — health checks, heartbeats services), **Rapports** (`ReportsPage` — bibliothèque, génération auto-enregistrée, comparaison A/B, viewer `CryptoAlgoReportViewer`), **Snapshots** (`SnapshotsPage`), **E2E Tests** (`E2eTestsPage`), **Metrics** (`MetricsDashboardPage`) |
+| **Crypto-Algo** | `CryptoAlgoPage` : marchés, surveillance, settings (`CryptoAlgoSettingsDialog` : General / Entrée / Sortie / Autotrack), Rapport + Hub Système |
+| **Weather Algo** | `WeatherAlgoPage` : onglets Marchés / Positions / Villes / Paramètres — voir arbre §3 et [`weather-algo.md`](./weather-algo.md) |
+| **Système** | `SystemPage` : Overview, Rapports, Snapshots, E2E, Metrics, **Crypto Algo Monitor** (`CryptoAlgoMonitorPage`) |
 
-L'en-tête contient la marque, la navigation, et les actions globales
-(`Settings`, `WatchlistEditor`, déconnexion). `AlertBanner` est affichée
-au-dessus des pages.
+L'en-tête : navigation, `EnvSettingsDialog` / watchlist, `NotificationCenter`, déconnexion. `AlertBanner` au-dessus des pages.
 
 ## 2. Communication avec le backend
 
 ### REST — `src/api.ts`
 Wrapper `api<T>(path, options)` :
 - Ajoute `Authorization: Bearer <accessToken>`.
-- Sur `401 invalid_token`, tente un **refresh** automatique (dédupliqué via
-  `refreshPromise`) puis rejoue la requête.
-- En cas d'échec du refresh, déclenche `onSessionExpired` → déconnexion.
-- Access token gardé en mémoire uniquement ; seul le refresh token (single-use, invalidé à chaque rotation) est stocké dans `localStorage`.
+- Sur `401 invalid_token`, tente un **refresh** automatique (dédupliqué) puis rejoue.
+- Cache GET (TTL 5/15/30 s) + dedupe in-flight ; retry **429** ×3 avec backoff.
+- Façade configs isolées : `fetch*/update*` pour `/api/config/{global,copy,crypto,weather}` + `updateEnvSettings`.
+- Inventaire routes backend : [`api.md`](./api.md) (les appels métier sont aussi dans `lib/` / `hooks/` / `stores/`).
 
 ### Temps réel — `src/socket.ts`
 Connexion Socket.IO authentifiée par token (`handshake.auth.token`),
@@ -60,16 +57,15 @@ src/
 ├── App.tsx, index.tsx, api.ts, socket.ts, styles.css
 ├── components/
 │   ├── Login.tsx                 connexion
-│   ├── Settings.tsx              réglages risque (dialog)
 │   ├── EnvSettingsDialog.tsx     configuration par mode (sim/réel) depuis les heros
-│   ├── EnvSettingsTabs.tsx      onglets de configuration (Entrée, Sortie, Général)
-│   ├── settings-sections.tsx     sections de formulaire réutilisables
-│   ├── settings-fields.tsx       champs de formulaire réutilisables
-│   ├── MarketTagsSection.tsx     filtre entrées par type de marché (whitelist slugs Gamma)
+│   ├── EnvSettingsTabs.tsx      onglets Entrée / Sortie / Risque
+│   ├── settings-sections.tsx / settings-fields.tsx
+│   ├── MarketTagsSection.tsx     whitelist tags marché (CopyConfig)
+│   ├── NotificationCenter.tsx    centre de notifications (store)
 │   ├── WatchlistEditor.tsx       gestion de la watchlist
 │   ├── SimHero.tsx / RealHero.tsx  barres « hero » compactes (modes)
-│   ├── SimulationPage.tsx        page sim (Activité, Snapshots, Analytics)
-│   ├── SimulationSnapshotsPanel.tsx  onglet Snapshots (vues Sessions / Snapshots, comparaison sous la liste)
+│   ├── SimulationPage.tsx        page sim (Activité + Analytics)
+│   ├── SimulationSnapshotsPanel.tsx  snapshots sim (page Système → Snapshots)
 │   ├── SimSessionCard.tsx, SimSessionComparePanel.tsx, SimSessionCard.tsx (config diff preview), SnapshotConfigDiffPanel.tsx  gestion et comparaison de sessions, diff config
 │   ├── SimSnapshot*  archives, filtres, graphique equity, comparaison et détail snapshots
 │   ├── SimAnalyticsPanel.tsx, SimAnalytics*  analytics simulation (PnL par catégorie, tableaux, SimAnalyticsCategoryChart, SimAnalyticsChartSection, SimAnalyticsTable)
@@ -121,23 +117,24 @@ src/
 │   ├── CryptoAlgoExecutionsPanel.tsx      exécutions de l'algo
 │   ├── CryptoAlgoCapitalDashboard.tsx     dashboard de capital algo
 │   ├── CryptoAlgoSurveillancePanel.tsx    panneau de surveillance OHLC
-│   ├── CryptoAlgoSettingsDialog.tsx       dialogue de paramètres algo
-│   │   ├── CryptoAlgoSettingsGeneralTab.tsx    onglet général (kill-switch, bande d'entrée min/max, threshold legacy, tunables stratégie)
-│   │   ├── CryptoAlgoSettingsExitTab.tsx       onglet sorties (SL/TP/trailing)
-│   │   ├── CryptoAlgoSettingsHardExitTab.tsx  onglet hard exit (TIME_EXIT)
-│   │   └── CryptoAlgoSettingsAutotrackTab.tsx onglet auto-track
-│   ├── CryptoAlgoNotificationsDialog.tsx  dialogue de notifications algo
-│   ├── AlgoMarketCard.tsx, AlgoCarousel.tsx, AlgoCarouselNav.tsx  carrousel de marchés algo
-│   ├── AlgoMarketChartTrigger.tsx      déclencheur de graphique pour marchés algo
-│   ├── SurveillanceHistoryCard.tsx      carte d'historique de surveillance
-│   ├── UpDownPriceChart.tsx            graphique prix UP/DOWN
-│   ├── JsonIntervalMapField.tsx        champ JSON pour map par intervalle
-│   ├── E2eTestsPage.tsx               page des tests E2E
-│   ├── E2eRunStatusBar.tsx            barre de statut d'un run E2E
-│   ├── E2eRunSuiteDetailPanel.tsx     détail d'une suite E2E
-│   ├── E2eTestResultsList.tsx         liste des résultats E2E
-│   ├── E2eLivePositions.tsx           positions live E2E
-│   ├── TimeframeSelector.tsx          sélecteur de timeframe (5m → 30j)
+│   ├── CryptoAlgoSettingsDialog.tsx       paramètres algo
+│   │   ├── CryptoAlgoSettingsGeneralTab.tsx    kill-switch, stratégies, infra
+│   │   ├── CryptoAlgoSettingsEntryTab.tsx      sizing, price-band, knobs entrée
+│   │   ├── CryptoAlgoSettingsExitTab.tsx       SL/TP/trailing/pre-close
+│   │   └── CryptoAlgoSettingsAutotrackTab.tsx  auto-track
+│   ├── CryptoAlgoMonitorPage.tsx       moniteur système (Système → onglet)
+│   ├── WeatherAlgoPage.tsx             shell weather (4 onglets)
+│   │   ├── WeatherAlgoHeader.tsx / WeatherAlgoCapitalHero.tsx
+│   │   ├── WeatherAlgoActiveMarketsPanel.tsx / WeatherAlgoDiscoverPanel.tsx
+│   │   ├── WeatherAlgoPositionsPanel.tsx / WeatherAlgoExecutionsPanel.tsx
+│   │   ├── WeatherAlgoAutoTrackTab.tsx / WeatherAlgoSettingsTab.tsx
+│   │   └── WeatherCityGroup.tsx
+│   ├── AlgoMarketCard.tsx, AlgoCarousel.tsx, AlgoCarouselNav.tsx
+│   ├── AlgoMarketChartTrigger.tsx / SurveillanceHistoryCard.tsx
+│   ├── UpDownPriceChart.tsx            ~1219 L — SVG Up/Down + overlays SL/TP/signals (pas canvas) ; helpers `lib/updown-*` ; consommateur `MarketChartDialog`
+│   ├── JsonIntervalMapField.tsx
+│   ├── E2eTestsPage.tsx / E2eRun*.tsx / E2eLivePositions.tsx
+│   ├── TimeframeSelector.tsx
 │   ├── TimeSeriesLineChart.tsx        graphique de séries temporelles (réutilisable)
 │   ├── PositionMarketChartTrigger.tsx déclencheur de graphique pour position
 │   ├── CollapsiblePanel.tsx      panneau rétractable générique

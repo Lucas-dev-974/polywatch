@@ -1,2 +1,2 @@
-export { RedisQueue } from '@polywatch/core';
+export { RedisQueue, JobDiscardedError } from '@polywatch/core';
 export type { RedisQueueOptions, DeadLetterNotifier } from '@polywatch/core';

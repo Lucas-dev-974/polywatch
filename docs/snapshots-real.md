@@ -126,7 +126,7 @@ Hook : `useRealSnapshots` → `deleteSelectedSessions()`
 
 ## Config auto-snapshot
 
-Clés `risk_config` : `realAutoSnapshotEnabled`, `realAutoSnapshotIntervalSeconds`,
+Clés `GlobalConfig` : `realAutoSnapshotEnabled`, `realAutoSnapshotIntervalSeconds`,
 `realSnapshotMaxCount`, `realSnapshotRetentionDays`, `realSnapshotDecisionWindowHours`.
 
 Dialog **Configurer** : `RealSnapshotSettingsDialog`.
@@ -134,6 +134,16 @@ Dialog **Configurer** : `RealSnapshotSettingsDialog`.
 ## Métriques Prometheus
 
 `polywatch_snapshot_created_total{mode,source}` et `polywatch_snapshot_count{mode}` avec `mode=real`.
+
+## Miroir sim/real (C1)
+
+Paire de la couche simulation — **pas** de fusion générique (décision Q2).
+Correspondance et constantes partagées : voir [`snapshots-simulation.md`](./snapshots-simulation.md) § « Miroir sim/real (C1) ».
+
+Sources code real : `real/snapshot-decision-collector.ts`, `real/trader-rollup.ts`,
+`real/real-rotate-lock.ts`, `services/real-archive.service.ts`,
+`services/real-session.service.ts`, `services/real-period-archive.service.ts`,
+`services/real-portfolio.service.ts`.
 
 ## Hors scope v1
 

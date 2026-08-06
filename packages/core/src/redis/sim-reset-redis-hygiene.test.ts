@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { algoEntryCooldownKey } from './algo-entry-cooldown.js';
 import { purgeSimExecutionRedisState, type SimRedisPurgeHints } from './sim-reset-redis-hygiene.js';
 import { WORKER_QUEUES } from '../queue/worker-queues.js';
 
@@ -80,5 +81,64 @@ describe('purgeSimExecutionRedisState — copy phantom re-entry', () => {
     expect(redis._store.has('weather-reentry:paris:sim')).toBe(false);
     expect(redis._store.has('weather-reentry:paris:real')).toBe(true);
     expect(redis._store.has('weather-bucket-hysteresis:42')).toBe(false);
+  });
+
+  it('purges algo-entry-cooldown by conditionId (not logicalKey)', async () => {
+    const conditionId = '0xcond-abc';
+    const logicalKey = 'hash-not-a-condition';
+    const redis = makeRedis(
+      {},
+      {
+        [algoEntryCooldownKey(conditionId, 'sim')]: '1',
+        [algoEntryCooldownKey(conditionId, 'real')]: '1',
+        [`algo-entry-cooldown:${logicalKey}:sim`]: '1',
+      },
+    );
+
+    const result = await purgeSimExecutionRedisState(
+      redis as never,
+      {
+        ...baseHints,
+        algoLogicalKeys: [logicalKey],
+        conditionIds: [conditionId],
+      },
+      'crypto',
+    );
+
+    expect(result.cooldownKeysRemoved).toBe(1);
+    expect(redis._store.has(algoEntryCooldownKey(conditionId, 'sim'))).toBe(false);
+    expect(redis._store.has(algoEntryCooldownKey(conditionId, 'real'))).toBe(true);
+    // Legacy wrong-shape key left alone (never written by prod).
+    expect(redis._store.has(`algo-entry-cooldown:${logicalKey}:sim`)).toBe(true);
+  });
+
+  it('purges weather-close enqueueUnique markers for wiped positions', async () => {
+    const closeQueue = WORKER_QUEUES.CLOSE_SIGNALS;
+    const redis = makeRedis(
+      {},
+      {
+        [`${closeQueue}:enqueued:weather-close:42:WEATHER_BUCKET_EXIT`]: '1',
+        [`${closeQueue}:retry-cooldown:weather-close:42:WEATHER_FORECAST_CHANGE`]: '1',
+        [`${closeQueue}:enqueued:weather-close:99:WEATHER_BUCKET_EXIT`]: '1',
+      },
+    );
+
+    await purgeSimExecutionRedisState(
+      redis as never,
+      { ...baseHints, copiedPositionIds: [42] },
+      'weather',
+    );
+
+    expect(
+      redis._store.has(`${closeQueue}:enqueued:weather-close:42:WEATHER_BUCKET_EXIT`),
+    ).toBe(false);
+    expect(
+      redis._store.has(
+        `${closeQueue}:retry-cooldown:weather-close:42:WEATHER_FORECAST_CHANGE`,
+      ),
+    ).toBe(false);
+    expect(
+      redis._store.has(`${closeQueue}:enqueued:weather-close:99:WEATHER_BUCKET_EXIT`),
+    ).toBe(true);
   });
 });

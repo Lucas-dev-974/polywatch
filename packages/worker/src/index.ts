@@ -47,6 +47,7 @@ import { configureAlgoSlQuotaInvalidatePublisher } from './algo-sl-quota-invalid
 import { configureAlgoReentryFillPublisher } from './algo-reentry-fill.js';
 import { configureAlgoPositionClosedPublisher } from './algo-position-closed.js';
 import { safeInterval } from './helpers.js';
+import { SimResetGeneration, wrapSimResetAwareHandler } from './sim-reset-guard.js';
 import {
   HEARTBEAT_INTERVAL_MS,
   BOOK_SUBSCRIPTION_SYNC_MS,
@@ -65,6 +66,8 @@ import {
 const log = pino({ name: 'worker' });
 
 async function main() {
+  let shuttingDown = false;
+  const simResetGeneration = new SimResetGeneration();
   const ds = await initializeDataSource(createDataSource());
   await assertDatabaseExists(ds);
   await initWorkerConfigCache(ds);
@@ -157,34 +160,44 @@ async function main() {
   );
   const simRealismJanitor = new SimRealismJanitor(ds);
 
+  const handleEntry = wrapSimResetAwareHandler(simResetGeneration, (job) =>
+    executorA.handle(job),
+  );
+  const handleClose = wrapSimResetAwareHandler(simResetGeneration, (job) =>
+    executorB.handle(job),
+  );
+  const handleResult = wrapSimResetAwareHandler(simResetGeneration, (job) =>
+    resultsConsumer.handle(job),
+  );
+
   const orderQueueConsumer = new RedisQueue<OrderSignal>(
     redisOrderConsumer,
     WORKER_QUEUES.ORDER_SIGNALS,
-    (job) => executorA.handle(job),
+    handleEntry,
     { onDeadLetter: notifyBackendAlert },
   );
   const algoOrderQueueConsumer = new RedisQueue<OrderSignal>(
     redisAlgoOrderConsumer,
     WORKER_QUEUES.ALGO_ORDER_SIGNALS,
-    (job) => executorA.handle(job),
+    handleEntry,
     { onDeadLetter: notifyBackendAlert },
   );
   const weatherOrderQueueConsumer = new RedisQueue<OrderSignal>(
     redisWeatherOrderConsumer,
     WORKER_QUEUES.WEATHER_ORDER_SIGNALS,
-    (job) => executorA.handle(job),
+    handleEntry,
     { onDeadLetter: notifyBackendAlert },
   );
   const closeQueueConsumer = new RedisQueue<OrderSignal>(
     redisCloseConsumer,
     'close-signals',
-    (job) => executorB.handle(job),
+    handleClose,
     { onDeadLetter: notifyBackendAlert },
   );
   const resultsQueueConsumer = new RedisQueue<ExecutionResult>(
     redisResultsConsumer,
     'execution-results',
-    (job) => resultsConsumer.handle(job),
+    handleResult,
     { onDeadLetter: notifyBackendAlert },
   );
 
@@ -317,9 +330,14 @@ async function main() {
 
   messageHandlers.set(SIMULATION_RESET_CHANNEL, (_channel, message) => {
     const payload = parseSimulationResetPayload(message);
+    const generation = simResetGeneration.bump();
     log.info(
-      { sessionStartedAt: payload?.sessionStartedAt ?? null },
-      'simulation-reset received — sim queues purged by backend',
+      {
+        sessionStartedAt: payload?.sessionStartedAt ?? null,
+        algoKind: payload?.algoKind ?? null,
+        generation,
+      },
+      'simulation-reset received — sim queues purged; in-flight sim failures will not requeue',
     );
   });
 
@@ -430,31 +448,27 @@ async function main() {
     log.warn({ err }, 'failed to start market price history syncer');
   });
 
-  void orderQueueConsumer.startConsumer().catch((err) => {
-    log.fatal({ err, queue: 'order-signals' }, 'queue consumer crashed');
+  const onConsumerCrash = (queue: string) => (err: unknown) => {
+    if (shuttingDown) {
+      log.info({ err, queue }, 'queue consumer stopped during shutdown');
+      return;
+    }
+    log.fatal({ err, queue }, 'queue consumer crashed');
     process.exit(1);
-  });
-  void algoOrderQueueConsumer.startConsumer().catch((err) => {
-    log.fatal({ err, queue: 'algo-order-signals' }, 'queue consumer crashed');
-    process.exit(1);
-  });
-  void weatherOrderQueueConsumer.startConsumer().catch((err) => {
-    log.fatal({ err, queue: 'weather-order-signals' }, 'queue consumer crashed');
-    process.exit(1);
-  });
-  void closeQueueConsumer.startConsumer().catch((err) => {
-    log.fatal({ err, queue: 'close-signals' }, 'queue consumer crashed');
-    process.exit(1);
-  });
-  void resultsQueueConsumer.startConsumer().catch((err) => {
-    log.fatal({ err, queue: 'execution-results' }, 'queue consumer crashed');
-    process.exit(1);
-  });
+  };
+
+  void orderQueueConsumer.startConsumer().catch(onConsumerCrash('order-signals'));
+  void algoOrderQueueConsumer.startConsumer().catch(onConsumerCrash('algo-order-signals'));
+  void weatherOrderQueueConsumer.startConsumer().catch(onConsumerCrash('weather-order-signals'));
+  void closeQueueConsumer.startConsumer().catch(onConsumerCrash('close-signals'));
+  void resultsQueueConsumer.startConsumer().catch(onConsumerCrash('execution-results'));
 
   log.info('Polywatch worker started');
 
   // Graceful shutdown
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     log.info('shutting down...');
     if (algoSelectionsSyncTimer) clearTimeout(algoSelectionsSyncTimer);
     if (backendReadyDebounceTimer) clearTimeout(backendReadyDebounceTimer);
@@ -466,20 +480,25 @@ async function main() {
     marketPriceHistorySyncer.stop();
     wsClient.disconnect();
     userChannel.disconnect();
-    await redisCmd.quit();
-    await redisPub.quit();
-    await redisSub.quit();
-    await redisOrderConsumer.quit();
-    await redisAlgoOrderConsumer.quit();
-    await redisWeatherOrderConsumer.quit();
-    await redisCloseConsumer.quit();
-    await redisResultsConsumer.quit();
-    await ds.destroy();
+    const safeQuit = (r: typeof redisCmd) => r.quit().catch(() => {});
+    await safeQuit(redisCmd);
+    await safeQuit(redisPub);
+    await safeQuit(redisSub);
+    await safeQuit(redisOrderConsumer);
+    await safeQuit(redisAlgoOrderConsumer);
+    await safeQuit(redisWeatherOrderConsumer);
+    await safeQuit(redisCloseConsumer);
+    await safeQuit(redisResultsConsumer);
+    await ds.destroy().catch(() => {});
     process.exit(0);
   };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => {
+    void shutdown();
+  });
+  process.on('SIGINT', () => {
+    void shutdown();
+  });
 }
 
 main().catch((err) => {

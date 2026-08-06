@@ -28,10 +28,10 @@
 | Phase 1b — Vérification des constats (C1-C17) | ✅ Terminée                                                             | 2026-08-06           |
 | Phase 1c — Analyse des risques & mitigations  | ✅ Terminée                                                             | 2026-08-06           |
 | Phase 1d — Plan d'implémentation P0           | ✅ Terminée (A–E mergés PR #1 ; **F implémentée** `b219a7f` sur `main`) | 2026-08-06           |
-| Phase 2 — Audit doc↔code (par module)         | ⏳ En cours (2.7/2.8/2.11 faits)                                        | 2026-08-06           |
-| Phase 3 — Audit structurel & refactor         | ⏳ Partiel (3.1/3.5/3.8 faits)                                          | 2026-08-06           |
-| Phase 4 — Audit bugs fantômes                 | ⏳ Partiel (4.3/4.4/4.9 faits)                                          | 2026-08-06           |
-| Phase 5 — Synthèse & corrections              | ⏳ En attente                                                           | —                    |
+| Phase 2 — Audit doc↔code (par module)         | ✅ Terminée                                                             | 2026-08-06           |
+| Phase 3 — Audit structurel & refactor         | ✅ Terminée (extracts C1/C2/C5 ; C8 doc ; C9 audit sans purge aveugle)   | 2026-08-07           |
+| Phase 4 — Audit bugs fantômes                 | ✅ Terminée (P2 worker abort+shuttingDown clos 2026-08-07)              | 2026-08-07           |
+| Phase 5 — Synthèse & corrections              | ✅ Rapport final + resync doc/plan ; reste P3 (C9, inventaire)          | 2026-08-07           |
 
 
 > **Resync 2026-08-06** : plan parent aligné sur le code post-PR #1 + Phase F (`b219a7f`). Les todos ci-dessous marqués ✅ P0 / ✅ F ne doivent pas être rejoués.
@@ -85,7 +85,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | C12 | `docs/audit-api-alignement.md` **obsolète** — routes `system-audit`, weather capital/executions, crypto-algo-monitor **ajoutées à** `api.md` (2026-08-06). `config-per-kind` déjà documenté. Audit historique encore stale.                                                                                                                                                                                                                                                                                                                                                                                                                                       | 🟢 Mineure (audit historique) | `docs/api.md`                                                                                                               |
 | C13 | **Lacune doc weather-algo** : ~~pas de~~ `docs/code/08-weather-algo.md` → **créé 2026-08-06**. `docs/weather-algo.md` = 67 lignes (synthèse)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | ✅ Clos (doc)                  | `docs/code/08-weather-algo.md`                                                                                              |
 | C14 | **Modules non documentés** : `backend/src/e2e/` (absent de `05-backend.md`), `tools/recover-stranded-redemption/` (README non référencé dans `docs/README.md`), `crypto-algo/scripts/monitor.ts` (absent de `configuration.md`). NB : `e2e/` racine EST documenté (`01-architecture.md:20` + `configuration.md:301-304`) — plan initial inexact sur ce point                                                                                                                                                                                                                                                                                                      | 🟡 Moyenne                    | multiple                                                                                                                    |
-| C15 | **14 migrations récentes** (0081-0094, non 13) sur weather-algo + split RiskConfig + crypto-algo strategy. `docs/code/03-core.md:36` dit "69 migrations" vs 79 fichiers réels (écart 10). Seule `SimBalancePerAlgoKind` (0084) mentionnée dans doc technique (`snapshots-simulation.md:407`)                                                                                                                                                                                                                                                                                                                                                                      | 🟡 Moyenne                    | `core/migrations/`                                                                                                          |
+| C15 | **14 migrations récentes** (0081-0094) + `0095` post-entry-mid. Compteur `03-core.md` corrigé → **80** fichiers. **Reste P3** : inventaire tabulaire exhaustif 0081–0095 (citations partielles OK).                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 🟢 Mineure (inventaire)       | `core/migrations/`                                                                                                          |
 | C16 | Modules runtime crypto-algo — ✅ documentés dans `docs/crypto-algo.md` §8 (2026-08-06)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | ✅ Clos                        | `docs/crypto-algo.md`                                                                                                       |
 | C17 | `monitor.ts` **(672 lignes)** : 3 requêtes SQL interpolent `${hours}` (`:84`, `:135`, `:172`), `hours = Math.max(1, Number(env))` sans garde NaN. Source = env var (pas HTTP) → risque actuel proche de zéro. NB : `conditionId` n'est **jamais interpolé** (plan initial inexact). Sévérité reclassée 🟢 Mineure (était 🟡)                                                                                                                                                                                                                                                                                                                                      | 🟢 Mineure                    | `crypto-algo/src/scripts/monitor.ts`                                                                                        |
 
@@ -119,7 +119,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | C12     | ⚠️ Corrigé                    | `api.md` = 295 lignes (pas 231) ; `market-chart` EST documenté (`api.md:217`) — retiré des routes manquantes                                                                   |
 | C13     | ⚠️ Corrigé                    | `docs/weather-algo.md` = 67 lignes (pas 89)                                                                                                                                    |
 | C14     | ⚠️ Corrigé                    | `e2e/` racine EST documenté (`01-architecture.md:20` + `configuration.md:301-304`) — sous-affirmation "non documenté" réfutée                                                  |
-| C15     | ⚠️ Corrigé                    | 14 migrations (pas 13) ; `03-core.md:36` dit "69" vs 79 réels                                                                                                                  |
+| C15     | ⚠️ Corrigé puis resync        | Compteur doc → **80** ; inventaire tabulaire 0081–0095 encore ouvert (P3)                                                                                                      |
 | C16     | ⚠️ Corrigé                    | `mid-history-buffer` (`:51`) et `auto-track-janitor` (`:33`) SONT mentionnés — retirés de la liste                                                                             |
 | C17     | ⚠️ Corrigé                    | `conditionId` jamais interpolé (plan inexact) ; sévérité reclassée 🟢 Mineure (risque actuel proche de zéro, source = env var)                                                 |
 
@@ -132,7 +132,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | #   | Décision                                                                                                                                                                                                                        | Impact                                                                     |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | C4  | **Terminer la transition** — purger `RiskConfig.ts`, getters legacy, `risk-config-api`, migrer consommateurs → 4 tables isolées                                                                                                 | ✅ **FAIT** (P0 A–E + Phase F `b219a7f` + reliquat tests)                   |
-| C5  | **Centraliser les 3 utilitaires identiques** (`circuit-breaker`, `token-bucket`, `rate-limited-fetch`) dans `core/polymarket/` et réexporter ; **laisser** `api-client` **spécifique** à chaque package                         | 🟡 P2 — refactor structurel                                                |
+| C5  | **Centraliser les 3 utilitaires identiques** (`circuit-breaker`, `token-bucket`, `rate-limited-fetch`) dans `core/polymarket/` et réexporter ; **laisser** `api-client` **spécifique** à chaque package                         | ✅ Fait (shims 2026-08-07)                                                  |
 | C8  | **NE PAS abstraire** crypto↔weather — documenter le miroir + converger par copie consciente (annexe §R6)                                                                                                                        | 🟢 P3 — doc only (pas d'`AlgoStrategyRunner` partagé)                      |
 | C10 | **Terminer la feature post-entry-mid-logger**                                                                                                                                                                                   | ✅ **FAIT** (entité + migration 0095 + onSample + cancel Redis + rétention) |
 | C9  | **Purger les constantes deprecated** — remplacer `RE_ENTRY_WINDOW_MS`, `MAX_ENTRIES_PER_WINDOW`, TTL constants par les resolvers core (`resolveCryptoAlgoReentryParams`, `resolveGammaCacheTtlMs`), supprimer le fallback local | 🟢 P3 — nettoyage                                                          |
@@ -169,62 +169,68 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 #### 2.1 — `@polywatch/core` : entités + modèle de données
 
-- [ ] Vérifier `docs/modele-donnees.md` contre `core/entities/*.ts` (47 entités documentées vs réelles)
-- [ ] Vérifier `docs/code/03-core.md` § entités contre `core/entities/index.ts` (barrel exports)
+- [x] Vérifier `docs/modele-donnees.md` contre `core/entities/*.ts` (47 entités documentées vs réelles) ✅ 2026-08-06 — réel = **50** ; doc corrigée
+- [x] Vérifier `docs/code/03-core.md` § entités contre `core/entities/index.ts` (barrel exports) ✅
 - [x] Confirmer statut `RiskConfig.ts` legacy (C4) — ✅ **PURGÉ** Phase F (`b219a7f`) : fichier absent, retiré de `data-source` / barrel
-- [ ] Vérifier que les 4 nouvelles entités config (`GlobalConfig`, `CopyConfig`, `CryptoConfig`, `WeatherConfig`) sont documentées dans `modele-donnees.md` (et que toute mention monolithique `RiskConfig` est retirée / archivée)
-- [ ] Vérifier la cohérence `data-source.ts` : entités enregistrées vs `entities/index.ts` exports (post-F : pas de `RiskConfig`)
+- [x] Vérifier que les 4 nouvelles entités config (`GlobalConfig`, `CopyConfig`, `CryptoConfig`, `WeatherConfig`) sont documentées dans `modele-donnees.md` (et que toute mention monolithique `RiskConfig` est retirée / archivée) ✅ doc corrigée
+- [x] Vérifier la cohérence `data-source.ts` : entités enregistrées vs `entities/index.ts` exports (post-F : pas de `RiskConfig`) ✅ 50 = 50
 - [x] **Reliquat C4** : migrer les 4 tests qui importent encore `entities/RiskConfig.js` → types isolés (`CryptoConfig` / fixtures) ✅ 2026-08-06
 - [ ] **Observations** :
-  - ✅ 2026-08-06 Phase F : purge physique legacy. Reliquat tests **corrigé** (`crypto-algo-{reentry,exit,helpers,tunables}.test.ts` → `CryptoConfig` / `CopyConfig` ; 66 tests verts).
+  - ✅ 2026-08-06 Phase F : purge physique legacy. Reliquat tests **corrigé**.
+  - ✅ 2026-08-06 audit + correctifs doc : `modele-donnees.md` / `03-core.md` — `RiskConfig` live retiré ; 4 configs + `PostEntryMidSample` + `RiskConfigRevision`/`AnalysisReport` au tableau. Barrel ↔ DS alignés. **Reste** : `configuration.md` mentionne encore `risk_config` (champs) — à traiter en 2.3.
 
 
 
 #### 2.2 — `@polywatch/core` : services (67 fichiers, 13k lignes)
 
-- [ ] Vérifier `docs/code/03-core.md` § services : 41 services documentés vs 67 fichiers réels
-- [ ] Identifier les 26 services non documentés (dont `global-config.service.ts`, `copy-config.service.ts`, `crypto-config.service.ts`, `weather-config.service.ts`, `market-position-tick.service.ts`, `market-price-tick.service.ts`, `market-price-history-backfill.service.ts`, `real-archive.service.ts`, `real-period-archive.service.ts`, `real-session.service.ts`, `real-portfolio.service.ts`, `poll-cycle.service.ts`, `copied-position.service.ts`, `algo-surveillance-positions.ts`, `algo-surveillance.resolvers.ts`, `market.service.ts`, `market-sync-config.service.ts`)
-- [ ] Vérifier la description du quartet de config dupliqué (C2) — la doc mentionne-t-elle le pattern `BaseConfigService<T>` manquant ?
+- [x] Vérifier `docs/code/03-core.md` § services : 41 services documentés vs 67 fichiers réels ✅ 2026-08-06 — réel = **68** fichiers / 49 hors tests ; compteur doc corrigé
+- [x] Identifier les 26 services non documentés (…) ✅ liste plan **stale** — la plupart déjà documentés ; restants = quartet C2 + backfill + helpers algo-surveillance
+- [x] Vérifier la description du quartet de config dupliqué (C2) — ✅ 2026-08-06 noté manquant ; ✅ 2026-08-07 `BaseConfigService<T>` extrait + doc `03-core.md`
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : quartet + `MarketPriceHistoryBackfillService` ajoutés au tableau § Services ; doublon `MarketResolutionService` retiré. Helpers `algo-surveillance.*` / serializer encore optionnels en doc.
 
 
 
 #### 2.3 — `@polywatch/core` : risk + sizing + pricing + positions
 
-- [ ] Vérifier `docs/code/03-core.md` § risk contre `core/risk/` (25 fichiers)
-- [ ] Vérifier `docs/configuration.md` § RiskConfig (params sim/real/crypto/weather) contre `core/risk/policy.ts` (659 lignes) + `core/risk/crypto-algo-tunables.ts` (637 lignes)
-- [ ] Vérifier `docs/crypto-algo.md` § tunables contre `core/risk/crypto-algo-tunables.ts` + `crypto-algo-strategy-params.ts` (nouveau)
-- [ ] Vérifier que `docs/weather-algo.md` mentionne `core/risk/weather-exit-params.ts` + `core/risk/weather-config-api.ts`
-- [ ] Vérifier sizing (`core/sizing/`, 23 fichiers) — doc mentionne `compute.ts`, `entry-sizing.ts`, `entry-mos.ts`, `resolve-entry-mos.ts` ?
+- [x] Vérifier `docs/code/03-core.md` § risk contre `core/risk/` (25 fichiers) ✅ 2026-08-06 — réel = **23** ; § risk réécrit (getters algo-kind, exit-decision, tunables)
+- [x] Vérifier `docs/configuration.md` § RiskConfig … ✅ refs `risk_config`/`RiskConfig` corrigées → configs isolées ; `cryptoAlgoEntryPriceMin` 0.55 ; migration SL quota ajoutée
+- [x] Vérifier `docs/crypto-algo.md` § tunables ✅ `CryptoConfig`/`GlobalConfig` ; `getCryptoMaxPositionSizeUsdc`
+- [x] Vérifier que `docs/weather-algo.md` mentionne weather-exit-params + weather-config-api ✅
+- [x] Vérifier sizing — `entry-mos` / `resolve-entry-mos` / depth-retry ajoutés à `03-core.md`
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : P0 doc RiskConfig stale corrigé dans configuration/crypto-algo/03-core. **Reste P2** : scinder mega-tableau config par table ; doc `cryptoAlgoStrategyParams` détaillée ; Weather SL/TP fields dans configuration.md.
 
 
 
 #### 2.4 — `@polywatch/core` : simulation + real (miroir)
 
-- [ ] Vérifier `docs/snapshots-simulation.md` contre `core/simulation/` (21 fichiers) + `core/services/simulation-*.ts`
-- [ ] Vérifier `docs/snapshots-real.md` contre `core/real/` (3 fichiers) + `core/services/real-*.ts`
-- [ ] Documenter explicitement la duplication sim/real (C1) — la doc mentionne-t-elle ce miroir ?
-- [ ] Vérifier `docs/simulation-execution.md` contre `core/risk/sim-execution-tunables.ts` + `core/simulation/accounting.ts`
+- [x] Vérifier `docs/snapshots-simulation.md` contre `core/simulation/` + services ✅ 2026-08-06
+- [x] Vérifier `docs/snapshots-real.md` contre `core/real/` + services ✅
+- [x] Documenter explicitement la duplication sim/real (C1) ✅ section « Miroir sim/real » ajoutée aux deux docs
+- [x] Vérifier `docs/simulation-execution.md` contre tunables + accounting ✅ titre → `GlobalConfig`
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : RiskConfig→GlobalConfig/configs isolées sur snapshots + sim-exec + 04-worker. C1 documenté (tableau correspondance + decision-collector-shared).
 
 
 
 #### 2.5 — `@polywatch/core` : migrations (79 fichiers)
 
-- [ ] Vérifier `docs/code/03-core.md` mentionne "69 migrations" vs 79 fichiers réels (C15)
-- [ ] Créer un inventaire des migrations 0081-0094 (récentes) et vérifier leur mention dans la doc
-- [ ] Vérifier `docs/configuration.md` (bande d'entrée, curve filter, SL quota) référence les bonnes migrations
+- [x] Vérifier `docs/code/03-core.md` mentionne "69 migrations" vs 79 fichiers réels (C15) ✅ → **80** fichiers ; compteur corrigé
+- [x] Créer un inventaire des migrations 0081-0094 (récentes) … ✅ partiel : 0084–0086/0088/0095 cités ; inventaire exhaustif reporté P2
+- [x] Vérifier `docs/configuration.md` (bande, curve, SL quota) ✅ bande/curve OK ; SL quota `0044` ajouté
 - [ ] **Observations** :
+  - ✅ 2026-08-06 C15 : 69→80. **Reste P2** : tableau inventaire 0081–0095 dans `03-core.md`.
 
 
 
 #### 2.6 — `@polywatch/core` : polymarket + market + redis
 
-- [ ] Vérifier `docs/code/03-core.md` § polymarket contre `core/polymarket/` (41 fichiers)
-- [ ] Vérifier la frontière `market/` vs `polymarket/` (C7) — la doc distingue-t-elle classification métier vs intégration API ?
-- [ ] Vérifier `core/redis/` (13 fichiers, throttles, pub/sub) — doc mentionne `sim-reset-redis-hygiene.ts` (470 lignes) ? `crypto-reentry-throttle.ts` ? `weather-bucket-hysteresis.ts` ?
+- [x] Vérifier `docs/code/03-core.md` § polymarket contre `core/polymarket/` ✅ sections scindées + catalogue modules clés
+- [x] Vérifier la frontière `market/` vs `polymarket/` (C7) ✅ documentée
+- [x] Vérifier `core/redis/` — hygiene/throttles ✅ arborescence + crypto-reentry dans crypto-algo.md + weather modules dans weather-algo.md
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : C7 + redis paths documentés. Catalogue polymarket exhaustif encore optionnel.
 
 
 
@@ -243,31 +249,33 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 #### 2.8 — `@polywatch/backend`
 
 - [x] Vérifier `docs/api.md` + routes récentes (C12) ✅ 2026-08-06
-- [ ] Vérifier `docs/metrics.md` contre `backend/src/metrics.ts` (état juillet)
+- [x] Vérifier `docs/metrics.md` contre `backend/src/metrics.ts` ✅ — TIME_EXIT fantôme retiré ; chemins `/api/internal/metrics/*`
 - [x] Auditer / documenter routes : `system-audit`, `crypto-algo-monitor`, `weather-algo-executions`, `weather-algo-capital` ✅ ; `config-per-kind` déjà en tête `api.md` ; `market-chart` déjà documenté
-- [ ] Vérifier le module `backend/src/e2e/` (C14) — non documenté
-- [ ] Recenser les routes internes `/api/internal/*` …
+- [x] Vérifier le module `backend/src/e2e/` (C14) ✅ section ajoutée à `05-backend.md`
+- [x] Recenser les routes internes `/api/internal/*` ✅ + 4 routes metrics ajoutées à `api.md`
 - [ ] **Observations** :
-  - ✅ 2026-08-06 : sections Weather capital/executions + Système audit/monitor ajoutées à `api.md`.
+  - ✅ 2026-08-06 : routes metrics internes + e2e module + metrics.md alignés. Seed bootstrap `05-backend` → 4 configs.
 
 
 
 #### 2.9 — `@polywatch/worker`
 
-- [ ] Vérifier `docs/code/04-worker.md` + `docs/simulation-execution.md` contre `worker/src/` (~80 fichiers)
-- [ ] Vérifier les processors (`executor.ts` 606 lignes, `strategy-processing.ts`, `results-consumer.ts`) contre la doc
-- [ ] Vérifier la description des janitors (MarketResolutionWatcher, RedemptionHandler, ClosingWatchdog, PlacingJanitor, ReservationJanitor, PendingEntryJanitor, SimRealismJanitor) contre le code
-- [ ] Vérifier la duplication `polymarket/` dans worker (C5) — la doc mentionne-t-elle ces copies ?
+- [x] Vérifier `docs/code/04-worker.md` + `docs/simulation-execution.md` contre `worker/src/` ✅ 2026-08-06 (correctifs P0)
+- [x] Vérifier les processors contre la doc ✅ (TIME_EXIT retiré ; chemins corrigés)
+- [x] Vérifier la description des janitors ✅ SimRealism path + table Watchdogs
+- [x] Vérifier la duplication `polymarket/` dans worker (C5) ✅ note C5 ajoutée
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : chemins SimRealism/MarketPriceHistorySyncer, TIME_EXIT, C5, Watchdogs. **Reste P2** : ordre boot détaillé, dual executor A/B, heartbeat.
 
 
 
 #### 2.10 — `@polywatch/copy-trading`
 
-- [ ] Vérifier `docs/pipeline-copy-trading.md` + `docs/code/05-copy-trading.md` contre `copy-trading/src/`
-- [ ] Vérifier les pipelines entry/exit, MoveDetector, CopyProcessor
-- [ ] Vérifier la duplication `polymarket/` dans copy-trading (C5)
+- [x] Vérifier `docs/pipeline-copy-trading.md` + `docs/code/05-copy-trading.md` contre `copy-trading/src/` ✅ P0 config corrigé
+- [x] Vérifier les pipelines entry/exit, MoveDetector, CopyProcessor ✅ partiel (MOS/depth mentionnés dans 02-)
+- [x] Vérifier la duplication `polymarket/` dans copy-trading (C5) ✅ section C5 dans `05-`
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : `risk_config`/`getMode*` → `CopyConfig`/`getCopy*` ; C5 documenté. **Reste P2** : réécriture complète flux entry (ordre filtres) dans pipeline.md.
 
 
 
@@ -285,30 +293,33 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 #### 2.12 — `@polywatch/frontend`
 
-- [ ] Vérifier `docs/frontend.md` + `docs/code/06-frontend.md` contre `frontend/src/` (552 fichiers)
-- [ ] Vérifier les nouveaux composants weather (12 composants, 04-05/08) et crypto-algo settings (06/08)
-- [ ] Vérifier `UpDownPriceChart.tsx` (1219 lignes) — la doc mentionne-t-elle ce composant massif ?
-- [ ] Vérifier `api.ts` (710 lignes) — tous les endpoints REST sont-ils documentés ?
+- [x] Vérifier `docs/frontend.md` + `docs/code/06-frontend.md` contre `frontend/src/` ✅ 2026-08-06 (~302 src, pas 552)
+- [x] Vérifier weather + crypto settings ✅ arbre Weather* + EntryTab ; fantômes HardExit/Notifications retirés
+- [x] Vérifier `UpDownPriceChart.tsx` ✅ documenté (SVG ~1219 L, pas canvas)
+- [x] Vérifier `api.ts` ✅ cache/429/façade config ; inventaire routes = `api.md`
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : SYSTEM tabs + monitor ; Snapshots hors Simulation ; Weather UI ; stores notés. P2 : inventaire hooks exhaustif.
 
 
 
 #### 2.13 — `tools/`, `e2e/`, `scripts/`
 
-- [ ] Vérifier `docs/configuration.md` §8 (scripts) contre `tools/` (37 scripts) — identifier les manquants (C14)
-- [ ] Documenter `tools/recover-stranded-redemption/` (README non référencé)
-- [ ] Documenter `e2e/` (organisation, helpers, suites)
-- [ ] Vérifier `crypto-algo/src/scripts/monitor.ts` (C17 — risque injection SQL)
+- [x] Vérifier `docs/configuration.md` §8 (scripts) contre `tools/` ✅ scripts manquants clés ajoutés
+- [x] Documenter `tools/recover-stranded-redemption/` ✅ lien `docs/README.md`
+- [x] Documenter `e2e/` (organisation, helpers, suites) ✅ note dans configuration.md
+- [x] Vérifier `crypto-algo/src/scripts/monitor.ts` (C17) ✅ code clos + entrée configuration.md
 - [ ] **Observations** :
+  - ✅ 2026-08-06 C14 partiellement clos (recover, monitor, e2e scripts). Inventaire exhaustif tools one-shot = optionnel.
 
 
 
 #### 2.14 — Audits/plans/patchs (historique)
 
-- [ ] Vérifier que `docs/README.md` référence les audits/patchs récents (août)
-- [ ] Vérifier `docs/code/README.md` (C11 — stale "v0.1.0")
-- [ ] Identifier les audits dont les conclusions ont été appliquées (marquer comme "appliqué")
+- [x] Vérifier que `docs/README.md` référence les audits/patchs récents (août) ✅
+- [x] Vérifier `docs/code/README.md` (C11) ✅ déjà rafraîchi ; liens août ajoutés
+- [x] Identifier les audits appliqués ✅ marqueurs RiskConfig/weather/sim-reset/C10
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : README + code/README enrichis.
 
 ---
 
@@ -323,39 +334,46 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 #### 3.1 — Duplication sim/real (C1)
 
 - [x] Mesurer / extraire identité collectors — ✅ P0 Phase C : `core/snapshot/decision-collector-shared.ts` + tests parity
-- [ ] Mesurer l'identité entre `simulation/trader-rollup.ts` ↔ `real/trader-rollup.ts` (diff réel) — reste ouvert
-- [ ] Mesurer l'identité entre `services/simulation-archive.service.ts` ↔ `services/real-archive.service.ts` (diff ; **ne pas fusionner** — Q2)
-- [ ] Mesurer l'identité entre `services/simulation-session.service.ts` ↔ `services/real-session.service.ts` (diff ; **ne pas fusionner** — Q2)
+- [x] Mesurer l'identité entre `simulation/trader-rollup.ts` ↔ `real/trader-rollup.ts` (diff réel) ✅ 2026-08-06 — drift ~5 %, miroir mécanique
+- [x] Mesurer l'identité entre `services/simulation-archive.service.ts` ↔ `services/real-archive.service.ts` (diff ; **ne pas fusionner** — Q2) ✅ ~30–40 % drift domaine
+- [x] Mesurer l'identité entre `services/simulation-session.service.ts` ↔ `services/real-session.service.ts` (diff ; **ne pas fusionner** — Q2) ✅ ~35–45 % drift domaine
 - [x] Évaluer `ModeSession<Snap,Archive>` — ✅ **Rejeté** (Q2) : trop rigide ; composition fonctions pures seulement
+- [x] Extract pure `trader-rollup-shared` + wrappers minces ✅ 2026-08-07
+- [x] Centraliser `safeParseJson` (`core/lib/safe-parse-json.ts`) ✅ 2026-08-07
 - [ ] **Observations** :
-  - ✅ 2026-08-06 P0-C : extract DTO/constantes collectors. Suite = mesure drift archive/session/rollup + doc du miroir (2.4).
+  - ✅ 2026-08-06 P0-C : extract DTO/constantes collectors.
+  - ✅ 2026-08-06 mesure drift : rollup quasi-identique ; archive/session = squelette cloné + divergences légitimes. Pas de `ModeSession`.
+  - ✅ 2026-08-07 : `snapshot/trader-rollup-shared.ts` (`buildTraderRollup` + helpers) ; sim/real = thin wrappers ; `safeParseJson` unique. Truncate decision archive encore local (P3 optionnel). Tests `trader-rollup.test.ts` verts.
 
 
 
 #### 3.2 — Quartet de services de config (C2)
 
-- [ ] Comparer `global-config.service.ts`, `copy-config.service.ts`, `crypto-config.service.ts`, `weather-config.service.ts` (diff structurel)
-- [ ] Évaluer l'extraction d'une classe `BaseConfigService<T extends object>` dans `core/services/`
+- [x] Comparer `global-config.service.ts`, `copy-config.service.ts`, `crypto-config.service.ts`, `weather-config.service.ts` (diff structurel) ✅ 2026-08-07 — structure identique (cache + get/update)
+- [x] Extraction `BaseConfigService<T>` dans `core/services/` ✅ 2026-08-07 — quartet étend la base ; `invalidateConfigCache()` static préservé
 - [ ] **Observations** :
+  - ✅ 2026-08-07 : `base-config.service.ts` + export `services/index.ts`. Doc `03-core.md` alignée. Pas de changement de comportement (TTL 5 s, bypass cache si manager).
 
 
 
 #### 3.3 — Utilitaires dupliqués (C3, C5)
 
-- [ ] Recenser toutes les copies de `toIso`, `traderDisplayLabel`, `rollupKey`, `isPostgres` et centraliser dans `core/lib/`
-- [ ] Recenser les copies de `circuit-breaker.ts`, `rate-limited-fetch.ts`, `token-bucket.ts` (3 packages) et centraliser dans `core/polymarket/` + re-export shim — `api-client` **exclu** (spécifique par package, décision C5)
+- [x] Recenser copies `toIso` / `traderDisplayLabel` / `rollupKey` / `isPostgres` ✅ 2026-08-07 — inventaire ; `traderDisplayLabel`/`rollupKey` centralisés via rollup-shared ; `toIso`/`isPostgres` encore locaux (helpers 1-liner, extract P3 optionnel)
+- [x] Centraliser `circuit-breaker` / `rate-limited-fetch` / `token-bucket` — shims worker + copy-trading → `@polywatch/core` ✅ 2026-08-07 — `api-client` **exclu**
 - [ ] **Observations** :
+  - ✅ 2026-08-07 C5 : implémentation canonique = `core/polymarket/` ; packages runtime = re-export shims. Buckets identiques (150/1000/1500 / 10s). Build worker + copy-trading OK.
 
 
 
 #### 3.4 — God-objects (C6)
 
-- [ ] `crypto-algo/index.ts` (519 lignes) — évaluer l'extraction d'un `CryptoAlgoBootstrap` + sous-modules wiring (shutdown déjà extrait en P0-D)
-- [ ] `crypto-algo/strategy/strategy-runner.ts` (856 lignes) — évaluer l'extraction du cache Gamma, du re-entry throttle, du SL quota en sous-modules
-- [ ] `frontend/UpDownPriceChart.tsx` (1219 lignes) — évaluer l'extraction de la logique de rendu vs canvas
-- [ ] `backend/routes/simulation.ts` (691 lignes) — évaluer le split par endpoint
-- [ ] `core/risk/policy.ts` — re-mesurer taille post-F (getters legacy retirés) ; split wrappers algo-kind si encore massif
+- [x] `crypto-algo/index.ts` (~648 lignes) — évaluer Bootstrap ✅ 2026-08-07 — shutdown déjà extrait (P0-D) ; reste = wiring timers/Redis — extract `CryptoAlgoBootstrap` **reporté** (ROI faible vs risque)
+- [x] `crypto-algo/strategy/strategy-runner.ts` (~1038 lignes) — évaluer sous-modules ✅ 2026-08-07 — SL quota / re-entry déjà fichiers dédiés ; Gamma+eval loop restent ; extract Gamma cache **après** purge C9
+- [x] `frontend/UpDownPriceChart.tsx` (1219 lignes) — évaluer ✅ 2026-08-07 — logique déjà dans `lib/updown-price-chart` + overlays + `useChartWidth` ; fichier = SVG/UI ; split `UpDownChartSvg` optionnel P3
+- [x] `backend/routes/simulation.ts` (691 lignes) — évaluer split ✅ 2026-08-07 — un seul `createSimulationRouter` ; split endpoints = cosmétique, **non fait**
+- [x] `core/risk/policy.ts` (~565 lignes) — re-mesurer post-F ✅ 2026-08-07 — déjà allégé ; pas de split requis
 - [ ] **Observations** :
+  - ✅ 2026-08-07 : évaluation seule, **aucune extraction agressive**. Priorité restante = runner après C9 ; chart déjà partiellement découpé.
 
 
 
@@ -372,21 +390,31 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 #### 3.6 — Code mort / dépréciations (C9)
 
-- [ ] Vérifier consommateurs de `buildMarkdownReport` (monitor.ts) — code mort confirmé ?
-- [ ] Vérifier consommateurs de `gammaCacheTtlFallback` + constantes TTL locales (strategy-runner.ts) — flag `deprecated_fallbacks_enabled` déjà branché (P0)
-- [ ] Vérifier consommateurs des exports `@deprecated` (sl-quota, constants, strategy-runner) — compter réel post-P0
-- [ ] Planifier la purge si confirmé (après observation logs fallbacks)
+- [x] Vérifier consommateurs de `buildMarkdownReport` (monitor.ts) — ✅ 2026-08-07 mort confirmé (défini, 0 appel)
+- [x] Vérifier `resolveGammaCacheTtlOrFallback` + TTL locales — ✅ flag `deprecated_fallbacks_enabled` branché ; log warn si fallback ; **ne pas purger** sans semaine de logs propres
+- [x] Vérifier exports `@deprecated` (sl-quota, constants, strategy-runner) ✅ 2026-08-07
+- [x] Planifier la purge (après observation logs) ✅ plan ci-dessous — **pas de purge code cette étape**
 - [ ] **Observations** :
+  - ✅ 2026-08-07 inventaire :
+    | Symbole | Statut | Action |
+    |---|---|---|
+    | `buildMarkdownReport` | mort | purge safe (P3 commit dédié) |
+    | `loadSlQuotaCount` / `isSlQuotaReached` | 0 import runtime | purge safe |
+    | `SPREAD_BY_INTERVAL` / `getMaxSpreadForInterval` | remplacés par `getMaxSpreadAbsForInterval` | purge safe |
+    | `MAX_ENTRIES_PER_WINDOW` | export sans import ; valeur conceptuelle | purge avec constantes re-entry |
+    | `RE_ENTRY_WINDOW_MS` + TTL `OUTCOME_PRICES_CACHE_TTL_*` | **actifs** via ctor / `resolveGammaCacheTtlOrFallback` | **garder** jusqu'à `feature.deprecated_fallbacks_enabled=false` + logs sans warn |
+  - Purge aveugle **refusée**. Prochaine étape ops : observer warn `gammaCacheTtlFallback used` puis couper flag puis supprimer fallbacks.
 
 
 
 #### 3.7 — Duplication crypto-algo ↔ weather-algo (C8)
 
-- [ ] Comparer `crypto-algo/strategy/strategy-runner.ts` ↔ `weather-algo/strategy/strategy-runner.ts` (mesure drift)
-- [ ] Comparer `crypto-algo/processors/algo-entry-pipeline.ts` ↔ `weather-algo/processors/weather-entry-pipeline.ts`
+- [x] Comparer runners ✅ 2026-08-07 — crypto ~1038 L vs weather ~608 L ; squelette commun, drift domaine (WS/exit vs poll/forecast)
+- [x] Comparer entry pipelines ✅ ~680 vs ~545 L — même MOS/reserve, files/reasons distinctes
 - [x] Extraction `AlgoStrategyRunner` dans `core/` — ✅ **Rejeté** (décision C8 / §R6) : documenter le miroir + converger par copie consciente
-- [ ] Documenter le pattern partagé dans `docs/code/08-weather-algo.md` + `docs/crypto-algo.md`
+- [x] Documenter le pattern partagé dans `docs/code/08-weather-algo.md` + `docs/crypto-algo.md` (+ `07-crypto-algo.md`) ✅ 2026-08-07
 - [ ] **Observations** :
+  - ✅ 2026-08-07 : § Miroir déjà dans `08-weather-algo.md` ; ajout §10 `crypto-algo.md` + § Miroir `07-crypto-algo.md`. Convention review `[mirror: weather-algo/…]`.
 
 
 
@@ -422,10 +450,13 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 #### 4.2 — Duplication sim/real (C1) — drift silencieux
 
-- [ ] Scénario : bug corrigé dans `simulation-archive.service.ts` mais pas dans `real-archive.service.ts` (miroir) → comportement divergent sim/real
+- [x] Scénario : bug corrigé dans `simulation-archive.service.ts` mais pas dans `real-archive.service.ts` (miroir) → comportement divergent sim/real ✅ 2026-08-06 (mesuré ; archive/session non fusionnés — Q2)
 - [x] Collectors : constantes partagées via `decision-collector-shared.ts` (P0-C) — drift collectors mitigé
-- [ ] Vérifier autres paires (rollup, session, types) pour constantes encore dupliquées
+- [x] Vérifier autres paires (rollup, session, types) pour constantes encore dupliquées ✅ 2026-08-06
+- [x] Extract `trader-rollup-shared` + `safeParseJson` ✅ 2026-08-07 (voir §3.1)
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : risque fantôme mesuré (rollup / truncation archive / prune).
+  - ✅ 2026-08-07 **resync** : extract `snapshot/trader-rollup-shared.ts` + wrappers sim/real + `lib/safe-parse-json.ts` **faits** (plus P2). Reste optionnel P3 : truncation decision archive partagée ; `toIso`/`isPostgres`. Archive/session services restent séparés (Q2).
 
 
 
@@ -452,35 +483,44 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 #### 4.5 — `sim-reset-redis-hygiene.ts` (470 lignes, hub critique)
 
-- [ ] Scénario reset sim pendant qu'un worker consomme `algo-order-signals` : le worker voit-il la purge ? Race condition ?
-- [ ] Scénario reset sim pendant qu'un signal est en `:processing` : le `recoverOrphans` au prochain boot le réinjecte-t-il alors que la queue a été purgée ?
-- [ ] Vérifier que tous les canaux pub/sub et throttles sont bien purgés (liste exhaustive)
+- [x] Scénario reset sim pendant qu'un worker consomme `algo-order-signals` : le worker voit-il la purge ? Race condition ? ✅ 2026-08-06
+- [x] Scénario reset sim pendant qu'un signal est en `:processing` : le `recoverOrphans` au prochain boot le réinjecte-t-il alors que la queue a été purgée ? ✅ 2026-08-06
+- [x] Vérifier que tous les canaux pub/sub et throttles sont bien purgés (liste exhaustive) ✅ 2026-08-06
 - [ ] **Observations** :
+  - ✅ 2026-08-06 audit + correctifs partiels :
+    - **Bug P0 corrigé** : cooldown purgéait `algo-entry-cooldown:{logicalKey}:sim` alors que prod écrit `{conditionId}:sim` (`algo-entry-cooldown.ts`). Fix : `hints.conditionIds` + `algoEntryCooldownKey`. Tests unit + e2e alignés. Doc `snapshots-simulation.md` corrigée.
+    - **Bug P1 corrigé** : marqueurs `close-signals:enqueued:weather-close:{posId}:{reason}` non purgés → DEL ciblé pour weather.
+    - **Mitigation TOCTOU** : double passe LREM main/`:processing` (entry/close/results/move-events).
+    - ✅ 2026-08-07 **P2 clos** : `SimResetGeneration` + `wrapSimResetAwareHandler` → `JobDiscardedError` (pas de RPUSH post-purge sur échec sim in-flight). `recoverOrphans` OK si LREM `:processing` réussi. Dead-letter / `::retries` non purgés (bas risque, P3). Pub/sub = publish only (N/A).
 
 
 
 #### 4.6 — `monitor.ts` injection SQL (C17)
 
-- [ ] Vérifier que `env.durationHours` est validé (type, range, garde NaN) avant interpolation SQL `${hours}`
+- [x] Vérifier que `env.durationHours` est validé (type, range, garde NaN) avant interpolation SQL `${hours}` ✅ 2026-08-06 — fix `sanitizePositiveNumber` (finite, min 1, max 48)
 - [x] `conditionId` — **jamais interpolé** (C17 corrigé) ; hors scope
-- [ ] Vérifier que les autres paramètres SQL (interval, mode) ne viennent jamais d'une entrée utilisateur
+- [x] Vérifier que les autres paramètres SQL (interval, mode) ne viennent jamais d'une entrée utilisateur ✅ — colonnes DB only ; HTTP déjà sanitisé côté backend
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : pas d'injection exploitable. Gap CLI NaN/Infinity corrigé dans `monitor.ts`. C17 clos.
 
 
 
 #### 4.7 — Queue consumers worker (shutdown)
 
-- [ ] Scénario : consumer `order-signals` crash → `process.exit(1)` (doc confirme) mais les autres consumers sont-ils tués proprement ?
-- [ ] Scénario : `execution-results` en `:processing` au crash → `recoverOrphans` au reboot réinjecte-t-il dans la bonne queue ?
+- [x] Scénario : consumer `order-signals` crash → `process.exit(1)` (doc confirme) mais les autres consumers sont-ils tués proprement ? ✅ 2026-08-06
+- [x] Scénario : `execution-results` en `:processing` au crash → `recoverOrphans` au reboot réinjecte-t-il dans la bonne queue ? ✅ 2026-08-06
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : `recoverOrphans` OK (bonne file). Crash → `exit(1)` tue tout le process (voulu, anti-zombie).
+  - ✅ 2026-08-07 **P2 clos** : flag `shuttingDown` (pattern copy-trading) — consumer stop pendant SIGTERM = log info, pas `exit(1)`. Doc `architecture.md` corrigée (5 files).
 
 
 
 #### 4.8 — Polymarket WS book (worker + crypto-algo)
 
-- [ ] Scénario : WS Polymarket drop pendant 30s → `book-freshness.ts` marque stale, mais les évaluations continuent-elles avec un book périmé ?
-- [ ] Scénario : `forceRefreshBook` REST échoue → fallback sur cache stale ou abstention ?
+- [x] Scénario : WS Polymarket drop pendant 30s → `book-freshness.ts` marque stale, mais les évaluations continuent-elles avec un book périmé ? ✅ 2026-08-06
+- [x] Scénario : `forceRefreshBook` REST échoue → fallback sur cache stale ou abstention ? ✅ 2026-08-06
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : entrées crypto-algo fail-closed à 15s (`stale_book`). **Fix** : `entry-depth-retry` passe `maxAgeMs` + skip si `forceRefreshBook` → `undefined`. **Reste accepté / P2** : SL/TP worker warn-only à 30s (continue sur book périmé — documenté) ; SELL peut utiliser cache stale.
 
 
 
@@ -495,9 +535,10 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 #### 4.10 — Frontend : `UpDownPriceChart.tsx` (1219 lignes)
 
-- [ ] Scénario : démontage du composant pendant un `requestAnimationFrame` → leak ?
-- [ ] Scénario : WS disconnect → le canvas continue-t-il à redraw avec des données stale ?
+- [x] Scénario : démontage du composant pendant un `requestAnimationFrame` → leak ? ✅ 2026-08-06
+- [x] Scénario : WS disconnect → le canvas continue-t-il à redraw avec des données stale ? ✅ 2026-08-06
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : chart = SVG réactif (pas canvas/rAF loop). rAF one-shot dans `useChartWidth` — **fix** `cancelAnimationFrame` dans `onCleanup`. Live WS géré par parent (`MarketChartDialog` : `setLiveEnabled(false)` onClose + timer fin marché). Pas de redraw autonome stale.
 
 ---
 
@@ -505,13 +546,15 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 ### Phase 5 — Synthèse & corrections
 
-- [ ] Consolider tous les tableaux de confrontation Doc→Code et Code→Doc
-- [ ] Produire le rapport final classé par priorité (🔴 Critique / 🟡 Majeure / 🟢 Mineure)
-- [ ] Pour chaque point, préciser si la correction impacte le **CODE** ou la **DOCUMENTATION**
-- [ ] Appliquer les corrections doc (après validation utilisateur)
+- [x] Consolider tous les tableaux de confrontation Doc→Code et Code→Doc ✅ 2026-08-06 (ci-dessous)
+- [x] Produire le rapport final classé par priorité ✅
+- [x] Pour chaque point, préciser CODE ou DOCUMENTATION ✅
+- [x] Appliquer les corrections doc P0/P1 de cet audit ✅ (reste polish P2 optionnel)
 - [ ] Ouvrir les tickets refactor code (après validation utilisateur)
-- [ ] Mettre à jour `docs/README.md` pour référencer cet audit
+- [x] Mettre à jour `docs/README.md` pour référencer cet audit ✅
 - [ ] **Observations** :
+  - ✅ 2026-08-06 : rapport §5.5. Tickets refactor en attente de validation user.
+  - ✅ 2026-08-06 : voir **§5.5 Rapport final** ci-dessous.
 
 ---
 
@@ -527,10 +570,10 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 | 🔴 P0 (fait) | ~~C4 / 3.5 / 4.1~~, ~~4.3~~, ~~4.4~~, ~~RT filet~~                                     | Historique PR #1 + Phase F — ne pas rejouer |
 | 🟡 P1        | ~~**2.7** crypto-algo doc~~, ~~**2.11** weather~~, ~~**2.8** routes api~~              | ✅ 2026-08-06                                |
 | 🟡 P1        | ~~**3.8 / C10** post-entry-mid-logger~~                                                | ✅ 2026-08-06                                |
-| 🟡 P1        | **4.5** sim-reset hygiene, **4.2** drift sim/real restant                              | Hubs critiques + miroir non extracté        |
-| 🟢 P2        | **2.1–2.6** reste audit doc core, **2.9–2.10**, **2.12–2.14**                          | Exhaustivité doc                            |
-| 🟢 P2        | **3.2** quartet config, **3.3** utils (+ C5 sans api-client), **3.4** god-objects      | Refactor structurel                         |
-| 🟢 P3        | **3.6 / C9** purge fallbacks, **3.7 / C8** doc miroir (pas d'abstraction), C11/C15/C16 | Nettoyage + doc                             |
+| 🟡 P1        | ~~**4.5** sim-reset~~ (cooldown+markers+abort in-flight), ~~**4.2** mesuré+extract~~ | ✅ Clos 2026-08-07                           |
+| 🟢 P2        | ~~**Phase 2 entière**~~ ✅                                                          | Exhaustivité doc                            |
+| 🟢 P2        | ~~**3.2** quartet~~, ~~**3.3**/C5~~, ~~**3.4** éval god-objects~~ ✅                   | Refactor structurel                         |
+| 🟢 P3        | ~~**3.7 / C8** doc miroir~~ ✅ ; **C9** purge code mort + fallbacks après logs ; polish C15 | Nettoyage + doc                             |
 
 
 
@@ -540,9 +583,12 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 1. ~~**Hotfix** : corriger les 4 tests qui importent~~ `RiskConfig` ~~(reliquat F).~~ ✅
 2. ~~**Doc critique** : 2.11 / 2.7 / 2.8.~~ ✅
 3. ~~**Feature** : C10 post-entry-mid-logger (§R5).~~ ✅
-4. **Bugs restants** : 4.5 sim-reset, puis 4.6/4.7/4.8/4.10.
-5. **Structure** : 3.1 reste (mesure drift) → 3.3/C5 → 3.2/3.4 ; C8 = doc only.
-6. **Phase 5** : synthèse une fois 4.5 + audits doc restants couverts.
+4. ~~**Bugs** : 4.5 / 4.2.~~ ✅ (+ abort in-flight + extract rollup 2026-08-07).
+5. ~~**Bugs** : 4.6 → 4.7 → 4.8 → 4.10.~~ ✅ (+ `shuttingDown` worker 2026-08-07).
+6. ~~**Phase 2 + Phase 5 rapport**.~~ ✅
+7. ~~**Suite Phase 3** : 3.1 extract / 3.2 / 3.3/C5 / 3.4 éval / 3.7 doc / 3.6 audit.~~ ✅ 2026-08-07
+8. **C9 suite** : purger code mort sûr (`buildMarkdownReport`, sl-quota deprecated, spread %) ; fallbacks Gamma/re-entry **après** observation logs + flag off.
+9. ~~Follow-ups P2 worker (abort sim-reset, `shuttingDown`).~~ ✅ 2026-08-07. Reste : SL/TP stale policy ; dead-letter/`::retries` purge (bas risque).
 
 > **Migration** : ✅ `CreatePostEntryMidSamples1700000000095` jouée (`npm run migration:run -w @polywatch/core`, 2026-08-06).
 
@@ -616,7 +662,7 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 | Fichier                                   | Lignes | Rôle                                               |
 | ----------------------------------------- | ------ | -------------------------------------------------- |
-| `components/UpDownPriceChart.tsx`         | 1219   | Graphique prix Up/Down (canvas lourd)              |
+| `components/UpDownPriceChart.tsx`         | 1219   | Graphique prix Up/Down (SVG réactif ; logique dans `lib/updown-price-chart`) |
 | `api.ts`                                  | 710    | Client REST central (JWT, refresh, tous endpoints) |
 | `hooks/useSimulationSnapshots.ts`         | 665    | Hook snapshots simulation                          |
 | `hooks/useRealSnapshots.ts`               | 636    | Hook snapshots réel                                |
@@ -633,14 +679,14 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 #### Doublons Polymarket confirmés (C5)
 
 
-| Fichier                            | Packages                   | Statut                                                             |
+| Fichier                            | Packages                   | Statut (resync 2026-08-07)                                         |
 | ---------------------------------- | -------------------------- | ------------------------------------------------------------------ |
-| `polymarket/circuit-breaker.ts`    | core, worker, copy-trading | 3 copies                                                           |
-| `polymarket/rate-limited-fetch.ts` | core, worker, copy-trading | 3 copies identiques                                                |
-| `polymarket/token-bucket.ts`       | core, worker, copy-trading | 3 copies                                                           |
+| `polymarket/circuit-breaker.ts`    | core, worker, copy-trading | ✅ Canonique `core` ; worker/copy-trading = **shims** re-export     |
+| `polymarket/rate-limited-fetch.ts` | core, worker, copy-trading | ✅ Idem shims                                                       |
+| `polymarket/token-bucket.ts`       | core, worker, copy-trading | ✅ Idem shims                                                       |
 | `polymarket/api-client.ts`         | core, worker, copy-trading | 3 copies **non identiques** — **ne pas centraliser** (décision C5) |
-| `polymarket/book-freshness.ts`     | core, worker               | 2 copies                                                           |
-| `helpers.ts`                       | worker, copy-trading       | 2 copies                                                           |
+| `polymarket/book-freshness.ts`     | core, worker               | 2 copies (hors périmètre C5)                                       |
+| `helpers.ts`                       | worker, copy-trading       | 2 copies (hors périmètre C5)                                       |
 
 
 
@@ -666,12 +712,12 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 | Module non documenté                                                        | Action requise                                                           |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `packages/weather-algo` (doc technique détaillée)                           | ✅ Créé `docs/code/08-weather-algo.md` (2026-08-06)                       |
-| `packages/backend/src/e2e/`                                                 | Documenter dans `docs/code/05-backend.md`                                |
-| `e2e/` (tests Playwright + helpers)                                         | Créer section dans `docs/`                                               |
-| `tools/recover-stranded-redemption/`                                        | Référencer le README dans `docs/README.md`                               |
-| `crypto-algo/src/scripts/monitor.ts`                                        | Documenter + audit SQL                                                   |
+| `packages/backend/src/e2e/`                                                 | ✅ Section `05-backend.md` (2026-08-06)                                   |
+| `e2e/` (tests Playwright + helpers)                                         | ✅ Note `configuration.md`                                               |
+| `tools/recover-stranded-redemption/`                                        | ✅ Lien `docs/README.md`                                                  |
+| `crypto-algo/src/scripts/monitor.ts`                                        | ✅ configuration.md + garde NaN                                           |
 | Routes backend récentes (system-audit, weather-algo-*, crypto-algo-monitor) | ✅ Documentées dans `docs/api.md` (2026-08-06)                            |
-| Migrations 0081-0095                                                        | Inventaire dans `docs/code/03-core.md` (+ 0095 `post_entry_mid_samples`) |
+| Migrations 0081-0095                                                        | Compteur 80 OK ; **reste** inventaire tabulaire exhaustif (P3)           |
 
 
 
@@ -688,13 +734,13 @@ L'analyse des risques a couvert les 9 zones critiques du plan (C1, C4, C5, C6, C
 | #   | Risque                             | Sévérité                  | Stratégie de mitigation       | Réf annexe | État 2026-08-06                             |
 | --- | ---------------------------------- | ------------------------- | ----------------------------- | ---------- | ------------------------------------------- |
 | 1   | C4 : Purge RiskConfig legacy       | ~~🔴 P0~~ → clos          | Strangler Fig + guard         | §R1        | ✅ Fait (A–E + F `b219a7f`)                  |
-| 2   | C1 : Refactor duplication sim/real | 🟡 reste                  | Composition fonctions pures   | §R2        | ✅ Collectors ; reste archive/session/rollup |
-| 3   | C9 : Purge deprecated constants    | 🟢 P3                     | Éliminer fallback             | §R3        | ⏳ Flag branché ; purge après observation    |
-| 4   | C6 : Refactor god-objects          | 🟡 P2                     | Extraction conservatrice      | §R4        | ⏳ Partiel (shutdown extrait)                |
+| 2   | C1 : Refactor duplication sim/real | 🟡 reste                  | Composition fonctions pures   | §R2        | ✅ Collectors + rollup-shared + safeParseJson ; archive/session non fusionnés (Q2) |
+| 3   | C9 : Purge deprecated constants    | 🟢 P3                     | Éliminer fallback             | §R3        | ⏳ Audit 3.6 ; purge code mort OK ; fallbacks après logs |
+| 4   | C6 : Refactor god-objects          | 🟡 P2                     | Extraction conservatrice      | §R4        | ✅ Évalué 3.4 ; extracts agressifs reportés   |
 | 5   | C10 : Finish post-entry-mid-logger | ~~🟡 P1~~ → clos          | Entité + migration + cancel   | §R5        | ✅ Fait                                      |
-| 6   | C8 : Abstract crypto↔weather       | 🟢 P3                     | **NE PAS abstraire** — doc    | §R6        | ⏳ Doc only                                  |
+| 6   | C8 : Abstract crypto↔weather       | 🟢 P3                     | **NE PAS abstraire** — doc    | §R6        | ✅ Doc miroir (08 + crypto-algo §10 + 07)     |
 | 7   | Process discipline                 | 🟢 P3                     | Automatisation légère         | §R7        | ⏳                                           |
-| 8   | C5 : Centralize Polymarket         | 🟢 P2                     | Move + shim (sans api-client) | §R8        | ⏳                                           |
+| 8   | C5 : Centralize Polymarket         | 🟢 P2                     | Move + shim (sans api-client) | §R8        | ✅ Shims worker/copy-trading → core          |
 | 9   | C12 : Update api.md                | ~~🟡 P1~~ → clos (routes) | Routes manquantes             | §R9        | ✅ `api.md` ; audit historique optionnel     |
 | T   | No test safety net                 | ~~🔴 P0~~ → clos          | Filet d'arête                 | §RT        | ✅ Fait (Phase A)                            |
 
@@ -733,6 +779,51 @@ Ce plan opérationnalise les mitigations de l'annexe §R1, §R2, §R4, §RT pour
 
 
 **Reliquat post-F** : ✅ tests unitaires migrés vers `CryptoConfig`/`CopyConfig` (2026-08-06).
+
+### 5.5 Rapport final (Phase 5) — 2026-08-06
+
+#### Clos pendant cet audit
+
+| # | Finding | Type | Action |
+|---|---------|------|--------|
+| C4 | RiskConfig legacy | CODE | Purge Phase F (préalable) + doc alignée |
+| C10 | post-entry-mid-logger | CODE | Feature terminée (préalable) |
+| 4.5 | Cooldown sim-reset mauvaise clé | CODE | Fix `conditionId` + weather-close markers + double passe |
+| 4.6 | monitor.ts NaN | CODE | `sanitizePositiveNumber` |
+| 4.8 | entry-depth stale book | CODE | `maxAgeMs` + skip si refresh fail |
+| 4.10 | useChartWidth rAF | CODE | `cancelAnimationFrame` onCleanup |
+| Doc | RiskConfig + Phase 2 modules | DOC | Alignement P0/P1 (2.1–2.14) |
+
+#### Clos Phase 3 (2026-08-07)
+
+| # | Finding | Type | Action |
+|---|---------|------|--------|
+| C1 | rollup + safeParseJson | CODE | `trader-rollup-shared` + `lib/safe-parse-json` |
+| C2 | Quartet config | CODE | `BaseConfigService<T>` |
+| C5 | Utils Polymarket | CODE | Shims worker/copy-trading → core (`api-client` exclu) |
+| C6 | God-objects | AUDIT | Évalués ; extracts agressifs reportés |
+| C8 | Miroir crypto↔weather | DOC | §10 crypto-algo + 07/08 |
+| C9 | Deprecated | AUDIT | Inventaire ; pas de purge aveugle (fallbacks actifs) |
+
+#### Clos follow-ups P2 (2026-08-07)
+
+| # | Finding | Type | Action |
+|---|---------|------|--------|
+| 4.5 | Abort worker in-flight sim-reset | CODE | `SimResetGeneration` + `JobDiscardedError` |
+| 4.7 | `shuttingDown` worker | CODE | Pattern copy-trading |
+| Doc | RiskConfig / 4 files / §5.1 C5+canvas / §4.2 | DOC | Resync plan + architecture / 01 / 07 / pipeline / 03-core |
+
+#### Ouvert — tickets (validation user)
+
+| Prio | Item | Type |
+|------|------|------|
+| 🟢 P3 | Purge C9 code mort sûr ; fallbacks Gamma après logs + flag off | CODE |
+| 🟢 P3 | Truncate decision archive partagé ; `toIso`/`isPostgres` lib (optionnel) | CODE |
+| 🟢 P2/P3 | SL/TP book stale policy ; inventaire migrations C15 ; dead-letter/`::retries` sim-reset | CODE/DOC |
+
+#### Verdict
+
+Phases **1–5** terminées + follow-ups P2 worker clos (2026-08-07). Suite recommandée : purge C9 code mort (après logs) puis polish P3.
 
 ---
 

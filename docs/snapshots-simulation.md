@@ -111,7 +111,10 @@ Après le commit transactionnel du reset, le backend appelle
    - **`execution-results`** : match par `orderSignalId` (réservations ou closes
      retirés) **ou** raison **spécifique** au kind (`ALGO_*` / `COPY_*` /
      `WEATHER_*` après gate) — jamais SL/TP/TRAILING/MANUAL via mapping raison ;
-   - marqueurs dedup/retry et `algo-entry-cooldown:${logicalKey}:sim` du périmètre.
+   - marqueurs dedup/retry du périmètre ; cooldown
+     `algo-entry-cooldown:{conditionId}:sim` (jamais keyed par logicalKey) ;
+   - **weather** : marqueurs `close-signals:enqueued:weather-close:{posId}:{reason}`
+     pour les positions wipees.
 3. Les autres kinds et le trading **réel** (`mode:real`) ne sont **pas** touchés.
 
 Réponse API : champ `redisPurge` (compteurs). Pub/sub `simulation-reset` inclut
@@ -240,7 +243,7 @@ Retourné par `GET /api/simulation-snapshots/:id` :
 
 | Champ JSON | Contenu |
 |------------|---------|
-| `config` | Snapshot des champs sim de `RiskConfig` (`SimRiskConfigSnapshot`) — inclut sizing, SL/TP, auto-snapshot, **réalisme d'exécution** (`simExec*`, `simSelfImpact*`, `simShadow*`, `shadowSampleRetentionDays`) |
+| `config` | Snapshot des champs sim issus des configs isolées (`SimRiskConfigSnapshot` — Global/Copy/Crypto selon kind) — inclut sizing, SL/TP, auto-snapshot, **réalisme d'exécution** (`simExec*`, `simSelfImpact*`, `simShadow*`, `shadowSampleRetentionDays`) |
 | `traders` | Rollup par trader (watchlist sim, PnL réalisé/ouvert, compteurs) |
 | `positions` | Positions sim enrichies (`CopiedPositionPresenter`) |
 | `executions` | Toutes les exécutions sim à l'instant T |
@@ -333,7 +336,7 @@ Le frontend écoute ces événements dans `useSimulationSnapshots` et `SimHero`.
 
 Boucle `startSimAutoSnapshotLoop()` (`packages/backend/src/simulation/auto-snapshot-loop.ts`) :
 
-- Tick toutes les **30 s** ; vérifie `simAutoSnapshotEnabled` dans `RiskConfig`.
+- Tick toutes les **30 s** ; vérifie `simAutoSnapshotEnabled` dans `GlobalConfig`.
 - Intervalle utilisateur : `simAutoSnapshotIntervalSeconds` (minimum **60 s**).
 - `createAutoSnapshotIfDue` boucle les **trois** kinds (`crypto`, `weather`, `copy`)
   avec cooldown **par kind** (dernier `source=auto` filtré par `algo_kind`).
@@ -406,7 +409,7 @@ Migrations concernées :
 | `AddSimulationSessions1700000000046` | Table `simulation_sessions`, `session_id` sur snapshots, `current_session_id` sur balance |
 | `SimBalancePerAlgoKind…` (0084) | Partition `simulation_balances` par `algo_kind` |
 | `SimSessionsPerAlgoKind1700000000085` | `algo_kind` sur sessions + snapshots ; une session active **par** kind |
-| `AddSimInitialCapitalPerAlgoKind1700000000086` | `sim_initial_capital_{crypto,weather,copy}` sur `risk_config` |
+| `AddSimInitialCapitalPerAlgoKind1700000000086` | Historique : colonnes sur `risk_config` → migrées vers `crypto_config` / `weather_config` / `copy_config` (0087) |
 
 ## Fichiers sources
 
@@ -431,6 +434,21 @@ Migrations concernées :
 | Diff config snapshot | `packages/frontend/src/lib/snapshot-config-diff.ts` |
 | Affichage config snapshot | `packages/frontend/src/lib/snapshot-config-display.ts` |
 | UI | `SimulationSnapshotsPanel.tsx`, `SimSessionCard.tsx`, `SimSessionComparePanel.tsx`, `SnapshotConfigDiffPanel.tsx`, composants `SimSnapshot*` |
+
+## Miroir sim/real (C1)
+
+Les couches snapshot/session/archive existent en **paire** sim ↔ real. Décision
+produit : **pas** de fusion `ModeSession<>` — composition de fonctions pures seulement.
+
+| Couche | Sim | Real |
+|--------|-----|------|
+| Decision collector | `simulation/snapshot-decision-collector.ts` | `real/snapshot-decision-collector.ts` |
+| Constantes partagées | `snapshot/decision-collector-shared.ts` (MAX events/bytes) | idem |
+| Trader rollup | `simulation/trader-rollup.ts` | `real/trader-rollup.ts` (~miroir) |
+| Archive service | `simulation-archive.service.ts` | `real-archive.service.ts` |
+| Session service | `simulation-session.service.ts` | `real-session.service.ts` |
+
+Voir aussi [`snapshots-real.md`](./snapshots-real.md).
 
 ## Voir aussi
 

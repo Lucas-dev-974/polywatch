@@ -53,6 +53,7 @@ export interface IPolymarketConnectionManager {
   fetchExecutablePrices(
     assetId: string,
     quantity: number,
+    options?: { maxAgeMs?: number },
   ): Promise<ExecutablePriceResult>;
 
   /** Force-refresh the order book from REST (optional, used for entry depth retries). */

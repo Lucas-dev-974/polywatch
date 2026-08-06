@@ -20,7 +20,7 @@ Publication WebSocket (real-time %) -> Backend API -> Frontend UI
 
 Toutes les executions et les positions associees a la couche algorithmique sont rattachees a une watchlist entry sentinelle ayant l'adresse `'crypto-algo'` (`CRYPTO_ALGO_TRADER_ADDRESS`). Cela permet de les integrer naturellement dans l'interface de copy-trading classique sans perturber le modele de donnees.
 
-**Execution sim** : meme pre-ordre que le reel (`prepareFakMarketOrder`), tunables RiskConfig (latence, auto-impact, preflight, shadow). Voir [simulation-execution.md](./simulation-execution.md).
+**Execution sim** : meme pre-ordre que le reel (`prepareFakMarketOrder`), tunables `GlobalConfig` (latence, auto-impact, preflight, shadow). Voir [simulation-execution.md](./simulation-execution.md).
 
 ---
 
@@ -94,8 +94,8 @@ Fenetre utile typique ~ **2 min 20**. Pour elargir : fixer `cryptoAlgoMinTimeToC
 Pour chaque signal genere, le pipeline d'entree execute les etapes suivantes :
 1. Determination du mode (`sim` ou `real` selon l'etat du systeme).
 2. Verification du **quota SL** (configurable via `cryptoAlgoSlQuotaEnabled` / `cryptoAlgoSlQuotaPerMarket`, defaut : desactive) : compte les sorties SL **des le declenchement** (`closing_reason = 'SL'` via `beginClose`), pas seulement a la cloture finale. Bloque aussi toute nouvelle entree tant qu'une position algo est deja `open` ou `closing` sur le marche (regle cross-outcome : pas de YES+NO simultanes). Si le quota est atteint ou une position est exposee, abstention `sl_quota_reached` avec detail `open_position_on_market` ou `sl_slots_consumed`. Cache TTL configurable (`cryptoAlgoSlQuotaCacheTtlSeconds`, defaut 30s).
-3. Verification du verrou de **re-entree** (configurable via `cryptoAlgoReentryWindowMs` / `cryptoAlgoMaxEntriesPerWindow`, defaut : duree de l'intervalle marche, max 1 enqueue reussi par `conditionId:outcome`) pour eviter les entrees repetees.
-4. Calcul de la taille de la position via `getCryptoAlgoSizingParams` (sizing dedie crypto-algo : `fixed_usdc` ou `fixed_shares`), plafonnee par `getModeMaxPositionSizeUsdc`.
+3. Verification du verrou de **re-entree** (configurable via `cryptoAlgoReentryWindowMs` / `cryptoAlgoMaxEntriesPerWindow`, defaut : duree de l'intervalle marche, max 1 enqueue reussi par `conditionId:outcome`) — cle Redis `crypto-reentry:{conditionId}:{YES|NO}` via `packages/core/src/redis/crypto-reentry-throttle.ts`.
+4. Calcul de la taille de la position via `getCryptoAlgoSizingParams` (sizing dedie crypto-algo : `fixed_usdc` ou `fixed_shares`), plafonnee par `getCryptoMaxPositionSizeUsdc`.
 5. Reservation transactionnelle du capital (`ReservationService`).
 6. Emission d'un `OrderSignal` FAK dans la file Redis **`algo-order-signals`** (file dediee, isolee du copy-trading `order-signals`).
 
@@ -155,7 +155,7 @@ Les variables suivantes sont configurees au niveau du monorepo ou dans le fichie
 - `REDIS_URL` : URL de la base Redis.
 - `BACKEND_URL` : URL du serveur backend pour les notifications de statut et d'executions.
 
-### Parametres de Risque (`RiskConfig`)
+### Parametres de Risque (`CryptoConfig` / `GlobalConfig`)
 - `cryptoAlgoEnabled` : Activation globale de l'execution algorithmique.
 - `cryptoAlgoStrategies` : Liste JSON des strategies actives (ex: `["naive-momentum"]`).
 - `cryptoAlgoSlBidPoints` / `cryptoAlgoTpBidPoints` : Overrides SL/TP en **bid absolu** (points de probabilite) pour marches binaires. `null` = defaults par intervalle (5m : SL 0,10 / TP 0,12). `0` ou negatif = desactive. Seuil calcule au fill : `slBidAbsolute = entryBidVwap - slBidPoints`, `tpBidAbsolute = min(entryBidVwap + tpBidPoints, 0.99)`. Garde binaire obligatoire (`byInterval != null`). Garde frais TP (`closurePnl >= 0`). Recalcule sur `ALGO_INCREASE`. Voir `docs/patchs/2026-07-06_PATCH_SL_TP_POINTS_ABSOLUS_BINAIRES.md`.
@@ -173,7 +173,7 @@ Les variables suivantes sont configurees au niveau du monorepo ou dans le fichie
 - `cryptoAlgoSizingMode` : Mode de sizing dedie crypto-algo (`fixed_usdc` ou `fixed_shares`, defaut `fixed_usdc`).
 - `cryptoAlgoEntryUsdcAmount` : Montant fixe en USDC par entree crypto-algo (defaut 10).
 - `cryptoAlgoEntryShareCount` : Nombre fixe de shares par entree crypto-algo (nullable, pour mode `fixed_shares`).
-- Plafond de taille : `getModeMaxPositionSizeUsdc(risk, mode)` (parametres sim/real existants).
+- Plafond de taille : `getCryptoMaxPositionSizeUsdc(crypto, mode)` (parametres sim/real sur `CryptoConfig`).
 
 ### Tunables strategie & pipeline (UI CryptoAlgo, migrations `0040` + `0056`)
 
@@ -182,7 +182,7 @@ Colonnes `null` = defaut code ; JSON `null` / `{}` = tables hardcodees (GET API 
 | Champ | Defaut code | Role |
 |-------|-------------|------|
 | `cryptoAlgoEntryPriceBandEnabled` | `true` | Bande d'entree active (remplace le threshold momentum pour la direction) |
-| `cryptoAlgoEntryPriceMin` | 0.50 | Borne basse **exclusive** sur le prix du token achete |
+| `cryptoAlgoEntryPriceMin` | 0.55 | Borne basse **exclusive** sur le prix du token achete |
 | `cryptoAlgoEntryPriceMax` | 0.80 | Borne haute **exclusive** sur le prix du token achete |
 | `cryptoAlgoCurveFilterEnabled` | `false` | Filtre courbe descendante (token achete en baisse → abstention `curve_descending`) |
 | `cryptoAlgoCurveLookbackMs` | 10000 | Fenetre mid WS (ms). Max **60 000** (= `CURVE_BUFFER_MAX_MS`). Valeurs DB > max clampées à la lecture. |
@@ -239,7 +239,7 @@ Le comportement pre-close est unifie entre copy trading et crypto-algo :
 
 Le `keepEnabled` est desactive (`false`) par defaut pour les deux systemes, ce qui signifie que toutes les positions sont pre-cloturees par defaut. L'activation du keep permet de conserver les positions dont le bid est superieur au seuil configure.
 
-### Parametres `RiskConfig`
+### Parametres `CryptoConfig`
 
 | Champ | Role |
 |-------|------|
@@ -312,3 +312,27 @@ whipsaw SL, buckets d'entree, leviers et recommandations `crypto_algo_*`.
 - **Apply** : `buildRecommendedCryptoAlgoConfig` + `PUT /api/config/crypto` avec garde fingerprint.
 
 Distinct des snapshots simulation (etat global portefeuille vs analyse algo typee).
+
+---
+
+## 10. Miroir weather-algo (C8)
+
+`weather-algo` reprend les mêmes patterns (watchlist sentinelle, Redis ×3, heartbeat,
+runtime-status, entry pipeline, auto-track janitor, `config-changed`) avec un drift
+domaine volontaire : exit evaluator **in-package**, forecast/city-follow, poll-driven
+(pas de price-feed / mid-history / curve gate), file `weather-order-signals`.
+
+| Pattern partagé | Spécifique crypto |
+|-----------------|-------------------|
+| Watchlist sentinelle + seed | Adresse `'crypto-algo'` |
+| Registry + stratégies | `naive-momentum` + bande/curve |
+| Entry pipeline sizing/MOS/reserve | File `algo-order-signals`, reason `ALGO_OPEN` |
+| SL/TP | Délégué au **worker** (pas d'exit evaluator local) |
+| Price-feed WS + mid-history | Absent côté weather |
+
+**Décision audit** : ne **pas** abstraire en `AlgoStrategyRunner` partagé —
+documenter le miroir et converger par **copie consciente**. Toute PR qui modifie
+`crypto-algo/strategy/strategy-runner.ts` (ou l'entry pipeline) doit indiquer si le
+même fix s'applique à weather (convention `[mirror: weather-algo/…]`).
+
+Détail weather : [`code/08-weather-algo.md`](./code/08-weather-algo.md) § Miroir crypto-algo.

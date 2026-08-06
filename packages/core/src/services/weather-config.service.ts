@@ -1,59 +1,32 @@
-import type { DataSource, EntityManager } from 'typeorm';
+import type { DataSource } from 'typeorm';
 import { WeatherConfig } from '../entities/WeatherConfig.js';
+import { BaseConfigService } from './base-config.service.js';
 
-const CONFIG_CACHE_TTL_MS = 5_000;
+type ConfigCache = { config: WeatherConfig; expiresAt: number };
 
-type ConfigCache = {
-  config: WeatherConfig;
-  expiresAt: number;
-};
-
-export class WeatherConfigService {
+export class WeatherConfigService extends BaseConfigService<WeatherConfig> {
   private static configCache: ConfigCache | null = null;
 
-  constructor(private readonly ds: DataSource) {}
+  protected readonly entity = WeatherConfig;
+  protected readonly notFoundMessage = 'Weather config not found';
+
+  constructor(ds: DataSource) {
+    super(ds);
+  }
+
+  protected getCache(): ConfigCache | null {
+    return WeatherConfigService.configCache;
+  }
+
+  protected setCache(cache: ConfigCache | null): void {
+    WeatherConfigService.configCache = cache;
+  }
 
   static invalidateConfigCache(): void {
     WeatherConfigService.configCache = null;
   }
 
-  async getConfig(options?: {
-    manager?: EntityManager;
-    bypassCache?: boolean;
-  }): Promise<WeatherConfig> {
-    const bypassCache = options?.bypassCache === true || options?.manager != null;
-    if (!bypassCache) {
-      const cached = WeatherConfigService.configCache;
-      if (cached && Date.now() < cached.expiresAt) {
-        return cached.config;
-      }
-    }
-
-    const repo = (options?.manager ?? this.ds.manager).getRepository(WeatherConfig);
-    const config = await repo.findOne({ where: {} });
-    if (!config) throw new Error('Weather config not found');
-    if (!bypassCache) {
-      WeatherConfigService.configCache = {
-        config,
-        expiresAt: Date.now() + CONFIG_CACHE_TTL_MS,
-      };
-    }
-    return config;
-  }
-
-  async updateConfig(partial: Partial<WeatherConfig>): Promise<WeatherConfig> {
-    const repo = this.ds.getRepository(WeatherConfig);
-    const config = await this.getUncachedConfig();
-    Object.assign(config, partial);
+  override invalidateConfigCache(): void {
     WeatherConfigService.invalidateConfigCache();
-    return repo.save(config);
-  }
-
-  private async getUncachedConfig(): Promise<WeatherConfig> {
-    const config = await this.ds.getRepository(WeatherConfig).findOne({
-      where: {},
-    });
-    if (!config) throw new Error('Weather config not found');
-    return config;
   }
 }

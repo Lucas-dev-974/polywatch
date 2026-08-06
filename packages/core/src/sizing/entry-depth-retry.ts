@@ -1,12 +1,14 @@
-import type {
-  ExecutablePriceResult,
-  IPolymarketConnectionManager,
-} from '../worker-shared/connection-manager-interface.js';
+import { ALGO_BOOK_FRESH_MS } from '../polymarket/book-freshness.js';
+import type { ExecutablePriceResult } from '../worker-shared/connection-manager-interface.js';
 
-export type EntryDepthConnectionManager = Pick<
-  IPolymarketConnectionManager,
-  'fetchExecutablePrices'
-> & {
+export type EntryDepthFetchBookOptions = { maxAgeMs?: number };
+
+export type EntryDepthConnectionManager = {
+  fetchExecutablePrices(
+    assetId: string,
+    quantity: number,
+    options?: EntryDepthFetchBookOptions,
+  ): Promise<ExecutablePriceResult>;
   forceRefreshBook?(assetId: string): Promise<unknown>;
 };
 
@@ -17,6 +19,8 @@ export interface EntryDepthRetryParams {
   maxRetries: number;
   delayMs: number;
   connectionManager: EntryDepthConnectionManager;
+  /** Reject cached books older than this (default ALGO_BOOK_FRESH_MS). */
+  maxBookAgeMs?: number;
 }
 
 export type EntryDepthRetryResult =
@@ -43,11 +47,19 @@ export async function fetchEntryAskLiquidityWithRetries(
   params: EntryDepthRetryParams,
 ): Promise<EntryDepthRetryResult> {
   const maxAttempts = Math.max(1, params.maxRetries + 1);
+  const maxAgeMs = params.maxBookAgeMs ?? ALGO_BOOK_FRESH_MS;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1) {
       if (params.connectionManager.forceRefreshBook) {
-        await params.connectionManager.forceRefreshBook(params.assetId);
+        const refreshed = await params.connectionManager.forceRefreshBook(
+          params.assetId,
+        );
+        // Refresh failed → do not judge depth on a possibly stale cache.
+        if (refreshed == null) {
+          if (params.delayMs > 0) await sleepMs(params.delayMs);
+          continue;
+        }
       }
       if (params.delayMs > 0) {
         await sleepMs(params.delayMs);
@@ -57,6 +69,7 @@ export async function fetchEntryAskLiquidityWithRetries(
     const prices = await params.connectionManager.fetchExecutablePrices(
       params.assetId,
       params.targetQty,
+      { maxAgeMs },
     );
 
     if (isEntryAskDepthSufficient(prices)) {

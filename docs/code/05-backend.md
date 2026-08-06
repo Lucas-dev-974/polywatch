@@ -4,7 +4,7 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 
 ## Bootstrap (`index.ts`)
 
-1. TypeORM PostgreSQL + `seedDefaults` (admin/changeme, RiskConfig, balance sim 10 000).
+1. TypeORM PostgreSQL + `seedDefaults` (admin, 4 configs isolées, balance sim 10 000).
 2. `bootstrapWalletAccounts` (migration des comptes existants).
 3. Middlewares : `cors()` avec whitelist d'origines (`CORS_ORIGIN`, défaut localhost), `express.json()`, `pinoHttp()` avec redaction (`authorization`, `x-service-token`, `cookie`), rate-limiter (1 000 req/min en prod, exempté si `x-service-token`).
 4. Montage des routes, `/metrics` Prometheus (protégé par `requireServiceToken`), serveur HTTP + Socket.IO (même whitelist CORS).
@@ -50,11 +50,19 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 
 ### Internes (`/api/internal`, service token uniquement)
 
-Consommées par le worker / copy-trading / crypto-algo / weather-algo : watchlist, copied-positions, trader-snapshots, move-events (lecture + `processed`), reconcile/poll-cycle par trader, pnl-ticks et move-detected (relais Socket.IO), **clob-credentials (déchiffrés — worker uniquement)**, balances (copy-trading + crypto/weather-algo sizing real), position-reservations (create/delete), executions claim, pending-resolution, retry-close, replay des dead-letter queues, clob-approvals/ensure, redeem (rédemption on-chain).
+Consommées par le worker / copy-trading / crypto-algo / weather-algo. Liste complète :
+[`../api.md`](../api.md) § Internes — inclut aussi `POST /metrics/exit-event|strategy-cycle|weather-question-parse` et `GET /metrics/dashboard`.
 
-Routes JWT weather-algo : `/api/weather-algo-auto-track` (villes), `/api/weather-algo-discover`, `/api/weather-algo-forecasts`, `/api/weather-algo-markets` (legacy + status ; POST → 410), `/api/config/weather` — voir [`../api.md`](../api.md) § Weather Algo et [`../weather-algo.md`](../weather-algo.md).
+Routes JWT weather-algo / crypto-algo-monitor / e2e-runs : voir [`../api.md`](../api.md).
 
 Également : POST `/api/executions` (service token) — notification d'exécution du worker, relayée en WebSocket.
+
+## Module `src/e2e/` (orchestration tests E2E)
+
+Suites spawnées via JWT `/api/e2e-runs` (`e2e-runner.service.ts`) :
+`playwright`, `crypto-algo`, `crypto-algo-real`, `compliance` (`e2e/suites.ts`).
+Fichiers : `suites.ts`, `process.ts`, `summary-parser.ts`, `run-dto.ts`,
+`position-marker.ts`, `errors.ts`. WS : `e2e_*` (voir `api.md`).
 
 ## Socket.IO (`websocket.ts`)
 
@@ -66,6 +74,8 @@ Routes JWT weather-algo : `/api/weather-algo-auto-track` (villes), `/api/weather
 | `execution` | executions | Exécution finalisée |
 | `simulation_balance` / `simulation_reset` | positions(+executions) | Comptabilité sim |
 | `alert` | alerts | Alertes (kill switch, erreurs) |
+| `algo_chart_tick` | markets | Ticks chart crypto-algo live |
+| `e2e_*` | e2e-runs | Progression / fin des runs E2E API |
 
 ## Module `polymarket/` — flux on-chain
 

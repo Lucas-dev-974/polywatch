@@ -261,6 +261,10 @@ Utilisées par le worker. Principales :
 | POST | `/api/internal/algo-chart-ticks` | Push des ticks de chart algo en temps réel (crypto-algo → WebSocket `algo_chart_tick`) |
 | POST | `/api/internal/market-pct-updates` | Push des variations % de marché (crypto-algo → WebSocket) |
 | POST | `/api/internal/metrics/circuit-breaker` | Signalement d'événement circuit-breaker (observabilité) |
+| POST | `/api/internal/metrics/exit-event` | Compteurs exit (SL/TP/trailing/pre-close/kill) — worker → Prometheus |
+| POST | `/api/internal/metrics/strategy-cycle` | Durée / positions / spread du cycle stratégie |
+| POST | `/api/internal/metrics/weather-question-parse` | Compteur parse questions weather |
+| GET | `/api/internal/metrics/dashboard` | Agrégats dashboard metrics (service-token) |
 | GET | `/api/internal/executions` | Liste des exécutions (worker) |
 | POST | `/api/internal/clob-approvals/ensure` | Vérifie/soumet les 5 approbations CLOB (batch relayer) |
 | POST | `/api/internal/redeem` | Rédemption on-chain CTF (`pending_resolution`) — voir [détail](#post-apiinternalredeem) ci-dessous |

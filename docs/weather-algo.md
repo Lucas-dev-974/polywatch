@@ -82,7 +82,10 @@ l'edge YES dépasse le seuil dynamique. Modes `single` / `multi` entre **villes*
 ## 5. API & config
 
 - Routes : [`api.md`](./api.md) § Weather Algo
-- Config : [`configuration.md`](./configuration.md) § Weather Algo
+- Config : [`configuration.md`](./configuration.md) § Weather Algo ; entité `WeatherConfig` ; présentation API `packages/core/src/risk/weather-config-api.ts`
+- Sorties / defaults intervalle : `packages/core/src/risk/weather-exit-params.ts` (`resolveWeatherEntryExitParams`)
+- Redis : `weather-reentry-throttle.ts`, `weather-bucket-hysteresis.ts`
 - Entités : [`modele-donnees.md`](./modele-donnees.md)
+- Détail technique package : [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 
 Démarrage : `npm run dev:weather-algo` ou `npm run dev`.

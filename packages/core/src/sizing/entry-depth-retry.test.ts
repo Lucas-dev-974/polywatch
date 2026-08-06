@@ -64,7 +64,7 @@ describe('fetchEntryAskLiquidityWithRetries', () => {
         liquidityStatus: 'partial',
         askLiquidityStatus: 'ok',
       });
-    const forceRefreshBook = vi.fn().mockResolvedValue(undefined);
+    const forceRefreshBook = vi.fn().mockResolvedValue({ asks: [], bids: [] });
 
     const result = await fetchEntryAskLiquidityWithRetries({
       assetId: 'asset-1',
@@ -101,5 +101,31 @@ describe('fetchEntryAskLiquidityWithRetries', () => {
       expect(result.attempts).toBe(3);
     }
     expect(fetchExecutablePrices).toHaveBeenCalledTimes(3);
+    expect(fetchExecutablePrices).toHaveBeenCalledWith('asset-1', 5, {
+      maxAgeMs: 15_000,
+    });
+  });
+
+  it('does not judge depth on stale cache when forceRefreshBook fails', async () => {
+    const fetchExecutablePrices = vi.fn().mockResolvedValue({
+      executableBidVwap: 0.5,
+      executableAskVwap: 0.6,
+      liquidityStatus: 'partial',
+      askLiquidityStatus: 'partial',
+    });
+    const forceRefreshBook = vi.fn().mockResolvedValue(undefined);
+
+    const result = await fetchEntryAskLiquidityWithRetries({
+      assetId: 'asset-1',
+      targetQty: 5,
+      maxRetries: 1,
+      delayMs: 0,
+      connectionManager: { fetchExecutablePrices, forceRefreshBook },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(forceRefreshBook).toHaveBeenCalledTimes(1);
+    // Attempt 1: insufficient depth. Attempt 2: refresh returns undefined → skip fetch.
+    expect(fetchExecutablePrices).toHaveBeenCalledTimes(1);
   });
 });

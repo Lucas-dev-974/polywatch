@@ -108,7 +108,7 @@ Consomme `move-events`. Pour chaque mouvement :
 4. **Filtre par type de marché** (entrées uniquement) : si la whitelist du mode
    (`simAllowedMarketTags` / `realAllowedMarketTags`) est non vide, résolution des
    tags Gamma du marché (`MarketService.resolveTagSlugs`) puis vérification via
-   `isMarketTagAllowedForMode`. Les sorties (`DECREASED` / `CLOSED`) ne sont
+   `isMarketTagAllowed` + `getCopyAllowedMarketTags`. Les sorties (`DECREASED` / `CLOSED`) ne sont
    **jamais** filtrées.
 5. **Filtre bid/ask** (entrées uniquement, dans `copy-entry-pipeline.ts`) : bid et ask VWAP
    pour la quantité cible finale ; refus si
@@ -127,13 +127,12 @@ Consomme `move-events`. Pour chaque mouvement :
 
 ### Filtre par type de marché
 
-Configuration indépendante par mode dans `risk_config` :
+Configuration indépendante par mode dans `copy_config` (`CopyConfig`) :
 - `simAllowedMarketTags` — simulation
 - `realAllowedMarketTags` — réel
 
-Stockées en JSON (`'[]'` par défaut). Exposées en `string[]` par l'API
-(`presentRiskConfigForApi`). Modifiables dans l'UI : **Configurer** → onglet
-**Entrée** (pages Simulation et Réel).
+Stockées en JSON (`'[]'` par défaut). Exposées via `GET/PUT /api/config/copy`.
+Modifiables dans l'UI : **Configurer** → onglet **Entrée** (pages Simulation et Réel).
 
 | Whitelist | Comportement |
 |-----------|--------------|
@@ -186,7 +185,7 @@ ne se déclenche pas. Voir aussi [`configuration.md`](./configuration.md#filtre-
   3. Passe 3 : bid **et** ask VWAP pour la **quantité finale** → filtre
      bid/ask + prix utilisés pour la réservation et le signal.
 - **Filtre bid/ask** (`core/src/risk/policy.ts`) : si
-  `bidVwap / askVwap < getModeMinBidToAskRatio(risk, mode)`, l'entrée est
+  `bidVwap / askVwap < getCopyMinBidToAskRatio(copyConfig, mode)`, l'entrée est
   abandonnée. Protège contre les carnets où l'achat à l'ask laisse une perte
   économique immédiate au bid (spread extrême) non couverte par le SL — voir
   [Configuration — filtre bid/ask](./configuration.md#filtre-bidask-à-lentrée-minbidtoaskratio).
@@ -372,7 +371,7 @@ Pour chaque position `open` :
      - Gagnante incertaine, perdante, ou prix non vérifiable → **`TIME_EXIT`**
        (vente obligatoire, `holdIfWinning` ignoré) ;
      - Sous `mos` : gate conservé (sim = réel) → redemption si invendable.
-     Config : `cryptoAlgoTimeExit*` dans `RiskConfig` — voir
+     Config : `cryptoAlgoTimeExit*` dans `CryptoConfig` — voir
      [`crypto-algo.md`](./crypto-algo.md#6-sortie-forcée-hard-exit--time_exit).
 6. Si une raison de clôture est trouvée et que le book est liquide → émet un
    signal de clôture dans `close-signals` (`buildCloseOrderSignal`).

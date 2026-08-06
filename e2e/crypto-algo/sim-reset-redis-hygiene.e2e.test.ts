@@ -140,7 +140,8 @@ describe('sim reset redis hygiene e2e', () => {
     await redis.rpush(ALGO_QUEUE, simJob('sim-1'), realJob('real-1'));
     await redis.set(`${ALGO_QUEUE}:enqueued:${logicalKey}`, '1', 'EX', 180);
     await redis.set(`${ALGO_QUEUE}:enqueued:${logicalKey}-real`, '1', 'EX', 180);
-    await redis.set(`algo-entry-cooldown:${logicalKey}:sim`, '1', 'EX', 30);
+    // Prod keys use conditionId (algo-entry-cooldown.ts), not logicalKey.
+    await redis.set(`algo-entry-cooldown:${fixture.conditionId}:sim`, '1', 'EX', 30);
     await redis.set('algo-entry-cooldown:0xcond:real', '1', 'EX', 30);
 
     const result = await purgeSimExecutionRedisState(redis as never, hints, 'crypto');
@@ -149,8 +150,9 @@ describe('sim reset redis hygiene e2e', () => {
     expect(redis.getQueue(ALGO_QUEUE)).toEqual([realJob('real-1')]);
     expect(await redis.exists(`${ALGO_QUEUE}:enqueued:${logicalKey}`)).toBe(0);
     expect(await redis.exists(`${ALGO_QUEUE}:enqueued:${logicalKey}-real`)).toBe(1);
-    expect(await redis.exists(`algo-entry-cooldown:${logicalKey}:sim`)).toBe(0);
+    expect(await redis.exists(`algo-entry-cooldown:${fixture.conditionId}:sim`)).toBe(0);
     expect(await redis.exists('algo-entry-cooldown:0xcond:real')).toBe(1);
+    expect(hints.conditionIds).toContain(fixture.conditionId);
   });
 
   it('purge clears stale dedup so a fresh pipeline run can enqueue', async () => {

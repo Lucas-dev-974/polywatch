@@ -36,11 +36,20 @@ Voir aussi [`02-pipeline-copy-trading.md`](02-pipeline-copy-trading.md) et
 
 | Fichier | Rôle |
 |---|---|
-| `move-detector.ts` | Polling Data API, enqueue `move-events` |
-| `copy-processor.ts` | Consomme `move-events`, gates, pipelines → `order-signals` |
-| `copy/copy-entry-pipeline.ts` | Sizing, réservation, BUY `COPY_OPEN` / `COPY_INCREASE` |
+| `move-detector.ts` | Polling Data API (intervalle `CopyConfig.moveDetectorIntervalMs`, défaut 2 s), enqueue `move-events` |
+| `copy-processor.ts` | Consomme `move-events`, gates, pipelines → `order-signals` (`markProcessedWithReasons`) |
+| `copy/copy-entry-pipeline.ts` | Sizing, MOS, depth-retry, réservation, BUY `COPY_OPEN` / `COPY_INCREASE` |
 | `copy/copy-exit-pipeline.ts` | SELL miroir `COPY_CLOSE` / `COPY_DECREASE` |
-| `copy/copy-risk-gate.ts` | Kill switch, flags copy (entrées seulement), tags marché |
+| `copy/copy-risk-gate.ts` | Kill switch, flags copy, tags marché (`getCopyAllowedMarketTags`), proximité SL |
+
+## Infra Polymarket locale (C5)
+
+| Fichier | Note |
+|---|---|
+| `polymarket/circuit-breaker.ts` | Copie quasi-identique de `core` / `worker` |
+| `polymarket/token-bucket.ts` / `rate-limited-fetch.ts` | Idem (trio C5) |
+| `polymarket/api-client.ts` | **Spécifique** Data API (≠ client minimal core) — ne pas centraliser |
+| `polymarket/pending-move-assets.ts` | Aussi présent dans core |
 
 ## Real-mode (sizing)
 

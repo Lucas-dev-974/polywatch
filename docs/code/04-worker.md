@@ -21,7 +21,7 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 12. Abonnements Redis (dispatcher `Map<channel, handler>` — `messageHandlers`) :
     - **`config-changed`** : purge cache TradingContext, resync WS, réévaluation kill switch. Handler enveloppé dans `try/catch` (log error, worker continue).
     - **`backend-ready`** : refresh trading context (debounce 5 s via `refreshWorkerContext`). `.catch()` sur la promesse (log warn).
-    - **`simulation-reset`** : log info uniquement (les queues sim sont purgées par le backend).
+    - **`simulation-reset`** : bump `SimResetGeneration` + log ; les queues sim sont purgées par le backend ; un échec de job `mode=sim` en vol est converti en `JobDiscardedError` (pas de RPUSH post-purge).
     - **`algo-selections-changed`** : debounce 2 s → `syncBookSubscriptions` avec `.catch()`.
     - Canal inconnu → `log.warn`.
 
@@ -29,7 +29,8 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 
 - **`safeInterval`** (`helpers.ts`) : wrap `setInterval` avec `.catch()` — toute rejection dans une boucle périodique est loguée, pas crash.
 - **`evaluateAll()`** (`strategy-processing.ts`) : `try/catch/finally` — une erreur DB ou WS pendant l'évaluation est loguée (`log.error`), le flag `evaluating` est reset, et un rerun est re-déclenché si demandé. Aucun `void evaluateAll()` ne peut produire une unhandled rejection.
-- **Queue consumers** (`startConsumer`) : `.catch()` avec `log.fatal` + `process.exit(1)` — un crash de consumer (Redis drop, connexion fermée) termine le worker pour que le superviseur (Docker/pm2) le relance. Sans cela, le worker continuerait en zombie avec une queue non consommée.
+- **Queue consumers** (`startConsumer`) : `.catch()` avec `log.fatal` + `process.exit(1)` sauf si `shuttingDown` (SIGTERM/SIGINT) — alors log info uniquement, comme copy-trading.
+- **`sim-reset-guard.ts`** : `wrapSimResetAwareHandler` + `JobDiscardedError` (`@polywatch/core` RedisQueue) pour éviter la réinjection d'un job sim après purge.
 - **Debounce timers** : `algoSelectionsSyncTimer`, `backendReadyDebounceTimer`, `marketResolvedDebounce` — tous nettoyés dans le `shutdown()` avant `clearInterval` des boucles périodiques.
 
 ## Processors (files Redis)
@@ -47,7 +48,7 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 | Fichier | Rôle |
 |---|---|
 | `strategy-processing.ts` | Boucle 100 ms, refresh marchés near-end, orchestration |
-| `position-exit-evaluator.ts` | SL/TP/trailing, pre-close, **TIME_EXIT** (hard exit crypto-algo) |
+| `position-exit-evaluator.ts` | SL/TP/trailing, pre-close (TIME_EXIT retiré) |
 | `kill-switch-monitor.ts` | Force-close si perte journalière ≥ seuil |
 | `position-branches.ts` | Branches liquide / illiquide, peak PnL |
 | `pnl-tick-publisher.ts` | Push PnL ticks vers backend |
@@ -63,10 +64,10 @@ Pipeline auxiliaire déclenché sur chaque mise à jour de carnet :
 |---|---|
 | `open-position-tracker.ts` | Index mémoire des positions ouvertes par `assetId` (refresh périodique) |
 | `market-tick-recorder.ts` | Persiste `MarketPositionTick` (throttle 500 ms/asset) pour les positions ouvertes |
-| `market-price-tick-recorder.ts` | Persiste `MarketPriceTick` (timer 1s) par `conditionId`, indépendant des positions — pour graphique UI non-crypto |
+| `market-price-history-syncer.ts` | Sync / persistance `MarketPriceTick` par `conditionId` (graphique UI non-crypto) |
 
 Purge horaire des ticks plus anciens que `MARKET_TICK_RETENTION_DAYS` (via `MarketPositionTickService.purgeOlderThan`).
-Le `MarketPriceTickRecorder` n'a pas encore de purge automatique (prévu dans une prochaine itération).
+Purge `MarketPriceTick` horaire si `MARKET_PRICE_TICK_RETENTION_DAYS` > 0 (défaut 0 = no-op).
 
 ## Module CLOB (`clob/`)
 
@@ -94,11 +95,16 @@ Le `MarketPriceTickRecorder` n'a pas encore de purge automatique (prévu dans un
 | `execution/self-impact-registry.ts` | Auto-impact liquidité : profondeur consommée par fills sim récents (TTL mémoire) |
 | `execution/sim-wallet-preflight.ts` | Préflight wallet read-only sur BUY sim (balance USDC) |
 | `execution/shadow-fill-recorder.ts` | Shadow logging : compare fill réel vs FAK local sur book cache |
-| `execution/sim-realism-janitor.ts` | Purge horaire `clob_latency_samples` / `shadow_fills` (rétention RiskConfig) |
+| `watchdogs/sim-realism-janitor.ts` | Purge horaire `clob_latency_samples` / `shadow_fills` (rétention `GlobalConfig`) |
 
-Voir aussi [simulation-execution.md](../simulation-execution.md) pour le pipeline sim complet et les tunables `RiskConfig`.
+Voir aussi [simulation-execution.md](../simulation-execution.md) pour le pipeline sim complet et les tunables `GlobalConfig`.
 
 ## WebSockets Polymarket (`polymarket/`)
+
+> **C5** : `circuit-breaker.ts`, `token-bucket.ts`, `rate-limited-fetch.ts` sont des
+> copies quasi-identiques de `packages/core/src/polymarket/` (aussi dans
+> `@polywatch/copy-trading`). `api-client.ts` est **spécifique** au worker
+> (surface riche) — ne pas centraliser avec le client minimal core.
 
 | Fichier | Rôle |
 |---|---|
@@ -106,16 +112,18 @@ Voir aussi [simulation-execution.md](../simulation-execution.md) pour le pipelin
 | `websocket-user.ts` | Canal user authentifié ; réconciliation `placing` à la reconnexion |
 | `sync-book-subscriptions.ts` | Resync abonnements book (10 s) + assets pending move (TTL 30 s) |
 | `connection-manager.ts` | Hub central des connexions WebSocket et carnets d'ordres ; importé par 20+ fichiers |
-| `circuit-breaker.ts` | Mécanisme de résilience transverse : coupe-circuit sur défaillances répétées |
+| `circuit-breaker.ts` / `token-bucket.ts` / `rate-limited-fetch.ts` | Résilience / rate-limit (copies C5) |
+| `book-freshness.ts` / `ensure-book-ready.ts` | Fraîcheur book + gate avant entry |
 
 ## Watchdogs
 
 | Composant | Cadence | Rôle |
 |---|---|---|
 | `closing-watchdog.ts` | 15 s | `closing` > 3 min → `failActiveForPosition` puis `markFailed` |
-| `pending-entry-janitor.ts` | 30 s | Reprise algo : ré-enqueue BUY si `pending` + réservation active **sans** ligne `executions` BUY (canal `janitor:{positionId}`) |
-| `placing-janitor.ts` | 15 s (défaut seed) | **Sim-only** — exec sim orphelines en `placing` → `finalize` failed / `placing_orphan` + cooldown algo ALGO_OPEN BUY. Détecte aussi BUY `pending` stale (`SIM_BUY_PLACING_STALE_MS` = 60 s). |
-| `executor.ts` | N/A | Post-claim sim : `settleTerminal` retry Redis + fallback `completeExecution` ; `finally` force un `failed` si le terminal n'a pas été posé. |
+| `pending-entry-janitor.ts` | 30 s | Reprise algo : ré-enqueue BUY si `pending` + réservation active **sans** ligne `executions` BUY (logicalKey `janitor:{positionId}`) |
+| `placing-janitor.ts` | 15 s (défaut seed) | **Sim-only** — finalize orphelins `placing` via `ExecutionService.loadOrphanPlacingSim` (+ cooldown ALGO_OPEN BUY) |
+| `sim-realism-janitor.ts` | 1 h | Purge `clob_latency_samples` / `shadow_fills` |
+| `executor.ts` | N/A | `settleTerminal` (sim+real) ; `finally` force-failed **sim-only** |
 | `reservation-janitor.ts` | 60 s | Réservations expirées → `pending` cancelled |
 
 ## File Redis (`queue/redis-queue.ts`)
@@ -140,7 +148,7 @@ POST authentifiés (`x-service-token`) : exécutions, pnl-ticks, move-detected, 
 | `PLACING_JANITOR_LOOP_MS` | 15 s (défaut seed ; configurable `worker.placing_janitor.loop_ms`) | PlacingJanitor |
 | `RESERVATION_JANITOR_LOOP_MS` | 60 s | ReservationJanitor |
 
-> L'intervalle MoveDetector (`RiskConfig.moveDetectorIntervalMs`, défaut 2 s) est
+> L'intervalle MoveDetector (`CopyConfig.moveDetectorIntervalMs`, défaut 2 s) est
 > géré par `@polywatch/copy-trading`, pas par le worker.
 
 ## Shutdown (`SIGTERM` / `SIGINT`)

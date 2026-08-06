@@ -9,11 +9,19 @@ import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js'
 import { hashAlgoLogicalKey } from '../idempotence/hash.js';
 import { resolveMarketInterval } from '../risk/crypto-algo-exit.js';
 import { WORKER_QUEUES } from '../queue/worker-queues.js';
+import { algoEntryCooldownKey } from './algo-entry-cooldown.js';
 import { weatherReentryThrottleKey } from './weather-reentry-throttle.js';
 import { weatherBucketHysteresisKey } from './weather-bucket-hysteresis.js';
 import type { ExecutionResult, OrderSignal } from '../types/index.js';
 import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
 import { RiskService } from '../services/risk.service.js';
+
+/** Weather close dedupe keys used by weather-exit-evaluator enqueueUnique. */
+const WEATHER_CLOSE_DEDUPE_REASONS = [
+  'WEATHER_PRE_CLOSE',
+  'WEATHER_FORECAST_CHANGE',
+  'WEATHER_BUCKET_EXIT',
+] as const;
 
 const ALGO_QUEUE = WORKER_QUEUES.ALGO_ORDER_SIGNALS;
 const WEATHER_QUEUE = WORKER_QUEUES.WEATHER_ORDER_SIGNALS;
@@ -27,6 +35,11 @@ export interface SimRedisPurgeHints {
   janitorDedupeKeys: string[];
   copySignalIds: string[];
   copiedPositionIds: number[];
+  /**
+   * Market conditionIds for wiped sim reservations/positions — used to clear
+   * `algo-entry-cooldown:{conditionId}:sim` (keyed by conditionId, not logicalKey).
+   */
+  conditionIds?: string[];
   /** Watchlist sim traders — used to drain `move-events` for sim copy reset. */
   simWatchlistTraders?: string[];
   /** Weather cities with wiped positions — used to clear reentry throttles. */
@@ -218,6 +231,7 @@ export async function collectSimRedisPurgeHints(
     janitorDedupeKeys,
     copySignalIds: [...copySignalIds],
     copiedPositionIds,
+    conditionIds,
     simWatchlistTraders,
     weatherCities,
   };
@@ -352,37 +366,63 @@ export async function purgeSimExecutionRedisState(
   }
 
   const positionIdSet = new Set(hints.copiedPositionIds);
-  const closeMain = await removeSimCloseJobsFromList(
-    redis,
-    CLOSE_QUEUE,
-    positionIdSet,
-  );
-  const closeProcessing = await removeSimCloseJobsFromList(
-    redis,
-    processingKey(CLOSE_QUEUE),
-    positionIdSet,
-  );
-  const closeSignalsRemoved = closeMain.removed + closeProcessing.removed;
-  const allCloseSignalIds = new Set([
-    ...closeMain.closeSignalIds,
-    ...closeProcessing.closeSignalIds,
-  ]);
+  // Two passes: mitigate TOCTOU where BRPOPLPUSH moves a job from main →
+  // :processing between the first main scan and the first processing scan.
+  let closeSignalsRemoved = 0;
+  const allCloseSignalIds = new Set<string>();
+  for (let pass = 0; pass < 2; pass++) {
+    const closeMain = await removeSimCloseJobsFromList(
+      redis,
+      CLOSE_QUEUE,
+      positionIdSet,
+    );
+    const closeProcessing = await removeSimCloseJobsFromList(
+      redis,
+      processingKey(CLOSE_QUEUE),
+      positionIdSet,
+    );
+    closeSignalsRemoved += closeMain.removed + closeProcessing.removed;
+    for (const id of closeMain.closeSignalIds) allCloseSignalIds.add(id);
+    for (const id of closeProcessing.closeSignalIds) allCloseSignalIds.add(id);
+  }
 
-  const executionResultsRemoved =
-    (await removeSimExecutionResultsFromList(
-      redis,
-      RESULTS_QUEUE,
-      hints,
-      allCloseSignalIds,
-      algoKind,
-    )) +
-    (await removeSimExecutionResultsFromList(
-      redis,
-      processingKey(RESULTS_QUEUE),
-      hints,
-      allCloseSignalIds,
-      algoKind,
-    ));
+  // Re-scan entry queues once more after the close passes (same TOCTOU window).
+  if (algoKind === 'crypto') {
+    algoOrderSignalsRemoved +=
+      (await removeSimEntryJobsFromList(redis, ALGO_QUEUE, algoKind)) +
+      (await removeSimEntryJobsFromList(redis, processingKey(ALGO_QUEUE), algoKind));
+  } else if (algoKind === 'weather') {
+    algoOrderSignalsRemoved +=
+      (await removeSimEntryJobsFromList(redis, WEATHER_QUEUE, algoKind)) +
+      (await removeSimEntryJobsFromList(
+        redis,
+        processingKey(WEATHER_QUEUE),
+        algoKind,
+      ));
+  } else if (algoKind === 'copy') {
+    orderSignalsRemoved +=
+      (await removeSimEntryJobsFromList(redis, COPY_QUEUE, algoKind)) +
+      (await removeSimEntryJobsFromList(redis, processingKey(COPY_QUEUE), algoKind));
+  }
+
+  let executionResultsRemoved = 0;
+  for (let pass = 0; pass < 2; pass++) {
+    executionResultsRemoved +=
+      (await removeSimExecutionResultsFromList(
+        redis,
+        RESULTS_QUEUE,
+        hints,
+        allCloseSignalIds,
+        algoKind,
+      )) +
+      (await removeSimExecutionResultsFromList(
+        redis,
+        processingKey(RESULTS_QUEUE),
+        hints,
+        allCloseSignalIds,
+        algoKind,
+      ));
+  }
 
   const markerKeysToDelete: string[] = [];
   const queueForAlgo =
@@ -404,6 +444,20 @@ export async function purgeSimExecutionRedisState(
   for (const signalId of hints.copySignalIds) {
     markerKeysToDelete.push(...markerKeys(COPY_QUEUE, signalId));
   }
+  // Close jobs removed by payload — also drop their signal-id markers if any.
+  for (const closeSignalId of allCloseSignalIds) {
+    markerKeysToDelete.push(...markerKeys(CLOSE_QUEUE, closeSignalId));
+  }
+  // Weather uses enqueueUnique with `weather-close:{posId}:{reason}`, not signal id.
+  if (algoKind === 'weather') {
+    for (const posId of hints.copiedPositionIds) {
+      for (const reason of WEATHER_CLOSE_DEDUPE_REASONS) {
+        markerKeysToDelete.push(
+          ...markerKeys(CLOSE_QUEUE, `weather-close:${posId}:${reason}`),
+        );
+      }
+    }
+  }
 
   let dedupeMarkersRemoved = 0;
   let retryMarkersRemoved = 0;
@@ -421,9 +475,10 @@ export async function purgeSimExecutionRedisState(
     }
   }
 
+  // Prod keys = `algo-entry-cooldown:{conditionId}:sim` (see algo-entry-cooldown.ts).
   let cooldownKeysRemoved = 0;
-  for (const logicalKey of hints.algoLogicalKeys) {
-    const key = `algo-entry-cooldown:${logicalKey}:sim`;
+  for (const conditionId of hints.conditionIds ?? []) {
+    const key = algoEntryCooldownKey(conditionId, 'sim');
     if ((await redis.exists(key)) === 1) {
       cooldownKeysRemoved += await redis.del(key);
     }
@@ -432,17 +487,25 @@ export async function purgeSimExecutionRedisState(
   let moveEventsRemoved = 0;
   if (algoKind === 'copy' && hints.simWatchlistTraders?.length) {
     const traders = new Set(hints.simWatchlistTraders.map((t) => t.toLowerCase()));
-    const moveMain = await removeMoveEventsForTraders(redis, MOVE_EVENTS_QUEUE, traders);
-    const moveProcessing = await removeMoveEventsForTraders(
-      redis,
-      processingKey(MOVE_EVENTS_QUEUE),
-      traders,
+    const moveIds = new Set<string>();
+    for (let pass = 0; pass < 2; pass++) {
+      const moveMain = await removeMoveEventsForTraders(
+        redis,
+        MOVE_EVENTS_QUEUE,
+        traders,
+      );
+      const moveProcessing = await removeMoveEventsForTraders(
+        redis,
+        processingKey(MOVE_EVENTS_QUEUE),
+        traders,
+      );
+      moveEventsRemoved += moveMain.removed + moveProcessing.removed;
+      for (const id of moveMain.moveIds) moveIds.add(id);
+      for (const id of moveProcessing.moveIds) moveIds.add(id);
+    }
+    const moveDedupeKeys = [...moveIds].flatMap((id) =>
+      markerKeys(MOVE_EVENTS_QUEUE, id),
     );
-    moveEventsRemoved = moveMain.removed + moveProcessing.removed;
-    const moveDedupeKeys = [
-      ...moveMain.moveIds,
-      ...moveProcessing.moveIds,
-    ].flatMap((id) => markerKeys(MOVE_EVENTS_QUEUE, id));
     if (moveDedupeKeys.length > 0) {
       const existing = await Promise.all(
         moveDedupeKeys.map(async (key) => ((await redis.exists(key)) === 1 ? key : null)),

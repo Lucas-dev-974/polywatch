@@ -84,11 +84,4 @@ export interface ListSimSnapshotsOptions {
   to?: string;
 }
 
-/** Parse JSON safely, returning a typed fallback on error. */
-export function safeParseJson<T>(raw: string, fallback: T): T {
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
+export { safeParseJson } from '../lib/safe-parse-json.js';

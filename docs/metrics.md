@@ -9,10 +9,8 @@ Polywatch expose des métriques au format Prometheus sur `GET /metrics` (port
 dans `packages/backend/src/metrics.ts` via `prom-client` et **exposées** par le
 backend uniquement.
 
-> **État au 10 juillet 2026 :** les métriques P0 (positions, compteurs exit,
-> cycle stratégique) sont désormais **actives** via le push HTTP worker → backend.
-> Voir le plan [`plans/2026-07-05_PLAN_P0_METRIQUES.md`](./plans/2026-07-05_PLAN_P0_METRIQUES.md)
-> pour les détails d'implémentation.
+> **État au 2026-08-06 :** métriques P0 actives via push HTTP worker →
+> `POST /api/internal/metrics/*`. `TIME_EXIT` n'est **pas** instrumenté (raison retirée).
 
 ## Accès
 
@@ -30,9 +28,9 @@ Worker                                  Backend (registry prom-client)
 executor.ts                             GET /metrics
   └─ beginClose()                         ← collectDefaultMetrics (Node.js)
      closingAttemptSeq === 1 && !resumed
-       └─ POST /metrics/exit-event ────→ recordExitEvent()
+       └─ POST /api/internal/metrics/exit-event ─→ recordExitEvent()
                                            (SL, TP, TRAILING, PRE_CLOSE_*,
-                                            KILL_SWITCH, TIME_EXIT)
+                                            KILL_SWITCH)
 
 strategy-processing.ts
   └─ runEvaluateAll()
@@ -82,8 +80,6 @@ Légende **Statut** :
 | `polywatch_trailing_fired_total` | Counter | — | **Actif** | Trailing stops déclenchés |
 | `polywatch_pre_close_total` | Counter | `type` | **Actif** | Sorties pré-clôture (`PRE_CLOSE_LOSS`, `PRE_CLOSE_WIN`) |
 | `polywatch_kill_switch_total` | Counter | — | **Actif** | Force-close kill switch |
-| `polywatch_time_exit_fired_total` | Counter | — | **Actif** | Hard exit crypto-algo (TIME_EXIT) |
-
 > **Sémantique** : chaque compteur est incrémenté **exactement une fois** par
 > cycle de vie de position, au moment du `beginClose` réussi dans `executor.ts`,
 > avec le guard `closingAttemptSeq === 1 && !resumed`. Les retries (échec fill,

@@ -11,12 +11,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 
+function sanitizePositiveNumber(
+  raw: string | undefined,
+  fallback: number,
+  opts: { min: number; max?: number },
+): number {
+  const n = Number(raw ?? fallback);
+  if (!Number.isFinite(n) || n < opts.min) return fallback;
+  return opts.max != null ? Math.min(n, opts.max) : n;
+}
+
 const env = {
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL,
   runId: process.env.CRYPTO_MONITOR_RUN_ID,
-  intervalSeconds: Math.max(10, Number(process.env.CRYPTO_MONITOR_INTERVAL_SECONDS ?? 60)),
-  durationHours: Math.max(1, Number(process.env.CRYPTO_MONITOR_DURATION_HOURS ?? 24)),
+  intervalSeconds: sanitizePositiveNumber(
+    process.env.CRYPTO_MONITOR_INTERVAL_SECONDS,
+    60,
+    { min: 10 },
+  ),
+  // Align with backend sanitizeDurationHours (default 24, cap 48).
+  durationHours: sanitizePositiveNumber(
+    process.env.CRYPTO_MONITOR_DURATION_HOURS,
+    24,
+    { min: 1, max: 48 },
+  ),
   outputDir: process.env.CRYPTO_MONITOR_OUTPUT_DIR ?? path.join(__dirname, '..', '..', 'monitoring'),
 };
 

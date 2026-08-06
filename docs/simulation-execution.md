@@ -30,9 +30,10 @@ flowchart TD
 6. **FAK local** — `simulateFakFill` au `limitPrice` figé en T0 ; BUY utilise le montant collatéral arrondi comme le réel.
 7. **Échec T1** → `order_not_matched` (pas `no_liquidity`).
 
-## Réglages (`RiskConfig`)
+## Réglages (`GlobalConfig`)
 
 Configurable via **Simulation → Exécution sim** (`SimExecutionSettingsDialog`).
+Résolus par `resolveSimExecutionTunables` (`packages/core/src/risk/sim-execution-tunables.ts`).
 
 | Champ | Défaut (null) | Rôle |
 |-------|---------------|------|

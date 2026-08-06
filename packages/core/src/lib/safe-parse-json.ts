@@ -1,0 +1,8 @@
+/** Parse JSON safely, returning a typed fallback on error. */
+export function safeParseJson<T>(raw: string, fallback: T): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}

@@ -1,59 +1,32 @@
-import type { DataSource, EntityManager } from 'typeorm';
+import type { DataSource } from 'typeorm';
 import { CryptoConfig } from '../entities/CryptoConfig.js';
+import { BaseConfigService } from './base-config.service.js';
 
-const CONFIG_CACHE_TTL_MS = 5_000;
+type ConfigCache = { config: CryptoConfig; expiresAt: number };
 
-type ConfigCache = {
-  config: CryptoConfig;
-  expiresAt: number;
-};
-
-export class CryptoConfigService {
+export class CryptoConfigService extends BaseConfigService<CryptoConfig> {
   private static configCache: ConfigCache | null = null;
 
-  constructor(private readonly ds: DataSource) {}
+  protected readonly entity = CryptoConfig;
+  protected readonly notFoundMessage = 'Crypto config not found';
+
+  constructor(ds: DataSource) {
+    super(ds);
+  }
+
+  protected getCache(): ConfigCache | null {
+    return CryptoConfigService.configCache;
+  }
+
+  protected setCache(cache: ConfigCache | null): void {
+    CryptoConfigService.configCache = cache;
+  }
 
   static invalidateConfigCache(): void {
     CryptoConfigService.configCache = null;
   }
 
-  async getConfig(options?: {
-    manager?: EntityManager;
-    bypassCache?: boolean;
-  }): Promise<CryptoConfig> {
-    const bypassCache = options?.bypassCache === true || options?.manager != null;
-    if (!bypassCache) {
-      const cached = CryptoConfigService.configCache;
-      if (cached && Date.now() < cached.expiresAt) {
-        return cached.config;
-      }
-    }
-
-    const repo = (options?.manager ?? this.ds.manager).getRepository(CryptoConfig);
-    const config = await repo.findOne({ where: {} });
-    if (!config) throw new Error('Crypto config not found');
-    if (!bypassCache) {
-      CryptoConfigService.configCache = {
-        config,
-        expiresAt: Date.now() + CONFIG_CACHE_TTL_MS,
-      };
-    }
-    return config;
-  }
-
-  async updateConfig(partial: Partial<CryptoConfig>): Promise<CryptoConfig> {
-    const repo = this.ds.getRepository(CryptoConfig);
-    const config = await this.getUncachedConfig();
-    Object.assign(config, partial);
+  override invalidateConfigCache(): void {
     CryptoConfigService.invalidateConfigCache();
-    return repo.save(config);
-  }
-
-  private async getUncachedConfig(): Promise<CryptoConfig> {
-    const config = await this.ds.getRepository(CryptoConfig).findOne({
-      where: {},
-    });
-    if (!config) throw new Error('Crypto config not found');
-    return config;
   }
 }

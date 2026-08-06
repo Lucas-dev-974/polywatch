@@ -56,6 +56,8 @@ L'intervalle de polling est configurable via `CRYPTO_ALGO_POLL_MS` (défaut 30 0
 | Composant | Cadence | Rôle |
 |---|---|---|
 | `StrategyRunner` | `pollMs` (fallback) + déclenchements WebSocket | Évalue les stratégies actives sur les marchés évaluables → callback `onSignal` |
+
+**Cache Gamma (`fetchGammaMarketCached`)** : TTL et stale-on-error via `CryptoConfig` uniquement (`resolveGammaCacheTtlMs`, `resolveGammaStaleOnErrorFactor`). `applyRiskTunables` doit être appelé avant `start()` ; sans config, les requêtes Gamma retournent `null` (plus de constantes TTL locales ni flag `feature.deprecated_fallbacks_enabled`). Re-entry : `cryptoAlgoReentryWindowMs` / `cryptoAlgoMaxEntriesPerWindow` (ctor `reEntryWindowMs === 0` = bypass e2e uniquement).
 | `CryptoAlgoPriceFeed` | temps réel (WS) | Cache top-of-book, debounce 5 s par `conditionId`, callbacks `onPriceUpdate` / `onMarketResolved` |
 | Market janitor (`auto-track-janitor.ts`) | délai adaptatif | Résout/désactive les marchés expirés, découvre de nouveaux marchés via `AlgoAutoTrackService` |
 | `surveillance-refresh` | 60 s | Rafraîchit les cibles de surveillance (`buildSurveillanceTargets`) |

@@ -28,7 +28,7 @@ export const SYSTEM_CONFIG_DEFAULTS: { key: string; value: string; category: str
   { key: 'worker.tick_size.cache_ttl_ms', value: '300000', category: 'worker', description: 'Tick size cache TTL' },
   { key: 'worker.clob.order_timeout_ms', value: '30000', category: 'worker', description: 'CLOB order timeout' },
   { key: 'worker.fee_rate.cache_ttl_ms', value: '300000', category: 'worker', description: 'Fee rate cache TTL' },
-  { key: 'worker.book_freshness.warn_max_age_ms', value: '30000', category: 'worker', description: 'Book staleness warning threshold' },
+  { key: 'worker.book_freshness.warn_max_age_ms', value: '30000', category: 'worker', description: 'Book staleness threshold — SL/TP skipped when book age exceeds this (fail-closed)' },
   { key: 'worker.last_trade_price.max_age_ms', value: '60000', category: 'worker', description: 'Last trade price staleness threshold' },
   { key: 'worker.clob.amount_decimals', value: '6', category: 'worker', description: 'CLOB amount decimals' },
   { key: 'worker.clob.position_lock_timeout_ms', value: '60000', category: 'worker', description: 'Position lock timeout' },
@@ -60,10 +60,10 @@ export const SYSTEM_CONFIG_DEFAULTS: { key: string; value: string; category: str
   // Feature flags (P0 audit)
   {
     key: 'feature.deprecated_fallbacks_enabled',
-    value: 'true',
+    value: 'false',
     category: 'feature_flag',
     description:
-      'When true, deprecated Gamma TTL constants may be used if cryptoConfig is absent. When false, that path throws.',
+      'Legacy flag — deprecated Gamma/re-entry fallbacks removed from StrategyRunner (2026-08-07). Kept for DB compatibility only.',
   },
 ];
 

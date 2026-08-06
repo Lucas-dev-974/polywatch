@@ -82,7 +82,7 @@ Configuration : Settings → Crypto algo → Général (toggle + lookback + min 
 
 Sur un marche **5m**, la fenetre reelle d'entree est nettement plus courte que 5 minutes :
 - decouverte auto-track (~quelques secondes apres l'ouverture) ;
-- cache Gamma TTL **10 s** pour les intervalles <= 15m (30 s pour 1h+) ;
+- cache Gamma TTL via **`CryptoConfig`** uniquement (`cryptoAlgoGammaCacheTtlShortMs` / `cryptoAlgoGammaCacheTtlDefaultMs`, resolvers core) — **10 s** pour les intervalles <= 15m (30 s pour 1h+) ; `applyRiskTunables` obligatoire avant `start()` ;
 - `cryptoAlgoMinTimeToClose` resolu par defaut a `max(preClose, timeExit) + 30 s` -> **150 s** d'interdiction d'entree en fin de marche (pre-close 120 s + buffer).
 
 Fenetre utile typique ~ **2 min 20**. Pour elargir : fixer `cryptoAlgoMinTimeToClose` explicitement (sans toucher aux defauts pre-close, qui protegent la sortie).

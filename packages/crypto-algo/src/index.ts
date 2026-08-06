@@ -31,7 +31,6 @@ import {
   type CryptoConfig,
   type GlobalConfig,
   WORKER_QUEUES,
-  getFeatureFlag,
   PostEntryMidSample,
 } from '@polywatch/core';
 import { config } from './config.js';
@@ -70,23 +69,8 @@ async function applyCryptoAlgoRiskTunables(
   strategyRunner: StrategyRunner,
   priceFeed: CryptoAlgoPriceFeed,
   priceTickRecorder: PriceTickRecorder,
-  ds: Awaited<ReturnType<typeof initializeDataSource>>,
 ): Promise<void> {
   strategyRunner.applyRiskTunables(cryptoConfig);
-  try {
-    const deprecatedFallbacksEnabled = await getFeatureFlag(
-      ds,
-      'deprecated_fallbacks_enabled',
-      true,
-    );
-    strategyRunner.setDeprecatedFallbacksEnabled(deprecatedFallbacksEnabled);
-  } catch (err) {
-    log.warn(
-      { err },
-      'failed to read feature.deprecated_fallbacks_enabled — keeping fallbacks enabled (fail-open)',
-    );
-    strategyRunner.setDeprecatedFallbacksEnabled(true);
-  }
   strategyRunner.reconfigurePollMs(resolvePollMs(cryptoConfig, config.pollMs));
   priceFeed.setDebounceMs(resolveWsDebounceMs(cryptoConfig));
   priceTickRecorder.configure({
@@ -244,7 +228,7 @@ async function main() {
     signalRegistry.recordAbstain(conditionId, reason, detail);
   });
 
-  await applyCryptoAlgoRiskTunables(cryptoConfig, strategyRunner, priceFeed, priceTickRecorder, ds);
+  await applyCryptoAlgoRiskTunables(cryptoConfig, strategyRunner, priceFeed, priceTickRecorder);
 
   // 16b. Create percent publisher for live market updates
   const percentPublisher = new AlgoMarketPercentPublisher(
@@ -581,7 +565,6 @@ async function main() {
           strategyRunner,
           priceFeed,
           priceTickRecorder,
-          ds,
         );
 
         // Reconfigure price tick cleanup timer if settings changed

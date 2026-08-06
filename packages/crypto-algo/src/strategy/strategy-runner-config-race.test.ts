@@ -4,7 +4,6 @@ import { tryLoadCryptoReentryState } from '@polywatch/core';
 import { StrategyRegistry } from './index.js';
 import {
   StrategyRunner,
-  resolveGammaCacheTtlOrFallback,
   shouldFailClosedOnReentryRedisLoad,
 } from './strategy-runner.js';
 
@@ -20,7 +19,7 @@ function minimalCryptoConfig(overrides: Partial<CryptoConfig> = {}): CryptoConfi
   } as CryptoConfig;
 }
 
-function createRunnerStub(): StrategyRunner {
+function createRunnerStub(reEntryWindowMs: number | null = 0): StrategyRunner {
   const registry = new StrategyRegistry();
   return new StrategyRunner(
     { getActiveSelections: () => [] } as never,
@@ -31,7 +30,7 @@ function createRunnerStub(): StrategyRunner {
     {} as never,
     async () => false,
     'https://gamma.example',
-    0,
+    reEntryWindowMs,
   );
 }
 
@@ -94,24 +93,19 @@ describe('strategy-runner config race', () => {
     expect(loaded.ok).toBe(true);
     expect(shouldFailClosedOnReentryRedisLoad(loaded)).toBe(false);
   });
-});
 
-describe('resolveGammaCacheTtlOrFallback', () => {
-  it('returns deprecated short TTL when fallbacks enabled', () => {
-    expect(resolveGammaCacheTtlOrFallback('5m', true)).toBe(10_000);
-  });
-
-  it('throws when deprecated fallbacks are disabled', () => {
-    expect(() => resolveGammaCacheTtlOrFallback('5m', false)).toThrow(
-      /deprecated_fallbacks_disabled/,
-    );
-  });
-
-  it('setDeprecatedFallbacksEnabled wires the runner flag', () => {
+  it('fetchGammaMarketCached returns null when cryptoConfig was never applied', async () => {
     const runner = createRunnerStub();
-    runner.setDeprecatedFallbacksEnabled(false);
-    expect(
-      (runner as unknown as { deprecatedFallbacksEnabled: boolean }).deprecatedFallbacksEnabled,
-    ).toBe(false);
+    const fetch = (
+      runner as unknown as {
+        fetchGammaMarketCached: (
+          conditionId: string,
+          now: number,
+          interval?: string | null,
+        ) => Promise<unknown>;
+      }
+    ).fetchGammaMarketCached.bind(runner);
+
+    await expect(fetch('0xcond', Date.now(), '5m')).resolves.toBeNull();
   });
 });

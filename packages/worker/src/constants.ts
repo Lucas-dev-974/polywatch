@@ -140,11 +140,10 @@ export const SLIPPAGE_GUARDED_REASONS = [
 ] as const;
 
 /**
- * Max age (ms) for the order book bid used in SL/TP evaluation before a
- * staleness warning is emitted at the point of usage. Aligned with
+ * Max age (ms) for the order book bid used in SL/TP evaluation. Aligned with
  * {@link STALE_BOOK_THRESHOLD_MS} (the REST re-sync trigger): a book older
- * than this is considered stale and the SL/TP decision based on it may not
- * reflect the live market. Warn-only — the evaluation still proceeds.
+ * than this skips SL/TP evaluation (fail-closed — no close signal emitted).
+ * SystemConfig key kept as `worker.book_freshness.warn_max_age_ms` for compatibility.
  */
 export const BOOK_FRESHNESS_WARN_MAX_AGE_MS = 30_000;
 

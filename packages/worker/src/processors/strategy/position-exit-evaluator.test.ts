@@ -135,6 +135,71 @@ describe('PositionExitEvaluator', () => {
       expect(signal.reason).toBe('SL');
     });
 
+    it('skips SL/TP when order book is stale (>30s)', async () => {
+      const enqueue = vi.fn();
+      const isInFlightBuy = vi.fn().mockResolvedValue(false);
+      const evaluator = new PositionExitEvaluator(
+        { enqueue } as any,
+        isInFlightBuy,
+      );
+
+      const pos = makePos();
+      const algo = makeCryptoConfig();
+      const staleBookAt = new Date(Date.now() - 31_000);
+
+      await closeLogic(
+        evaluator,
+        pos,
+        undefined,
+        algo,
+        -25,
+        -25,
+        -25,
+        -0.5,
+        0.4,
+        'ok',
+        undefined,
+        undefined,
+        undefined,
+        staleBookAt,
+      );
+
+      expect(enqueue).not.toHaveBeenCalled();
+    });
+
+    it('emits close signal when book is fresh and SL is triggered', async () => {
+      const enqueue = vi.fn();
+      const isInFlightBuy = vi.fn().mockResolvedValue(false);
+      const evaluator = new PositionExitEvaluator(
+        { enqueue } as any,
+        isInFlightBuy,
+      );
+
+      const pos = makePos();
+      const algo = makeCryptoConfig();
+      const freshBookAt = new Date(Date.now() - 5_000);
+
+      await closeLogic(
+        evaluator,
+        pos,
+        undefined,
+        algo,
+        -25,
+        -25,
+        -25,
+        -0.5,
+        0.4,
+        'ok',
+        undefined,
+        undefined,
+        undefined,
+        freshBookAt,
+      );
+
+      expect(enqueue).toHaveBeenCalledTimes(1);
+      expect(enqueue.mock.calls[0][0].reason).toBe('SL');
+    });
+
     it('does not emit SL without any resolvable bid', async () => {
       const enqueue = vi.fn();
       const evaluator = new PositionExitEvaluator(

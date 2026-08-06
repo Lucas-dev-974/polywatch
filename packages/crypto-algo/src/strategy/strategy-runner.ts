@@ -46,33 +46,9 @@ import {
   recordReEntrySuccess,
   shouldSuppressReEntry,
 } from './re-entry-throttle.js';
-import { normalizeInterval } from './constants.js';
 import { cleanupGlobalSlQuotaCache, invalidateGlobalSlQuotaCache } from './sl-quota.js';
 
 const log = pino({ name: 'crypto-algo:strategy-runner' });
-
-/**
- * Re-entry window length in ms when interval and risk config do not override.
- * @deprecated Prefer {@link resolveCryptoAlgoReentryParams} via risk config.
- * Kept as active ctor fallback while `feature.deprecated_fallbacks_enabled` is on.
- */
-export const RE_ENTRY_WINDOW_MS = 60 * 60 * 1000;
-
-/**
- * Default Gamma cache TTL for longer intervals (1h+).
- * @deprecated Prefer {@link resolveGammaCacheTtlMs} via risk config.
- * Kept as active fallback while `feature.deprecated_fallbacks_enabled` is on.
- */
-const OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS = 30_000;
-
-/**
- * Gamma cache TTL for short intervals (≤15m).
- * @deprecated Prefer {@link resolveGammaCacheTtlMs} via risk config.
- */
-const OUTCOME_PRICES_CACHE_TTL_SHORT_MS = 10_000;
-
-/** Stale-on-error may serve cache up to this multiple of the TTL. */
-const GAMMA_STALE_ON_ERROR_TTL_FACTOR = 2;
 
 /**
  * Maximum number of entries to keep in the Gamma cache.
@@ -133,8 +109,6 @@ export class StrategyRunner {
   private configEpoch = 0;
   /** Set by stop() to reject new evaluations during shutdown. */
   private stopping = false;
-  /** Cached from SystemConfig `feature.deprecated_fallbacks_enabled` (default true). */
-  private deprecatedFallbacksEnabled = true;
   private onSelectionResolved?: (conditionId: string) => Promise<void>;
   private onAbstain?: (
     conditionId: string,
@@ -151,7 +125,8 @@ export class StrategyRunner {
     private readonly algoSelectionService: AlgoMarketSelectionService,
     private readonly onSignal: (signal: AlgoSignal) => Promise<boolean>,
     private readonly gammaApi: string,
-    private readonly reEntryWindowMs: number = RE_ENTRY_WINDOW_MS,
+    /** `null` = use CryptoConfig re-entry params; `0` = e2e bypass only. */
+    private readonly reEntryWindowMs: number | null = null,
     private readonly runtimeStatus?: CryptoAlgoRuntimeStatusPublisher,
   ) {}
 
@@ -251,8 +226,8 @@ export class StrategyRunner {
     );
 
     if (!this.currentCryptoConfig) {
-      log.warn(
-        'StrategyRunner started before applyRiskTunables — crypto tunables and Gamma TTL may use deprecated fallbacks',
+      log.error(
+        'StrategyRunner started before applyRiskTunables — call applyRiskTunables before start',
       );
     }
 
@@ -341,14 +316,6 @@ export class StrategyRunner {
     }
   }
 
-  /**
-   * Wire `feature.deprecated_fallbacks_enabled` (cached; refresh on config-changed).
-   * When false, Gamma TTL without cryptoConfig throws instead of using deprecated constants.
-   */
-  setDeprecatedFallbacksEnabled(enabled: boolean): void {
-    this.deprecatedFallbacksEnabled = enabled;
-  }
-
   /** Stop the evaluation loop (sync). Prefer {@link stopAndDrain} on shutdown. */
   stop(): void {
     this.stopping = true;
@@ -429,12 +396,15 @@ export class StrategyRunner {
     cryptoConfig?: CryptoConfig,
   ): Promise<GammaMarket | null> {
     const effectiveCfg = cryptoConfig ?? this.currentCryptoConfig;
-    const ttlMs = effectiveCfg
-      ? resolveGammaCacheTtlMs(effectiveCfg, interval)
-      : resolveGammaCacheTtlOrFallback(interval, this.deprecatedFallbacksEnabled);
-    const staleFactor = effectiveCfg
-      ? resolveGammaStaleOnErrorFactor(effectiveCfg)
-      : GAMMA_STALE_ON_ERROR_TTL_FACTOR;
+    if (!effectiveCfg) {
+      log.error(
+        { conditionId },
+        'Gamma fetch skipped — cryptoConfig not loaded (call applyRiskTunables before evaluation)',
+      );
+      return null;
+    }
+    const ttlMs = resolveGammaCacheTtlMs(effectiveCfg, interval);
+    const staleFactor = resolveGammaStaleOnErrorFactor(effectiveCfg);
     const cached = this.gammaCache.get(conditionId);
     if (cached && now - cached.fetchedAt < ttlMs) {
       return cached.market;
@@ -468,14 +438,14 @@ export class StrategyRunner {
    * Remove expired entries from the Gamma cache.
    */
   private cleanupGammaCache(): void {
+    if (!this.currentCryptoConfig) return;
+
     const now = Date.now();
     let removed = 0;
-    const ttlMs = this.currentCryptoConfig
-      ? Math.max(
-          resolveGammaCacheTtlMs(this.currentCryptoConfig, null),
-          resolveGammaCacheTtlMs(this.currentCryptoConfig, '5m'),
-        )
-      : OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS;
+    const ttlMs = Math.max(
+      resolveGammaCacheTtlMs(this.currentCryptoConfig, null),
+      resolveGammaCacheTtlMs(this.currentCryptoConfig, '5m'),
+    );
 
     for (const entry of Array.from(this.gammaCache.entries())) {
       if (now - entry[1].fetchedAt > ttlMs) {
@@ -1003,32 +973,4 @@ export function shouldFailClosedOnReentryRedisLoad(
   loaded: { ok: true; state: unknown } | { ok: false; error: unknown },
 ): loaded is { ok: false; error: unknown } {
   return !loaded.ok;
-}
-
-/**
- * Resolve Gamma cache TTL from cryptoConfig, or deprecated interval constants.
- * Throws when `deprecatedFallbacksEnabled` is false and cryptoConfig is absent.
- */
-export function resolveGammaCacheTtlOrFallback(
-  interval: string | null | undefined,
-  deprecatedFallbacksEnabled: boolean,
-): number {
-  if (!deprecatedFallbacksEnabled) {
-    throw new Error(
-      'deprecated_fallbacks_disabled: cryptoConfig required for Gamma cache TTL (feature.deprecated_fallbacks_enabled=false)',
-    );
-  }
-  log.warn(
-    { interval: interval ?? null },
-    'gammaCacheTtlFallback used — cryptoConfig absent; using deprecated interval TTL constants',
-  );
-  const normalized = interval ? normalizeInterval(interval) : null;
-  if (
-    normalized === '5m' ||
-    normalized === '10m' ||
-    normalized === '15m'
-  ) {
-    return OUTCOME_PRICES_CACHE_TTL_SHORT_MS;
-  }
-  return OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS;
 }

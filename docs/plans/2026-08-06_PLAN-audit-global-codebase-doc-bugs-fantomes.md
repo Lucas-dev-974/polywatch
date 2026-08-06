@@ -391,13 +391,13 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 #### 3.6 — Code mort / dépréciations (C9)
 
 - [x] Vérifier consommateurs de `buildMarkdownReport` (monitor.ts) — ✅ 2026-08-07 mort confirmé (défini, 0 appel)
-- [x] Vérifier `resolveGammaCacheTtlOrFallback` + TTL locales — ✅ flag `deprecated_fallbacks_enabled` branché ; log warn si fallback ; **ne pas purger** sans semaine de logs propres
+- [x] Vérifier `resolveGammaCacheTtlOrFallback` + TTL locales — ✅ 2026-08-07 purgés ; TTL Gamma via `CryptoConfig` uniquement ; seed `feature.deprecated_fallbacks_enabled=false`
 - [x] Vérifier exports `@deprecated` (sl-quota, constants, strategy-runner) ✅ 2026-08-07
 - [x] Planifier la purge (après observation logs) ✅
 - [x] **Purge code mort sûr** ✅ 2026-08-07 — `buildMarkdownReport`, `loadSlQuotaCount`/`isSlQuotaReached`, `SPREAD_BY_INTERVAL`/`getMaxSpreadForInterval`, `MAX_ENTRIES_PER_WINDOW`
-- [ ] **Observations** :
+- [x] **Observations** :
   - ✅ 2026-08-07 inventaire + purge safe appliquée.
-  - ⏳ **Gardé** (actifs) : `RE_ENTRY_WINDOW_MS` + TTL `OUTCOME_PRICES_CACHE_TTL_*` / `resolveGammaCacheTtlOrFallback` tant que `feature.deprecated_fallbacks_enabled` + warn logs. Ops : observer `gammaCacheTtlFallback used` → flag off → purge fallbacks.
+  - ✅ 2026-08-07 **fallbacks Gamma/re-entry purgés** : `RE_ENTRY_WINDOW_MS`, `OUTCOME_PRICES_CACHE_TTL_*`, `resolveGammaCacheTtlOrFallback`, `setDeprecatedFallbacksEnabled` retirés ; flag seed `false` (legacy DB only).
 
 
 
@@ -514,8 +514,9 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 - [x] Scénario : WS Polymarket drop pendant 30s → `book-freshness.ts` marque stale, mais les évaluations continuent-elles avec un book périmé ? ✅ 2026-08-06
 - [x] Scénario : `forceRefreshBook` REST échoue → fallback sur cache stale ou abstention ? ✅ 2026-08-06
-- [ ] **Observations** :
-  - ✅ 2026-08-06 : entrées crypto-algo fail-closed à 15s (`stale_book`). **Fix** : `entry-depth-retry` passe `maxAgeMs` + skip si `forceRefreshBook` → `undefined`. **Reste accepté / P2** : SL/TP worker warn-only à 30s (continue sur book périmé — documenté) ; SELL peut utiliser cache stale.
+- [x] **Observations** :
+  - ✅ 2026-08-06 : entrées crypto-algo fail-closed à 15s (`stale_book`). **Fix** : `entry-depth-retry` passe `maxAgeMs` + skip si `forceRefreshBook` → `undefined`.
+  - ✅ 2026-08-07 : SL/TP worker **fail-closed** à 30s (`BOOK_FRESHNESS_WARN_MAX_AGE_MS`) — skip sans close si book stale. SELL peut encore utiliser cache stale (hors scope).
 
 
 
@@ -812,22 +813,24 @@ Ce plan opérationnalise les mitigations de l'annexe §R1, §R2, §R4, §RT pour
 
 | # | Finding | Type | Action |
 |---|---------|------|--------|
-| C9 | Code mort sûr | CODE | Purge monitor/sl-quota/spread%/MAX_ENTRIES ; fallbacks Gamma **gardés** |
+| C9 | Code mort sûr + fallbacks | CODE | Purge monitor/sl-quota/spread%/MAX_ENTRIES ; fallbacks Gamma purgés (2026-08-07) |
 | C15 | Inventaire migrations 0081–0095 | DOC | Tableau `03-core.md` |
 | 4.5 | Dead-letter / `::retries` sim-reset | CODE | Filtre sim sur `:dead` + DEL retry keys |
 | C3 | `toIso` / `isPostgres` + truncate archive | CODE | `lib/to-iso`, `lib/is-postgres`, `applyDecisionPayloadByteBudget` |
-| 4.8 | SL/TP book stale | DOC | Policy warn-only documentée (`04-worker.md`) — fail-closed non activé |
+| 4.8 | SL/TP book stale | CODE | Fail-closed 30s dans `position-exit-evaluator` + doc `04-worker.md` |
 
-#### Ouvert — ops / produit
+| C9 | Fallbacks Gamma/re-entry | CODE | Purge `RE_ENTRY_WINDOW_MS`, TTL locales, `resolveGammaCacheTtlOrFallback` ; seed flag `false` |
 
-| Prio | Item | Type |
-|------|------|------|
-| 🟢 Ops | Observer warn `gammaCacheTtlFallback used` → `deprecated_fallbacks_enabled=false` → purge fallbacks Gamma/re-entry | CODE |
-| 🟢 Produit | Éventuel fail-closed SL/TP sur book stale (aujourd'hui warn-only accepté) | CODE |
+#### Clos follow-ups ops/produit (2026-08-07)
+
+| Prio | Item | Type | Action |
+|------|------|------|--------|
+| 🟢 Ops | Purge fallbacks Gamma/re-entry C9 | CODE | ✅ Voir §3.6 |
+| 🟢 Produit | Fail-closed SL/TP sur book stale | CODE | ✅ Voir §4.8 |
 
 #### Verdict
 
-Phases **1–5** + follow-ups P2/P3 clos (2026-08-07). Reste ops : couper fallbacks C9 après logs propres.
+Phases **1–5** + follow-ups P2/P3 + ops/produit clos (2026-08-07). Audit global **terminé**.
 
 ---
 

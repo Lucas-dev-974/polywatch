@@ -278,7 +278,26 @@ export class PositionExitEvaluator {
     const decisionBidVwap = executableBidVwap;
     const decisionMarkBid = preCloseMarkBid ?? decisionBidVwap;
 
-    this.warnStaleData(pos, trigger, closure, liquidityStatus, bookUpdatedAt, lastTradePrice, lastTradeTimestamp, now);
+    this.warnStaleData(pos, lastTradePrice, lastTradeTimestamp, now);
+
+    if (bookUpdatedAt != null) {
+      const bookAgeMs = now - bookUpdatedAt.getTime();
+      if (bookAgeMs > BOOK_FRESHNESS_WARN_MAX_AGE_MS) {
+        log.warn(
+          {
+            positionId: pos.id,
+            assetId: pos.assetId,
+            bookAgeMs,
+            thresholdMs: BOOK_FRESHNESS_WARN_MAX_AGE_MS,
+            trigger,
+            closure,
+            liquidityStatus,
+          },
+          'SL/TP skipped — stale order book (fail-closed)',
+        );
+        return;
+      }
+    }
 
     const lastCloseableBidMaxAgeMs = resolveLastCloseableBidMaxAgeMs(algoConfig as any);
 
@@ -492,31 +511,10 @@ export class PositionExitEvaluator {
 
   private warnStaleData(
     pos: CopiedPosition,
-    trigger: number,
-    closure: number,
-    liquidityStatus: LiquidityStatus,
-    bookUpdatedAt: Date | null | undefined,
     lastTradePrice: number | undefined,
     lastTradeTimestamp: Date | null | undefined,
     now: number,
   ): void {
-    if (bookUpdatedAt != null) {
-      const bookAgeMs = now - bookUpdatedAt.getTime();
-      if (bookAgeMs > BOOK_FRESHNESS_WARN_MAX_AGE_MS) {
-        log.warn(
-          {
-            positionId: pos.id,
-            assetId: pos.assetId,
-            bookAgeMs,
-            thresholdMs: BOOK_FRESHNESS_WARN_MAX_AGE_MS,
-            trigger,
-            closure,
-            liquidityStatus,
-          },
-          'SL/TP evaluated on stale order book bid — decision may not reflect live market',
-        );
-      }
-    }
     if (lastTradePrice != null && lastTradePrice > 0 && lastTradeTimestamp != null) {
       const tradeAgeMs = now - lastTradeTimestamp.getTime();
       if (tradeAgeMs > LAST_TRADE_PRICE_MAX_AGE_MS) {

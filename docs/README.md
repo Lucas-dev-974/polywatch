@@ -58,11 +58,11 @@ kill switch, limites d'exposition).
 > Ops — recovery rédemption stranded :
 > [`../tools/recover-stranded-redemption/README.md`](../tools/recover-stranded-redemption/README.md)
 >
-> Audit global codebase / doc / bugs fantômes (2026-08-06) — **Phase 2 close ; Phase 5 synthèse** :
+> Audit global codebase / doc / bugs fantômes (2026-08-06) — **terminé 2026-08-07** (phases 1–5 + ops/produit) :
 > [`plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](./plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) ·
 > [`plans/2026-08-06_ANNEXE-risques-mitigations.md`](./plans/2026-08-06_ANNEXE-risques-mitigations.md)
 >
-> Purge RiskConfig / P0 (2026-08-06) — **appliqué** (Phase F) :
+> Purge RiskConfig / P0 (2026-08-06) — **appliqué** (Phase F) ; C9 fallbacks purgés post-P0 (`6d99017`) :
 > [`plans/2026-08-06_PLAN-p0-implementation.md`](./plans/2026-08-06_PLAN-p0-implementation.md) ·
 > [`plans/riskconfig-consumer-matrix.md`](./plans/riskconfig-consumer-matrix.md)
 >
@@ -70,7 +70,7 @@ kill switch, limites d'exposition).
 > [`audit-weather-algo-2026-08-04.md`](./audit-weather-algo-2026-08-04.md) ·
 > [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 >
-> Sim-reset Redis hygiene (2026-07-12 + fixes 4.5) — **appliqué** (reste abort worker in-flight) :
+> Sim-reset Redis hygiene (2026-07-12 + fixes 4.5) — **appliqué** (abort worker in-flight inclus, 2026-08-07) :
 > [`plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](./plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)
 >
 > Post-entry-mid logger (C10) — **appliqué** : migration `0095` / plan global §3.8

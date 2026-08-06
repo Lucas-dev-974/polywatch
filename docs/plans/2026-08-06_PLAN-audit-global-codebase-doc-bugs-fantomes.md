@@ -1,6 +1,7 @@
 # PLAN — Audit global codebase : alignement doc, structure, conflits, bugs fantômes
 
-> **Date de création** : 2026-08-06 **Périmètre** : Monorepo Polywatch-v1.1 (7 packages + docs + tools + e2e) **Règle d'or** : Ce plan est **vivant**. À chaque étape terminée, mettre à jour ce fichier (statut, dates, observations, écarts détectés). Toute modification de code ou de doc effectuée pendant l'audit doit être reflétée ici.
+> **Date de création** : 2026-08-06 · **Dernière resync** : 2026-08-07 (C9 + SL/TP fail-closed, audit **terminé**)
+> **Périmètre** : Monorepo Polywatch-v1.1 (7 packages + docs + tools + e2e) **Règle d'or** : Ce plan est **vivant**. À chaque étape terminée, mettre à jour ce fichier (statut, dates, observations, écarts détectés). Toute modification de code ou de doc effectuée pendant l'audit doit être reflétée ici.
 
 ---
 
@@ -79,7 +80,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | C6  | **God-objects** : `crypto-algo/index.ts` (519 lignes wiring), `crypto-algo/strategy/strategy-runner.ts` (856 lignes), `frontend/UpDownPriceChart.tsx` (1219 lignes), `backend/routes/simulation.ts` (691 lignes), `core/risk/policy.ts` (alléger post-F — getters legacy retirés)                                                                                                                                                                                                                                                                                                                                                                                 | 🟡 Moyenne                    | voir colonne modules                                                                                                        |
 | C7  | **Frontière floue** `core/market/` **vs** `core/polymarket/` : `polymarket/market-list.ts:8` réexporte `marketClassifier` et contient `isMarketActive` (`:47`, logique métier) ; `isMarketNotExpired`/`isMarketUpcoming` sont dans `auto-track-discovery.ts:147,168`                                                                                                                                                                                                                                                                                                                                                                                              | 🟢 Mineure                    | `core/market/`, `core/polymarket/`                                                                                          |
 | C8  | **Duplication** `crypto-algo` **↔** `weather-algo` : `strategy-runner.ts`, `*-entry-pipeline.ts`, `*-exit-evaluator.ts`, `auto-track-janitor.ts`, `runtime-status.ts`, `watchlist-seed.ts`, `constants.ts` quasi-identiques                                                                                                                                                                                                                                                                                                                                                                                                                                       | 🟡 Moyenne                    | `crypto-algo/src/`, `weather-algo/src/`                                                                                     |
-| C9  | **Code mort / dépréciations non purgées** dans crypto-algo : `buildMarkdownReport` (monitor.ts:642, jamais appelé), `MAX_ENTRIES_PER_WINDOW` (strategy-runner.ts:64, 0 consommateur), `loadSlQuotaCount`/`isSlQuotaReached` (sl-quota.ts:85/114, 0 consommateur), `SPREAD_BY_INTERVAL`/`getMaxSpreadForInterval` (constants.ts:40/85, remplacé par `getMaxSpreadAbsForInterval`). ⚠️ `RE_ENTRY_WINDOW_MS` + TTL constants = `@deprecated` mais **actifs en fallback** (strategy-runner.ts:152,439,948). NB : `GAMMA_STALE_ON_ERROR_TTL_FACTOR`/`gammaCacheTtlFallback` ne sont **pas** marqués `@deprecated` (plan initial inexact). 6 exports deprecated (pas 5) | 🟢 Mineure                    | `crypto-algo/`                                                                                                              |
+| C9  | **Code mort / dépréciations** dans crypto-algo — ✅ **clos 2026-08-07** : code mort purgé ; fallbacks Gamma/re-entry (`RE_ENTRY_WINDOW_MS`, TTL locales, `resolveGammaCacheTtlOrFallback`) supprimés ; TTL via `CryptoConfig` uniquement | ✅ Clos                        | `crypto-algo/`                                                                                                              |
 | C10 | `post-entry-mid-logger.ts` — ✅ terminé (entité `post_entry_mid_samples`, `onSample`, cancel close Redis, rétention 14j)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | ✅ Clos                        | `crypto-algo/src/post-entry-mid-logger.ts`                                                                                  |
 | C11 | `docs/code/README.md` **stale** : ~~titre "v0.1.0", date 2026-07-22, weather-algo non listé~~ → **rafraîchi 2026-08-06** (`08-weather-algo.md` au sommaire)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | ✅ Clos                        | `docs/code/README.md`                                                                                                       |
 | C12 | `docs/audit-api-alignement.md` **obsolète** — routes `system-audit`, weather capital/executions, crypto-algo-monitor **ajoutées à** `api.md` (2026-08-06). `config-per-kind` déjà documenté. Audit historique encore stale.                                                                                                                                                                                                                                                                                                                                                                                                                                       | 🟢 Mineure (audit historique) | `docs/api.md`                                                                                                               |
@@ -113,7 +114,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | C6      | ✅ Confirmé                    | —                                                                                                                                                                              |
 | C7      | ⚠️ Corrigé                    | `isMarketNotExpired`/`isMarketUpcoming` sont dans `auto-track-discovery.ts`, pas `market-list.ts`                                                                              |
 | C8      | ✅ Confirmé                    | —                                                                                                                                                                              |
-| C9      | ⚠️ Corrigé                    | `GAMMA_STALE_ON_ERROR_TTL_FACTOR`/`gammaCacheTtlFallback` ne sont PAS deprecated (plan inexact) ; 6 exports deprecated (pas 5) ; `RE_ENTRY_WINDOW_MS` + TTL actifs en fallback |
+| C9      | ✅ Clos 2026-08-07             | Code mort purgé ; fallbacks Gamma/re-entry supprimés (`6d99017`) ; TTL via resolvers core uniquement |
 | C10     | ✅ Confirmé                    | —                                                                                                                                                                              |
 | C11     | ✅ Confirmé                    | —                                                                                                                                                                              |
 | C12     | ⚠️ Corrigé                    | `api.md` = 295 lignes (pas 231) ; `market-chart` EST documenté (`api.md:217`) — retiré des routes manquantes                                                                   |
@@ -135,7 +136,7 @@ Ces constats guident les étapes d'audit ci-dessous. **Source : [Explore core st
 | C5  | **Centraliser les 3 utilitaires identiques** (`circuit-breaker`, `token-bucket`, `rate-limited-fetch`) dans `core/polymarket/` et réexporter ; **laisser** `api-client` **spécifique** à chaque package                         | ✅ Fait (shims 2026-08-07)                                                  |
 | C8  | **NE PAS abstraire** crypto↔weather — documenter le miroir + converger par copie consciente (annexe §R6)                                                                                                                        | 🟢 P3 — doc only (pas d'`AlgoStrategyRunner` partagé)                      |
 | C10 | **Terminer la feature post-entry-mid-logger**                                                                                                                                                                                   | ✅ **FAIT** (entité + migration 0095 + onSample + cancel Redis + rétention) |
-| C9  | **Purger les constantes deprecated** — remplacer `RE_ENTRY_WINDOW_MS`, `MAX_ENTRIES_PER_WINDOW`, TTL constants par les resolvers core (`resolveCryptoAlgoReentryParams`, `resolveGammaCacheTtlMs`), supprimer le fallback local | 🟢 P3 — nettoyage                                                          |
+| C9  | **Purger les constantes deprecated** — remplacer par resolvers core, supprimer fallbacks locaux | ✅ **FAIT** 2026-08-07 (`6d99017`) |
 | C1  | **Extraction fonctions pures + constantes seulement** (Q2) — PAS de `ModeSession<>` ; PAS fusion archive/session services                                                                                                       | ✅ **Partiel P0** — collectors partagés ; reste = mesure drift + doc miroir |
 
 
@@ -469,9 +470,9 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 - [x] Redis down / re-entry fail-closed — audité + corrigé P0-D
 - [x] WS reconnect / midHistory / Gamma stale
 - [x] `config-changed` atomique
-- [x] Fallback Gamma TTL + flag `deprecated_fallbacks_enabled`
-- [ ] **Observations** :
-  - ✅ 2026-08-06 P0-D. Suite C9 = purge fallbacks après observation (3.6).
+- [x] Fallback Gamma TTL + flag `deprecated_fallbacks_enabled` (P0-D) → fallbacks **purged** 2026-08-07
+- [x] **Observations** :
+  - ✅ 2026-08-06 P0-D (flag + warn). ✅ 2026-08-07 purge complète §3.6 — voir commit `6d99017`.
 
 
 
@@ -569,7 +570,7 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 | 🟡 P1        | ~~**4.5** sim-reset~~ (cooldown+markers+abort in-flight), ~~**4.2** mesuré+extract~~ | ✅ Clos 2026-08-07                           |
 | 🟢 P2        | ~~**Phase 2 entière**~~ ✅                                                          | Exhaustivité doc                            |
 | 🟢 P2        | ~~**3.2** quartet~~, ~~**3.3**/C5~~, ~~**3.4** éval god-objects~~ ✅                   | Refactor structurel                         |
-| 🟢 P3        | ~~**3.7 / C8** doc miroir~~ ✅ ; **C9** purge code mort + fallbacks après logs ; polish C15 | Nettoyage + doc                             |
+| 🟢 P3        | ~~**3.7 / C8** doc miroir~~ ✅ ; ~~**C9** purge code mort + fallbacks~~ ✅ ; polish C15 | Nettoyage + doc                             |
 
 
 
@@ -583,7 +584,7 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 5. ~~**Bugs** : 4.6 → 4.7 → 4.8 → 4.10.~~ ✅ (+ `shuttingDown` worker 2026-08-07).
 6. ~~**Phase 2 + Phase 5 rapport**.~~ ✅
 7. ~~**Suite Phase 3** : 3.1 extract / 3.2 / 3.3/C5 / 3.4 éval / 3.7 doc / 3.6 audit.~~ ✅ 2026-08-07
-8. ~~**C9 suite** : purge code mort sûr.~~ ✅ 2026-08-07. Fallbacks Gamma/re-entry **après** observation logs + flag off (ops).
+8. ~~**C9 suite** : purge code mort sûr + fallbacks Gamma/re-entry.~~ ✅ 2026-08-07 (`6d99017`).
 9. ~~Follow-ups P2/P3 : abort sim-reset, `shuttingDown`, dead-letter/`::retries`, inventaire C15, truncate/`toIso`/`isPostgres`, doc SL/TP stale.~~ ✅ 2026-08-07.
 
 > **Migration** : ✅ `CreatePostEntryMidSamples1700000000095` jouée (`npm run migration:run -w @polywatch/core`, 2026-08-06).
@@ -731,7 +732,7 @@ L'analyse des risques a couvert les 9 zones critiques du plan (C1, C4, C5, C6, C
 | --- | ---------------------------------- | ------------------------- | ----------------------------- | ---------- | ------------------------------------------- |
 | 1   | C4 : Purge RiskConfig legacy       | ~~🔴 P0~~ → clos          | Strangler Fig + guard         | §R1        | ✅ Fait (A–E + F `b219a7f`)                  |
 | 2   | C1 : Refactor duplication sim/real | 🟡 reste                  | Composition fonctions pures   | §R2        | ✅ Collectors + rollup-shared + safeParseJson ; archive/session non fusionnés (Q2) |
-| 3   | C9 : Purge deprecated constants    | 🟢 P3                     | Éliminer fallback             | §R3        | ⏳ Audit 3.6 ; purge code mort OK ; fallbacks après logs |
+| 3   | C9 : Purge deprecated constants    | ~~🟢 P3~~ → clos          | Éliminer fallback             | §R3        | ✅ 2026-08-07 — fallbacks purgés (`6d99017`) |
 | 4   | C6 : Refactor god-objects          | 🟡 P2                     | Extraction conservatrice      | §R4        | ✅ Évalué 3.4 ; extracts agressifs reportés   |
 | 5   | C10 : Finish post-entry-mid-logger | ~~🟡 P1~~ → clos          | Entité + migration + cancel   | §R5        | ✅ Fait                                      |
 | 6   | C8 : Abstract crypto↔weather       | 🟢 P3                     | **NE PAS abstraire** — doc    | §R6        | ✅ Doc miroir (08 + crypto-algo §10 + 07)     |
@@ -744,7 +745,7 @@ L'analyse des risques a couvert les 9 zones critiques du plan (C1, C4, C5, C6, C
 **Principes transversaux** (détaillés dans l'annexe § Recommandations transversales) :
 
 - Stratégie de branching : 1 branche dédiée par chantier restant (C6, C5), 1 PR par branche — C4/C1/C10 déjà traités.
-- Feature flags : seul `feature.deprecated_fallbacks_enabled` reste post-F ; flags RiskConfig legacy/strict retirés.
+- Feature flags : `feature.deprecated_fallbacks_enabled` **legacy** (seed `false`, plus lu par le runtime depuis 2026-08-07) ; flags RiskConfig legacy/strict retirés.
 - Ordre d'exécution A–F : **terminé** (voir §5.4). Suite = §4 « Proposition d'exécution (reste) ».
 - **Règle d'or** : aucun refactor critique ne commence avant que le test d'arête correspondant existe et soit vert.
 
@@ -760,7 +761,7 @@ Ce plan opérationnalise les mitigations de l'annexe §R1, §R2, §R4, §RT pour
 - **5 phases séquentielles sur 1 branche unique** : A (préparation — tests d'arête + guards + cartographie), B (C4 Strangler Fig — consommateurs migrés, façade legacy conservée), C (C1 extraction fonctions pures), D (bugs fantômes 4.3/4.4 — audit + correction), E (finalisation)
 - **1 PR consolidée** (`audit/p0-implementation` → `main`) avec commits atomiques par sous-étape — **mergée**
 - **Phase F** (`audit/p0-riskconfig-purge`) : suppression `RiskConfig.ts`, façade, API legacy, guards, flags `legacy_facade`/`strict` — **implémentée** (`b219a7f` sur `main`)
-- **3 feature flags** (état post-F) : `feature.deprecated_fallbacks_enabled` **conservé** ; `feature.risk_config_legacy_facade` et `feature.risk_config_strict` **retirés du seed** (plus de code à piloter)
+- **Feature flags** (état post-2026-08-07) : `feature.deprecated_fallbacks_enabled` conservé en seed (`false`, legacy DB only — **plus branché** dans crypto-algo) ; `feature.risk_config_legacy_facade` et `feature.risk_config_strict` retirés du seed
 - **Rollback** : post-F = `git revert` de `b219a7f` (plus de rollback granulaire façade)
 
 
@@ -799,7 +800,7 @@ Ce plan opérationnalise les mitigations de l'annexe §R1, §R2, §R4, §RT pour
 | C5 | Utils Polymarket | CODE | Shims worker/copy-trading → core (`api-client` exclu) |
 | C6 | God-objects | AUDIT | Évalués ; extracts agressifs reportés |
 | C8 | Miroir crypto↔weather | DOC | §10 crypto-algo + 07/08 |
-| C9 | Deprecated | AUDIT | Inventaire ; pas de purge aveugle (fallbacks actifs) |
+| C9 | Deprecated | CODE | ✅ Clos 2026-08-07 — fallbacks purgés, TTL via `CryptoConfig` |
 
 #### Clos follow-ups P2 (2026-08-07)
 

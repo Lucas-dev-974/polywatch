@@ -1,6 +1,7 @@
 # ANNEXE — Risques et mitigations du plan d'audit
 
 > **Date de création** : 2026-08-06
+> **Dernière resync** : 2026-08-07 — C9 fallbacks purgés (`6d99017`) ; SL/TP fail-closed 30s
 > **Périmètre** : Monorepo Polywatch-v1.1
 > **Document parent** : [`docs/plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md)
 > **Objectif** : Pour chacun des 9 risques identifiés (+ 1 risque transversal tests), proposer des mitigations concrètes, adaptées à la codebase réelle, avec garde-fous, plan de rollback et séquencement.
@@ -9,7 +10,7 @@
 
 ## Synthèse exécutive
 
-Le plan touche 3 zones critiques à double source de vérité (RiskConfig legacy, duplication sim/real, constantes deprecated en fallback) et 3 zones de refactor structurel (god-objects, post-entry-mid-logger, abstraction crypto/weather). La mitigation repose sur 4 principes :
+Le plan touche 3 zones critiques à double source de vérité (RiskConfig legacy, duplication sim/real, ~~constantes deprecated en fallback~~ **C9 clos**) et 3 zones de refactor structurel (god-objects, post-entry-mid-logger, abstraction crypto/weather). La mitigation repose sur 4 principes :
 
 1. **Strangler Fig pattern** — ne jamais big-bang ; migrer consommateur par consommateur.
 2. **Double source of truth → single source via garde d'assertion** — ajouter un guard runtime qui détecte la divergence avant qu'elle produise un bug fantôme.
@@ -22,7 +23,7 @@ Le plan touche 3 zones critiques à double source de vérité (RiskConfig legacy
 |---|--------|----------|-------------------------|------------|
 | 1 | C4 : Purge RiskConfig legacy | 🔴 P0 | Strangler Fig + guard de divergence | §R1 |
 | 2 | C1 : Refactor duplication sim/real | 🔴 P0 | Généricité par composition (fonctions pures partagées) | §R2 |
-| 3 | C9 : Purge deprecated constants en fallback | 🟢 P3 | Éliminer le fallback en garantissant la config au boot | §R3 |
+| 3 | C9 : Purge deprecated constants en fallback | ~~🟢 P3~~ → ✅ clos | Éliminer le fallback en garantissant la config au boot | §R3 |
 | 4 | C6 : Refactor god-objects | 🟡 P2 | Extraction conservatrice avec invariant d'atomicité | §R4 |
 | 5 | C10 : Finish post-entry-mid-logger | 🟡 P1 | Entité + migration + cancellation par position | §R5 |
 | 6 | C8 : Abstract crypto-algo ↔ weather-algo | 🟡 P2 | NE PAS abstraire — documenter et converger par copie consciente | §R6 |
@@ -177,71 +178,42 @@ Semaine 4 : Étape 3 consommateurs 7-8 (weather, close-bid) + étape 4 suppressi
 
 ---
 
-## R3 — C9 : Purge deprecated constants en fallback (P3 mais tricky)
+## R3 — C9 : Purge deprecated constants en fallback — ✅ CLOS (2026-08-07)
 
-### Contexte précis
+> **Commit** : `6d99017` — `fix(audit): disable deprecated gamma fallbacks and fail-closed stale SL/TP`
+> **Doc runtime** : [`docs/code/07-crypto-algo.md`](../code/07-crypto-algo.md) § Cache Gamma
 
-- `strategy-runner.ts:58` — `RE_ENTRY_WINDOW_MS = 60 * 60 * 1000` (`@deprecated`, fallback dans constructor ligne 152 `reEntryWindowMs: number = RE_ENTRY_WINDOW_MS`).
-- `strategy-runner.ts:64` — `MAX_ENTRIES_PER_WINDOW = 1` (`@deprecated`, 0 consommateur direct mais valeur par défaut conceptuelle).
-- `strategy-runner.ts:70` — `OUTCOME_PRICES_CACHE_TTL_DEFAULT_MS = 30_000` (`@deprecated`, fallback dans `gammaCacheTtlFallback:941`).
-- `strategy-runner.ts:76` — `OUTCOME_PRICES_CACHE_TTL_SHORT_MS = 10_000` (`@deprecated`, fallback dans `gammaCacheTtlFallback:948`).
-- `strategy-runner.ts:79` — `GAMMA_STALE_ON_ERROR_TTL_FACTOR = 2` (NON deprecated, fallback dans `fetchGammaMarketCached:400`).
-- **Le chemin critique** : `fetchGammaMarketCached:394-397` — si `currentCryptoConfig` est null (avant `applyRiskTunables`), `gammaCacheTtlFallback(interval)` est appelé. Or `currentCryptoConfig` est set dans `applyRiskTunables:326` qui est appelé dans `evaluateSelectionUnlocked:579` APRÈS le check `cryptoConfigService.getConfig():567`. Donc en théorie, `currentCryptoConfig` est toujours set avant `fetchGammaMarketCached`. **Mais** : le constructor `StrategyRunner:143` ne set PAS `currentCryptoConfig`. Si `tick()` est appelé avant le premier `evaluateSelection` (ce qui arrive car `tick()` appelle `evaluateSelection`), il y a une fenêtre où `currentCryptoConfig` est null.
+### État final (implémenté)
 
-### Stratégie de mitigation : Eliminer le fallback en garantissant la config au boot
+| Élément | Avant | Après |
+|---------|-------|-------|
+| TTL Gamma | Constantes locales + `resolveGammaCacheTtlOrFallback` + flag | `resolveGammaCacheTtlMs` / `resolveGammaStaleOnErrorFactor` via `CryptoConfig` uniquement |
+| Sans config | Fallback silencieux ou throw (selon flag) | `fetchGammaMarketCached` → `null` + log error (pas de throw dans tick loop) |
+| Re-entry window | Export `RE_ENTRY_WINDOW_MS` + ctor default | Ctor `reEntryWindowMs: number \| null = null` ; `0` = bypass e2e ; prod = config |
+| Feature flag | `StrategyRunner.setDeprecatedFallbacksEnabled` | Flag seed `false` ; **plus lu** par crypto-algo |
+| Boot | `applyRiskTunables` avant `start()` | Inchangé — obligatoire ; log error si absent au `start()` |
 
-**Principe** : au lieu de garder un fallback local "au cas où", garantir que `currentCryptoConfig` est TOUJOURS set avant la première évaluation. Le fallback masque un bug ; l'éliminer force la correction.
+**Tests** : `strategy-runner-config-race.test.ts` — `fetchGammaMarketCached` retourne `null` sans `applyRiskTunables`.
 
-1. **Set `currentCryptoConfig` dans le constructor** au lieu de le laisser null :
-   ```typescript
-   constructor(...) {
-     // ...
-     // Pre-load config synchronously is impossible (async), so:
-     // throw explicit error if used before applyRiskTunables
-   }
-   ```
+### Contexte historique (analyse 2026-08-06, pré-purge)
 
-   Alternative préférée : rendre `currentCryptoConfig` non-nullable et exiger `applyRiskTunables` avant `start()`.
+<details>
+<summary>Analyse initiale — chemins de fallback et séquencement P0→P3</summary>
 
-2. **Dans `index.ts:139`** : `cryptoConfig` est déjà chargé avant `strategyRunner.start()`. Ajouter `strategyRunner.applyRiskTunables(cryptoConfig)` AVANT `strategyRunner.start(resolvePollMs(...))` (ligne 286). Actuellement `applyCryptoAlgoRiskTunables` (ligne 227) le fait déjà. **Vérifier l'ordre** : ligne 227 appelle `applyCryptoAlgoRiskTunables` qui appelle `strategyRunner.applyRiskTunables`. C'est AVANT `strategyRunner.start` (ligne 286). **Donc le boot est déjà safe.**
+- `strategy-runner.ts` — `RE_ENTRY_WINDOW_MS`, `OUTCOME_PRICES_CACHE_TTL_*`, `gammaCacheTtlFallback` : fallbacks actifs si `currentCryptoConfig` null.
+- **Chemin critique** : fenêtre théorique entre constructor et premier `applyRiskTunables` ; en prod le boot appelait déjà `applyCryptoAlgoRiskTunables` avant `start()`.
+- **Mitigation retenue** : P0-D flag + warn → observation → purge 2026-08-07 (plan 1A).
 
-3. **Le vrai risque** : si `cryptoConfigService.getConfig()` throw dans `evaluateSelectionUnlocked:567` (DB error transitoire), le catch (ligne 568) return false — pas de crash. Mais `fetchGammaMarketCached:394` utilise `this.currentCryptoConfig` (qui garde la dernière valeur valide via `applyRiskTunables:326`). **Donc le fallback n'est en réalité jamais atteint en production** car `currentCryptoConfig` persiste la dernière config. Le fallback n'est utile que pour les tests unitaires qui créent un `StrategyRunner` sans appeler `applyRiskTunables`.
-
-4. **Solution** : remplacer `gammaCacheTtlFallback` par un throw explicite :
-   ```typescript
-   private async fetchGammaMarketCached(...): Promise<GammaMarket | null> {
-     const effectiveCfg = cryptoConfig ?? this.currentCryptoConfig;
-     if (!effectiveCfg) {
-       throw new Error('cryptoConfig not loaded — call applyRiskTunables before evaluation');
-     }
-     const ttlMs = resolveGammaCacheTtlMs(effectiveCfg, interval);
-     // ...
-   }
-   ```
-   Pour les tests : passer `cryptoConfig` en paramètre explicite (déjà possible via `fetchGammaMarketCached(conditionId, now, interval, cryptoConfig)`).
-
-5. **Pour `RE_ENTRY_WINDOW_MS`** : le constructor param `reEntryWindowMs: number = RE_ENTRY_WINDOW_MS` est utilisé pour bypass en e2e (`reEntryWindowMs === 0`). Remplacer par `reEntryWindowMs: number | null = null` et traiter `null` comme "use config". `index.ts:216` passe `undefined` → utilise le default. Changer `index.ts` pour passer `0` en e2e et `null` en prod (ou ne rien passer).
-
-### Garde-fous concrets
-
-1. **Test unitaire** : ajouter un test `strategy-runner.test.ts` qui vérifie que `fetchGammaMarketCached` throw si `currentCryptoConfig` est null (au lieu de silently utiliser le fallback). Ce test documente le contrat.
-2. **Test boot** : vérifier que `index.ts` appelle `applyRiskTunables` avant `start()` — grep l'ordre dans le code.
-3. **Logging** : avant de retirer le fallback, ajouter un `log.warn` temporaire si `gammaCacheTtlFallback` est appelé en production. Attendre 1 semaine de logs propres avant suppression.
-4. **Feature flag** : `DEPRECATED_FALLBACKS_ENABLED=1` (default) garde les fallbacks ; `=0` les remplace par des throws. Permet un rollout progressif.
-
-### Plan de rollback
-
-- `DEPRECATED_FALLBACKS_ENABLED=1` réactive les fallbacks.
-- `git revert` restaure les constantes.
-
-### Séquencement
+Séquencement exécuté :
 
 ```
-Étape 1 : Ajouter log.warn temporaire sur les chemins de fallback (1 commit)
-Étape 2 : Vérifier en prod que les warns ne se déclenchent pas (1 semaine)
-Étape 3 : Remplacer fallbacks par throws + feature flag (1 commit)
-Étape 4 : Supprimer constantes deprecated + gammaCacheTtlFallback (1 commit)
+Étape 1 : log.warn sur chemins fallback (P0-D) ✅ 2026-08-06
+Étape 2 : flag `deprecated_fallbacks_enabled` branché ✅
+Étape 3 : purge fallbacks + TTL via CryptoConfig ✅ 2026-08-07
+Étape 4 : seed flag `false`, setter retiré ✅ 2026-08-07
 ```
+
+</details>
 
 ---
 

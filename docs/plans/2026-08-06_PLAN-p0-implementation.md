@@ -1,7 +1,7 @@
 # PLAN P0 — Implémentation des priorités critiques
 
 > **Date de création** : 2026-08-06
-> **Dernière révision** : 2026-08-06 — Phase F complète sur `audit/p0-riskconfig-purge`
+> **Dernière révision** : 2026-08-07 — C9 fallbacks purgés post-P0 (`6d99017`) ; voir resync en tête de §D.2
 > **Périmètre PR P0** : 3 chantiers P0 + filet de tests + feature flags + migration consommateurs RiskConfig (sans suppression legacy)
 > **Hors périmètre PR P0** : Phase F — suppression physique du code legacy RiskConfig (ex-B.4)
 > **Branche** : `audit/p0-implementation` → **mergée** dans `main` via [PR #1](https://github.com/Lucas-dev-974/polywatch/pull/1)
@@ -53,7 +53,7 @@ Entrées seedées dans `packages/core/src/seed/system-config-defaults.ts` et lue
 |-----|---------|----------|----------------------|
 | `feature.risk_config_legacy_facade` | `true` | `feature_flag` | `true` → `RiskService.getConfig()` / `updateConfig()` autorisés. `false` → throw `RiskConfigLegacyFacadeDisabledError` (force getters isolés). Lecture échouée → **fail-open** (`true`). |
 | `feature.risk_config_strict` | `false` | `feature_flag` | Guard compose `assertNoDivergence` : `false` = log-only, `true` = throw. Lecture échouée → **fail-open** (`false` / log-only). Check léger (spread compose) — le vrai gate Strangler est `legacy_facade`. |
-| `feature.deprecated_fallbacks_enabled` | `true` | `feature_flag` | Lu au boot / config-changed dans crypto-algo → `StrategyRunner.setDeprecatedFallbacksEnabled`. `false` → `resolveGammaCacheTtlOrFallback` throw si cryptoConfig absent. Lecture échouée → **fail-open** (`true`). |
+| `feature.deprecated_fallbacks_enabled` | `true` → **`false`** (2026-08-07) | `feature_flag` | **Historique P0-D** : branché via `setDeprecatedFallbacksEnabled`. **Post-2026-08-07** : fallbacks **supprimés** du runtime ; seed `false` (legacy DB only). Voir commit `6d99017` et annexe §R3. |
 
 **Lecture** : `getFeatureFlag(ds, 'risk_config_legacy_facade', true)` (préfixe `feature.` ajouté automatiquement).
 
@@ -123,7 +123,7 @@ main (stable)
 
 - [x] Ajouter `log.warn` dans `resolveGammaCacheTtlOrFallback` (ex-`gammaCacheTtlFallback`) ✅ 2026-08-06
 - [x] Ajouter `log.warn` dans `StrategyRunner.start()` si `currentCryptoConfig` est null ✅ 2026-08-06
-- [x] **Observations** : `deprecated_fallbacks_enabled=false` → throw. Flag refreshé via `applyCryptoAlgoRiskTunables` (boot + config-changed).
+- [x] **Observations** : P0-D livré 2026-08-06. **Suite 2026-08-07** : fallbacks et setter retirés (`6d99017`) — ce plan décrit l'état Phase A–F, pas le runtime actuel pour C9.
 
 #### A.7 — Cartographie exhaustive des consommateurs RiskConfig
 
@@ -271,7 +271,7 @@ main (stable)
 
 #### D.2 — Audit 4.4 : strategy-runner cache Gamma + re-entry
 
-> Note Phase A : Redis re-entry = **fail-closed** (code + test `shouldFailClosedOnReentryRedisLoad`). Fallbacks Gamma TTL gated par `feature.deprecated_fallbacks_enabled`.
+> Note Phase A : Redis re-entry = **fail-closed** (code + test `shouldFailClosedOnReentryRedisLoad`). ~~Fallbacks Gamma TTL gated par `feature.deprecated_fallbacks_enabled`.~~ **2026-08-07** : fallbacks purgés — TTL via `CryptoConfig` uniquement (§R3 annexe).
 
 - [x] Scénario Redis down : confirmé fail-closed en Phase A — re-vérifier après tout changement hot path
 - [x] Scénario WS reconnect : `midHistoryBuffer` est-il invalidé ? Le cache Gamma stale-on-error reste-t-il trop longtemps ?
@@ -384,7 +384,7 @@ main (stable)
 |------|---------|--------------------------------|----------|-----------|
 | `feature.risk_config_legacy_facade` | `true` | Staging Phase F : passer à `false` pour valider que plus aucun hot path n'appelle `getConfig` | `UPDATE … SET value='true'` | ✅ Branché (`RiskService`) |
 | `feature.risk_config_strict` | `false` | 1 semaine post-merge PR P0 sans warn compose → `true` en pré-prod, avant Phase F | `UPDATE … SET value='false'` | ✅ Branché (fail-open si illisible) |
-| `feature.deprecated_fallbacks_enabled` | `true` | Après D.2 (si fallback confirmé inutile) → `false` | `UPDATE … SET value='true'` | ✅ Branché (`StrategyRunner`) |
+| `feature.deprecated_fallbacks_enabled` | `false` (seed) | ~~Après D.2~~ **Purgé 2026-08-07** — plus branché | N/A (revert `6d99017` si rollback code) | ❌ Retiré du runtime |
 
 ### Règle d'or
 

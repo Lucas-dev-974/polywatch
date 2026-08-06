@@ -1,6 +1,8 @@
 # Analyse Crypto-Algo: Gestion des Marchés Court Terme (Up/Down 5min)
 ## Révision après vérification approfondie du code
 
+> **Note historique (resync 2026-08-07)** : snapshot d'analyse (2025-01). Comportement actuel : [`docs/code/07-crypto-algo.md`](../code/07-crypto-algo.md). Constantes TTL locales supprimées — TTL via `CryptoConfig` uniquement.
+
 **Date:** 2025-01-27  
 **Auteur:** PMA (Project Manager Agent)  
 **Scope:** Package `@polywatch/crypto-algo` - Stratégies algorithmiques sur marchés crypto up/down  

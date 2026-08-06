@@ -1,7 +1,5 @@
 export { User } from './User.js';
 export { WatchlistEntry } from './Watchlist.js';
-// TODO: remove after 0088 migration runs — RiskConfig table is being dropped
-export { RiskConfig } from './RiskConfig.js';
 export { ClobCredentials } from './ClobCredentials.js';
 export { IntegrationSettings } from './IntegrationSettings.js';
 export { WalletAccount } from './WalletAccount.js';

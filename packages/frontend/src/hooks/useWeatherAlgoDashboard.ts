@@ -1,5 +1,11 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
-import { api, apiText } from '../api';
+import {
+  api,
+  apiText,
+  fetchGlobalConfig,
+  fetchWeatherConfig,
+  updateGlobalConfig,
+} from '../api';
 import { onGlobalRefresh } from '../socket';
 import { fetchWeatherAlgoCapital, type WeatherAlgoCapital } from '../lib/weather-algo-capital';
 
@@ -91,15 +97,10 @@ export function useWeatherAlgoDashboard() {
 
   async function loadRiskFlags() {
     try {
-      const risk = await api<{
-        realTradingEnabled: boolean;
-        weatherAlgoEnabled: boolean;
-        weatherAlgoSimEnabled: boolean;
-        weatherAlgoRealEnabled: boolean;
-      }>('/risk-config');
-      setRealTradingEnabled(risk.realTradingEnabled);
-      setWeatherAlgoSimEnabled(risk.weatherAlgoSimEnabled);
-      setWeatherAlgoRealEnabled(risk.weatherAlgoRealEnabled);
+      const [global, weather] = await Promise.all([fetchGlobalConfig(), fetchWeatherConfig()]);
+      setRealTradingEnabled(global.realTradingEnabled);
+      setWeatherAlgoSimEnabled(weather.weatherAlgoSimEnabled);
+      setWeatherAlgoRealEnabled(weather.weatherAlgoRealEnabled);
     } catch {
       setRealTradingEnabled(false);
       setWeatherAlgoSimEnabled(true);
@@ -118,10 +119,7 @@ export function useWeatherAlgoDashboard() {
       return;
     }
     try {
-      await api('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify({ realTradingEnabled: next }),
-      });
+      await updateGlobalConfig({ realTradingEnabled: next });
       setRealTradingEnabled(next);
     } catch (err) {
       alert(

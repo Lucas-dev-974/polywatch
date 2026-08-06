@@ -49,11 +49,9 @@ en remontant jusqu'au `package.json` nommé `polywatch`. Partir de
 > **Production** : changer imperativement tous les secrets. Les valeurs par
 > defaut « dev fallback » ne doivent jamais etre utilisees en production.
 
-## 2. Configuration du risque (`RiskConfig`)
+## 2. Configuration isolée (4 tables)
 
-Stockee en base (singleton), modifiable via `PUT /api/risk-config` (UI : page
-Reglages). Voir [`modele-donnees.md`](./modele-donnees.md#riskconfig-risk_config)
-pour la liste complete. Parametres notables et leurs effets :
+Répartie en `global_config`, `copy_config`, `crypto_config`, `weather_config`, modifiable via `GET/PUT /api/config/{global|copy|crypto|weather}` (UI : page Réglages / heroes). Voir [`modele-donnees.md`](./modele-donnees.md) pour le détail des colonnes. Paramètres notables :
 
 | Parametre | Effet |
 |-----------|-------|

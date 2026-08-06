@@ -1,7 +1,7 @@
-import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { GlobalConfig } from '../entities/GlobalConfig.js';
 import type { CopyConfig } from '../entities/CopyConfig.js';
 import type { CryptoConfig } from '../entities/CryptoConfig.js';
+import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import { parseAllowedMarketTags } from '../market/tags.js';
 
 /** Keys of RiskConfig that belong to sim mode settings (single source of truth). */
@@ -118,48 +118,50 @@ export const CRYPTO_ALGO_SNAPSHOT_KEYS = [
 
 export type CryptoAlgoSnapshotKey = (typeof CRYPTO_ALGO_SNAPSHOT_KEYS)[number];
 
-export type SimRiskConfigSnapshot = Omit<
-  Pick<RiskConfig, Exclude<SimRiskConfigKey, 'simAllowedMarketTags'>>,
-  never
-> & {
+type IsolatedSimFields = GlobalConfig & CopyConfig & CryptoConfig;
+
+export type SimRiskConfigSnapshot = {
+  [K in Exclude<SimRiskConfigKey, 'simAllowedMarketTags'>]: K extends keyof IsolatedSimFields
+    ? IsolatedSimFields[K]
+    : never;
+} & {
   simAllowedMarketTags: string[];
-} & Pick<RiskConfig, CryptoAlgoSnapshotKey>;
+} & Pick<CryptoConfig, CryptoAlgoSnapshotKey>;
 
 function mergeCryptoAlgoIntoSnapshot(
   snapshot: Record<string, unknown>,
-  config: RiskConfig,
+  crypto: CryptoConfig,
 ): void {
   for (const key of CRYPTO_ALGO_SNAPSHOT_KEYS) {
-    snapshot[key] = config[key];
+    snapshot[key] = crypto[key];
   }
 }
 
-export function extractSimConfigSnapshot(config: RiskConfig): SimRiskConfigSnapshot {
+function buildSimSnapshotFromParts(
+  global: GlobalConfig,
+  copy: CopyConfig,
+  crypto: CryptoConfig,
+): SimRiskConfigSnapshot {
+  const merged = { ...global, ...copy, ...crypto } as IsolatedSimFields;
   const snapshot = {} as Record<string, unknown>;
   for (const key of SIM_RISK_CONFIG_KEYS) {
     if (key === 'simAllowedMarketTags') continue;
-    snapshot[key] = config[key];
+    snapshot[key] = merged[key as keyof IsolatedSimFields];
   }
-  snapshot.simAllowedMarketTags = parseAllowedMarketTags(config.simAllowedMarketTags);
-  mergeCryptoAlgoIntoSnapshot(snapshot, config);
+  snapshot.simAllowedMarketTags = parseAllowedMarketTags(copy.simAllowedMarketTags);
+  mergeCryptoAlgoIntoSnapshot(snapshot, crypto);
   return snapshot as SimRiskConfigSnapshot;
 }
 
 /**
- * Same JSON shape as {@link extractSimConfigSnapshot} for DB/session compat,
- * built from isolated tables (no RiskConfig entity required).
+ * Same JSON shape as legacy session snapshots, built from isolated tables.
  */
 export function extractSimConfigSnapshotFromIsolated(
   global: GlobalConfig,
   copy: CopyConfig,
   crypto: CryptoConfig,
 ): SimRiskConfigSnapshot {
-  return extractSimConfigSnapshot({
-    ...global,
-    ...copy,
-    ...crypto,
-    id: 0,
-  } as unknown as RiskConfig);
+  return buildSimSnapshotFromParts(global, copy, crypto);
 }
 
 export const REAL_RISK_CONFIG_KEYS = [
@@ -208,53 +210,54 @@ export const REAL_RISK_CONFIG_KEYS = [
 
 export type RealRiskConfigKey = (typeof REAL_RISK_CONFIG_KEYS)[number];
 
-export type RealRiskConfigSnapshot = Omit<
-  Pick<RiskConfig, Exclude<RealRiskConfigKey, 'realAllowedMarketTags'>>,
-  never
-> & {
+export type RealRiskConfigSnapshot = {
+  [K in Exclude<RealRiskConfigKey, 'realAllowedMarketTags'>]: K extends keyof IsolatedSimFields
+    ? IsolatedSimFields[K]
+    : never;
+} & {
   realAllowedMarketTags: string[];
-} & Pick<RiskConfig, CryptoAlgoSnapshotKey>;
+} & Pick<CryptoConfig, CryptoAlgoSnapshotKey>;
 
-export function extractRealConfigSnapshot(config: RiskConfig): RealRiskConfigSnapshot {
+function buildRealSnapshotFromParts(
+  global: GlobalConfig,
+  copy: CopyConfig,
+  crypto: CryptoConfig,
+): RealRiskConfigSnapshot {
+  const merged = { ...global, ...copy, ...crypto } as IsolatedSimFields;
   const snapshot = {} as Record<string, unknown>;
   for (const key of REAL_RISK_CONFIG_KEYS) {
     if (key === 'realAllowedMarketTags') continue;
-    snapshot[key] = config[key];
+    snapshot[key] = merged[key as keyof IsolatedSimFields];
   }
-  snapshot.realAllowedMarketTags = parseAllowedMarketTags(config.realAllowedMarketTags);
-  mergeCryptoAlgoIntoSnapshot(snapshot, config);
+  snapshot.realAllowedMarketTags = parseAllowedMarketTags(copy.realAllowedMarketTags);
+  mergeCryptoAlgoIntoSnapshot(snapshot, crypto);
   return snapshot as RealRiskConfigSnapshot;
 }
 
 /**
- * Same JSON shape as {@link extractRealConfigSnapshot} for DB/session compat,
- * built from isolated tables (no RiskConfig entity required).
+ * Same JSON shape as legacy session snapshots, built from isolated tables.
  */
 export function extractRealConfigSnapshotFromIsolated(
   global: GlobalConfig,
   copy: CopyConfig,
   crypto: CryptoConfig,
 ): RealRiskConfigSnapshot {
-  return extractRealConfigSnapshot({
-    ...global,
-    ...copy,
-    ...crypto,
-    id: 0,
-  } as unknown as RiskConfig);
+  return buildRealSnapshotFromParts(global, copy, crypto);
 }
 
 /** Isolated-table key union for session rotation (no RiskConfig entity). */
 export type IsolatedSessionRotationKey =
   | keyof GlobalConfig
   | keyof CopyConfig
-  | keyof CryptoConfig;
+  | keyof CryptoConfig
+  | keyof WeatherConfig;
 
 /**
  * Subset of sim config keys that trigger a session rotation when changed.
  * Excludes meta/ops keys (auto-snapshot, retention, shadow logging, etc.)
  * that should only re-stamp the session config in-place without wiping.
  */
-export const SIM_SESSION_ROTATION_KEYS: readonly (keyof RiskConfig)[] = [
+export const SIM_SESSION_ROTATION_KEYS: readonly IsolatedSessionRotationKey[] = [
   'simSizingMode',
   'simCopyRatio',
   'simEntryUsdcAmount',
@@ -355,7 +358,7 @@ export const SIM_SESSION_ROTATION_KEYS: readonly (keyof RiskConfig)[] = [
  * Subset of real config keys that trigger a session rotation when changed.
  * Excludes meta/ops keys (auto-snapshot, retention, cash override).
  */
-export const REAL_SESSION_ROTATION_KEYS: readonly (keyof RiskConfig)[] = [
+export const REAL_SESSION_ROTATION_KEYS: readonly IsolatedSessionRotationKey[] = [
   'realSizingMode',
   'realCopyRatio',
   'realEntryUsdcAmount',
@@ -443,36 +446,11 @@ export const REAL_SESSION_ROTATION_KEYS: readonly (keyof RiskConfig)[] = [
   'cryptoAlgoEntryShareCount',
 ];
 
-/**
- * Pick a subset of keys from a RiskConfig object, returning a stable JSON
- * string for comparison. Used to detect whether rotation-relevant keys changed.
- */
-export function pickRotationKeys(
-  config: RiskConfig,
-  keys: readonly (keyof RiskConfig)[],
-): string {
-  const picked: Record<string, unknown> = {};
-  for (const key of keys) {
-    picked[key as string] = config[key];
-  }
-  return JSON.stringify(picked, Object.keys(picked).sort());
-}
+/** Rotation-relevant keys typed for isolated configs. */
+export const SIM_SESSION_ROTATION_KEYS_ISOLATED = SIM_SESSION_ROTATION_KEYS;
 
-export function realRotationChanged(
-  before: RiskConfig,
-  after: RiskConfig,
-): boolean {
-  return pickRotationKeys(before, REAL_SESSION_ROTATION_KEYS) !==
-    pickRotationKeys(after, REAL_SESSION_ROTATION_KEYS);
-}
-
-/** Same keys as {@link SIM_SESSION_ROTATION_KEYS}, typed for isolated configs. */
-export const SIM_SESSION_ROTATION_KEYS_ISOLATED =
-  SIM_SESSION_ROTATION_KEYS as unknown as readonly IsolatedSessionRotationKey[];
-
-/** Same keys as {@link REAL_SESSION_ROTATION_KEYS}, typed for isolated configs. */
-export const REAL_SESSION_ROTATION_KEYS_ISOLATED =
-  REAL_SESSION_ROTATION_KEYS as unknown as readonly IsolatedSessionRotationKey[];
+/** Rotation-relevant keys typed for isolated configs. */
+export const REAL_SESSION_ROTATION_KEYS_ISOLATED = REAL_SESSION_ROTATION_KEYS;
 
 /**
  * Pick rotation-relevant keys from isolated configs (stable JSON for comparison).

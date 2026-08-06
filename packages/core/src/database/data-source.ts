@@ -18,7 +18,6 @@ import {
   MarketSyncConfig,
   MoveEventEntity,
   PositionReservation,
-  RiskConfig,
   SimulationBalance,
   SimulationSession,
   SimulationStateSnapshot,
@@ -218,7 +217,6 @@ export const migrations = [
 export const entities = [
   User,
   WatchlistEntry,
-  RiskConfig,
   ClobCredentials,
   IntegrationSettings,
   WalletAccount,

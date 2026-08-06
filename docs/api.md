@@ -47,13 +47,17 @@ Montées sous `/api` (`createConfigRouter`).
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/risk-config` | Configuration de risque courante (inclut `simAllowedMarketTags` / `realAllowedMarketTags` : `string[]` de slugs Gamma, et `cryptoAlgoConfigFingerprint` pour la garde apply des rapports algo) |
-| PUT | `/api/risk-config` | Met à jour la configuration de risque ; accepte en plus `expectedCryptoAlgoConfigFingerprint` (409 si mismatch) et `revisionSource` (`api` \| `report_apply` \| `system`) ; append une ligne `risk_config_revisions` |
+| GET | `/api/config/global` | Config globale (`global_config`) — trading réel, slippage, auto-snapshot, exécution sim |
+| PUT | `/api/config/global` | Met à jour la config globale ; append `risk_config_revisions` (kind `global`) |
+| GET | `/api/config/copy` | Config copy-trading (`copy_config`) |
+| PUT | `/api/config/copy` | Met à jour la config copy ; append révision (kind `copy`) |
+| GET | `/api/config/crypto` | Config crypto-algo (`crypto_config`) — inclut `cryptoAlgoConfigFingerprint` pour la garde apply des rapports algo |
+| PUT | `/api/config/crypto` | Met à jour la config crypto ; accepte `expectedCryptoAlgoConfigFingerprint` (409 si mismatch) et `revisionSource` |
 | GET | `/api/config/weather` | Config weather-algo (`weather_config`) |
 | PUT | `/api/config/weather` | Met à jour la config weather-algo |
 | GET | `/api/market-tags` | Catalogue des types de marché pour le picker UI : `nav` (catégories principales) + `tags` (recherche optionnelle `?search=`) + `cryptoTags` (tags crypto-algo) |
 | GET | `/api/simulation-balance` | Solde pUSD simulé pour un périmètre — query **`algoKind`** (`crypto` \| `weather` \| `copy`, défaut `crypto`) |
-| POST | `/api/simulation-balance/reset` | Réinitialise **un** périmètre sim : body `{ algoKind: 'crypto'\|'weather'\|'copy', amount?, archive?: true, deepClean?: false, newSessionLabel? }` — **`algoKind` requis** ; lock Redis `sim:reset:lock:${algoKind}` (SET NX PX 10 s) ; snapshot `reset` + archivage session **du kind** (défaut), purge marché **scopée** aux conditions du kind, wipe positions/exécutions/réservations **du kind**, persist `amount` dans `risk_config.simInitialCapital{Crypto\|Weather\|Copy}`, purge Redis **scopée** (queues d'entrée du kind + close/results matchés par position/signal IDs ou raisons `ALGO_`/`COPY_`/`WEATHER_`), rotation session du kind, pub/sub `simulation-reset` avec `algoKind` ; réponse : `archiveSummary`, `redisPurge`, `warnings[]` |
+| POST | `/api/simulation-balance/reset` | Réinitialise **un** périmètre sim : body `{ algoKind: 'crypto'\|'weather'\|'copy', amount?, archive?: true, deepClean?: false, newSessionLabel? }` — **`algoKind` requis** ; lock Redis `sim:reset:lock:${algoKind}` (SET NX PX 10 s) ; snapshot `reset` + archivage session **du kind** (défaut), purge marché **scopée** aux conditions du kind, wipe positions/exécutions/réservations **du kind**, persist `amount` dans `simInitialCapital{Crypto\|Weather\|Copy}` (table isolée du kind), purge Redis **scopée** (queues d'entrée du kind + close/results matchés par position/signal IDs ou raisons `ALGO_`/`COPY_`/`WEATHER_`), rotation session du kind, pub/sub `simulation-reset` avec `algoKind` ; réponse : `archiveSummary`, `redisPurge`, `warnings[]` |
 | GET | `/api/simulation-snapshots` | Liste des snapshots — query **`algoKind` requis** + pagination / filtres (`source`, `sessionId`, `label`, `from`, `to`) |
 | POST | `/api/simulation-snapshots` | Crée un snapshot manuel `{ algoKind: 'crypto'\|'weather'\|'copy', label?: string }` — **`algoKind` requis** |
 | GET | `/api/simulation-snapshots/:id` | Détail d'un snapshot |

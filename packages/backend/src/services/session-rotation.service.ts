@@ -1,4 +1,4 @@
-import type { DataSource, EntityManager } from 'typeorm';
+import type { DataSource } from 'typeorm';
 import { In } from 'typeorm';
 import {
   RiskService,
@@ -10,9 +10,7 @@ import {
   RealSessionService,
   RealPortfolioService,
   RealPeriodArchiveService,
-  realRotationChanged,
   realRotationChangedFromIsolated,
-  resolveSimRotationTargets,
   resolveSimRotationTargetsFromConfigs,
   collectSimRedisPurgeHints,
   purgeSimExecutionRedisState,
@@ -28,34 +26,18 @@ import {
   type CryptoConfig,
   type WeatherConfig,
 } from '@polywatch/core';
-import type { RiskConfig } from '@polywatch/core';
 import { fetchObservedWalletCash } from '../polymarket/observed-wallet-cash.js';
 import { getRedis } from '../redis.js';
 import { emitSimulationReset, emitRealPeriodRotated } from '../websocket.js';
 import { broadcastSimSnapshot } from '../notify/simulation.js';
 import { recordSnapshotCreated, recordSnapshotCount } from '../metrics.js';
 
-type IsolatedConfigBundle = {
+export type IsolatedConfigBundle = {
   global: GlobalConfig;
   copy: CopyConfig;
   crypto: CryptoConfig;
   weather: WeatherConfig;
 };
-
-function isIsolatedConfigBundle(
-  cfg: RiskConfig | IsolatedConfigBundle,
-): cfg is IsolatedConfigBundle {
-  return (
-    typeof cfg === 'object' &&
-    cfg !== null &&
-    'global' in cfg &&
-    'copy' in cfg &&
-    'crypto' in cfg &&
-    'weather' in cfg &&
-    typeof (cfg as IsolatedConfigBundle).global === 'object' &&
-    (cfg as IsolatedConfigBundle).global !== null
-  );
-}
 
 export interface SimRotationResult {
   closedId: number | null;
@@ -73,7 +55,6 @@ export interface RotationResult {
 }
 
 export class SessionRotationService {
-  private riskService: RiskService;
   private simArchiveService: SimulationArchiveService;
   private simSessionService: SimulationSessionService;
   private simService: SimulationService;
@@ -84,7 +65,6 @@ export class SessionRotationService {
   private realPeriodArchiveService: RealPeriodArchiveService;
 
   constructor(private readonly ds: DataSource) {
-    this.riskService = new RiskService(ds);
     this.simArchiveService = new SimulationArchiveService(ds);
     this.simSessionService = new SimulationSessionService(ds);
     this.simService = new SimulationService(ds);
@@ -96,59 +76,36 @@ export class SessionRotationService {
   }
 
   async rotateOnConfigChange(
-    before: RiskConfig | { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
-    after: RiskConfig | { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
+    before: IsolatedConfigBundle,
+    after: IsolatedConfigBundle,
   ): Promise<RotationResult> {
-    const beforeRisk = this.asRiskConfig(before);
-    const afterRisk = this.asRiskConfig(after);
-
     const result: RotationResult = {};
 
-    const beforeIsolated = isIsolatedConfigBundle(before) ? before : null;
-    const afterIsolated = isIsolatedConfigBundle(after) ? after : null;
-
-    const simTargets =
-      beforeIsolated && afterIsolated
-        ? resolveSimRotationTargetsFromConfigs(beforeIsolated, afterIsolated)
-        : resolveSimRotationTargets(beforeRisk, afterRisk);
+    const simTargets = resolveSimRotationTargetsFromConfigs(before, after);
 
     if (simTargets.length > 0) {
-      result.sim = await this.performSimHardRotate(afterRisk, simTargets);
+      result.sim = await this.performSimHardRotate(after, simTargets);
     }
 
-    if (
-      beforeIsolated && afterIsolated
-        ? realRotationChangedFromIsolated(beforeIsolated, afterIsolated)
-        : realRotationChanged(beforeRisk, afterRisk)
-    ) {
-      result.real = await this.performRealSoftRotate(afterRisk);
+    if (realRotationChangedFromIsolated(before, after)) {
+      result.real = await this.performRealSoftRotate();
     }
 
     return result;
   }
 
-  private asRiskConfig(
-    cfg: RiskConfig | { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
-  ): RiskConfig {
-    if (isIsolatedConfigBundle(cfg)) {
-      const { global, copy, crypto, weather } = cfg;
-      return {
-        ...global,
-        ...copy,
-        ...crypto,
-        ...weather,
-        id: 0,
-      } as unknown as RiskConfig;
-    }
-    return cfg;
-  }
-
   private async performSimHardRotate(
-    after: RiskConfig,
+    after: IsolatedConfigBundle,
     targets: SimAlgoKind[],
   ): Promise<SimRotationResult | null> {
     let lastClosedId: number | null = null;
     let lastOpenedId: number | null = null;
+
+    const capitalSource = {
+      simInitialCapitalCrypto: after.crypto.simInitialCapitalCrypto,
+      simInitialCapitalWeather: after.weather.simInitialCapitalWeather,
+      simInitialCapitalCopy: after.copy.simInitialCapitalCopy,
+    };
 
     for (const algoKind of targets) {
       const activeSession = await this.simSessionService.getActiveSession(algoKind);
@@ -166,7 +123,7 @@ export class SessionRotationService {
       }
 
       const beforeSnap = await this.simService.getSnapshot(algoKind);
-      const amount = getSimInitialCapital(after, algoKind);
+      const amount = getSimInitialCapital(capitalSource, algoKind);
 
       const closeSnapshot = await this.simArchiveService.createSnapshot({
         algoKind,
@@ -245,9 +202,7 @@ export class SessionRotationService {
     return { closedId: lastClosedId, openedId: lastOpenedId };
   }
 
-  private async performRealSoftRotate(
-    after: RiskConfig,
-  ): Promise<RealRotationResult | null> {
+  private async performRealSoftRotate(): Promise<RealRotationResult | null> {
     const activeSession = await this.realSessionService.getActiveSession();
     if (!activeSession) {
       const opened = await this.ds.transaction(async (manager) => {

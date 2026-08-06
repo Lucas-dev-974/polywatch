@@ -1,50 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import type { RiskConfig } from '../entities/RiskConfig.js';
+import type { CopyConfig } from '../entities/CopyConfig.js';
 import {
-  getModeAllowedMarketTags,
+  getCopyAllowedMarketTags,
+  getCopyMinBidToAskRatio,
+  getCopyMomentumFilterEnabled,
   isEntryBidAskRatioAcceptable,
-  isMarketTagAllowedForMode,
-  getModeMinBidToAskRatio,
-  getModeMomentumFilterEnabled,
   evaluateMomentumEntry,
   evaluateSlTpTrailing,
   isTrailingArmed,
   isExitLegEnabled,
   resolveCopyEntryExitParams,
 } from './policy.js';
+import { isMarketTagAllowed } from '../market/tags.js';
 
-function risk(overrides: Partial<RiskConfig> = {}): RiskConfig {
+function copyConfig(overrides: Partial<CopyConfig> = {}): CopyConfig {
   return {
     simAllowedMarketTags: '["sports"]',
     realAllowedMarketTags: '["crypto"]',
+    simMinBidToAskRatio: 0.9,
+    realMinBidToAskRatio: 0.9,
+    simMomentumFilterEnabled: false,
+    realMomentumFilterEnabled: false,
     ...overrides,
-  } as RiskConfig;
+  } as CopyConfig;
 }
 
 describe('market tag policy', () => {
   it('parses per-mode allowed tag whitelists', () => {
-    expect(getModeAllowedMarketTags(risk(), 'sim')).toEqual(['sports']);
-    expect(getModeAllowedMarketTags(risk(), 'real')).toEqual(['crypto']);
+    expect(getCopyAllowedMarketTags(copyConfig(), 'sim')).toEqual(['sports']);
+    expect(getCopyAllowedMarketTags(copyConfig(), 'real')).toEqual(['crypto']);
   });
 
   it('allows all markets when whitelist is empty', () => {
-    const cfg = risk({
-      simAllowedMarketTags: '[]',
-    });
-    expect(isMarketTagAllowedForMode(['politics'], cfg, 'sim')).toBe(true);
+    const cfg = copyConfig({ simAllowedMarketTags: '[]' });
+    expect(isMarketTagAllowed(['politics'], getCopyAllowedMarketTags(cfg, 'sim'))).toBe(true);
   });
 
   it('blocks entries when no tag matches the whitelist', () => {
-    expect(isMarketTagAllowedForMode(['politics'], risk(), 'sim')).toBe(false);
-    expect(isMarketTagAllowedForMode(['nba', 'sports'], risk(), 'sim')).toBe(
-      true,
-    );
+    const cfg = copyConfig();
+    expect(isMarketTagAllowed(['politics'], getCopyAllowedMarketTags(cfg, 'sim'))).toBe(false);
+    expect(isMarketTagAllowed(['nba', 'sports'], getCopyAllowedMarketTags(cfg, 'sim'))).toBe(true);
   });
 
   it('applies sim and real whitelists independently', () => {
-    const cfg = risk();
-    expect(isMarketTagAllowedForMode(['crypto'], cfg, 'sim')).toBe(false);
-    expect(isMarketTagAllowedForMode(['crypto'], cfg, 'real')).toBe(true);
+    const cfg = copyConfig();
+    expect(isMarketTagAllowed(['crypto'], getCopyAllowedMarketTags(cfg, 'sim'))).toBe(false);
+    expect(isMarketTagAllowed(['crypto'], getCopyAllowedMarketTags(cfg, 'real'))).toBe(true);
   });
 });
 
@@ -63,13 +64,13 @@ describe('entry bid/ask ratio gate', () => {
     expect(isEntryBidAskRatioAcceptable(0.01, 0.99, 0)).toBe(true);
   });
 
-  it('reads per-mode minimum ratio from risk config', () => {
-    const cfg = {
+  it('reads per-mode minimum ratio from copy config', () => {
+    const cfg = copyConfig({
       simMinBidToAskRatio: 0.85,
       realMinBidToAskRatio: 0.75,
-    } as RiskConfig;
-    expect(getModeMinBidToAskRatio(cfg, 'sim')).toBe(0.85);
-    expect(getModeMinBidToAskRatio(cfg, 'real')).toBe(0.75);
+    });
+    expect(getCopyMinBidToAskRatio(cfg, 'sim')).toBe(0.85);
+    expect(getCopyMinBidToAskRatio(cfg, 'real')).toBe(0.75);
   });
 });
 
@@ -97,13 +98,13 @@ describe('evaluateMomentumEntry', () => {
     expect(evaluateMomentumEntry(0, 0.5, true)).toBe('skip_no_avg');
   });
 
-  it('reads per-mode enablement from risk config', () => {
-    const cfg = {
+  it('reads per-mode enablement from copy config', () => {
+    const cfg = copyConfig({
       simMomentumFilterEnabled: true,
       realMomentumFilterEnabled: false,
-    } as RiskConfig;
-    expect(getModeMomentumFilterEnabled(cfg, 'sim')).toBe(true);
-    expect(getModeMomentumFilterEnabled(cfg, 'real')).toBe(false);
+    });
+    expect(getCopyMomentumFilterEnabled(cfg, 'sim')).toBe(true);
+    expect(getCopyMomentumFilterEnabled(cfg, 'real')).toBe(false);
   });
 });
 
@@ -423,8 +424,8 @@ describe('isExitLegEnabled', () => {
 });
 
 describe('resolveCopyEntryExitParams', () => {
-  function exitRisk(overrides: Partial<RiskConfig> = {}): RiskConfig {
-    return {
+  function exitCopy(overrides: Partial<CopyConfig> = {}): CopyConfig {
+    return copyConfig({
       simSlEnabled: true,
       simTpEnabled: true,
       simSlBidPoints: 0.1,
@@ -440,19 +441,19 @@ describe('resolveCopyEntryExitParams', () => {
       realTrailingBidPoints: 0.05,
       realTrailingActivationBidPoints: 0.06,
       ...overrides,
-    } as RiskConfig;
+    });
   }
 
   it('enables SL and TP independently', () => {
     expect(
       resolveCopyEntryExitParams(
-        exitRisk({ simSlEnabled: false, simTpEnabled: true }),
+        exitCopy({ simSlEnabled: false, simTpEnabled: true }),
         'sim',
       ),
     ).toMatchObject({ slBidPoints: null, tpBidPoints: 0.12 });
     expect(
       resolveCopyEntryExitParams(
-        exitRisk({ simSlEnabled: true, simTpEnabled: false }),
+        exitCopy({ simSlEnabled: true, simTpEnabled: false }),
         'sim',
       ),
     ).toMatchObject({ slBidPoints: 0.1, tpBidPoints: null });
@@ -461,7 +462,7 @@ describe('resolveCopyEntryExitParams', () => {
   it('keeps trailing independent from SL/TP toggles', () => {
     expect(
       resolveCopyEntryExitParams(
-        exitRisk({
+        exitCopy({
           simSlEnabled: false,
           simTpEnabled: false,
           simTrailingEnabled: true,

@@ -96,8 +96,14 @@ Fichiers lus et analysés :
 
 | Route | Doc | Code | Statut |
 |---|---|---|---|
-| `GET /api/risk-config` | api.md:46 | config.ts:176 | ✅ |
-| `PUT /api/risk-config` | api.md:47 | config.ts:180 | ✅ |
+| `GET /api/config/global` | api.md | config-per-kind.ts | ✅ |
+| `PUT /api/config/global` | api.md | config-per-kind.ts | ✅ |
+| `GET /api/config/copy` | api.md | config-per-kind.ts | ✅ |
+| `PUT /api/config/copy` | api.md | config-per-kind.ts | ✅ |
+| `GET /api/config/crypto` | api.md | config-per-kind.ts | ✅ |
+| `PUT /api/config/crypto` | api.md | config-per-kind.ts | ✅ |
+| ~~`GET /api/risk-config`~~ | — | **removed Phase F** | — |
+| ~~`PUT /api/risk-config`~~ | — | **removed Phase F** | — |
 | `GET /api/market-tags` | api.md:48 | market-tags.ts:23 | ✅ |
 | `GET /api/simulation-balance` | api.md:49 | simulation.ts:245 | ✅ |
 | `POST /api/simulation-balance/reset` | api.md:50 | simulation.ts:249 | ✅ |

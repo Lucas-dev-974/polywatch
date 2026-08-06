@@ -5,14 +5,19 @@ import {
   isMarketRedeemable,
   marketLifecycleFromGamma,
 } from '../market/lifecycle.js';
-import { getMaxPreCloseSeconds } from '../risk/policy.js';
+import {
+  getMaxPreCloseSeconds,
+  type PreCloseCheckSource,
+} from '../risk/policy.js';
 import { CopiedPositionService } from './copied-position.service.js';
 import {
   MarketService,
   shouldPollMarketForLifecycle,
 } from './market.service.js';
 import { MarketPriceHistorySyncService } from './market-price-history-sync.service.js';
-import { RiskService } from './risk.service.js';
+import { CopyConfigService } from './copy-config.service.js';
+import { CryptoConfigService } from './crypto-config.service.js';
+import { WeatherConfigService } from './weather-config.service.js';
 
 export interface PendingResolutionMark {
   copiedPositionId: number;
@@ -36,14 +41,50 @@ function groupPositionsByCondition(
 export class MarketResolutionService {
   private positionService: CopiedPositionService;
   private marketService: MarketService;
-  private riskService: RiskService;
+  private copyConfigService: CopyConfigService;
+  private cryptoConfigService: CryptoConfigService;
+  private weatherConfigService: WeatherConfigService;
   private syncService: MarketPriceHistorySyncService;
 
   constructor(private readonly ds: DataSource) {
     this.positionService = new CopiedPositionService(ds);
     this.marketService = new MarketService(ds);
-    this.riskService = new RiskService(ds);
+    this.copyConfigService = new CopyConfigService(ds);
+    this.cryptoConfigService = new CryptoConfigService(ds);
+    this.weatherConfigService = new WeatherConfigService(ds);
     this.syncService = new MarketPriceHistorySyncService(ds);
+  }
+
+  private async loadPreCloseSource(): Promise<PreCloseCheckSource> {
+    const [copy, crypto, weather] = await Promise.all([
+      this.copyConfigService.getConfig(),
+      this.cryptoConfigService.getConfig(),
+      this.weatherConfigService.getConfig(),
+    ]);
+    return {
+      simPreCloseEnabled:
+        copy.simPreCloseEnabled ||
+        crypto.cryptoAlgoPreCloseEnabled === true ||
+        weather.weatherAlgoPreCloseEnabled,
+      realPreCloseEnabled:
+        copy.realPreCloseEnabled ||
+        crypto.cryptoAlgoPreCloseEnabled === true ||
+        weather.weatherAlgoPreCloseEnabled,
+      simPreCloseSeconds: Math.max(
+        copy.simPreCloseEnabled ? copy.simPreCloseSeconds ?? 0 : 0,
+        weather.weatherAlgoPreCloseEnabled
+          ? weather.weatherAlgoPreCloseSeconds ?? 0
+          : 0,
+      ),
+      realPreCloseSeconds: Math.max(
+        copy.realPreCloseEnabled ? copy.realPreCloseSeconds ?? 0 : 0,
+        weather.weatherAlgoPreCloseEnabled
+          ? weather.weatherAlgoPreCloseSeconds ?? 0
+          : 0,
+      ),
+      cryptoAlgoPreCloseEnabled: crypto.cryptoAlgoPreCloseEnabled,
+      cryptoAlgoPreCloseSeconds: crypto.cryptoAlgoPreCloseSeconds,
+    };
   }
 
   async processResolvablePositions(): Promise<PendingResolutionMark[]> {
@@ -54,8 +95,8 @@ export class MarketResolutionService {
     const stored = await this.marketService.loadByConditionIds([
       ...byCondition.keys(),
     ]);
-    const risk = await this.riskService.getConfig();
-    const preCloseSeconds = getMaxPreCloseSeconds(risk);
+    const preCloseSource = await this.loadPreCloseSource();
+    const preCloseSeconds = getMaxPreCloseSeconds(preCloseSource);
     const marked: PendingResolutionMark[] = [];
 
     for (const [conditionId, posList] of byCondition) {

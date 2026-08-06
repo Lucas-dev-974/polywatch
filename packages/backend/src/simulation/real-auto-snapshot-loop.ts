@@ -2,8 +2,8 @@ import pino from 'pino';
 import type { DataSource } from 'typeorm';
 import {
   MIN_AUTO_SNAPSHOT_INTERVAL_SECONDS,
+  GlobalConfigService,
   RealArchiveService,
-  RiskService,
 } from '@polywatch/core';
 import { fetchObservedWalletCash } from '../polymarket/observed-wallet-cash.js';
 import { emitRealSnapshotCreated } from '../websocket.js';
@@ -50,11 +50,11 @@ export function startRealAutoSnapshotLoop(ds: DataSource): void {
   stopRealAutoSnapshotLoop();
 
   const archiveService = new RealArchiveService(ds);
-  const riskService = new RiskService(ds);
+  const globalConfigService = new GlobalConfigService(ds);
   const state = getLoopState();
 
   state.intervalHandle = setInterval(() => {
-    void runAutoSnapshotTick(ds, archiveService, riskService, state);
+    void runAutoSnapshotTick(ds, archiveService, globalConfigService, state);
   }, TICK_MS);
 
   log.info({ tickMs: TICK_MS }, 'real auto-snapshot loop started');
@@ -63,15 +63,15 @@ export function startRealAutoSnapshotLoop(ds: DataSource): void {
 async function runAutoSnapshotTick(
   ds: DataSource,
   archiveService: RealArchiveService,
-  riskService: RiskService,
+  globalConfigService: GlobalConfigService,
   state: LoopState,
 ): Promise<void> {
   if (state.tickRunning) return;
   state.tickRunning = true;
 
   try {
-    const risk = await riskService.getConfig();
-    if (!risk.realAutoSnapshotEnabled) return;
+    const global = await globalConfigService.getConfig();
+    if (!global.realAutoSnapshotEnabled) return;
 
     const observedCash = await fetchObservedWalletCash(ds);
     if (observedCash == null) {
@@ -80,7 +80,7 @@ async function runAutoSnapshotTick(
     }
 
     const summary = await archiveService.createAutoSnapshotIfDue({
-      intervalSec: risk.realAutoSnapshotIntervalSeconds,
+      intervalSec: global.realAutoSnapshotIntervalSeconds,
       minIntervalSec: MIN_AUTO_SNAPSHOT_INTERVAL_SECONDS,
       observedCash,
     });
@@ -89,15 +89,15 @@ async function runAutoSnapshotTick(
       recordSnapshotCreated('auto', 'real');
       recordSnapshotCount(await archiveService.countSnapshots(), 'real');
       log.info(
-        { snapshotId: summary.id, intervalSec: risk.realAutoSnapshotIntervalSeconds },
+        { snapshotId: summary.id, intervalSec: global.realAutoSnapshotIntervalSeconds },
         'automatic real snapshot created',
       );
     }
 
-    if (risk.realSnapshotMaxCount != null || risk.realSnapshotRetentionDays != null) {
+    if (global.realSnapshotMaxCount != null || global.realSnapshotRetentionDays != null) {
       const pruned = await archiveService.pruneSnapshots({
-        maxCount: risk.realSnapshotMaxCount,
-        retentionDays: risk.realSnapshotRetentionDays,
+        maxCount: global.realSnapshotMaxCount,
+        retentionDays: global.realSnapshotRetentionDays,
       });
       if (pruned > 0) {
         log.info({ pruned }, 'old real snapshots pruned by retention policy');

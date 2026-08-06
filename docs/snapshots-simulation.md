@@ -342,7 +342,7 @@ Boucle `startSimAutoSnapshotLoop()` (`packages/backend/src/simulation/auto-snaps
 
 Configuration dans l'UI : dialog **Configurer** (onglet Snapshots) ou champs
 `simAutoSnapshotEnabled` / `simAutoSnapshotIntervalSeconds` / `simAutoSnapshotEmptySession`
-/ `simSnapshotDecisionWindowHours` via `PUT /api/risk-config`.
+/ `simSnapshotDecisionWindowHours` via `PUT /api/config/global`.
 
 Valeurs par défaut en base : auto désactivé, intervalle 3600 s (1 h), fenêtre décision 24 h.
 

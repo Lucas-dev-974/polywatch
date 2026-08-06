@@ -3,7 +3,7 @@ const API_BASE = '/api';
 /** Cache client pour réduire les doublons de requêtes GET rapprochées.
  * TTL différencié par type de données :
  * - 5s pour les données très dynamiques (positions, balance)
- * - 15s pour les données modérément dynamiques (risk-config, leaderboard)
+ * - 15s pour les données modérément dynamiques (config, leaderboard)
  * - 30s pour les quasi-statiques (watchlist, market-tags, credentials, wallet)
  */
 const CACHE_TTL_DYNAMIC = 5_000;
@@ -48,7 +48,6 @@ function getCacheTtl(path: string): number {
     path.startsWith('/config/copy') ||
     path.startsWith('/config/crypto') ||
     path.startsWith('/config/weather') ||
-    path.startsWith('/risk-config') ||
     path.startsWith('/leaderboard')
   ) {
     return CACHE_TTL_MODERATE;
@@ -218,14 +217,12 @@ async function handleApiResponse<T>(
       path.startsWith('/config/global') ||
       path.startsWith('/config/copy') ||
       path.startsWith('/config/crypto') ||
-      path.startsWith('/config/weather') ||
-      path.startsWith('/risk-config')
+      path.startsWith('/config/weather')
     ) {
       invalidateCache('/config/global');
       invalidateCache('/config/copy');
       invalidateCache('/config/crypto');
       invalidateCache('/config/weather');
-      invalidateCache('/risk-config');
       invalidateCache('/algo/optimize-report');
       invalidateCache('/reports');
     } else if (path.startsWith('/reports')) {
@@ -241,7 +238,6 @@ async function handleApiResponse<T>(
       invalidateCache('/config/copy');
       invalidateCache('/config/crypto');
       invalidateCache('/config/weather');
-      invalidateCache('/risk-config');
     } else if (path.startsWith('/simulation-snapshots')) {
       invalidateCache('/simulation-snapshots');
     } else if (path.startsWith('/real-snapshots')) {
@@ -691,13 +687,11 @@ export async function updateEnvSettings(
     }
   }
 
-  const promises: Promise<unknown>[] = [];
-  if (Object.keys(globalPatch).length > 0) promises.push(updateGlobalConfig(globalPatch));
-  if (Object.keys(copyPatch).length > 0) promises.push(updateCopyConfig(copyPatch));
-  if (Object.keys(cryptoPatch).length > 0) promises.push(updateCryptoConfig(cryptoPatch));
-  if (Object.keys(weatherPatch).length > 0) promises.push(updateWeatherConfig(weatherPatch));
+  if (Object.keys(globalPatch).length > 0) await updateGlobalConfig(globalPatch);
+  if (Object.keys(copyPatch).length > 0) await updateCopyConfig(copyPatch);
+  if (Object.keys(cryptoPatch).length > 0) await updateCryptoConfig(cryptoPatch);
+  if (Object.keys(weatherPatch).length > 0) await updateWeatherConfig(weatherPatch);
 
-  await Promise.all(promises);
   return fetchEnvSettings();
 }
 

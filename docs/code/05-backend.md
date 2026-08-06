@@ -29,7 +29,7 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 |---|---|---|
 | POST | `/api/auth/login` | bcrypt → access + refresh tokens |
 | POST | `/api/auth/refresh` | Renouvellement des tokens (rotation single-use via `jti` Redis) |
-| GET/PUT | `/api/risk-config` | Lecture / mise à jour de la config risque (`simAllowedMarketTags` / `realAllowedMarketTags` sérialisés en `string[]`) |
+| GET/PUT | `/api/config/{global,copy,crypto,weather}` | Lecture / mise à jour par table isolée (`simAllowedMarketTags` / `realAllowedMarketTags` sur `copy`) |
 | GET | `/api/market-tags` | Tags marché pour l'UI (`nav` + `tags` avec `?search=`, proxy Gamma) |
 | GET | `/api/simulation-balance` | Snapshot simulation (cash + equity) — query **`algoKind`** (défaut `crypto`) |
 | POST | `/api/simulation-balance/reset` | Reset **d'un** périmètre (`algoKind` requis dans le body). Archive / wipe / purge Redis **scopés** au kind. **Lock Redis `sim:reset:lock:${algoKind}`** (SET NX PX 10 s) → 409 si déjà en cours, 503 si Redis injoignable. Side-effects post-commit isolés ; réponse : `archiveSummary`, `redisPurge`, `warnings`. |

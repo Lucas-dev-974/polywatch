@@ -1,9 +1,11 @@
 import { createMemo, createResource, createSignal, onCleanup, onMount } from 'solid-js';
-import { api } from '../api';
 import {
-  fetchAlgoCapital,
-  updateRealTradingEnabled,
-} from '../lib/algo-capital';
+  api,
+  fetchCryptoConfig,
+  fetchGlobalConfig,
+  updateGlobalConfig,
+} from '../api';
+import { fetchAlgoCapital } from '../lib/algo-capital';
 import { deriveCryptoAlgoHealthAlerts } from '../lib/crypto-algo-health';
 import {
   filterActiveFutureMarkets,
@@ -70,12 +72,9 @@ export function useCryptoAlgoDashboard(options: UseCryptoAlgoDashboardOptions = 
 
   async function loadRiskFlags() {
     try {
-      const risk = await api<{
-        realTradingEnabled: boolean;
-        cryptoAlgoEnabled: boolean;
-      }>('/risk-config');
-      setRealTradingEnabled(risk.realTradingEnabled);
-      setCryptoAlgoEnabled(risk.cryptoAlgoEnabled);
+      const [global, crypto] = await Promise.all([fetchGlobalConfig(), fetchCryptoConfig()]);
+      setRealTradingEnabled(global.realTradingEnabled);
+      setCryptoAlgoEnabled(crypto.cryptoAlgoEnabled);
     } catch {
       setRealTradingEnabled(false);
       setCryptoAlgoEnabled(null);
@@ -93,7 +92,7 @@ export function useCryptoAlgoDashboard(options: UseCryptoAlgoDashboardOptions = 
       return;
     }
     try {
-      await updateRealTradingEnabled(next);
+      await updateGlobalConfig({ realTradingEnabled: next });
       setRealTradingEnabled(next);
     } catch (err) {
       alert(

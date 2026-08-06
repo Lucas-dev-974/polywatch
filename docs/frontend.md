@@ -201,7 +201,7 @@ onglet **Entrée** :
 
 - **`MarketTagsSection`** : charge `GET /api/market-tags` (catégories nav +
   recherche optionnelle) et édite `simAllowedMarketTags` /
-  `realAllowedMarketTags` via `PUT /api/risk-config`. Liste vide = copier tous
+  `realAllowedMarketTags` via `PUT /api/config/copy`. Liste vide = copier tous
   les marchés ; sélection non vide = whitelist appliquée par le `CopyProcessor`
   sur les entrées uniquement.
 - **Ratio bid/ask min à l'entrée** (`simMinBidToAskRatio` /
@@ -237,5 +237,5 @@ Documentées dans la skill `polywatch-frontend-ui`
 | PnL — secours | À défaut de `pnl_tick`, `PositionCard` recharge les positions ouvertes en REST toutes les **30 s** (valeurs persistées en base) |
 | Clôture manuelle | `POST /api/copied-positions/:id/close` → `position_update` (`closing`) |
 | Reset simulation | `POST /api/simulation-balance/reset` (`algoKind` requis) → dialog **kind-aware** (`NewSessionResetDialog`, config via `/config/{kind}`) → purge Redis **scopée** (+ drain `move-events` copy, purge `weather-reentry` weather) + `simulation_reset` (WS + `algoKind`) ; `PositionCard.pnlMap` et refresh filtrés par `payload.algoKind` |
-| Toggle copy trading | `PUT /api/risk-config` → DB + `config-changed` (Redis) → le worker `copy-trading` relance la surveillance si elle était arrêtée |
+| Toggle copy trading | `PUT /api/config/copy` → DB + `config-changed` (Redis) → le worker `copy-trading` relance la surveillance si elle était arrêtée |
 | Kill switch / book down | `alert` → `AlertBanner` |

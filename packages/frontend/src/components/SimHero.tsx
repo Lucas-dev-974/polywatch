@@ -1,5 +1,5 @@
 import { createSignal, onCleanup, onMount, Show, For } from 'solid-js';
-import { api } from '../api';
+import { fetchCopyConfig, updateCopyConfig } from '../api';
 import { debounceFn } from '../lib/debounce';
 import {
   fetchSimBalance,
@@ -56,8 +56,8 @@ export function SimHero(props: Props) {
   }
 
   async function loadRisk() {
-    const risk = await api<{ simCopyTradingEnabled: boolean }>('/risk-config');
-    setCopyTradingEnabled(risk.simCopyTradingEnabled);
+    const copy = await fetchCopyConfig();
+    setCopyTradingEnabled(copy.simCopyTradingEnabled);
   }
 
   let balanceLoadGen = 0;
@@ -120,10 +120,7 @@ export function SimHero(props: Props) {
   async function toggleCopyTrading() {
     const next = !copyTradingEnabled();
     try {
-      await api('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify({ simCopyTradingEnabled: next }),
-      });
+      await updateCopyConfig({ simCopyTradingEnabled: next });
       setCopyTradingEnabled(next);
     } catch {
       // Keep UI aligned with DB when PUT fails.

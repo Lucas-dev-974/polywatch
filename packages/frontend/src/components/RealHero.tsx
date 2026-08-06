@@ -1,5 +1,10 @@
 import { createSignal, onMount, Show } from 'solid-js';
-import { api } from '../api';
+import {
+  fetchCopyConfig,
+  fetchGlobalConfig,
+  updateCopyConfig,
+  updateGlobalConfig,
+} from '../api';
 import { useClobCredentials } from '../hooks/useClobCredentials';
 import { useTradingWallet } from '../hooks/useTradingWallet';
 import { EnvSettingsDialogTrigger } from './EnvSettingsDialog';
@@ -8,7 +13,7 @@ import { ModeHeroBalanceStat } from './ModeHeroBalanceStat';
 import { RealSnapshotDialog } from './RealSnapshotDialog';
 import { RealPeriodCloseDialog } from './RealPeriodCloseDialog';
 
-interface RiskConfig {
+interface RealHeroRiskFlags {
   realTradingEnabled: boolean;
   realCopyTradingEnabled: boolean;
 }
@@ -23,9 +28,9 @@ export function RealHero() {
   const [periodCloseOpen, setPeriodCloseOpen] = createSignal(false);
   const [snapshotSaved, setSnapshotSaved] = createSignal(false);
   async function loadRisk() {
-    const risk = await api<RiskConfig>('/risk-config');
-    setRealEnabled(risk.realTradingEnabled);
-    setCopyTradingEnabled(risk.realCopyTradingEnabled);
+    const [global, copy] = await Promise.all([fetchGlobalConfig(), fetchCopyConfig()]);
+    setRealEnabled(global.realTradingEnabled);
+    setCopyTradingEnabled(copy.realCopyTradingEnabled);
   }
 
   onMount(() => {
@@ -36,20 +41,14 @@ export function RealHero() {
   async function toggleReal() {
     const next = !realEnabled();
     if (next && !confirm('Activer le trading réel ? Wallet dédié recommandé.')) return;
-    await api('/risk-config', {
-      method: 'PUT',
-      body: JSON.stringify({ realTradingEnabled: next }),
-    });
+    await updateGlobalConfig({ realTradingEnabled: next });
     setRealEnabled(next);
   }
 
   async function toggleCopyTrading() {
     const next = !copyTradingEnabled();
     try {
-      await api('/risk-config', {
-        method: 'PUT',
-        body: JSON.stringify({ realCopyTradingEnabled: next }),
-      });
+      await updateCopyConfig({ realCopyTradingEnabled: next });
       setCopyTradingEnabled(next);
     } catch {
       // Keep UI aligned with DB when PUT fails.

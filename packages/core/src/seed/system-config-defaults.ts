@@ -59,19 +59,6 @@ export const SYSTEM_CONFIG_DEFAULTS: { key: string; value: string; category: str
 
   // Feature flags (P0 audit)
   {
-    key: 'feature.risk_config_legacy_facade',
-    value: 'true',
-    category: 'feature_flag',
-    description:
-      'When true, RiskService.getConfig()/updateConfig() legacy facade is allowed. When false, those methods throw (force isolated getters).',
-  },
-  {
-    key: 'feature.risk_config_strict',
-    value: 'false',
-    category: 'feature_flag',
-    description: 'RiskConfig compose integrity guard: false = log-only, true = fail-closed (throw). Unreadable flag → fail-open (log-only).',
-  },
-  {
     key: 'feature.deprecated_fallbacks_enabled',
     value: 'true',
     category: 'feature_flag',

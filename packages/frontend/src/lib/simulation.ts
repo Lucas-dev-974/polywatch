@@ -1,6 +1,11 @@
 import type { SimArchiveSummary, SimResetRedisPurgeResult } from '@polywatch/core';
 import { DEFAULT_SIM_BALANCE } from '@polywatch/core/simulation/constants';
-import { api } from '../api';
+import {
+  api,
+  fetchCopyConfig,
+  fetchCryptoConfig,
+  fetchWeatherConfig,
+} from '../api';
 
 export type SimAlgoKind = 'crypto' | 'weather' | 'copy';
 
@@ -35,19 +40,19 @@ export async function fetchSimBalance(algoKind: SimAlgoKind = 'crypto'): Promise
 export async function fetchSimInitialCapital(
   algoKind: SimAlgoKind = 'crypto',
 ): Promise<number> {
-  const risk = await api<{
-    simInitialCapital?: number;
-    simInitialCapitalCrypto?: number;
-    simInitialCapitalWeather?: number;
-    simInitialCapitalCopy?: number;
-  }>('/risk-config');
   switch (algoKind) {
-    case 'weather':
-      return risk.simInitialCapitalWeather ?? DEFAULT_SIM_BALANCE;
-    case 'copy':
-      return risk.simInitialCapitalCopy ?? DEFAULT_SIM_BALANCE;
-    default:
-      return risk.simInitialCapitalCrypto ?? risk.simInitialCapital ?? DEFAULT_SIM_BALANCE;
+    case 'weather': {
+      const weather = await fetchWeatherConfig();
+      return weather.simInitialCapitalWeather ?? DEFAULT_SIM_BALANCE;
+    }
+    case 'copy': {
+      const copy = await fetchCopyConfig();
+      return copy.simInitialCapitalCopy ?? DEFAULT_SIM_BALANCE;
+    }
+    default: {
+      const crypto = await fetchCryptoConfig();
+      return crypto.simInitialCapitalCrypto ?? DEFAULT_SIM_BALANCE;
+    }
   }
 }
 

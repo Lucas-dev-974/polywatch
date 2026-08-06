@@ -1,12 +1,8 @@
-import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { GlobalConfig } from '../entities/GlobalConfig.js';
 import type { CopyConfig } from '../entities/CopyConfig.js';
 import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
-import {
-  isMarketTagAllowed,
-  parseAllowedMarketTags,
-} from '../market/tags.js';
+import { isMarketTagAllowed } from '../market/tags.js';
 import type {
   MoveEventType,
   OrderReason,
@@ -46,124 +42,11 @@ export interface ModeExitParams {
   trailingActivationBidPoints?: number;
 }
 
-// ─── Legacy getters (RiskConfig merged) ───────────────────────────────
-
-export function getModeSizingParams(
-  risk: RiskConfig,
-  mode: TradingMode,
-): ModeSizingParams {
-  if (mode === 'sim') {
-    return {
-      sizingMode: risk.simSizingMode as SizingMode,
-      copyRatio: risk.simCopyRatio,
-      fixedUsdcAmount: risk.simEntryUsdcAmount,
-      fixedShareCount: risk.simEntryShareCount,
-      kellyFraction: risk.simKellyFraction,
-      riskBudgetUsdc: risk.simRiskBudgetUsdc,
-      defaultWinProbability: risk.simDefaultWinProbability,
-      signalScoreSizingEnabled: risk.simSignalScoreSizingEnabled,
-    };
-  }
-  return {
-    sizingMode: risk.realSizingMode as SizingMode,
-    copyRatio: risk.realCopyRatio,
-    fixedUsdcAmount: risk.realEntryUsdcAmount,
-    fixedShareCount: risk.realEntryShareCount,
-    kellyFraction: risk.realKellyFraction,
-    riskBudgetUsdc: risk.realRiskBudgetUsdc,
-    defaultWinProbability: risk.realDefaultWinProbability,
-    signalScoreSizingEnabled: risk.realSignalScoreSizingEnabled,
-  };
-}
-
-export function getModeExitParams(
-  risk: RiskConfig,
-  mode: TradingMode,
-): ModeExitParams {
-  if (mode === 'sim') {
-    return {
-      trailingBidPoints: risk.simTrailingEnabled
-        ? risk.simTrailingBidPoints
-        : undefined,
-      trailingActivationBidPoints: risk.simTrailingEnabled
-        ? risk.simTrailingActivationBidPoints
-        : undefined,
-    };
-  }
-  return {
-    trailingBidPoints: risk.realTrailingEnabled
-      ? risk.realTrailingBidPoints
-      : undefined,
-    trailingActivationBidPoints: risk.realTrailingEnabled
-      ? risk.realTrailingActivationBidPoints
-      : undefined,
-  };
-}
-
 export interface CopyEntryExitParams {
   slBidPoints: number | null;
   tpBidPoints: number | null;
   trailingBidPoints: number | null;
   trailingActivationBidPoints: number | null;
-}
-
-function pickModeValue<T>(
-  risk: RiskConfig,
-  mode: TradingMode,
-  suffix: string,
-): T {
-  return risk[`${mode}${suffix}` as keyof RiskConfig] as T;
-}
-
-// ─── Legacy friction getters (RiskConfig merged) ──────────────────────
-
-export function getModeMaxOpenPositions(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return mode === 'sim' ? risk.simMaxOpenPositions : risk.realMaxOpenPositions;
-}
-
-export function getModeMaxPositionSizeUsdc(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return pickModeValue<number>(risk, mode, 'MaxPositionSizeUsdc');
-}
-
-export function getModeMaxExposureUsdc(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return pickModeValue<number>(risk, mode, 'MaxExposureUsdc');
-}
-
-export function getModeMaxDailyLossUsdc(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return pickModeValue<number>(risk, mode, 'MaxDailyLossUsdc');
-}
-
-export function getModeMinBidToAskRatio(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return pickModeValue<number>(risk, mode, 'MinBidToAskRatio');
-}
-
-export function getModeEntryDepthRetryMax(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return pickModeValue<number>(risk, mode, 'EntryDepthRetryMax');
-}
-
-export function getModeEntryDepthRetryDelayMs(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return pickModeValue<number>(risk, mode, 'EntryDepthRetryDelayMs');
 }
 
 export function isEntryBidAskRatioAcceptable(
@@ -174,13 +57,6 @@ export function isEntryBidAskRatioAcceptable(
   if (minBidToAskRatio <= 0) return true;
   if (askVwap <= 0 || bidVwap <= 0) return false;
   return bidVwap / askVwap >= minBidToAskRatio;
-}
-
-export function getModeMomentumFilterEnabled(
-  risk: RiskConfig,
-  mode: TradingMode,
-): boolean {
-  return pickModeValue<boolean>(risk, mode, 'MomentumFilterEnabled');
 }
 
 export type MomentumDecision = 'pass' | 'block' | 'skip_no_avg';
@@ -196,37 +72,11 @@ export function evaluateMomentumEntry(
   return entryAskVwap >= traderAvgPrice ? 'pass' : 'block';
 }
 
-export function getModeKillSwitchAction(
-  risk: RiskConfig,
-  mode: TradingMode,
-): string {
-  return mode === 'sim' ? risk.simKillSwitchAction : risk.realKillSwitchAction;
-}
-
-export function getModeMinTimeToClose(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return mode === 'sim' ? risk.simMinTimeToClose : risk.realMinTimeToClose;
-}
-
 export interface ModePreCloseParams {
   preCloseEnabled: boolean;
   preCloseSeconds: number;
   keepEnabled: boolean;
   keepBidThreshold: number;
-}
-
-export function getModePreCloseParams(
-  risk: RiskConfig,
-  mode: TradingMode,
-): ModePreCloseParams {
-  return {
-    preCloseEnabled: pickModeValue<boolean>(risk, mode, 'PreCloseEnabled'),
-    preCloseSeconds: pickModeValue<number>(risk, mode, 'PreCloseSeconds'),
-    keepEnabled: pickModeValue<boolean>(risk, mode, 'PreCloseKeepEnabled'),
-    keepBidThreshold: pickModeValue<number>(risk, mode, 'PreCloseKeepBidThreshold'),
-  };
 }
 
 export function getCopyPreCloseParams(cfg: CopyConfig, mode: TradingMode): ModePreCloseParams {
@@ -247,13 +97,6 @@ export function getWeatherPreCloseParams(cfg: WeatherConfig, mode: TradingMode):
   };
 }
 
-export function getModeSlCloseMaxRetries(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return mode === 'sim' ? risk.simSlCloseMaxRetries : risk.realSlCloseMaxRetries;
-}
-
 export interface PreCloseCheckSource {
   simPreCloseEnabled?: boolean;
   realPreCloseEnabled?: boolean;
@@ -261,11 +104,14 @@ export interface PreCloseCheckSource {
   realPreCloseSeconds?: number;
   cryptoAlgoPreCloseEnabled?: boolean | null;
   cryptoAlgoPreCloseSeconds?: number | null;
+  weatherAlgoPreCloseEnabled?: boolean;
+  weatherAlgoPreCloseSeconds?: number | null;
 }
 
 export function isAnyPreCloseEnabled(cfg: PreCloseCheckSource): boolean {
   if (cfg.simPreCloseEnabled || cfg.realPreCloseEnabled) return true;
   if (cfg.cryptoAlgoPreCloseEnabled === true) return true;
+  if (cfg.weatherAlgoPreCloseEnabled) return true;
   return false;
 }
 
@@ -273,6 +119,7 @@ export function getMaxPreCloseSeconds(cfg: PreCloseCheckSource): number {
   const modeMax = Math.max(
     cfg.simPreCloseEnabled ? cfg.simPreCloseSeconds ?? 0 : 0,
     cfg.realPreCloseEnabled ? cfg.realPreCloseSeconds ?? 0 : 0,
+    cfg.weatherAlgoPreCloseEnabled ? cfg.weatherAlgoPreCloseSeconds ?? 0 : 0,
   );
   const cryptoIntervalMax = 600;
   const cryptoEnabled = cfg.cryptoAlgoPreCloseEnabled;
@@ -285,20 +132,6 @@ export function getMaxPreCloseSeconds(cfg: PreCloseCheckSource): number {
       ? cryptoIntervalMax
       : 0);
   return Math.max(modeMax, algoSeconds);
-}
-
-export function getModeCopyIncreaseSlProximityEnabled(
-  risk: RiskConfig,
-  mode: TradingMode,
-): boolean {
-  return pickModeValue<boolean>(risk, mode, 'CopyIncreaseSlProximityEnabled');
-}
-
-export function getModeCopyIncreaseSlProximityPercent(
-  risk: RiskConfig,
-  mode: TradingMode,
-): number {
-  return pickModeValue<number>(risk, mode, 'CopyIncreaseSlProximityPercent');
 }
 
 export interface CopyIncreaseSlProximityResult {
@@ -330,22 +163,6 @@ export function evaluateCopyIncreaseSlProximity(input: {
     };
   }
   return { allowed: true, reason: null, closurePnlPercent, thresholdPercent: threshold };
-}
-
-export function getModeAllowedMarketTags(
-  risk: RiskConfig,
-  mode: TradingMode,
-): string[] {
-  const json = pickModeValue<string>(risk, mode, 'AllowedMarketTags');
-  return parseAllowedMarketTags(json);
-}
-
-export function isMarketTagAllowedForMode(
-  marketSlugs: string[],
-  risk: RiskConfig,
-  mode: TradingMode,
-): boolean {
-  return isMarketTagAllowed(marketSlugs, getModeAllowedMarketTags(risk, mode));
 }
 
 export function isTrailingArmed(

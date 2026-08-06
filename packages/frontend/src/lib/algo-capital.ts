@@ -1,4 +1,4 @@
-import { api } from '../api';
+import { api, updateGlobalConfig } from '../api';
 
 export interface AlgoCapital {
   sim: {
@@ -25,8 +25,5 @@ export async function fetchAlgoCapital(): Promise<AlgoCapital> {
 }
 
 export async function updateRealTradingEnabled(enabled: boolean): Promise<void> {
-  await api('/risk-config', {
-    method: 'PUT',
-    body: JSON.stringify({ realTradingEnabled: enabled }),
-  });
+  await updateGlobalConfig({ realTradingEnabled: enabled });
 }

@@ -3,18 +3,12 @@ import { z } from 'zod';
 import type { DataSource } from 'typeorm';
 import {
   ClobCredentials,
-  RiskService,
   GlobalConfigService,
-  CryptoConfigService,
-  RiskConfigRevisionService,
-  computeCryptoAlgoConfigFingerprint,
-  presentRiskConfigForApi,
-  toRiskConfigEntityUpdate,
-  validateCryptoAlgoTunablesUpdate,
   fetchSimExecutionStats,
   MIN_MOVE_DETECTOR_INTERVAL_MS,
   MAX_MOVE_DETECTOR_INTERVAL_MS,
 } from '@polywatch/core';
+import { RiskService } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 import {
   emptyableEthAddressSchema,
@@ -29,7 +23,6 @@ import {
   savePolygonscanApiKey,
 } from '../polymarket/polygonscan-settings.js';
 import { clearTraderFundingCache } from '../polymarket/trader-funding-fetcher.js';
-import { SessionRotationService } from '../services/session-rotation.service.js';
 
 const nonNegNumber = z.number().finite().nonnegative();
 const nonNegInt = z.number().int().nonnegative();
@@ -259,113 +252,9 @@ export const riskConfigUpdateSchema = z
 
 export function createConfigRouter(ds: DataSource): Router {
   const router = Router();
-  const riskService = new RiskService(ds);
-  const cryptoConfigService = new CryptoConfigService(ds);
-  const revisionService = new RiskConfigRevisionService(ds);
-  const rotationService = new SessionRotationService(ds);
-
-  // TODO: remove after all callers migrate to /api/config/*
-  // Legacy alias — kept for backward compat during migration.
-  router.get('/risk-config', requireJwt, async (_req, res) => {
-    const config = await riskService.getConfig();
-    const cryptoCfg = await cryptoConfigService.getConfig();
-    res.json({
-      ...presentRiskConfigForApi(config),
-      cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(cryptoCfg),
-    });
-  });
 
   router.get('/sim-execution-stats', requireJwt, async (_req, res) => {
     res.json(await fetchSimExecutionStats(ds));
-  });
-
-  // TODO: remove after all callers migrate to /api/config/*
-  router.put('/risk-config', requireJwt, async (req, res) => {
-    const raw = req.body as Record<string, unknown>;
-    const expectedFingerprint =
-      typeof raw.expectedCryptoAlgoConfigFingerprint === 'string'
-        ? raw.expectedCryptoAlgoConfigFingerprint
-        : undefined;
-    const {
-      expectedCryptoAlgoConfigFingerprint: _ignoredFp,
-      revisionSource: _ignoredRs,
-      ...configBody
-    } = raw;
-    const parsed = riskConfigUpdateSchema.safeParse(configBody);
-    if (!parsed.success) {
-      res.status(400).json({
-        error: 'invalid_body',
-        message: parsed.error.issues
-          .map((i) => `${i.path.join('.')}: ${i.message}`)
-          .join('; '),
-      });
-      return;
-    }
-    const tunableErrors = validateCryptoAlgoTunablesUpdate(parsed.data);
-    if (tunableErrors.length > 0) {
-      res.status(400).json({
-        error: 'invalid_body',
-        message: tunableErrors
-          .map((e) => `${e.field}: ${e.message}`)
-          .join('; '),
-      });
-      return;
-    }
-    try {
-      if (expectedFingerprint) {
-        const current = await cryptoConfigService.getConfig();
-        const currentFingerprint = computeCryptoAlgoConfigFingerprint(current);
-        if (currentFingerprint !== expectedFingerprint) {
-          res.status(409).json({
-            error: 'config_fingerprint_mismatch',
-            message:
-              'La config live a changé depuis la génération du rapport. Régénérez le rapport avant d’appliquer.',
-            currentFingerprint,
-          });
-          return;
-        }
-      }
-      const revisionSource =
-        typeof raw.revisionSource === 'string' &&
-        (raw.revisionSource === 'api' ||
-          raw.revisionSource === 'report_apply' ||
-          raw.revisionSource === 'system')
-          ? raw.revisionSource
-          : 'api';
-      const before = await riskService.getConfig();
-      const updated = await riskService.updateConfig(
-        toRiskConfigEntityUpdate(parsed.data),
-      );
-      await revisionService.recordRevision(updated, {
-        source: revisionSource,
-        patch: parsed.data,
-      });
-
-      // Re-stamp meta keys in-place on active sessions (no rotation)
-      // Then check if rotation keys changed
-      const rotation = await rotationService.rotateOnConfigChange(before, updated);
-
-      await publishConfigChanged();
-      const updatedCryptoCfg = await cryptoConfigService.getConfig();
-      res.json({
-        ...presentRiskConfigForApi(updated),
-        cryptoAlgoConfigFingerprint: computeCryptoAlgoConfigFingerprint(updatedCryptoCfg),
-        sessionRotation: rotation.sim || rotation.real ? {
-          sim: rotation.sim ?? null,
-          real: rotation.real ?? null,
-        } : undefined,
-      });
-    } catch (e) {
-      if ((e as Error).message === 'insecure_secrets_real_trading_blocked') {
-        res.status(403).json({
-          error: 'insecure_secrets_real_trading_blocked',
-          message:
-            'Generate unique JWT_SECRET, SERVICE_TOKEN and MASTER_ENCRYPTION_KEY before enabling real trading (npm run generate-secrets).',
-        });
-        return;
-      }
-      throw e;
-    }
   });
 
   const credsSchema = z.object({

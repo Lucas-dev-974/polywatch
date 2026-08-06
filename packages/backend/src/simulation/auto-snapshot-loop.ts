@@ -2,7 +2,7 @@ import pino from 'pino';
 import type { DataSource } from 'typeorm';
 import {
   MIN_AUTO_SNAPSHOT_INTERVAL_SECONDS,
-  RiskService,
+  GlobalConfigService,
   SimulationArchiveService,
 } from '@polywatch/core';
 import { emitSimulationSnapshotCreated } from '../websocket.js';
@@ -52,11 +52,11 @@ export function startSimAutoSnapshotLoop(ds: DataSource): void {
   stopSimAutoSnapshotLoop();
 
   const archiveService = new SimulationArchiveService(ds);
-  const riskService = new RiskService(ds);
+  const globalConfigService = new GlobalConfigService(ds);
   const state = getLoopState();
 
   state.intervalHandle = setInterval(() => {
-    void runAutoSnapshotTick(archiveService, riskService, state);
+    void runAutoSnapshotTick(archiveService, globalConfigService, state);
   }, TICK_MS);
 
   log.info({ tickMs: TICK_MS }, 'simulation auto-snapshot loop started');
@@ -64,18 +64,18 @@ export function startSimAutoSnapshotLoop(ds: DataSource): void {
 
 async function runAutoSnapshotTick(
   archiveService: SimulationArchiveService,
-  riskService: RiskService,
+  globalConfigService: GlobalConfigService,
   state: LoopState,
 ): Promise<void> {
   if (state.tickRunning) return;
   state.tickRunning = true;
 
   try {
-    const risk = await riskService.getConfig();
-    if (!risk.simAutoSnapshotEnabled) return;
+    const global = await globalConfigService.getConfig();
+    if (!global.simAutoSnapshotEnabled) return;
 
     const summaries = await archiveService.createAutoSnapshotIfDue({
-      intervalSec: risk.simAutoSnapshotIntervalSeconds,
+      intervalSec: global.simAutoSnapshotIntervalSeconds,
       minIntervalSec: MIN_AUTO_SNAPSHOT_INTERVAL_SECONDS,
     });
     if (summaries.length > 0) {
@@ -84,17 +84,17 @@ async function runAutoSnapshotTick(
       recordSnapshotCount(await archiveService.countSnapshots(), 'sim');
       for (const summary of summaries) {
         log.info(
-          { snapshotId: summary.id, intervalSec: risk.simAutoSnapshotIntervalSeconds },
+          { snapshotId: summary.id, intervalSec: global.simAutoSnapshotIntervalSeconds },
           'automatic simulation snapshot created',
         );
       }
     }
 
     // Prune old snapshots if retention policy is configured
-    if (risk.simSnapshotMaxCount != null || risk.simSnapshotRetentionDays != null) {
+    if (global.simSnapshotMaxCount != null || global.simSnapshotRetentionDays != null) {
       const pruned = await archiveService.pruneSnapshots({
-        maxCount: risk.simSnapshotMaxCount,
-        retentionDays: risk.simSnapshotRetentionDays,
+        maxCount: global.simSnapshotMaxCount,
+        retentionDays: global.simSnapshotRetentionDays,
       });
       if (pruned > 0) {
         log.info({ pruned }, 'old snapshots pruned by retention policy');

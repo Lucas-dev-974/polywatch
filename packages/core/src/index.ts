@@ -74,19 +74,14 @@ export { SignalScore, SignalScoreContext } from './sizing/signal-scorer.js';
 export * from './sizing/real-cash.js';
 export * from './risk/policy.js';
 export * from './risk/exit-decision.js';
-export * from './risk/risk-config-api.js';
 export * from './risk/crypto-config-api.js';
 export * from './risk/weather-config-api.js';
 export * from './risk/sim-mode-fields.js';
 export {
-  resolveSimRotationTargets,
   resolveSimRotationTargetsFromConfigs,
-  simRotationChanged,
-  WEATHER_SESSION_ROTATION_KEYS,
 } from './risk/sim-rotation-targets.js';
 export {
   getSimInitialCapital,
-  setSimInitialCapital,
 } from './simulation/sim-initial-capital.js';
 export * from './risk/crypto-algo-helpers.js';
 export * from './risk/crypto-algo-exit.js';
@@ -94,12 +89,6 @@ export * from './risk/crypto-algo-tunables.js';
 export * from './risk/crypto-algo-strategy-params.js';
 export * from './risk/weather-exit-params.js';
 export * from './risk/sim-execution-tunables.js';
-export {
-  detectRiskConfigDivergences,
-  handleRiskConfigDivergence,
-  RiskConfigDivergenceError,
-  RiskConfigLegacyFacadeDisabledError,
-} from './risk/risk-config-divergence.js';
 export * from './market/tags.js';
 export * from './market/leaderboard-categories.js';
 export { createTtlCache } from './lib/ttl-cache.js';

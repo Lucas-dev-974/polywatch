@@ -12,8 +12,6 @@ import {
   canEnableRealTrading,
   resolveSimRotationTargetsFromConfigs,
   realRotationChangedFromIsolated,
-  extractSimConfigSnapshot,
-  extractRealConfigSnapshot,
   presentCryptoConfigForApi,
   toCryptoConfigEntityUpdate,
   presentWeatherConfigForApi,

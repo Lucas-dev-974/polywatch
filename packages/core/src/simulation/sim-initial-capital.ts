@@ -1,20 +1,18 @@
 import type { DataSource } from 'typeorm';
-import type { RiskConfig } from '../entities/RiskConfig.js';
 import type { SimAlgoKind } from './algo-kind.js';
 import { CryptoConfigService } from '../services/crypto-config.service.js';
 import { WeatherConfigService } from '../services/weather-config.service.js';
 import { CopyConfigService } from '../services/copy-config.service.js';
 import { DEFAULT_SIM_BALANCE } from './constants.js';
 
-export type SimInitialCapitalRisk = Pick<
-  RiskConfig,
-  | 'simInitialCapitalCrypto'
-  | 'simInitialCapitalWeather'
-  | 'simInitialCapitalCopy'
->;
+export type SimInitialCapitalSource = {
+  simInitialCapitalCrypto?: number;
+  simInitialCapitalWeather?: number;
+  simInitialCapitalCopy?: number;
+};
 
 export function getSimInitialCapital(
-  risk: Partial<SimInitialCapitalRisk> | null | undefined,
+  risk: Partial<SimInitialCapitalSource> | null | undefined,
   algoKind: SimAlgoKind,
 ): number {
   if (!risk) return DEFAULT_SIM_BALANCE;
@@ -25,25 +23,6 @@ export function getSimInitialCapital(
       return risk.simInitialCapitalCopy ?? DEFAULT_SIM_BALANCE;
     default:
       return risk.simInitialCapitalCrypto ?? DEFAULT_SIM_BALANCE;
-  }
-}
-
-/** @deprecated Use per-algo functions (setCryptoSimInitialCapital etc.) instead. */
-export function setSimInitialCapital(
-  risk: RiskConfig,
-  algoKind: SimAlgoKind,
-  amount: number,
-): void {
-  switch (algoKind) {
-    case 'weather':
-      risk.simInitialCapitalWeather = amount;
-      break;
-    case 'copy':
-      risk.simInitialCapitalCopy = amount;
-      break;
-    default:
-      risk.simInitialCapitalCrypto = amount;
-      break;
   }
 }
 

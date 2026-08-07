@@ -55,7 +55,6 @@ export function isMarketSettled(market: MarketLifecycleState): boolean {
  *
  * DO NOT use for:
  * - suppressing SL/TP → use shouldSuppressSlTp() (resolved or acceptingOrders=false)
- * - skipping TIME_EXIT → use market.resolved only (position-exit-evaluator)
  * - deciding pending_resolution → use isMarketRedeemable()
  *   (requires isMarketSettled() && winningTokenId)
  * - displaying "redeeming" in frontend → use getRedemptionWaitPhase()

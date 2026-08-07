@@ -148,18 +148,17 @@ Patches : [`../patchs/2026-07-21_PATCH_CRYPTO_ALGO_CURVE_DESCENDING_GATE.md`](..
 
 ## Sorties algo (worker partagé)
 
-Les sorties (SL/TP/trailing/pre-close/**TIME_EXIT**/kill switch) ne sont **pas**
+Les sorties (SL/TP/trailing/pre-close/kill switch) ne sont **pas**
 implémentées dans crypto-algo : elles passent par le worker principal
-(`StrategyProcessing` → `position-exit-evaluator.ts`) avec paramètres surchargés
-via `getCryptoAlgoExitParams` / `resolveCryptoAlgoTimeExitSeconds`
-(`core/src/risk/crypto-algo-exit.ts`).
+(`StrategyProcessing` → `position-exit-evaluator.ts`) avec paramètres résolus
+via `getCryptoAlgoExitParams` / `resolveAlgoEntryExitParams` /
+`getCryptoPositionPreCloseParams` (`core/src/risk/crypto-algo-exit.ts`).
 
-### Hard exit / `TIME_EXIT`
+### Pre-close
 
-Phase **SOFT** (`preCloseSeconds`) : `PRE_CLOSE_LOSS` pour perdantes (comportement
-existant). Phase **HARD** (`timeExitSeconds`) : vente forcée des positions
-incertaines ou perdantes ; tenue des gagnantes quasi certaines (mark ≥
-`confidenceBid`) jusqu'à redemption. Voir [`../crypto-algo.md`](../crypto-algo.md#6-sortie-forcée-hard-exit--time_exit).
+Fenêtre unique avant `endDate` (`preCloseSeconds`) : `PRE_CLOSE_LOSS` /
+`PRE_CLOSE_WIN` selon PnL ; keep optionnel si bid ≥ seuil. Pas de phase HARD /
+`TIME_EXIT`. Voir [`../crypto-algo.md`](../crypto-algo.md#6-sorties-sltptrailingpre-close).
 
 ## Historique de prix (`price-tick-recorder.ts`)
 
@@ -254,15 +253,11 @@ uniquement. Voir [`08-weather-algo.md`](./08-weather-algo.md) § Miroir et
 | `cryptoAlgoSlPercent` / `cryptoAlgoTpPercent` | `null` | Surcharge SL/TP (`null` = hérite du mode). **Globaux** — s'appliquent au sim et au real. |
 | `cryptoAlgoSlBidPoints` / `cryptoAlgoTpBidPoints` | `null` | Surcharge SL/TP en **bid absolu** (points de probabilité) pour marchés binaires. `null` = default intervalle (5m : 0,10 / 0,12). `0`/négatif = désactivé (fallback %). Priorité sur le mode % si actif. Voir `docs/patchs/2026-07-06_PATCH_SL_TP_POINTS_ABSOLUS_BINAIRES.md`. |
 | `cryptoAlgoTrailingStopPercent` / `cryptoAlgoActivationPercent` | `null` | Surcharge trailing |
-| `cryptoAlgoPreCloseEnabled` | `null` | Surcharge pré-clôture (`null` = hérite du mode, `true` = active, `false` = désactive) |
+| `cryptoAlgoPreCloseEnabled` | `false` / `null` | Pré-clôture (`true` = active ; `null`/`false` = off, pas d'héritage copy) |
 | `cryptoAlgoPreCloseSeconds` | `null` | Fenêtre pre-close (secondes). `null` = résolution par interval via `CRYPTO_INTERVAL_PRE_CLOSE_SECONDS` : 5m→120s, 10m→120s, 15m→180s, 30m→240s, 1h→300s, 4h/1d→600s. |
-| `cryptoAlgoPreCloseHoldIfWinning` | `null` | `null` = hérite du mode. `false` recommandé pour les marchés courts (5min). |
+| `cryptoAlgoPreCloseKeepEnabled` | `null` / `false` | Keep gagnantes (`true` = tenir si bid ≥ seuil). |
+| `cryptoAlgoPreCloseKeepBidThreshold` | `null` | Seuil bid keep (ex. 0,80). |
 | `cryptoAlgoMinTimeToClose` | `null` | Secondes minimales avant `endDate` pour autoriser une entrée. `null` = `preCloseSeconds(interval) + 30s`. |
-| `cryptoAlgoTimeExitEnabled` | `null` | Active sortie forcée HARD (`null` = hérite pre-close) |
-| `cryptoAlgoTimeExitSeconds` | `null` | Secondes avant `endDate` pour phase HARD (`null` = table intervalle, ex. 90 s / 5m) |
-| `cryptoAlgoTimeExitWinConfidenceBid` | `null` | Seuil bid pour tenir gagnante (défaut résolu 0,95) |
-| `cryptoAlgoTimeExitMaxRetries` | `null` | Retries TIME_EXIT |
-| `cryptoAlgoTimeExitLastTradeMaxAgeSeconds` | `null` | Fraîcheur max `lastTradePrice` pour mark / décisions de sortie (défaut 120 s). Pas de fill sim sans carnet. |
 
 Plafond taille position : `getModeMaxPositionSizeUsdc(risk, mode)` — pas de champ algo dédié.
 

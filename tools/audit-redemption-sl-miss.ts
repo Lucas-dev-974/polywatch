@@ -149,8 +149,8 @@ async function analyzePosition(client: pg.PoolClient, posId: number) {
   console.log('\nWorst 8 ticks (by closure PnL):');
   console.table(worstTicks);
 
-  // Ticks in last 90s before endDate (TIME_EXIT window)
-  const timeExitWindow = (
+  // Ticks in last 120s before endDate (pre-close window sample)
+  const preCloseWindow = (
     await client.query(
       `
       SELECT t.created_at,
@@ -171,7 +171,7 @@ async function analyzePosition(client: pg.PoolClient, posId: number) {
   ).rows;
 
   console.log('\nTicks in last 120s before endDate (sample):');
-  console.table(timeExitWindow);
+  console.table(preCloseWindow);
 
   const execs = (
     await client.query(

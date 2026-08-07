@@ -211,8 +211,8 @@ describe('Executor metrics counting', () => {
     expect(metricsReporter.recordExit).not.toHaveBeenCalled();
   });
 
-  it('does NOT record exit for TIME_EXIT reason (not a total close)', async () => {
-    const signal = createMockSignal({ reason: 'TIME_EXIT', closingAttemptSeq: 1 });
+  it('does NOT record exit for non-total-close reason (ALGO_OPEN)', async () => {
+    const signal = createMockSignal({ reason: 'ALGO_OPEN', closingAttemptSeq: 1 });
     await executor.handle(signal);
 
     expect(mockPositionService.beginClose).not.toHaveBeenCalled();

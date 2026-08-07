@@ -95,10 +95,14 @@ describe('crypto-algo pre-close helpers', () => {
         makeCrypto({ cryptoAlgoPreCloseSeconds: 45 }),
       ),
     ).toBe(45);
+    // Disabled sells still keep an explicit seconds override for refresh/entry.
     expect(
       getCryptoAlgoEffectivePreCloseSeconds(
-        makeCrypto({ cryptoAlgoPreCloseEnabled: false }),
+        makeCrypto({
+          cryptoAlgoPreCloseEnabled: false,
+          cryptoAlgoPreCloseSeconds: 45,
+        }),
       ),
-    ).toBe(0);
+    ).toBe(45);
   });
 });

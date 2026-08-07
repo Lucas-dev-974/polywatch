@@ -10,8 +10,8 @@ import { NumberField, NullableNumberField, ToggleField } from './settings-fields
 /** Mirrors core `CRYPTO_INTERVAL_EXIT_DEFAULTS` for 5m hint text. */
 const EXIT_DEFAULTS_5M = CODE_DEFAULT_EXIT_BY_INTERVAL['5m'];
 
-/** Default delays by interval (seconds) — mirrors core `crypto-algo-exit.ts`. */
-const INTERVAL_SOFT_SECONDS = CODE_DEFAULT_PRE_CLOSE_SECONDS;
+/** Default pre-close delays by interval (seconds) — mirrors core `crypto-algo-exit.ts`. */
+const INTERVAL_PRE_CLOSE_SECONDS = CODE_DEFAULT_PRE_CLOSE_SECONDS;
 
 export interface CryptoAlgoSettingsExitTabProps {
   config: CryptoAlgoSettings;
@@ -23,13 +23,15 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
   const absoluteHint = `Points de bid sous/au-dessus du bid d'entrée. 0..1. Marchés binaires seulement. Defaults 5m : SL ${EXIT_DEFAULTS_5M.slBidPoints}, TP ${EXIT_DEFAULTS_5M.tpBidPoints}.`;
   const trailingHint = `Champ vide = defaults par intervalle (ex. 5m : ${EXIT_DEFAULTS_5M.trailingBidPoints} points bid). 0 = désactivé.`;
 
-  const effectiveSoft = () => props.config.cryptoAlgoPreCloseSeconds ?? null;
+  const effectivePreCloseSeconds = () => props.config.cryptoAlgoPreCloseSeconds ?? null;
 
   const warnings = createMemo(() => {
     const msgs: string[] = [];
-    const soft = effectiveSoft();
-    if (soft != null && soft < 30) {
-      msgs.push('Un délai SOFT inférieur à 30 s laisse peu de marge pour exécuter la vente.');
+    const seconds = effectivePreCloseSeconds();
+    if (seconds != null && seconds < 30) {
+      msgs.push(
+        'Un délai de pré-clôture inférieur à 30 s laisse peu de marge pour exécuter la vente.',
+      );
     }
     return msgs;
   });
@@ -129,103 +131,94 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
       <hr class="settings-separator" />
 
       <p class="form-hint settings-intro">
-        Sortie avant la résolution du marché en phase SOFT (pré-clôture des
-        perdantes). Exemple 5m : SOFT à T-120s — une position incertaine (bid &lt;
-        0,95) est vendue à 2 min de la fin.
+        Pré-clôture : vente forcée avant la résolution du marché. Exemple 5m :
+        fenêtre à T-120s — les positions ouvertes sont vendues sauf si Keep est
+        activé et le bid dépasse le seuil.
       </p>
 
       <div class="form-field">
-        <label>Pré-clôture (phase SOFT)</label>
+        <label>Pré-clôture</label>
         <p class="form-hint">
-          « Hériter » reprend les réglages Simulation / Réel du copy trading.
+          Indépendant du copy trading. Désactivée = pas de vente forcée avant
+          `endDate` (SL/TP/trailing restent actifs). La fenêtre d&apos;entrée
+          (min time-to-close) reste basée sur le délai ci-dessous / table par
+          intervalle.
         </p>
         <select
           class="input input-sm"
-          value={
-            props.config.cryptoAlgoPreCloseEnabled === null
-              ? 'inherit'
-              : props.config.cryptoAlgoPreCloseEnabled
-                ? 'enabled'
-                : 'disabled'
-          }
+          value={props.config.cryptoAlgoPreCloseEnabled === true ? 'enabled' : 'disabled'}
           onChange={(e) => {
-            const value = e.currentTarget.value;
-            if (value === 'inherit') {
+            const enabled = e.currentTarget.value === 'enabled';
+            if (!enabled) {
               props.onChange({
-                cryptoAlgoPreCloseEnabled: null,
+                cryptoAlgoPreCloseEnabled: false,
                 cryptoAlgoPreCloseSeconds: null,
                 cryptoAlgoPreCloseKeepEnabled: null,
                 cryptoAlgoPreCloseKeepBidThreshold: null,
               });
               return;
             }
-            props.onChange({
-              cryptoAlgoPreCloseEnabled: value === 'enabled',
-            });
+            props.onChange({ cryptoAlgoPreCloseEnabled: true });
           }}
         >
-          <option value="inherit">Hériter (sim / réel)</option>
           <option value="enabled">Activée</option>
           <option value="disabled">Désactivée</option>
         </select>
       </div>
 
       <Show when={props.config.cryptoAlgoPreCloseEnabled === true}>
-        <NumberField
-          label="Délai phase SOFT (secondes)"
-          value={props.config.cryptoAlgoPreCloseSeconds ?? 0}
+        <NullableNumberField
+          label="Délai pré-clôture (secondes)"
+          value={props.config.cryptoAlgoPreCloseSeconds}
           min={0}
           step={1}
-          hint="0 ou vide = table par intervalle (ex. 120 s pour 5m)."
+          placeholder={`auto (${INTERVAL_PRE_CLOSE_SECONDS['5m']})`}
+          hint={`Vide = table par intervalle (ex. ${INTERVAL_PRE_CLOSE_SECONDS['5m']} s pour 5m). 0 = table aussi.`}
           onChange={(value) =>
             props.onChange({
-              cryptoAlgoPreCloseSeconds: value > 0 ? value : null,
+              cryptoAlgoPreCloseSeconds:
+                value != null && value > 0 ? value : null,
             })
           }
         />
         <div class="form-field">
-          <label>Conserver si position gagnante (SOFT)</label>
+          <label>Conserver si position gagnante</label>
           <select
             class="input input-sm"
             value={
-              props.config.cryptoAlgoPreCloseKeepEnabled === null
-                ? 'inherit'
-                : props.config.cryptoAlgoPreCloseKeepEnabled
-                  ? 'keep'
-                  : 'close'
+              props.config.cryptoAlgoPreCloseKeepEnabled === true ? 'keep' : 'close'
             }
             onChange={(e) => {
-              const value = e.currentTarget.value;
               props.onChange({
-                cryptoAlgoPreCloseKeepEnabled:
-                  value === 'inherit' ? null : value === 'keep',
+                cryptoAlgoPreCloseKeepEnabled: e.currentTarget.value === 'keep',
               });
             }}
           >
-            <option value="inherit">Défaut algo (ne pas retenir)</option>
+            <option value="close">Toujours clôturer (recommandé)</option>
             <option value="keep">Conserver si gagnante</option>
-            <option value="close">Toujours clôturer</option>
           </select>
           <p class="form-hint">
-            Recommandé : « Défaut algo » pour les marchés binaires 5m/15m (ne pas
-            bloquer le pre-close sur un fill légèrement positif).
+            Recommandé : toujours clôturer sur binaires 5m/15m (ne pas bloquer la
+            pré-clôture sur un fill légèrement positif).
           </p>
         </div>
-        <NullableNumberField
-          label="Seuil Keep (SOFT)"
-          value={props.config.cryptoAlgoPreCloseKeepBidThreshold}
-          min={0}
-          max={1}
-          step={0.01}
-          placeholder="désactivé"
-          hint="Vide = désactivé. Si renseigné, conserve les gagnantes dont le bid est au-dessus de ce seuil."
-          onChange={(value) =>
-            props.onChange({
-              cryptoAlgoPreCloseKeepBidThreshold:
-                value != null && value >= 0 && value <= 1 ? value : null,
-            })
-          }
-        />
+        <Show when={props.config.cryptoAlgoPreCloseKeepEnabled === true}>
+          <NullableNumberField
+            label="Seuil Keep (bid)"
+            value={props.config.cryptoAlgoPreCloseKeepBidThreshold}
+            min={0}
+            max={1}
+            step={0.01}
+            placeholder="0.80"
+            hint="Conserve les positions dont le bid est ≥ ce seuil jusqu'à la résolution."
+            onChange={(value) =>
+              props.onChange({
+                cryptoAlgoPreCloseKeepBidThreshold:
+                  value != null && value >= 0 && value <= 1 ? value : null,
+              })
+            }
+          />
+        </Show>
       </Show>
 
       <NumberField
@@ -233,7 +226,7 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
         value={props.config.cryptoAlgoMinTimeToClose ?? 0}
         min={0}
         step={1}
-        hint="Vide = SOFT + buffer (ex. 150 s pour 5m). Refuse les entrées trop tardives."
+        hint="0 = pré-clôture (délai/table) + buffer (ex. 150 s pour 5m), même si la vente pré-clôture est désactivée. Refuse les entrées trop tardives."
         onChange={(value) =>
           props.onChange({
             cryptoAlgoMinTimeToClose: value > 0 ? value : null,
@@ -247,7 +240,7 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
         max={600}
         step={1}
         placeholder="30"
-        hint="Ajouté à SOFT quand entrée min est auto."
+        hint="Ajouté à la pré-clôture quand l'entrée min est auto."
         onChange={(value) =>
           props.onChange({ cryptoAlgoMinTimeToCloseBufferSeconds: value })
         }
@@ -265,8 +258,8 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
       />
 
       <JsonIntervalMapField
-        label="Pré-clôture (SOFT) par intervalle — JSON"
-        hint="Secondes avant fin (entiers). Merge partiel ; le champ SOFT global ci-dessus prime."
+        label="Pré-clôture par intervalle — JSON"
+        hint="Secondes avant fin (entiers). Merge partiel ; le délai global ci-dessus prime."
         placeholder={JSON.stringify(CODE_DEFAULT_PRE_CLOSE_SECONDS, null, 2)}
         value={
           props.config.cryptoAlgoPreCloseSecondsByInterval as Record<string, unknown> | null
@@ -283,13 +276,13 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
       />
 
       <div class="form-field">
-        <label>Délais effectifs par intervalle</label>
+        <label>Délais pré-clôture effectifs par intervalle</label>
         <p class="form-hint" style="font-family: var(--mono); font-size: 0.8rem;">
-          5m : SOFT {INTERVAL_SOFT_SECONDS['5m']}s
+          5m : {INTERVAL_PRE_CLOSE_SECONDS['5m']}s
           {' · '}
-          15m : SOFT {INTERVAL_SOFT_SECONDS['15m']}s
+          15m : {INTERVAL_PRE_CLOSE_SECONDS['15m']}s
           {' · '}
-          1h : SOFT {INTERVAL_SOFT_SECONDS['1h']}s
+          1h : {INTERVAL_PRE_CLOSE_SECONDS['1h']}s
         </p>
       </div>
 

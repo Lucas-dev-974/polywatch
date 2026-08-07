@@ -294,7 +294,6 @@ async function runMode(args: {
 
   const exit: AlgoEntryExitParams = resolveAlgoEntryExitParams(
     risk,
-    mode,
     marketInterval,
   );
 

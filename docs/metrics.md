@@ -9,8 +9,9 @@ Polywatch expose des métriques au format Prometheus sur `GET /metrics` (port
 dans `packages/backend/src/metrics.ts` via `prom-client` et **exposées** par le
 backend uniquement.
 
-> **État au 2026-08-06 :** métriques P0 actives via push HTTP worker →
-> `POST /api/internal/metrics/*`. `TIME_EXIT` n'est **pas** instrumenté (raison retirée).
+> **État au 2026-08-07 :** métriques P0 actives via push HTTP worker →
+> `POST /api/internal/metrics/*`. Motifs instrumentés : SL / TP / TRAILING /
+> PRE_CLOSE_* (pas de `TIME_EXIT` — feature retirée).
 
 ## Accès
 

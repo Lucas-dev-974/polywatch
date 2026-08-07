@@ -83,7 +83,7 @@ Configuration : Settings → Crypto algo → Général (toggle + lookback + min 
 Sur un marche **5m**, la fenetre reelle d'entree est nettement plus courte que 5 minutes :
 - decouverte auto-track (~quelques secondes apres l'ouverture) ;
 - cache Gamma TTL via **`CryptoConfig`** uniquement (`cryptoAlgoGammaCacheTtlShortMs` / `cryptoAlgoGammaCacheTtlDefaultMs`, resolvers core) — **10 s** pour les intervalles <= 15m (30 s pour 1h+) ; `applyRiskTunables` obligatoire avant `start()` ;
-- `cryptoAlgoMinTimeToClose` resolu par defaut a `max(preClose, timeExit) + 30 s` -> **150 s** d'interdiction d'entree en fin de marche (pre-close 120 s + buffer).
+- `cryptoAlgoMinTimeToClose` resolu par defaut a `preClose + buffer` (defaut buffer 30 s) -> **150 s** d'interdiction d'entree en fin de marche (pre-close 120 s + buffer).
 
 Fenetre utile typique ~ **2 min 20**. Pour elargir : fixer `cryptoAlgoMinTimeToClose` explicitement (sans toucher aux defauts pre-close, qui protegent la sortie).
 
@@ -162,7 +162,7 @@ Les variables suivantes sont configurees au niveau du monorepo ou dans le fichie
 - `cryptoAlgoTrailingBidPoints` / `cryptoAlgoTrailingActivationBidPoints` : Overrides trailing en bid absolu. `null` = defaults par intervalle.
 - `cryptoAlgoPreCloseEnabled` : Active la pre-cloture pour les positions algo. `null` = herite du mode.
 - `cryptoAlgoPreCloseSeconds` : Fenetre pre-close en secondes. `null` = resolution par interval via `CRYPTO_INTERVAL_PRE_CLOSE_SECONDS` (120s pour 5m, 180s pour 15m, 240s pour 30m, 300s pour 1h, 600s pour 4h/1d).
-- `cryptoAlgoPreCloseKeepEnabled` : Active le keep des positions gagnantes en pre-close. `null` = herite du mode.
+- `cryptoAlgoPreCloseKeepEnabled` : Active le keep des positions gagnantes en pre-close. `null`/`false` = toujours cloturer.
 - `cryptoAlgoPreCloseKeepBidThreshold` : Seuil de bid pour le keep. `null` = herite du mode.
 - `cryptoAlgoMinTimeToClose` : secondes minimum avant cloture pour autoriser une entree.
 - `cryptoAlgoReentryWindowMs` : fenetre anti re-entree (ms) par `conditionId:outcome`. `null` = duree de l'intervalle (ex. 5m -> 300 000 ms), sinon 1 h.
@@ -204,7 +204,7 @@ Colonnes `null` = defaut code ; JSON `null` / `{}` = tables hardcodees (GET API 
 | `cryptoAlgoTickRetentionHours` | 24 | Retention ticks avant purge |
 | `cryptoAlgoPriceTickRefQty` | 50 | Ref qty VWAP ticks |
 | `cryptoAlgoExitDefaultsByInterval` | table code | JSON merge SL/TP/trailing par intervalle |
-| `cryptoAlgoPreCloseSecondsByInterval` | table code | JSON merge fenetre SOFT |
+| `cryptoAlgoPreCloseSecondsByInterval` | table code | JSON merge fenetre pre-cloture |
 | `cryptoAlgoMinTimeToCloseBufferSeconds` | 30 | Buffer entree min avant fin |
 | `cryptoAlgoLastCloseableBidMaxAgeMs` | 60000 | Fraicheur last closeable bid (sorties / close bid / mark conservateur) — **branche runtime** via `resolveLastCloseableBidMaxAgeMs` |
 
@@ -217,11 +217,11 @@ Plan : [`plans/2026-07-09_PLAN_UI_CRYPTO_ALGO_TUNABLES.md`](./plans/2026-07-09_P
 Les sorties algo (SL/TP/trailing/pre-close) sont evaluees par le **worker principal**
 (`StrategyProcessing` -> `position-exit-evaluator.ts`), pas par crypto-algo.
 
-### Phases de vie (exemple marche 5 min)
+### Cycle de vie (exemple marche 5 min)
 
 ```
 Ouverture ----> SL/TP/trailing (carnet liquide)
-         ----> T-preClose : phase SOFT (PRE_CLOSE_LOSS perdantes, keep si gagnante)
+         ----> T-preClose : pre-cloture (PRE_CLOSE_LOSS / PRE_CLOSE_WIN, keep optionnel)
          ----> endDate+   : retry si acceptingOrders, sinon redemption
 ```
 
@@ -231,22 +231,21 @@ Le comportement pre-close est unifie entre copy trading et crypto-algo :
 
 | Situation | Action |
 |-----------|--------|
-| Gagnante (bid >= keepBidThreshold) et keepEnabled | **Tenir** (keep) -> resolution |
-| Gagnante (bid >= keepBidThreshold) et keepEnabled=false | **PRE_CLOSE_LOSS** (vente) |
-| Perdante (bid < keepBidThreshold) | **PRE_CLOSE_LOSS** (vente) |
-| Prix absent / perime | **PRE_CLOSE_LOSS** par securite |
+| Keep active et bid >= keepBidThreshold | **Tenir** -> resolution |
+| Perdante (trigger/closure < 0) | **PRE_CLOSE_LOSS** (vente) |
+| Gagnante (sinon) | **PRE_CLOSE_WIN** (vente) |
 | Qty < mos | Gate conserve -> redemption si invendable |
 
-Le `keepEnabled` est desactive (`false`) par defaut pour les deux systemes, ce qui signifie que toutes les positions sont pre-cloturees par defaut. L'activation du keep permet de conserver les positions dont le bid est superieur au seuil configure.
+Le `keepEnabled` est desactive (`false`) par defaut pour crypto-algo et copy, ce qui signifie que toutes les positions sont pre-cloturees par defaut dans la fenetre. L'activation du keep permet de conserver les positions dont le bid est superieur au seuil configure.
 
 ### Parametres `CryptoConfig`
 
 | Champ | Role |
 |-------|------|
-| `cryptoAlgoPreCloseEnabled` | Active la pre-cloture (`null` = herite du mode) |
-| `cryptoAlgoPreCloseSeconds` | Secondes avant `endDate` pour la phase SOFT (`null` = table par intervalle, ex. 120 s pour 5m) |
-| `cryptoAlgoPreCloseKeepEnabled` | Active le keep des positions gagnantes (`null` = herite du mode) |
-| `cryptoAlgoPreCloseKeepBidThreshold` | Seuil bid pour tenir une gagnante (`null` = herite du mode) |
+| `cryptoAlgoPreCloseEnabled` | Active la pre-cloture (`null`/`false` = off ; pas d'heritage sim/reel copy) |
+| `cryptoAlgoPreCloseSeconds` | Secondes avant `endDate` (`null` = table par intervalle, ex. 120 s pour 5m) |
+| `cryptoAlgoPreCloseKeepEnabled` | Active le keep des positions gagnantes (`null`/`false` = toujours cloturer) |
+| `cryptoAlgoPreCloseKeepBidThreshold` | Seuil bid pour tenir une gagnante si keep active |
 
 Resolution effective : `packages/core/src/risk/crypto-algo-exit.ts`.
 

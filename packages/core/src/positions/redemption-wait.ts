@@ -21,9 +21,9 @@ import {
 // require resolved || isMarketSettled().
 //
 // Exception: isMarketOutcomeKnown() (lifecycle.ts) is used for outcomeKnown
-// lifecycle flags only — NOT for TIME_EXIT skip (see position-exit-evaluator:
-// TIME_EXIT skips on resolved === true only). DO NOT reuse isMarketOutcomeKnown
-// for SL/TP suppression or redemption lifecycle decisions.
+// lifecycle flags only — NOT for pre-close skip (see position-exit-evaluator).
+// DO NOT reuse isMarketOutcomeKnown for SL/TP suppression or redemption
+// lifecycle decisions.
 
 const REDEMPTION_WAIT_POSITION_STATUSES = new Set([
   'open',

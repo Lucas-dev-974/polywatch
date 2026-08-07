@@ -238,12 +238,12 @@ export function WeatherAlgoSettingsTab() {
               onChange={(value) => update('weatherAlgoForecastChangeThreshold', value)}
             />
             <NumberField
-              label="Fenêtre avant résolution (heures)"
+              label="Pré-clôture (heures avant fin)"
               value={c().weatherAlgoCloseBeforeResolutionHours}
               min={0.5}
               max={168}
               step={0.5}
-              hint="Bloque les nouvelles entrées et ferme les positions ouvertes dans cette fenêtre."
+              hint="Dans cette fenêtre : bloque les nouvelles entrées et vend les positions ouvertes (motif WEATHER_PRE_CLOSE)."
               onChange={(value) => update('weatherAlgoCloseBeforeResolutionHours', value)}
             />
 

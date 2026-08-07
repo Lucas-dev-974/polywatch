@@ -31,12 +31,13 @@ async function main() {
       console.log(`Execs pos ${p.id}:`, ex.rows);
     }
 
-    console.log('\n=== TIME_EXIT WITH PEAK >= TP (50%) ===');
+    console.log('\n=== PRE_CLOSE WITH PEAK >= TP (50%) ===');
     const te = await client.query(`
       SELECT p.id, m.slug, p.peak_closure_pnl_percent, p.realized_pnl, p.entry_price, p.closed_at
       FROM copied_positions p
       LEFT JOIN markets m ON m.condition_id = p.condition_id
-      WHERE p.mode='sim' AND p.reason='ALGO_OPEN' AND p.close_reason='TIME_EXIT'
+      WHERE p.mode='sim' AND p.reason='ALGO_OPEN'
+        AND p.close_reason IN ('PRE_CLOSE_LOSS','PRE_CLOSE_WIN')
         AND p.peak_closure_pnl_percent >= 50
       ORDER BY p.peak_closure_pnl_percent DESC
     `);

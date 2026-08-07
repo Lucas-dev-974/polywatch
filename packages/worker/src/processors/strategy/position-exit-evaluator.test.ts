@@ -482,7 +482,7 @@ describe('PositionExitEvaluator', () => {
       expect(enqueue.mock.calls[0][0].lastTradePrice).toBe(0.32);
     });
 
-    it('emits PRE_CLOSE_LOSS in SOFT window for mild loss above SL threshold', async () => {
+    it('emits PRE_CLOSE_LOSS in pre-close window for mild loss above SL threshold', async () => {
       const enqueue = vi.fn();
       const evaluator = new PositionExitEvaluator(
         { enqueue } as any,
@@ -525,50 +525,6 @@ describe('PositionExitEvaluator', () => {
 
       expect(enqueue).toHaveBeenCalledTimes(1);
       expect(enqueue.mock.calls[0][0].reason).toBe('PRE_CLOSE_LOSS');
-    });
-
-    it.skip('emits TIME_EXIT in HARD window for losing algo position near endDate', async () => {
-      const enqueue = vi.fn();
-      const evaluator = new PositionExitEvaluator(
-        { enqueue } as any,
-        vi.fn().mockResolvedValue(false),
-      );
-
-      const endDate = new Date(Date.now() + 10_000);
-      const market = {
-        endDate,
-        resolved: false,
-        closed: false,
-        acceptingOrders: true,
-        winningTokenId: null,
-      } as Market;
-
-      const pos = makePos({
-        reason: 'ALGO_OPEN',
-        executableBidVwap: 0.85,
-      });
-      const algo = makeCryptoConfig({
-        cryptoAlgoPreCloseEnabled: true,
-        cryptoAlgoPreCloseSeconds: 120,
-        cryptoAlgoPreCloseKeepEnabled: true,
-        cryptoAlgoPreCloseKeepBidThreshold: 0.80,
-      });
-
-      await closeLogic(
-        evaluator,
-        pos,
-        market,
-        algo,
-        -5,
-        -5,
-        -5,
-        -0.12,
-        0.84,
-        'ok',
-      );
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      expect(enqueue.mock.calls[0][0].reason).toBe('TIME_EXIT');
     });
 
     it('replays position 12988-style illiquid pre-close evaluation', async () => {
@@ -720,7 +676,7 @@ describe('PositionExitEvaluator', () => {
         winningTokenId: null,
       } as Market;
 
-      // PRE_CLOSE_LOSS scenario: in SOFT window, mild loss, ALGO position
+      // PRE_CLOSE_LOSS scenario: in pre-close window, mild loss, ALGO position
       const pos = makePos({ side: 'SELL', quantity: 100, reason: 'ALGO_OPEN' });
       const algo = makeCryptoConfig({
         cryptoAlgoPreCloseEnabled: true,
@@ -843,51 +799,6 @@ describe('PositionExitEvaluator', () => {
 
       expect(enqueue).toHaveBeenCalledTimes(1);
       expect(enqueue.mock.calls[0][0].referenceVwap).toBe(0.01);
-    });
-
-    it.skip('emits TIME_EXIT on terminal settled market when losing and bid exists', async () => {
-      const enqueue = vi.fn();
-      const evaluator = new PositionExitEvaluator(
-        { enqueue } as any,
-        vi.fn().mockResolvedValue(false),
-      );
-
-      const endDate = new Date(Date.now() - 60_000);
-      const market = {
-        endDate,
-        resolved: false,
-        closed: true,
-        acceptingOrders: false,
-        winningTokenId: null,
-      } as Market;
-
-      const pos = makePos({
-        reason: 'ALGO_OPEN',
-        executableBidVwap: 0.48,
-        entryBidVwap: 0.55,
-        entryPrice: 0.57,
-      });
-      const algo = makeCryptoConfig({
-        cryptoAlgoPreCloseEnabled: true,
-        cryptoAlgoPreCloseSeconds: 120,
-      });
-
-      await closeLogic(
-        evaluator,
-        pos,
-        market,
-        algo,
-        -12,
-        -12,
-        -12,
-        -0.5,
-        0.48,
-        'illiquid',
-        0.48,
-      );
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      expect(enqueue.mock.calls[0][0].reason).toBe('TIME_EXIT');
     });
 
     describe('SL confirmation window', () => {

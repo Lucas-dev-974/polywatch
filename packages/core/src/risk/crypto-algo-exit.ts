@@ -124,10 +124,10 @@ function pickAlgoBidPointsThreshold(
  * Resolve SL/TP/trailing stored on a new algo position at entry time.
  * Each leg is gated by its own enable flag; when enabled:
  * override (including 0 = disabled) → interval table → null.
+ * No sim/real fallback — crypto-algo exits are mode-agnostic.
  */
 export function resolveAlgoEntryExitParams(
   cfg: CryptoConfig,
-  mode: 'sim' | 'real',
   interval?: string | null,
 ): AlgoEntryExitParams {
   const algo = getCryptoAlgoExitParams(cfg);
@@ -223,15 +223,18 @@ export function resolveMarketInterval(
 }
 
 /**
- * Effective pre-close window for crypto-algo positions.
- * Explicit override → interval table → mode defaults.
+ * Effective pre-close window length (seconds) for crypto-algo.
+ * Explicit override → interval table → 0 when no interval context.
+ *
+ * Independent of `cryptoAlgoPreCloseEnabled`: that flag only gates forced
+ * sells (`getCryptoPositionPreCloseParams`). Keeping the window when sells
+ * are off preserves minTimeToClose / near-end refresh (null ≡ false).
  */
 export function resolveCryptoAlgoPreCloseSeconds(
   risk: CryptoConfig,
   interval?: string | null,
 ): number {
   const overrides = getCryptoAlgoPreCloseParams(risk);
-  if (overrides.preCloseEnabled === false) return 0;
   if (overrides.preCloseSeconds != null) return overrides.preCloseSeconds;
 
   const byInterval = normalizeCryptoInterval(interval);
@@ -243,7 +246,7 @@ export function resolveCryptoAlgoPreCloseSeconds(
     );
   }
 
-  // No interval context — crypto-algo has no sim/real mode split.
+  // No interval context — cannot resolve a table default.
   return 0;
 }
 
@@ -265,7 +268,7 @@ export function resolveCryptoAlgoMinTimeToClose(
 
 export function getCryptoPositionPreCloseParams(
   cfg: CryptoConfig,
-  mode: 'sim' | 'real',
+  _mode: 'sim' | 'real',
   interval?: string | null,
 ): ModePreCloseParams {
   const overrides = getCryptoAlgoPreCloseParams(cfg);

@@ -20,12 +20,12 @@ function makeSignal(overrides: Partial<OrderSignal> = {}): OrderSignal {
 describe('failedExecution', () => {
   it('propagates reason and closeRetryAttempt so the forced-exit retry can gate on them', () => {
     const result = failedExecution(
-      makeSignal({ reason: 'TIME_EXIT', closeRetryAttempt: 2 }),
+      makeSignal({ reason: 'PRE_CLOSE_LOSS', closeRetryAttempt: 2 }),
       'no_liquidity',
     );
     expect(result.status).toBe('failed');
     expect(result.error).toBe('no_liquidity');
-    expect(result.reason).toBe('TIME_EXIT');
+    expect(result.reason).toBe('PRE_CLOSE_LOSS');
     expect(result.closeRetryAttempt).toBe(2);
   });
 

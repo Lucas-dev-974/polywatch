@@ -16,8 +16,8 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 17 |
-| **partial** (racine) | 4 |
+| **applied** | 18 |
+| **partial** (racine) | 3 |
 | **not_implemented** (racine) | 2 |
 | **reference** | 7 |
 | **archived** | 5 |
@@ -46,6 +46,7 @@
 | [applied/2026-08-06_PLAN-p0-implementation.md](applied/2026-08-06_PLAN-p0-implementation.md) | P0 : purge RiskConfig, extract sim/real, shutdown/race fixes | `BaseConfigService`, `decision-collector-shared.ts`, `shutdown.ts` |
 | [applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md](applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) | Audit global + remédiations closes (Phases 1–5) | Remédiations C4/C5/C9, sim-reset abort, SL/TP fail-closed |
 | [applied/2026-07-05_PLAN_P0_METRIQUES.md](applied/2026-07-05_PLAN_P0_METRIQUES.md) | Métriques Prometheus P0 (exits, cycles, freshness) | `MetricsReporter`, `strategy-cycle-metrics.ts`, routes internal metrics |
+| [applied/2026-07-05_PLAN_PATCH_CRYPTO_ALGO_EXITS.md](applied/2026-07-05_PLAN_PATCH_CRYPTO_ALGO_EXITS.md) | Pre-close unique ; purge SOFT/HARD/`TIME_EXIT` | UI crypto/weather, docs code, tests, audit tools |
 
 ---
 
@@ -55,7 +56,6 @@
 
 | Fichier | Résumé | Écart principal |
 |---------|--------|-----------------|
-| [2026-07-05_PLAN_PATCH_CRYPTO_ALGO_EXITS.md](2026-07-05_PLAN_PATCH_CRYPTO_ALGO_EXITS.md) | Patch sorties algo (cascade config, lastTradePrice) | Cascade mode sim/real non utilisée (`mode` param inutilisé) |
 | [2026-08-05_PLAN-strategies-crypto-algo-5min.md](2026-08-05_PLAN-strategies-crypto-algo-5min.md) | Stop-bleed + multi-stratégies + RTDS + backtest | Phases 0–2 OK ; Phase 3 RTDS reportée, Phase 4/5 ouvertes |
 | [PLAN_REFACTOR_REMOVE_SQLITE.md](PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | Runtime PG OK ; `dialect.ts` stub, factory dupliquée, docs historiques |
 | [POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md](POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md) | Checklist conformité protocole Polymarket | Pipelines vérifiés ; tests intégration live et items « à vérifier » ouverts |

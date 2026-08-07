@@ -413,7 +413,7 @@ const CRYPTO_ALGO_LABELS: Record<string, string> = {
   cryptoAlgoTpBidPoints: 'TP (points bid)',
   cryptoAlgoTrailingBidPoints: 'Trailing (points bid)',
   cryptoAlgoTrailingActivationBidPoints: 'Activation trailing (points bid)',
-  cryptoAlgoPreCloseEnabled: 'Pré-clôture (SOFT)',
+  cryptoAlgoPreCloseEnabled: 'Pré-clôture',
   cryptoAlgoPreCloseSeconds: 'Pré-clôture (s)',
   cryptoAlgoPreCloseKeepEnabled: 'Pré-clôture Keep',
   cryptoAlgoPreCloseKeepBidThreshold: 'Seuil Keep bid',

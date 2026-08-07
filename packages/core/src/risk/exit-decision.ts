@@ -66,7 +66,7 @@ export function evaluatePreCloseExit(
   return 'PRE_CLOSE_WIN';
 }
 
-/** Unified exit decision: SL/TP/trailing → pre-close soft. */
+/** Unified exit decision: SL/TP/trailing → pre-close. */
 export function evaluatePositionExit(params: {
   slTpInput: SlTpTrailingInput;
   preCloseInput: PreCloseExitInput;

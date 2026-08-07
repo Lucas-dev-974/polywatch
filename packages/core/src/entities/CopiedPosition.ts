@@ -134,7 +134,7 @@ export class CopiedPosition {
   @Column({ type: 'text', name: 'last_exit_block_reason', nullable: true })
   lastExitBlockReason!: string | null;
 
-  /** Close reason that was blocked at emit time (SL, TIME_EXIT, …). */
+  /** Close reason that was blocked at emit time (SL, PRE_CLOSE_*, …). */
   @Column({
     type: 'text',
     name: 'last_exit_block_close_reason',

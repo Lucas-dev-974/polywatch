@@ -1,4 +1,3 @@
-import { classifyCloseReason } from '@polywatch/core/simulation/trader-analytics';
 import type { AlgoSurveillancePositionSummary } from './algo-surveillance';
 import { closeExecutionErrorLabel } from './execution';
 import { closeReasonBadgeClass } from './position';
@@ -85,26 +84,32 @@ export function surveillancePositionStatusLabel(status: string): string {
 }
 
 /**
- * Use the core classifier to decide whether a closeReason is a normal exit.
- * Entry-cancellation pseudo-reasons (reservation_expired, ...) classify as 'other'
- * and are surfaced via the failure hint instead of the exit badge.
+ * Known surveillance exit reasons (badge + short label).
+ * Entry-cancellation pseudo-reasons (reservation_expired, …) are omitted and
+ * surfaced via the failure hint instead of the exit badge.
  */
-function isSurveillanceExitReason(closeReason: string): boolean {
-  return classifyCloseReason(closeReason) !== 'other';
-}
-
 const SURVEILLANCE_EXIT_REASON_SHORT_LABELS: Record<string, string> = {
   SL: 'SL',
   TP: 'TP',
   TRAILING: 'Trailing',
   PRE_CLOSE_LOSS: 'Pré-clôture',
   PRE_CLOSE_WIN: 'Pré-clôture',
+  WEATHER_PRE_CLOSE: 'Pré-clôture',
+  WEATHER_FORECAST_CHANGE: 'Forecast',
+  WEATHER_BUCKET_EXIT: 'Palier',
   COPY_CLOSE: 'Copy',
   COPY_DECREASE: 'Copy',
   MANUAL: 'Manuel',
   KILL_SWITCH: 'Kill',
   REDEMPTION: 'Rédemption',
 };
+
+function isSurveillanceExitReason(closeReason: string): boolean {
+  return Object.prototype.hasOwnProperty.call(
+    SURVEILLANCE_EXIT_REASON_SHORT_LABELS,
+    closeReason,
+  );
+}
 
 /** Human-readable short label for the exit reason of a closed surveillance position. */
 export function surveillancePositionCloseReasonLabel(

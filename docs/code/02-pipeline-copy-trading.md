@@ -139,7 +139,7 @@ prioritaire (`size_matched` cumulatif − déjà fillé) ; events `trade` ignor�
 que l'exec est in-flight.
 
 **Retry des sorties forcées** (`results-consumer.ts`) : une exécution `SELL`
-stratégique (`SL`, `TRAILING`, `PRE_CLOSE_LOSS`, **`TIME_EXIT`**, `KILL_SWITCH`) qui échoue avec
+stratégique (`SL`, `TRAILING`, `PRE_CLOSE_LOSS`, `PRE_CLOSE_WIN`, `KILL_SWITCH`) qui échoue avec
 `no_liquidity`, `order_not_matched` ou `tick_size_fetch_failed` est
 automatiquement retentée (jusqu'à `slCloseMaxRetries` par mode) tant que la
 position reste `open`. La décision lit `execution.reason` (ligne DB), pas le cast

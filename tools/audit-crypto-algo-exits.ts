@@ -108,7 +108,7 @@ async function main() {
       JOIN copied_positions p ON p.id = e.copied_position_id
       WHERE p.mode = 'sim' AND p.reason = 'ALGO_OPEN'
         AND e.side = 'SELL' AND e.status = 'failed'
-        AND e.reason IN ('SL','TP','TRAILING','PRE_CLOSE_LOSS','PRE_CLOSE_WIN','TIME_EXIT')
+        AND e.reason IN ('SL','TP','TRAILING','PRE_CLOSE_LOSS','PRE_CLOSE_WIN')
       GROUP BY e.reason, e.error
       ORDER BY cnt DESC
       LIMIT 30
@@ -124,7 +124,7 @@ async function main() {
       JOIN copied_positions p ON p.id = e.copied_position_id
       WHERE p.mode = 'sim' AND p.reason = 'ALGO_OPEN'
         AND e.side = 'SELL' AND e.status = 'filled'
-        AND e.reason IN ('SL','TP','TRAILING','PRE_CLOSE_LOSS','PRE_CLOSE_WIN','TIME_EXIT','REDEMPTION')
+        AND e.reason IN ('SL','TP','TRAILING','PRE_CLOSE_LOSS','PRE_CLOSE_WIN','REDEMPTION')
       GROUP BY e.reason
       ORDER BY cnt DESC
     `);

@@ -122,15 +122,9 @@ export function getMaxPreCloseSeconds(cfg: PreCloseCheckSource): number {
     cfg.weatherAlgoPreCloseEnabled ? cfg.weatherAlgoPreCloseSeconds ?? 0 : 0,
   );
   const cryptoIntervalMax = 600;
-  const cryptoEnabled = cfg.cryptoAlgoPreCloseEnabled;
-  if (cryptoEnabled === false) {
-    return Math.max(modeMax, 0);
-  }
-  const algoSeconds =
-    cfg.cryptoAlgoPreCloseSeconds ??
-    (cryptoEnabled === true || cryptoEnabled == null
-      ? cryptoIntervalMax
-      : 0);
+  // Crypto window length is independent of enabled (null ≡ false for sells).
+  // Still include it for near-end market refresh / entry gating heuristics.
+  const algoSeconds = cfg.cryptoAlgoPreCloseSeconds ?? cryptoIntervalMax;
   return Math.max(modeMax, algoSeconds);
 }
 

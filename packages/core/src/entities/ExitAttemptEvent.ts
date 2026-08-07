@@ -28,7 +28,7 @@ export class ExitAttemptEvent {
   @Column({ type: 'text' })
   kind!: ExitAttemptKind;
 
-  /** Forced-exit close reason (SL, TP, TIME_EXIT, …). */
+  /** Forced-exit close reason (SL, TP, PRE_CLOSE_*, …). */
   @Column({ type: 'text', name: 'close_reason' })
   closeReason!: string;
 

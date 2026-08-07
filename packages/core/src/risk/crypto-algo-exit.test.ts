@@ -48,6 +48,21 @@ describe('resolveCryptoAlgoPreCloseSeconds', () => {
       ),
     ).toBe(90);
   });
+
+  it('keeps interval window when sells are disabled (null ≡ false)', () => {
+    expect(
+      resolveCryptoAlgoPreCloseSeconds(
+        makeRisk({ cryptoAlgoPreCloseEnabled: false }),
+        '5m',
+      ),
+    ).toBe(120);
+    expect(
+      resolveCryptoAlgoPreCloseSeconds(
+        makeRisk({ cryptoAlgoPreCloseEnabled: null }),
+        '5m',
+      ),
+    ).toBe(120);
+  });
 });
 
 describe('resolveCryptoAlgoMinTimeToClose', () => {
@@ -55,6 +70,15 @@ describe('resolveCryptoAlgoMinTimeToClose', () => {
     expect(resolveCryptoAlgoMinTimeToClose(makeRisk(), '5m')).toBe(
       120 + CRYPTO_MIN_TIME_TO_CLOSE_BUFFER_SECONDS,
     );
+  });
+
+  it('keeps entry buffer when pre-close sells are disabled', () => {
+    expect(
+      resolveCryptoAlgoMinTimeToClose(
+        makeRisk({ cryptoAlgoPreCloseEnabled: false }),
+        '5m',
+      ),
+    ).toBe(120 + CRYPTO_MIN_TIME_TO_CLOSE_BUFFER_SECONDS);
   });
 
   it('uses explicit override when set', () => {
@@ -86,7 +110,7 @@ describe('resolveMarketInterval', () => {
 
 describe('resolveAlgoEntryExitParams', () => {
   it('uses interval defaults when overrides are null', () => {
-    expect(resolveAlgoEntryExitParams(makeExitRisk(), 'sim', '5m')).toEqual({
+    expect(resolveAlgoEntryExitParams(makeExitRisk(), '5m')).toEqual({
       trailingBidPoints: 0.05,
       trailingActivationBidPoints: 0.06,
       slBidPoints: 0.10,
@@ -97,9 +121,7 @@ describe('resolveAlgoEntryExitParams', () => {
   it('respects explicit override', () => {
     expect(
       resolveAlgoEntryExitParams(
-        makeExitRisk({ cryptoAlgoSlBidPoints: 0.20 }),
-        'sim',
-        '5m',
+        makeExitRisk({ cryptoAlgoSlBidPoints: 0.20 }), '5m',
       ).slBidPoints,
     ).toBe(0.20);
   });
@@ -108,7 +130,6 @@ describe('resolveAlgoEntryExitParams', () => {
     expect(
       resolveAlgoEntryExitParams(
         makeExitRisk({ cryptoAlgoSlBidPoints: 0, cryptoAlgoTpBidPoints: 0 }),
-        'sim',
         '5m',
       ),
     ).toEqual({
@@ -119,10 +140,9 @@ describe('resolveAlgoEntryExitParams', () => {
     });
   });
 
-  it('treats zero bid-points override as disabled (null, fallback to mode %)', () => {
+  it('treats zero bid-points override as disabled (null)', () => {
     const params = resolveAlgoEntryExitParams(
       makeExitRisk({ cryptoAlgoSlBidPoints: 0, cryptoAlgoTpBidPoints: 0 }),
-      'sim',
       '5m',
     );
     expect(params.slBidPoints).toBeNull();
@@ -132,7 +152,6 @@ describe('resolveAlgoEntryExitParams', () => {
   it('treats negative bid-points override as disabled (null)', () => {
     const params = resolveAlgoEntryExitParams(
       makeExitRisk({ cryptoAlgoSlBidPoints: -0.05, cryptoAlgoTpBidPoints: -0.05 }),
-      'sim',
       '5m',
     );
     expect(params.slBidPoints).toBeNull();
@@ -142,7 +161,6 @@ describe('resolveAlgoEntryExitParams', () => {
   it('respects explicit positive bid-points override', () => {
     const params = resolveAlgoEntryExitParams(
       makeExitRisk({ cryptoAlgoSlBidPoints: 0.20, cryptoAlgoTpBidPoints: 0.25 }),
-      'sim',
       '5m',
     );
     expect(params.slBidPoints).toBe(0.20);
@@ -152,7 +170,6 @@ describe('resolveAlgoEntryExitParams', () => {
   it('returns null bid points on non-binary market (binary guard)', () => {
     const params = resolveAlgoEntryExitParams(
       makeExitRisk({ cryptoAlgoSlBidPoints: 0.20, cryptoAlgoTpBidPoints: 0.25 }),
-      'sim',
       null,
     );
     expect(params.slBidPoints).toBeNull();
@@ -161,30 +178,24 @@ describe('resolveAlgoEntryExitParams', () => {
 
   it('uses interval defaults when algo exit legs are enabled', () => {
     expect(
-      resolveAlgoEntryExitParams(makeExitRisk(), 'sim', '5m').slBidPoints,
+      resolveAlgoEntryExitParams(makeExitRisk(), '5m').slBidPoints,
     ).toBe(0.10);
   });
 
   it('disables each algo exit leg independently via enable flags', () => {
     expect(
       resolveAlgoEntryExitParams(
-        makeExitRisk({ cryptoAlgoSlEnabled: false }),
-        'sim',
-        '5m',
+        makeExitRisk({ cryptoAlgoSlEnabled: false }), '5m',
       ),
     ).toMatchObject({ slBidPoints: null, tpBidPoints: 0.12 });
     expect(
       resolveAlgoEntryExitParams(
-        makeExitRisk({ cryptoAlgoTpEnabled: false }),
-        'sim',
-        '5m',
+        makeExitRisk({ cryptoAlgoTpEnabled: false }), '5m',
       ),
     ).toMatchObject({ slBidPoints: 0.10, tpBidPoints: null });
     expect(
       resolveAlgoEntryExitParams(
-        makeExitRisk({ cryptoAlgoTrailingEnabled: false }),
-        'sim',
-        '5m',
+        makeExitRisk({ cryptoAlgoTrailingEnabled: false }), '5m',
       ).trailingBidPoints,
     ).toBeNull();
   });
@@ -197,7 +208,6 @@ describe('resolveAlgoEntryExitParams', () => {
           cryptoAlgoTpEnabled: undefined,
           cryptoAlgoTrailingEnabled: undefined,
         }),
-        'sim',
         '5m',
       ),
     ).toEqual({
@@ -210,7 +220,7 @@ describe('resolveAlgoEntryExitParams', () => {
 
   it('returns null trailing when interval is unknown (no mode fallback)', () => {
     expect(
-      resolveAlgoEntryExitParams(makeExitRisk(), 'sim', null),
+      resolveAlgoEntryExitParams(makeExitRisk(), null),
     ).toEqual({
       trailingBidPoints: null,
       trailingActivationBidPoints: null,

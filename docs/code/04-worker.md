@@ -48,7 +48,7 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 | Fichier | Rôle |
 |---|---|
 | `strategy-processing.ts` | Boucle 100 ms, refresh marchés near-end, orchestration |
-| `position-exit-evaluator.ts` | SL/TP/trailing, pre-close (TIME_EXIT retiré) |
+| `position-exit-evaluator.ts` | SL/TP/trailing, pre-close |
 | `kill-switch-monitor.ts` | Force-close si perte journalière ≥ seuil |
 | `position-branches.ts` | Branches liquide / illiquide, peak PnL |
 | `pnl-tick-publisher.ts` | Push PnL ticks vers backend |

@@ -53,10 +53,12 @@ l'edge YES dépasse le seuil dynamique. Modes `single` / `multi` entre **villes*
 (`spread` ignoré → traité comme `single`).
 
 **Sorties** :
-- `WEATHER_PRE_CLOSE` si `hoursToEnd <= weatherAlgoCloseBeforeResolutionHours` (prioritaire)
+- `WEATHER_PRE_CLOSE` (pré-clôture) si `hoursToEnd <= weatherAlgoCloseBeforeResolutionHours` (prioritaire)
 - `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > weatherAlgoForecastChangeThreshold`
 - `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `weatherAlgoCityFollowSwitchMode = close_and_reenter` **après** `weatherAlgoBucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave
 - Après close bucket/drift : throttle Redis `weather-reentry:{city}:{mode}` pendant `weatherAlgoReentryThrottleMs`
+
+Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept que la pré-clôture crypto/copy (fenêtre avant résolution), en heures plutôt qu'en secondes.
 
 ---
 
@@ -69,7 +71,7 @@ l'edge YES dépasse le seuil dynamique. Modes `single` / `multi` entre **villes*
 | 1 position max par ville (`pending`/`open`/`closing`) | Actif |
 | Sorties avant entrées (même cycle) | Actif |
 | Close drift forecast | Actif |
-| Auto-close avant résolution | Actif |
+| Auto-close / pré-clôture avant résolution | Actif |
 | Bucket-exit `close_and_reenter` / `hold` | Actif |
 | Hysteresis Redis `weather-bucket-hysteresis:{positionId}` | Actif |
 | Re-entry throttle `weather-reentry:{city}:{mode}` | Actif |

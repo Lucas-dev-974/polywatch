@@ -1,19 +1,26 @@
-import { computeTopOfBook, type CopiedPosition, type MarketTick } from '@polywatch/core';
-import pino from 'pino';
-import type { PolymarketConnectionManager } from '../../polymarket/connection-manager.js';
-import type { OpenPositionTracker } from './open-position-tracker.js';
 import {
+  computeTopOfBook,
+  isAlgoPositionReason,
+  type CopiedPosition,
+  type MarketTick,
   MarketPositionTickService,
   type RecordMarketTickInput,
 } from '@polywatch/core';
+import pino from 'pino';
+import type { PolymarketConnectionManager } from '../../polymarket/connection-manager.js';
+import type { OpenPositionTracker } from './open-position-tracker.js';
 import { config } from '../../config.js';
 
 const log = pino({ name: 'market-tick-recorder' });
 
 /**
  * Records market ticks to the DB each time a book update is received for an asset
- * that has at least one tracked position. One row is persisted per tracked position
- * on that asset.
+ * that has at least one tracked **copy/weather** position. One row is persisted
+ * per eligible tracked position on that asset.
+ *
+ * Crypto-algo positions (`reason` starting with `ALGO_`) are skipped: their
+ * live BBO series is already persisted at 1 Hz in `algo_price_ticks` by
+ * crypto-algo `PriceTickRecorder`. Writing both would be redundant.
  */
 export class MarketTickRecorder {
   private lastTick = new Map<string, number>();
@@ -28,7 +35,9 @@ export class MarketTickRecorder {
     const now = Date.now();
     if (!this.shouldRecord(assetId, now)) return;
 
-    const positions = this.tracker.getPositions(assetId);
+    const positions = this.tracker
+      .getPositions(assetId)
+      .filter((pos) => !isAlgoPositionReason(pos.reason));
     if (positions.length === 0) return;
 
     const marketTick = this.buildMarketTick(assetId);
@@ -73,10 +82,13 @@ export class MarketTickRecorder {
   }
 
   /**
-   * Persist an immediate tick when a position opens so short-lived positions
-   * still have at least one row in `market_position_ticks`.
+   * Persist an immediate tick when a copy/weather position opens so short-lived
+   * positions still have at least one row in `market_position_ticks`.
+   * No-op for crypto-algo positions (see class docstring).
    */
   recordPositionOpen(pos: CopiedPosition): void {
+    if (isAlgoPositionReason(pos.reason)) return;
+
     const assetId = pos.assetId;
     const marketTick = this.buildMarketTick(assetId);
     if (!marketTick) return;

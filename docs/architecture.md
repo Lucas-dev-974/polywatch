@@ -113,9 +113,9 @@ CopyProcessor. Il établit **plusieurs connexions Redis distinctes** et démarre
 - **Surveillances** : `MarketResolutionWatcher` (15 s), `RedemptionHandler` (15 s),
   `ClosingWatchdog`, `PlacingJanitor`, `ReservationJanitor`, `PendingEntryJanitor`
   (algo), `SimRealismJanitor`.
-- **Market tracking** : `OpenPositionTracker` + `MarketTickRecorder` +
-  `MarketPriceTickRecorder`.
-- **Market price history** : `MarketPriceHistorySyncer`.
+- **Market tracking** : `OpenPositionTracker` + `MarketTickRecorder`
+  (`market_position_ticks` pour copy/weather uniquement — crypto-algo exclu,
+  série dans `algo_price_ticks`) + `MarketPriceHistorySyncer`.
 - **Market percent publisher** : `MarketPercentPublisher`.
 - **Gestion des order books** via `PolymarketConnectionManager` (positions
   actives + sélections algo + browse Up/Down — **plus** de pending-move).

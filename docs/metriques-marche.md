@@ -148,11 +148,18 @@ Uniquement pour les assets **souscrits** (positions ouvertes, watchlist, algo, e
 
 | Table / entité | Déclencheur | Contenu principal | API / consommateur |
 |----------------|-------------|-------------------|-------------------|
-| `market_position_ticks` | Book update throttlé 500 ms, **si position ouverte** sur l'asset | bid/ask/mid/spread/VWAP ref qty, `lastTradePrice` | `GET /api/copied-positions/:id/ticks`, `GET /api/markets/:conditionId/ticks` |
+| `market_position_ticks` | Book update throttlé 500 ms, **si position copy/weather ouverte** sur l'asset (positions crypto-algo `ALGO_*` exclues — voir `algo_price_ticks`) | bid/ask/mid/spread/VWAP ref qty, `lastTradePrice` | `GET /api/copied-positions/:id/ticks`, `GET /api/markets/:conditionId/ticks` |
 | `market_price_ticks` | Sync CLOB `/prices-history` (non-crypto) via `MarketPriceHistorySyncer` | Souvent `midPrice` seul ; bid/ask/spread souvent `null` | `GET /api/market-chart/:conditionId` |
 | `market_price_history_sync` | Registre de synchro | `lastPointTs`, `syncStatus`, `nextSyncAt`, etc. | Worker backfill |
 | `algo_price_ticks` | 1 Hz pendant surveillance algo crypto | Métriques les plus riches (voir § 2.6) | `GET /api/algo/market-chart/:conditionId`, WS `algo_chart_tick` |
 | `algo_surveillance_snapshots` | Fin de cycle algo | OHLC open/close, `winningOutcome`, positions figées | Rapports / analyse |
+
+> **Répartition des ticks live** : `market_position_ticks` sert le **copy trading** et
+> **weather-algo** (BBO lié à une `CopiedPosition`). Les positions **crypto-algo**
+> (`reason` préfixé `ALGO_`) n'y écrivent pas — leur série BBO+VWAP+signal est déjà
+> dans `algo_price_ticks` (`PriceTickRecorder`, ~1 Hz). Le filtre est dans
+> `MarketTickRecorder` (`packages/worker/src/processors/market-tracking/market-tick-recorder.ts`)
+> via `isAlgoPositionReason`.
 
 > **Note historique** : les marchés non-crypto ne sont plus enregistrés en live à 1 Hz.
 > La décision et l'implémentation sont documentées dans
@@ -283,7 +290,7 @@ Endpoints utilisés : `/markets`, `/markets/keyset`, `/events`, `/events/slug/{s
 |------------|--------|
 | Ticks live non-crypto | Historique CLOB hourly ; bid/ask souvent absents dans `market_price_ticks` |
 | Purge `market_price_ticks` | Non implémentée (`modele-donnees.md`) |
-| `market_position_ticks` | Uniquement si Polywatch a des positions ouvertes sur l'asset |
+| `market_position_ticks` | Uniquement si Polywatch a des positions copy/weather ouvertes (pas `ALGO_*`) |
 | Latences CLOB/Data API (Prometheus) | Déclarées dans `metrics.ts` mais **non instrumentées** (`metrics.md`) |
 | Spot externe | CoinGecko overlay metrics ; non stocké en DB |
 | Analytics « marché » | Stats PnL = **portfolio Polywatch**, pas stats marché Polymarket |

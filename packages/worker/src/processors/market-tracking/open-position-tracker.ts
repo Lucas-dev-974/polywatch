@@ -7,8 +7,9 @@ export const TRACKED_POSITION_STATUSES = ['open', 'closing'] as const;
  * In-memory view of the currently open/closing copied positions, indexed by assetId.
  *
  * The recorder checks this index on every book update to decide whether the asset
- * should be persisted to `market_position_ticks`, and to produce one tick row per
- * tracked position on that asset.
+ * should be persisted to `market_position_ticks` (copy/weather only — crypto-algo
+ * positions are filtered out by `MarketTickRecorder`), and to produce one tick
+ * row per eligible tracked position on that asset.
  */
 export class OpenPositionTracker {
   private positionsByAsset = new Map<string, CopiedPosition[]>();

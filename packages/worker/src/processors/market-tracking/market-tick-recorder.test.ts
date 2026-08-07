@@ -56,6 +56,7 @@ describe('MarketTickRecorder', () => {
         entryFeesRemaining: 0,
         status: 'open',
         mode: 'sim',
+        reason: 'COPY_OPEN',
         realizedPnl: 0,
         unrealizedPnl: 0,
         ...overrides,
@@ -93,6 +94,58 @@ describe('MarketTickRecorder', () => {
     expect(row.executableAskVwap).toBe(0.52);
     expect(row.lastTradePrice).toBe(0.5);
     expect(row.conditionId).toBe('cond-1');
+  });
+
+  it('skips crypto-algo positions (ALGO_*) — covered by algo_price_ticks', async () => {
+    const algoPos = await seedOpenPosition({ reason: 'ALGO_OPEN' });
+    const copyPos = await seedOpenPosition({
+      reason: 'COPY_OPEN',
+      outcome: 'No',
+    });
+    await tracker.refresh();
+
+    const { manager, metricsCache } = makeConnectionManager();
+    metricsCache.updateTopOfBook('asset-1', 0.48, 0.52, 0.04);
+    metricsCache.setConditionId('asset-1', 'cond-1');
+
+    const recorder = new MarketTickRecorder(manager, tracker, tickService);
+    recorder.handleBookUpdate('asset-1');
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect((await tickService.listByPosition(algoPos.id)).total).toBe(0);
+    expect((await tickService.listByPosition(copyPos.id)).total).toBe(1);
+  });
+
+  it('does not record open tick for crypto-algo positions', async () => {
+    const algoPos = await seedOpenPosition({ reason: 'ALGO_OPEN' });
+    await tracker.refresh();
+
+    const { manager, metricsCache } = makeConnectionManager();
+    metricsCache.updateTopOfBook('asset-1', 0.48, 0.52, 0.04);
+
+    const recorder = new MarketTickRecorder(manager, tracker, tickService);
+    recorder.recordPositionOpen(algoPos);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect((await tickService.listByPosition(algoPos.id)).total).toBe(0);
+  });
+
+  it('still records ticks for weather positions', async () => {
+    const weatherPos = await seedOpenPosition({ reason: 'WEATHER_OPEN' });
+    await tracker.refresh();
+
+    const { manager, metricsCache } = makeConnectionManager();
+    metricsCache.updateTopOfBook('asset-1', 0.48, 0.52, 0.04);
+    metricsCache.setConditionId('asset-1', 'cond-1');
+
+    const recorder = new MarketTickRecorder(manager, tracker, tickService);
+    recorder.handleBookUpdate('asset-1');
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect((await tickService.listByPosition(weatherPos.id)).total).toBe(1);
   });
 
   it('does nothing when no tracked position for the asset', async () => {

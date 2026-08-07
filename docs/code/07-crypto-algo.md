@@ -169,8 +169,15 @@ liquidité, exposition positions algo). Dépend de :
 - `SignalStateRegistry` — état des signaux récents par marché ;
 - `PositionContextCache` — cache positions algo ouvertes pour agrégats PnL (refresh 5 s).
 
-Purge des ticks > 24 h. Exposé au frontend via
-`GET /api/algo/market-chart/:conditionId`.
+**Pas de `market_position_ticks` pour crypto-algo.** Le worker
+(`MarketTickRecorder`) ignore les positions dont `reason` commence par `ALGO_`
+(`isAlgoPositionReason`). La table `market_position_ticks` reste réservée au
+**copy trading** et **weather-algo** ; écrire les deux pour crypto serait
+redondant avec `algo_price_ticks` (déjà BBO+VWAP+signal dès la surveillance,
+avant même qu'une position soit ouverte).
+
+Purge des ticks > 24 h (configurable UI : `cryptoAlgoTickRetentionHours`). Exposé
+au frontend via `GET /api/algo/market-chart/:conditionId`.
 
 Le champ `recordedAt` est fourni explicitement par `PriceTickRecorder` depuis le
 `now` du cycle de tick, ce qui aligne l'axe temporel du graphique avec

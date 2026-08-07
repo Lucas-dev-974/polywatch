@@ -1,6 +1,12 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-/** Tick persisted each time a book update is received for an asset that has at least one open position. */
+/**
+ * Tick persisted each time a book update is received for an asset that has at
+ * least one open **copy or weather** position (worker `MarketTickRecorder`).
+ *
+ * Crypto-algo positions are excluded: their BBO series lives in `algo_price_ticks`
+ * (crypto-algo `PriceTickRecorder` at ~1 Hz). Keeping both would be redundant.
+ */
 @Entity('market_position_ticks')
 @Index(['copiedPositionId'])
 @Index(['conditionId', 'createdAt'])

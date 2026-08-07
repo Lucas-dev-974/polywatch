@@ -45,7 +45,7 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `AlgoSurveillanceSnapshot` | `algo_surveillance_snapshots` | Instantanes de surveillance (open/close) pour l'analyse des strategies |
 | `AlgoPriceTick` | `algo_price_ticks` | Historique prix UP/DOWN 1 Hz pendant surveillance algo (chart API) |
 | `IntegrationSettings` | `integration_settings` | Parametres d'integrations tierces (ex: Polygonscan chiffre) |
-| `MarketPositionTick` | `market_position_ticks` | Ticks de marche (prix/order book) persistes pour les assets avec positions ouvertes |
+| `MarketPositionTick` | `market_position_ticks` | Ticks de marche (prix/order book) pour positions copy/weather ouvertes — pas crypto-algo (`ALGO_*` → `algo_price_ticks`) |
 | `MarketPriceTick` | `market_price_ticks` | Ticks de marche par `conditionId` (timer 1s, independant des positions) pour graphique UI non-crypto |
 | `SystemConfig` | `system_config` | Configuration systeme (cles/valeurs, categories) |
 | `ExitAttemptEvent` | `exit_attempt_events` | Journal des tentatives de sortie (SL/TP/PRE_CLOSE) avec mark price et raison de blocage |
@@ -259,8 +259,13 @@ Singleton stockant les cles d'integration chiffrees pour les APIs externes (comm
 
 ### `MarketPositionTick` (`market_position_ticks`)
 Tick de carnet d'ordres persiste par le worker (`MarketTickRecorder`) a chaque book update
-throttle a 500 ms par asset, **uniquement pour les asset ayant au moins une position
-ouverte**. Une ligne est inseree par position ouverte sur l'asset.
+throttle a 500 ms par asset, **uniquement pour les assets ayant au moins une position
+copy ou weather ouverte**. Une ligne est inseree par position eligible sur l'asset.
+
+**Exclusion crypto-algo** : les positions dont `reason` commence par `ALGO_` ne sont
+pas enregistrees ici. Leur serie BBO+VWAP+signal vit dans `algo_price_ticks`
+(`PriceTickRecorder` du process crypto-algo, ~1 Hz) — ecrire les deux serait redondant.
+Filtre : `isAlgoPositionReason` dans `MarketTickRecorder`.
 
 - Champs : `copiedPositionId`, `conditionId`, `assetId`, `outcome`, `bestBid`, `bestAsk`,
   `midPrice`, `spread`, `spreadPercent`, `executableBidVwap` / `executableAskVwap` (VWAP

@@ -31,21 +31,24 @@ Vérifier que chaque pipeline de Polywatch implémente correctement les protocol
 
 | # | Pipeline | Fichiers principaux | Priorité |
 |---|----------|---------------------|----------|
-| 1 | MoveDetector (polling positions) | `worker/src/processors/move-detector.ts` | Haute |
-| 2 | CopyProcessor (décision de copie) | `worker/src/processors/copy-processor.ts`, `copy/copy-entry-pipeline.ts` | Haute |
+| 1 | MoveDetector (polling positions) | `copy-trading/src/processors/move-detector.ts`, `copy-trading/src/polymarket/api-client.ts` | Haute |
+| 2 | CopyProcessor (décision de copie) | `copy-trading/src/processors/copy-processor.ts`, `copy-trading/src/processors/copy/copy-entry-pipeline.ts` | Haute |
 | 3 | Executor (ordres CLOB) | `worker/src/clob/real-executor.ts` | Critique |
-| 4 | StrategyProcessing (SL/TP/trailing) | `worker/src/processors/strategy-processing.ts` | Haute |
+| 4 | StrategyProcessing (SL/TP/trailing) | `worker/src/processors/strategy-processing.ts`, `worker/src/processors/strategy/position-branches.ts`, `position-exit-evaluator.ts`, `kill-switch-monitor.ts` | Haute |
 | 5 | Order Book WebSocket | `worker/src/polymarket/websocket-book.ts`, `connection-manager.ts` | Critique |
 | 6 | RedemptionHandler (résolution marchés) | `worker/src/processors/redemption-handler.ts` | Moyenne |
-| 7 | CLOB Credentials/Signature | `backend/src/polymarket/relayer-*.ts`, `clob-creds.ts` | Critique |
+| 7 | CLOB Credentials/Signature | `backend/src/polymarket/relayer-client.ts`, `clob-creds.ts` | Critique |
+
+> **Note de l'audit (2026-08-07)** : Les pipelines 1 et 2 vivent dans le package `@polywatch/copy-trading`, pas dans `@polywatch/worker`. Le package `copy-trading` possède son propre `package.json`. Deux copies de `api-client.ts` coexistent (`worker/` et `copy-trading/`) — le `move-detector.ts` importe la sienne depuis `copy-trading/`. Le pipeline 4 délègue la logique SL/TP/Trailing à des sous-modules `strategy/` non mentionnés dans la version initiale du plan.
 
 ---
 
 ## 1. Pipeline MoveDetector
 
 ### Fichiers analysés
-- `packages/worker/src/processors/move-detector.ts`
-- `packages/worker/src/polymarket/api-client.ts`
+- `packages/copy-trading/src/processors/move-detector.ts`
+- `packages/copy-trading/src/polymarket/api-client.ts` (utilisé par `move-detector.ts`)
+- `packages/worker/src/polymarket/api-client.ts` (doublon utilisé par le worker)
 - `packages/core/src/services/poll-cycle.service.ts`
 
 ### Specs Polymarket
@@ -55,7 +58,7 @@ GET /positions?user={traderAddress}&limit={LIMIT}&offset={offset}&sizeThreshold=
 
 ### Code Polywatch
 ```typescript
-// api-client.ts:45
+// packages/copy-trading/src/polymarket/api-client.ts:47
 const url = `${config.dataApi}/positions?user=${traderAddress}&limit=${LIMIT}&offset=${offset}&sizeThreshold=0`;
 ```
 
@@ -83,8 +86,9 @@ const url = `${config.dataApi}/positions?user=${traderAddress}&limit=${LIMIT}&of
 ## 2. Pipeline CopyProcessor
 
 ### Fichiers analysés
-- `packages/worker/src/processors/copy-processor.ts`
-- `packages/worker/src/processors/copy/copy-entry-pipeline.ts`
+- `packages/copy-trading/src/processors/copy-processor.ts`
+- `packages/copy-trading/src/processors/copy/copy-entry-pipeline.ts`
+- `packages/copy-trading/src/processors/copy/copy-risk-gate.ts` (gates d'entrée)
 
 ### Points de vérification
 
@@ -116,14 +120,17 @@ const url = `${config.dataApi}/positions?user=${traderAddress}&limit=${LIMIT}&of
 |------|----------|-----------------|
 | GTC | Good-Til-Cancelled | Non utilisé |
 | GTD | Good-Til-Date | Non utilisé |
-| FOK | Fill-Or-Kill | Non utilisé |
-| **FAK** | Fill-And-Kill | ✅ Utilisé |
+| FOK | Fill-Or-Kill | ✅ Supporté dynamiquement (`signal.orderType === 'FOK'`) |
+| **FAK** | Fill-And-Kill | ✅ Utilisé par défaut |
 
 #### Code Polywatch
 ```typescript
-// real-executor.ts:246
-orderType: OrderType.FAK
+// packages/worker/src/clob/real-executor.ts:94-95
+const clobOrderType =
+  signal.orderType === 'FOK' ? OrderType.FOK : OrderType.FAK;
 ```
+
+> **Note de l'audit (2026-08-07)** : La version initiale du plan affirmait "FOK: Non utilisé", ce qui est inexact. L'`RealExecutor` supporte dynamiquement FAK **et** FOK selon `signal.orderType`. La ligne citée à l'origine (`real-executor.ts:246`) était erronée — le fichier ne fait que 225 lignes ; le code réel est à la ligne 94-95.
 
 #### Polymarket Order Format
 ```json
@@ -156,8 +163,8 @@ orderType: OrderType.FAK
 - [x] `negRisk` flag pour marchés multi-outcomes
 
 #### 3.3 Points critiques
-- [x] Slippage guard implémenté (`evaluateSlippageGuard`)
-- [x] Timeout CLOB (`CLOB_ORDER_TIMEOUT_MS`)
+- [x] Slippage guard implémenté (`evaluateSlippageGuard` dans `worker/src/clob/prepare-fak-order.ts:115`)
+- [x] Timeout CLOB (`CLOB_ORDER_TIMEOUT_MS` dans `constants.ts:105`, appel `real-executor.ts:111`)
 - [x] Parsing fill response (`parseFillResponse`)
 - [x] Gestion `ORDER_DELAYED` → return `null` (réconciliation différée)
 
@@ -170,7 +177,12 @@ orderType: OrderType.FAK
 ## 4. Pipeline StrategyProcessing
 
 ### Fichiers analysés
-- `packages/worker/src/processors/strategy-processing.ts`
+- `packages/worker/src/processors/strategy-processing.ts` (orchestration)
+- `packages/worker/src/processors/strategy/position-branches.ts` (évaluation liquid/illiquid)
+- `packages/worker/src/processors/strategy/position-exit-evaluator.ts` (SL/TP/Trailing)
+- `packages/worker/src/processors/strategy/kill-switch-monitor.ts`
+
+> **Note de l'audit (2026-08-07)** : La logique SL/TP/Trailing n'est pas dans `strategy-processing.ts` directement — elle est déléguée aux sous-modules `strategy/` listés ci-dessus. La version initiale du plan ne mentionnait que `strategy-processing.ts`.
 
 ### Points de vérification
 
@@ -179,8 +191,8 @@ orderType: OrderType.FAK
 - [x] Gestion liquidité insuffisante (`illiquid` status)
 
 #### 4.2 Évaluation SL/TP/Trailing
-- [x] Priorité: SL → TP → TRAILING
-- [x] Trailing armé après `trailingActivationPercent`
+- [x] Priorité: SL → TP → TRAILING (logique dans `position-exit-evaluator.ts`)
+- [x] Trailing armé après `trailingActivationBidPoints` (points absolus, **pas** un pourcentage — le code utilise `trailingActivationBidPoints`, la version initiale du plan mentionnait à tort `trailingActivationPercent`)
 - [x] Calcul monotone du `peakClosurePnlPercent`
 
 #### 4.3 Problèmes potentiels
@@ -222,7 +234,7 @@ wss://ws-subscriptions-clob.polymarket.com/ws/market
 
 ### Code Polywatch
 ```typescript
-// websocket-book.ts:186
+// packages/worker/src/polymarket/websocket-book.ts:238-245
 private sendMarketSubscribe(assetIds: string[]): void {
   this.send({
     type: 'market',
@@ -232,6 +244,8 @@ private sendMarketSubscribe(assetIds: string[]): void {
   });
 }
 ```
+
+> **Note de l'audit (2026-08-07)** : La version initiale du plan citait `websocket-book.ts:186` — la fonction `sendMarketSubscribe` est en réalité à la ligne 238.
 
 ### Points de vérification
 
@@ -246,7 +260,9 @@ private sendMarketSubscribe(assetIds: string[]): void {
 - [x] Event `price_change` → application deltas
 - [x] Event `best_bid_ask` → mise à jour top of book
 - [x] Event `last_trade_price` → dernier trade
-- [x] Event `market_resolved` → trigger redemption handler
+- [x] Event `market_resolved` → déclenche `MarketResolutionWatcher` (voir section 6 pour le flow complet)
+
+> **Note de l'audit (2026-08-07)** : La version initiale du plan décrivait un lien direct `market_resolved → redemption handler`. En réalité, le callback WS (`index.ts:279-286`) déclenche `MarketResolutionWatcher.processAll()` (qui rafraîchit les marchés et marque les positions `pending_resolution` via `MarketResolutionService`). Le `RedemptionHandler` tourne via sa **propre boucle indépendante** `startLoop(REDEMPTION_LOOP_MS)` (`index.ts:446`) et scanne les positions `pending_resolution`. Il n'y a pas d'appel direct du WS vers `RedemptionHandler`.
 
 #### 5.3 Problèmes potentiels
 - [x] **Merge deltas**: Fonction `applyChange()` correcte
@@ -266,24 +282,29 @@ Les marchés résolus sont signalés via WebSocket `market_resolved`. Le winning
 
 ### Code Polywatch
 ```typescript
-// redemption-handler.ts:79
+// packages/worker/src/processors/redemption-handler.ts:80
 const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 // payoff = 1 if winning, 0 if losing
 ```
 
+> **Note de l'audit (2026-08-07)** : La version initiale du plan citait `redemption-handler.ts:79` — le code réel est à la ligne 80.
+
 ### Points de vérification
 
 #### 6.1 Détection de résolution ✅
-- [x] WebSocket event `market_resolved` → `onMarketResolved` callback
-- [x] Vérification `Market.resolved === true`
-- [x] `winningTokenId` renseigné
+- [x] WebSocket event `market_resolved` → `onMarketResolved` callback (`index.ts:279-286`)
+- [x] Callback déclenche `MarketResolutionWatcher.processAll()` (rafraîchit marchés, marque positions `pending_resolution` via `MarketResolutionService`)
+- [x] `RedemptionHandler.processAll()` tourne via sa propre boucle `startLoop` (`index.ts:446`) — scanne les positions `pending_resolution`
+- [x] Vérification `Market.resolved === true` et `winningTokenId` renseigné (`redemption-handler.ts:70-73`)
+
+> **Note de l'audit (2026-08-07)** : La version initiale du plan décrivait le flow `market_resolved → onMarketResolved callback` comme directement lié au `RedemptionHandler`. Le flow réel est indirect : WS → `MarketResolutionWatcher` → `MarketResolutionService` (marque `pending_resolution`) → `RedemptionHandler` (boucle indépendante 15s).
 
 #### 6.2 Appel de rédemption (Real mode) ✅
 - [x] POST `/api/internal/redeem` vers le backend
 - [x] Backend utilise le relayer pour `payout`
 
 #### 6.3 Problèmes potentiels
-- [ ] **Neg Risk markets**: Vérifier le flag `negRisk` passé au backend
+- [x] **Neg Risk markets**: Le flag `negRisk` **est bien passé** au backend (`redemption-handler.ts:119,157` — `redeemOnChain` reçoit `negRisk` et l'envoie dans le POST `/api/internal/redeem`). Point résolu positivement par l'audit du 2026-08-07.
 
 ---
 
@@ -316,12 +337,14 @@ const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 ### Points de vérification
 
 #### 7.1 Types de signatures
-- [ ] Vérifier que `signatureType: 3` est utilisé pour deposit wallets
-- [ ] Vérifier que `maker === signer === depositWalletAddress`
+- [x] `signatureType: 3` (`CLOB_SIGNATURE_POLY_1271`) utilisé pour deposit wallets — vérifié dans `packages/core/src/polymarket/clob-signature.ts:2` et `packages/worker/src/clob/client-factory.ts:26`
+- [x] `maker === signer === depositWalletAddress` — vérifié dans `client-factory.ts:26-27` (`signatureType: POLY_1271` + `funderAddress: depositAddress`)
 
 #### 7.2 Flow de signature
-- [ ] Vérifier EIP-712 domain pour Deposit Wallet
-- [ ] Vérifier ERC-7739 wrapper
+- [x] EIP-712 domain pour Deposit Wallet — géré par le SDK `@polymarket/clob-client-v2` via `createAndPostMarketOrder` (`real-executor.ts:100`). Polywatch ne construit pas le domain manuellement — non vérifiable au niveau du code Polywatch, mais vérifié via le SDK.
+- [x] ERC-7739 wrapper — géré par le SDK `@polymarket/clob-client-v2`. Idem : délégué au SDK, non vérifiable au niveau du code Polywatch.
+
+> **Note de l'audit (2026-08-07)** : Les points 7.1 et 7.2 étaient marqués "À vérifier" dans la version initiale. L'audit confirme que `signatureType: 3` et `maker === signer === depositWalletAddress` sont correctement configurés. Le EIP-712 domain et l'ERC-7739 wrapper sont pris en charge par le SDK `@polymarket/clob-client-v2` — Polywatch ne les implémente pas manuellement, donc la vérification se fait au niveau du SDK, pas du code Polywatch.
 
 #### 7.3 Stockage sécurisé
 - [x] Chiffrement AES-256-GCM pour les credentials
@@ -335,11 +358,11 @@ const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 
 | Pipeline | Status | Notes |
 |----------|--------|-------|
-| MoveDetector | ✅ | Data API pagination correcte |
-| CopyProcessor | ✅ | Filtres et sizing OK |
-| Executor | ✅ | FAK orders, POLY_1271 |
+| MoveDetector | ✅ | Data API pagination correcte — vit dans `copy-trading/` |
+| CopyProcessor | ✅ | Filtres et sizing OK — vit dans `copy-trading/` |
+| Executor | ✅ | FAK/FOK dynamique, POLY_1271 |
 | WebSocket Book | ✅ | Events et subscriptions |
-| Redemption | ✅ | Flow on-chain OK |
+| Redemption | ✅ | Flow on-chain OK, `negRisk` passé au backend |
 
 ### ⚠️ À vérifier plus en détail
 
@@ -348,13 +371,19 @@ const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 | Rate limits Data API | MoveDetector | Vérifier token bucket vs Polymarket limits |
 | Order heartbeat | Executor | Implémenter si sessions longues |
 | Order polling | Executor | Ajouter `GET /order/{id}` pour delayed orders |
-| Deposit Wallet signature | CLOB creds | Vérifier ERC-7739 wrapper |
 
-### ❌ Problèmes identifiés
+### ❌ Problèmes identifiés par l'audit (2026-08-07)
 
-| Problème | Criticité | Pipeline |
-|----------|-----------|----------|
-| Aucun problème critique | - | - |
+| Problème | Criticité | Pipeline | Statut |
+|----------|-----------|----------|--------|
+| 3 pipelines attribués au mauvais package (`worker/` au lieu de `copy-trading/`) | Critique | 1, 2 | ✅ Corrigé dans ce doc |
+| Plan affirmait "FOK: Non utilisé" alors que FOK est supporté | Critique | 3 | ✅ Corrigé dans ce doc |
+| Flow `market_resolved → RedemptionHandler` décrit comme direct | Majeure | 5, 6 | ✅ Corrigé dans ce doc |
+| Sous-modules `strategy/` non documentés | Majeure | 4 | ✅ Corrigé dans ce doc |
+| Numéros de ligne erronés (`real-executor.ts:246`, `websocket-book.ts:186`, `redemption-handler.ts:79`) | Majeure | 3, 5, 6 | ✅ Corrigé dans ce doc |
+| `trailingActivationPercent` vs `trailingActivationBidPoints` | Mineure | 4 | ✅ Corrigé dans ce doc |
+| `negRisk` flag marqué "À vérifier" | Mineure | 6 | ✅ Résolu positivement |
+| EIP-712 / ERC-7739 marqués "À vérifier" | Mineure | 7 | ✅ Résolu (délégué au SDK) |
 
 ---
 
@@ -378,8 +407,10 @@ const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 3. Vérifier les edge cases (rate limit, erreurs, timeouts)
 
 ### Étape 4 : Documentation des écarts ✅
-- Aucun écart critique identifié
-- Quelques points à vérifier (rate limits, heartbeat)
+- Audit complet réalisé le 2026-08-07 (skill `audit-codebase-docs`)
+- 8 écarts identifiés et corrigés dans ce document (voir section "Problèmes identifiés" ci-dessus)
+- Aucun écart sur le code — toutes les corrections concernent la documentation
+- Quelques points restant à vérifier côté runtime (rate limits, heartbeat)
 
 ---
 
@@ -387,21 +418,22 @@ const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 
 | Livrable | Status |
 |----------|--------|
-| **Rapport d'audit** | ✅ Présent |
-| **Liste des écarts** | ✅ Aucun écart critique |
+| **Rapport d'audit** | ✅ Présent + corrigé le 2026-08-07 |
+| **Liste des écarts** | ✅ 8 écarts identifiés et corrigés dans ce doc |
 | **Tests d'intégration** | ⏳ À implémenter |
-| **Correctifs** | N/A - pas de problème identifié |
+| **Correctifs doc** | ✅ Appliqués le 2026-08-07 (11 corrections) |
+| **Correctifs code** | N/A — aucun problème code identifié |
 
 ---
 
 ## Priorisation des corrections
 
-| Criticité | Action |
-|-----------|--------|
-| **Critique** | Aucune nécessaire |
-| **Haute** | Vérifier rate limits, heartbeat |
-| **Moyenne** | Tests d'intégration |
-| **Basse** | Optimisations batch subscriptions |
+| Criticité | Action | Statut |
+|-----------|--------|--------|
+| **Critique** | Corriger chemins `copy-trading/` + FOK supporté | ✅ Appliqué 2026-08-07 |
+| **Haute** | Documenter flow `market_resolved` réel + sous-modules `strategy/` + numéros de ligne | ✅ Appliqué 2026-08-07 |
+| **Moyenne** | Tests d'intégration | ⏳ À implémenter |
+| **Basse** | Optimisations batch subscriptions, terminologie `trailingActivationBidPoints` | ✅ Appliqué 2026-08-07 |
 
 ---
 

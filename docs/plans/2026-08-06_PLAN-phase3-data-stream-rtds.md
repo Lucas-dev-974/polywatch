@@ -3,7 +3,7 @@
 **Date** : 2026-08-06 (rev. 2 — décisions d'implémentation tranchées)  
 **Parent** : [`2026-08-05_PLAN-strategies-crypto-algo-5min.md`](./2026-08-05_PLAN-strategies-crypto-algo-5min.md) (rev. 5)  
 **Portée** : Phase **3.A + 3.B + 3.C** uniquement — **pas** Phase 4 (S9/S3/S1/S2) ni Phase 5.  
-**Statut** : spec d'implémentation définitive — **aucune implémentation Phase 3 dans ce document**.  
+**Statut** : spec conservée — **désimplémenté / reporté 2026-08-07** (aucune implémentation Phase 3 dans le code ; ne pas reprendre sans décision produit explicite).  
 
 > **Rev. 2** — 8 décisions tranchées en session 2026-08-06 (§13). Les §2/§3/§5 ci-dessous sont mis à jour ; en cas de divergence, **§13 fait foi**.
 

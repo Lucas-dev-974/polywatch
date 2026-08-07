@@ -45,8 +45,12 @@ import {
 } from '../clob/min-order-size.js';
 import pino from 'pino';
 import { notifyBackendAlert } from '../clob/notify-alert.js';
+import { buildStrategyCycleMetricsSnapshot } from '../strategy-cycle-metrics.js';
 
 const log = pino({ name: 'strategy-processing' });
+
+/** P0: avoid 10 Hz strategy-cycle POSTs; gauges only need ~1 Hz. */
+const STRATEGY_METRICS_PUSH_MIN_INTERVAL_MS = 1_000;
 
 export class StrategyProcessing {
   private positionService: CopiedPositionService;
@@ -62,6 +66,7 @@ export class StrategyProcessing {
   private lastMarketFetch = new Map<string, number>();
   private evaluating = false;
   private rerunRequested = false;
+  private lastStrategyMetricsPushAt = 0;
   private onCycleComplete?: (snapshot: {
     durationMs: number;
     positionsEvaluated: number;
@@ -165,7 +170,12 @@ export class StrategyProcessing {
       where: { status: In([...OPEN_LIKE_POSITION_STATUSES]) },
     });
 
-    if (positions.length === 0) return;
+    // Always push a cycle snapshot (including zeros) so gauges and freshness
+    // do not stay stale after the last open-like position closes.
+    if (positions.length === 0) {
+      this.emitStrategyCycleMetrics([], Date.now() - now);
+      return;
+    }
 
     const conditionIds = [...new Set(positions.map((p) => p.conditionId))];
     const [global, copy, crypto, weather] = await Promise.all([
@@ -214,41 +224,20 @@ export class StrategyProcessing {
     await this.pnlPublisher.pushTicks(ticks);
     await this.marketTickPublisher.pushTicks(marketTicks);
 
-    if (this.onCycleComplete) {
-      const positionsOpen = positions.filter((p) => p.status === 'open').length;
-      const positionsOpenByMode: Record<string, number> = {};
-      const positionsByStatus: Record<string, number> = {};
-      let illiquidCount = 0;
-      let spreadSum = 0;
-      let spreadCount = 0;
+    this.emitStrategyCycleMetrics(positions, Date.now() - now);
+  }
 
-      for (const p of positions) {
-        const mode = p.mode ?? 'unknown';
-        positionsOpenByMode[mode] = (positionsOpenByMode[mode] ?? 0) + 1;
-        const status = p.status ?? 'unknown';
-        positionsByStatus[status] = (positionsByStatus[status] ?? 0) + 1;
-        if (p.liquidityStatus === 'illiquid') illiquidCount++;
-        // Compute relative spread for liquid positions using bid/ask fields
-        if (p.liquidityStatus !== 'illiquid' && p.executableBidVwap != null && p.lastCloseableBidVwap != null) {
-          const mid = (p.executableBidVwap + p.lastCloseableBidVwap) / 2;
-          if (mid > 0) {
-            const spread = Math.abs(p.executableBidVwap - p.lastCloseableBidVwap);
-            spreadSum += spread / mid;
-            spreadCount++;
-          }
-        }
-      }
-
-      this.onCycleComplete({
-        durationMs: Date.now() - now,
-        positionsEvaluated: positions.length,
-        positionsOpen,
-        positionsOpenByMode,
-        positionsByStatus,
-        illiquidPositions: illiquidCount,
-        spreadMean: spreadCount > 0 ? spreadSum / spreadCount : 0,
-      });
+  private emitStrategyCycleMetrics(
+    positions: Parameters<typeof buildStrategyCycleMetricsSnapshot>[0],
+    durationMs: number,
+  ): void {
+    if (!this.onCycleComplete) return;
+    const now = Date.now();
+    if (now - this.lastStrategyMetricsPushAt < STRATEGY_METRICS_PUSH_MIN_INTERVAL_MS) {
+      return;
     }
+    this.lastStrategyMetricsPushAt = now;
+    this.onCycleComplete(buildStrategyCycleMetricsSnapshot(positions, durationMs));
   }
 
   private async refreshMarketsNearEnd(

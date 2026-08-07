@@ -26,6 +26,8 @@ export class MockConnectionManager implements IPolymarketConnectionManager {
       setOnMarketResolved: (cb) => {
         this.onMarketResolvedCb = cb;
       },
+      disconnect: () => {},
+      setOnReconnect: () => {},
     };
   }
 

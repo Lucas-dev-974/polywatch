@@ -1,9 +1,9 @@
-# ANNEXE — Risques et mitigations du plan d'audit
+z# ANNEXE — Risques et mitigations du plan d'audit
 
 > **Date de création** : 2026-08-06
 > **Dernière resync** : 2026-08-07 — C9 fallbacks purgés (`6d99017`) ; SL/TP fail-closed 30s
 > **Périmètre** : Monorepo Polywatch-v1.1
-> **Document parent** : [`docs/plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md)
+> **Document parent** : [`docs/plans/applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](../applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md)
 > **Objectif** : Pour chacun des 9 risques identifiés (+ 1 risque transversal tests), proposer des mitigations concrètes, adaptées à la codebase réelle, avec garde-fous, plan de rollback et séquencement.
 
 ---

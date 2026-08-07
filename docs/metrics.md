@@ -33,9 +33,10 @@ executor.ts                             GET /metrics
                                             KILL_SWITCH)
 
 strategy-processing.ts
-  └─ runEvaluateAll()
+  └─ runEvaluateAll() (~1 Hz throttle)
        └─ POST /metrics/strategy-cycle ─→ recordStrategyCycle()
-                                           (positions, spread, duration)
+                                           (positions open-only by mode,
+                                            zeros when idle, spread, duration)
 
 move-detector.ts
   └─ POST /metrics/circuit-breaker ────→ recordCircuitBreakerState()
@@ -91,7 +92,7 @@ Légende **Statut** :
 
 | Nom | Type | Labels | Statut | Description |
 |-----|------|--------|--------|-------------|
-| `polywatch_spread_mean` | Gauge | — | **Actif** | Ratio relatif moyen `|executableBidVwap - lastCloseableBidVwap| / midPrice` des positions liquides du dernier cycle |
+| `polywatch_spread_mean` | Gauge | — | **Actif** | Ratio relatif moyen `|executableBidVwap − lastCloseableBidVwap| / mid` des positions liquides du dernier cycle (push throttlé ~1 Hz) |
 | `polywatch_strategy_eval_duration_ms` | Histogram | — | **Actif** | Durée du cycle `runEvaluateAll` en ms |
 | `polywatch_strategy_eval_positions` | Gauge | — | **Actif** | Positions évaluées au dernier cycle |
 
@@ -159,7 +160,6 @@ Légende **Statut** :
 | `sl_fired_total`, `tp_fired_total`, `trailing_fired_total` | Worker `executor.ts` beginClose → `POST /api/internal/metrics/exit-event` |
 | `pre_close_total` | Worker `executor.ts` beginClose → `POST /api/internal/metrics/exit-event` |
 | `kill_switch_total` | Worker `executor.ts` beginClose → `POST /api/internal/metrics/exit-event` |
-| `time_exit_fired_total` | Worker `executor.ts` beginClose → `POST /api/internal/metrics/exit-event` |
 | `worker_metrics_last_push_timestamp` | Backend, mis à jour à chaque POST metrics worker |
 | `circuit_breaker_open` | Worker `move-detector.ts` → `POST /api/internal/metrics/circuit-breaker` |
 | `snapshot_created_total` | Backend simulation |

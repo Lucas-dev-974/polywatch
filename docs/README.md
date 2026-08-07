@@ -46,11 +46,11 @@ kill switch, limites d'exposition).
 > [`patchs/2026-07-12_PATCH_PENDING_PLACING_ORPHAN.md`](./patchs/2026-07-12_PATCH_PENDING_PLACING_ORPHAN.md)
 >
 > Plan durcissement exécution crypto-algo (2026-07-12) :
-> [`plans/2026-07-12_PLAN_CRYPTO_ALGO_EXECUTION_HARDENING.md`](./plans/2026-07-12_PLAN_CRYPTO_ALGO_EXECUTION_HARDENING.md)
+> [`plans/applied/2026-07-12_PLAN_CRYPTO_ALGO_EXECUTION_HARDENING.md`](./plans/applied/2026-07-12_PLAN_CRYPTO_ALGO_EXECUTION_HARDENING.md)
 >
 > Correctifs rédemption réelle — collatéral dynamique (2026-07-12) :
 > [`patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md`](./patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md) ·
-> [`plans/2026-07-12_PLAN_REDEMPTION_PHASE2.md`](./plans/2026-07-12_PLAN_REDEMPTION_PHASE2.md)
+> [`plans/applied/2026-07-12_PLAN_REDEMPTION_PHASE2.md`](./plans/applied/2026-07-12_PLAN_REDEMPTION_PHASE2.md)
 >
 > Résilience unhandled promise rejections & durcissement reset simulation (2026-07-17) :
 > [`patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md`](./patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md)
@@ -59,19 +59,22 @@ kill switch, limites d'exposition).
 > [`../tools/recover-stranded-redemption/README.md`](../tools/recover-stranded-redemption/README.md)
 >
 > Audit global codebase / doc / bugs fantômes (2026-08-06) — **terminé 2026-08-07** (phases 1–5 + ops/produit) :
-> [`plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](./plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) ·
-> [`plans/2026-08-06_ANNEXE-risques-mitigations.md`](./plans/2026-08-06_ANNEXE-risques-mitigations.md)
+> [`plans/applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](./plans/applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) ·
+> [`plans/reference/2026-08-06_ANNEXE-risques-mitigations.md`](./plans/reference/2026-08-06_ANNEXE-risques-mitigations.md)
 >
 > Purge RiskConfig / P0 (2026-08-06) — **appliqué** (Phase F) ; C9 fallbacks purgés post-P0 (`6d99017`) :
-> [`plans/2026-08-06_PLAN-p0-implementation.md`](./plans/2026-08-06_PLAN-p0-implementation.md) ·
-> [`plans/riskconfig-consumer-matrix.md`](./plans/riskconfig-consumer-matrix.md)
+> [`plans/applied/2026-08-06_PLAN-p0-implementation.md`](./plans/applied/2026-08-06_PLAN-p0-implementation.md) ·
+> [`plans/reference/riskconfig-consumer-matrix.md`](./plans/reference/riskconfig-consumer-matrix.md)
 >
 > Audit weather-algo + correctifs (2026-08-04) — **appliqué** :
 > [`audit-weather-algo-2026-08-04.md`](./audit-weather-algo-2026-08-04.md) ·
 > [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 >
 > Sim-reset Redis hygiene (2026-07-12 + fixes 4.5) — **appliqué** (abort worker in-flight inclus, 2026-08-07) :
-> [`plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](./plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)
+> [`plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](./plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)
+>
+> Inventaire plans (actifs / applied / reference / archived) :
+> [`plans/INDEX.md`](./plans/INDEX.md)
 >
 > Post-entry-mid logger (C10) — **appliqué** : migration `0095` / plan global §3.8
 >

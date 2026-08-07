@@ -96,7 +96,7 @@ describe('crypto-algo execution hardening e2e (autonomous)', () => {
   async function runPipelineOnce() {
     const riskService = new RiskService(ds);
     const { marketService } = createAlgoSelectionServices(ds);
-    const risk = await riskService.getConfig();
+    const risk = await riskService.getCryptoConfig();
     return runAlgoEntryPipeline({
       signal: makeAlgoBuySignal(fixture),
       risk,

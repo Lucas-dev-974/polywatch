@@ -21,6 +21,7 @@ import type { RedisQueue } from '../queue/redis-queue.js';
 import { RealExecutor } from '../clob/real-executor.js';
 import type { PositionLockRegistry } from '../clob/position-lock-registry.js';
 import { MetricsReporter } from '../metrics-reporter.js';
+import { shouldRecordExitMetric } from '../strategy-cycle-metrics.js';
 import { reconcileInFlightIfReal } from '../clob/execution-reconciler.js';
 import { failedExecution } from '../clob/execution-result.js';
 import {
@@ -102,7 +103,12 @@ export class Executor {
       // P0 metrics: count exactly once per position lifecycle.
       // closingAttemptSeq === 1  → first close attempt (retries have seq >= 2)
       // !resumed                 → not a duplicate signal with the same seq
-      if (closeResult.closingAttemptSeq === 1 && !closeResult.resumed) {
+      // COPY_CLOSE / MANUAL / …  → excluded (not risk-exit counters)
+      if (
+        closeResult.closingAttemptSeq === 1 &&
+        !closeResult.resumed &&
+        shouldRecordExitMetric(signal.reason)
+      ) {
         this.metricsReporter.recordExit(signal.reason);
       }
 

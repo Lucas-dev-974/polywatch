@@ -185,6 +185,32 @@ describe('Executor metrics counting', () => {
     expect(metricsReporter.recordExit).toHaveBeenCalledWith('KILL_SWITCH');
   });
 
+  it('does NOT record exit for COPY_CLOSE (excluded from risk counters)', async () => {
+    mockPositionService.beginClose.mockResolvedValue({
+      success: true,
+      closingAttemptSeq: 1,
+      resumed: false,
+    });
+
+    const signal = createMockSignal({ reason: 'COPY_CLOSE', closingAttemptSeq: 1 });
+    await executor.handle(signal);
+
+    expect(metricsReporter.recordExit).not.toHaveBeenCalled();
+  });
+
+  it('does NOT record exit for MANUAL (excluded from risk counters)', async () => {
+    mockPositionService.beginClose.mockResolvedValue({
+      success: true,
+      closingAttemptSeq: 1,
+      resumed: false,
+    });
+
+    const signal = createMockSignal({ reason: 'MANUAL', closingAttemptSeq: 1 });
+    await executor.handle(signal);
+
+    expect(metricsReporter.recordExit).not.toHaveBeenCalled();
+  });
+
   it('does NOT record exit for TIME_EXIT reason (not a total close)', async () => {
     const signal = createMockSignal({ reason: 'TIME_EXIT', closingAttemptSeq: 1 });
     await executor.handle(signal);

@@ -156,7 +156,7 @@ describe.skipIf(!process.env.RUN_REAL_SIM_E2E)(
           strategyId: string;
           interval: string;
         }) => {
-          const risk = await riskService.getConfig();
+          const risk = await riskService.getCryptoConfig();
           const result = await runAlgoEntryPipeline({
             signal,
             risk,

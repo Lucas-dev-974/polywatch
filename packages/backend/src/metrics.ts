@@ -78,7 +78,7 @@ export function createAppMetrics(registry: Registry): AppMetrics {
     }),
     spreadMean: new Gauge({
       name: `${prefix}spread_mean`,
-      help: 'Mean relative spread (spreadTop / midPrice) across liquid evaluated positions in the last cycle',
+      help: 'Mean |executableBidVwap - lastCloseableBidVwap| / mid across liquid evaluated positions in the last cycle',
       registers: [registry],
     }),
     clobFetchDuration: new Histogram({

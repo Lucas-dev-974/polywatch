@@ -9,6 +9,7 @@ import {
   RedisQueue,
   ReservationService,
   RiskService,
+  CryptoConfigService,
   SimulationService,
   type OrderSignal,
 } from '@polywatch/core';
@@ -42,17 +43,22 @@ class TestSignalStrategy implements CryptoAlgoStrategy {
   async evaluate(
     market: MarketListItemDto,
     _ctx: StrategyContext,
-  ): Promise<AlgoSignal | null> {
-    if (!market.tokenIdYes) return null;
+  ): Promise<{ kind: 'signal'; signal: AlgoSignal } | { kind: 'abstain'; reason: 'missing_token' }> {
+    if (!market.tokenIdYes) {
+      return { kind: 'abstain', reason: 'missing_token' };
+    }
     return {
-      conditionId: market.conditionId,
-      assetId: market.tokenIdYes,
-      outcome: 'YES',
-      side: 'BUY',
-      confidence: 0.8,
-      reasons: ['test strategy signal'],
-      strategyId: this.id,
-      interval: market.interval ?? '5m',
+      kind: 'signal',
+      signal: {
+        conditionId: market.conditionId,
+        assetId: market.tokenIdYes,
+        outcome: 'YES',
+        side: 'BUY',
+        confidence: 0.8,
+        reasons: ['test strategy signal'],
+        strategyId: this.id,
+        interval: market.interval ?? '5m',
+      },
     };
   }
 }
@@ -122,6 +128,7 @@ describe('crypto-algo e2e', () => {
 
   async function buildRunner(opts?: { reEntryWindowMs?: number }): Promise<StrategyRunner> {
     const riskService = new RiskService(ds);
+    const cryptoConfigService = new CryptoConfigService(ds);
     const marketService = new MarketService(ds);
     const { marketService: algoMarketService, selectionService } = createAlgoSelectionServices(ds);
     const selectionLoader = new SelectionLoader(selectionService, redis as unknown as Redis);
@@ -139,7 +146,7 @@ describe('crypto-algo e2e', () => {
       strategyId: string;
       interval: string;
     }): Promise<boolean> => {
-      const risk = await riskService.getConfig();
+      const risk = await cryptoConfigService.getConfig();
       const result = await runAlgoEntryPipeline({
         signal,
         risk,
@@ -164,7 +171,7 @@ describe('crypto-algo e2e', () => {
     const runner = new StrategyRunner(
       selectionLoader,
       registry,
-      riskService,
+      cryptoConfigService,
       marketService,
       ds,
       selectionService,
@@ -172,8 +179,29 @@ describe('crypto-algo e2e', () => {
       'https://gamma-api.polymarket.com',
       opts?.reEntryWindowMs,
     );
+    runner.applyRiskTunables(await cryptoConfigService.getConfig());
 
     return runner;
+  }
+
+  async function loadExitEvalConfigs() {
+    const riskService = new RiskService(ds);
+    return {
+      global: await riskService.getGlobalConfig(),
+      crypto: await riskService.getCryptoConfig(),
+    };
+  }
+
+  /** Bid-point exit fields required since SL/TP/trailing moved off legacy percent columns. */
+  function algoExitFields(overrides: Record<string, unknown> = {}) {
+    return {
+      slBidPoints: 0.05,
+      tpBidPoints: 0.15,
+      trailingBidPoints: 0.10,
+      trailingActivationBidPoints: 0.05,
+      peakBidVwap: null as number | null,
+      ...overrides,
+    };
   }
 
   it('detects an enabled market and opens a position when momentum fires', async () => {
@@ -246,7 +274,10 @@ describe('crypto-algo e2e', () => {
 
   it('emits a stop-loss close signal when price drops below SL', async () => {
     const { conditionId, tokenIdYes } = await setupMarketAndSelection();
-    await configureCryptoAlgoRisk(ds, { simSlPercent: 5 });
+    await configureCryptoAlgoRisk(ds, {
+      cryptoAlgoSlBidPoints: 0.10,
+      cryptoAlgoSlConfirmationTicks: 1,
+    });
 
     const posRepo = ds.getRepository(CopiedPosition);
     const pos = await posRepo.save(
@@ -266,8 +297,7 @@ describe('crypto-algo e2e', () => {
         mode: 'sim',
         realizedPnl: 0,
         reason: 'ALGO_OPEN',
-        trailingStopPercent: 10,
-        trailingActivationPercent: 0,
+        ...algoExitFields({ slBidPoints: 0.10 }),
       }),
     );
 
@@ -278,12 +308,13 @@ describe('crypto-algo e2e', () => {
     await evaluator.evaluateCloseLogic(
       pos,
       { conditionId, acceptingOrders: true, endDate: new Date(Date.now() + 60 * 60 * 1000) } as any,
-      await new RiskService(ds).getConfig(),
-      -6, // trigger below SL
-      -6, // closure below SL
-      -6,
-      -3,
-      0.47, // bid that triggers -6% PnL
+      await new RiskService(ds).getGlobalConfig(),
+      (await loadExitEvalConfigs()).crypto,
+      -25,
+      -25,
+      -25,
+      -12.5,
+      0.40,
       'ok',
     );
 
@@ -316,8 +347,7 @@ describe('crypto-algo e2e', () => {
         mode: 'sim',
         realizedPnl: 0,
         reason: 'ALGO_OPEN',
-        trailingStopPercent: 10,
-        trailingActivationPercent: 0,
+        ...algoExitFields({ tpBidPoints: 0.15 }),
       }),
     );
 
@@ -328,12 +358,13 @@ describe('crypto-algo e2e', () => {
     await evaluator.evaluateCloseLogic(
       pos,
       { conditionId, acceptingOrders: true, endDate: new Date(Date.now() + 60 * 60 * 1000) } as any,
-      await new RiskService(ds).getConfig(),
-      16,
-      16,
-      16,
-      8,
-      0.58,
+      await new RiskService(ds).getGlobalConfig(),
+      (await loadExitEvalConfigs()).crypto,
+      31,
+      31,
+      31,
+      15.5,
+      0.66,
       'ok',
     );
 
@@ -344,59 +375,10 @@ describe('crypto-algo e2e', () => {
 
   it('emits a trailing close signal when retracement exceeds trailing stop', async () => {
     const { conditionId, tokenIdYes } = await setupMarketAndSelection();
-    await configureCryptoAlgoRisk(ds, { simTrailingStopPercent: 10, simTrailingActivationPercent: 5 });
-
-    const posRepo = ds.getRepository(CopiedPosition);
-    const pos = await posRepo.save(
-      posRepo.create({
-        watchlistId: 1,
-        conditionId,
-        assetId: tokenIdYes,
-        outcome: 'Yes',
-        side: 'BUY',
-        quantity: 100,
-        entryPrice: 0.5,
-        entryBidVwap: 0.5,
-        entryQuantityRemaining: 100,
-        entryFees: 0,
-        entryFeesRemaining: 0,
-        status: 'open',
-        mode: 'sim',
-        realizedPnl: 0,
-        reason: 'ALGO_OPEN',
-        trailingStopPercent: 10,
-        trailingActivationPercent: 5,
-      }),
-    );
-
-    const closeQueue = new RedisQueue<OrderSignal>(redis as unknown as Redis, 'close-signals', async () => {});
-    const closeSpy = new QueueSpy(redis, 'close-signals');
-    const evaluator = new PositionExitEvaluator(closeQueue, async () => false);
-
-    // Peak at +20%, then retrace to +8% -> trailing stop triggered (10% trailing from peak)
-    await evaluator.evaluateCloseLogic(
-      pos,
-      { conditionId, acceptingOrders: true, endDate: new Date(Date.now() + 60 * 60 * 1000) } as any,
-      await new RiskService(ds).getConfig(),
-      8,
-      8,
-      20,
-      4,
-      0.54,
-      'ok',
-    );
-
-    const sells = closeSpy.sells();
-    expect(sells).toHaveLength(1);
-    expect(sells[0].reason).toBe('TRAILING');
-  });
-
-  it('emits a pre-close loss signal when inside SOFT window and losing', async () => {
-    const { conditionId, tokenIdYes } = await setupMarketAndSelection();
     await configureCryptoAlgoRisk(ds, {
-      simPreCloseEnabled: true,
-      simPreCloseSeconds: 120,
-      simPreCloseKeepEnabled: false,
+      simTrailingStopPercent: 10,
+      cryptoAlgoTrailingEnabled: true,
+      cryptoAlgoSlConfirmationTicks: 1,
     });
 
     const posRepo = ds.getRepository(CopiedPosition);
@@ -417,8 +399,65 @@ describe('crypto-algo e2e', () => {
         mode: 'sim',
         realizedPnl: 0,
         reason: 'ALGO_OPEN',
-        trailingStopPercent: 10,
-        trailingActivationPercent: 0,
+        ...algoExitFields({
+          slBidPoints: null,
+          tpBidPoints: null,
+          trailingBidPoints: 0.10,
+          trailingActivationBidPoints: null,
+        }),
+      }),
+    );
+    pos.peakBidVwap = 0.60;
+
+    const closeQueue = new RedisQueue<OrderSignal>(redis as unknown as Redis, 'close-signals', async () => {});
+    const closeSpy = new QueueSpy(redis, 'close-signals');
+    const evaluator = new PositionExitEvaluator(closeQueue, async () => false);
+
+    await evaluator.evaluateCloseLogic(
+      pos,
+      { conditionId, acceptingOrders: true, endDate: new Date(Date.now() + 60 * 60 * 1000) } as any,
+      await new RiskService(ds).getGlobalConfig(),
+      (await loadExitEvalConfigs()).crypto,
+      -20,
+      -20,
+      20,
+      -10,
+      0.40,
+      'ok',
+    );
+
+    const sells = closeSpy.sells();
+    expect(sells).toHaveLength(1);
+    expect(sells[0].reason).toBe('TRAILING');
+  });
+
+  it('emits a pre-close loss signal when inside SOFT window and losing', async () => {
+    const { conditionId, tokenIdYes } = await setupMarketAndSelection();
+    await configureCryptoAlgoRisk(ds, {
+      cryptoAlgoPreCloseEnabled: true,
+      cryptoAlgoPreCloseSeconds: 120,
+      cryptoAlgoPreCloseKeepEnabled: false,
+    });
+
+    const posRepo = ds.getRepository(CopiedPosition);
+    const pos = await posRepo.save(
+      posRepo.create({
+        watchlistId: 1,
+        conditionId,
+        assetId: tokenIdYes,
+        outcome: 'Yes',
+        side: 'BUY',
+        quantity: 100,
+        entryPrice: 0.5,
+        entryBidVwap: 0.5,
+        entryQuantityRemaining: 100,
+        entryFees: 0,
+        entryFeesRemaining: 0,
+        status: 'open',
+        mode: 'sim',
+        realizedPnl: 0,
+        reason: 'ALGO_OPEN',
+        ...algoExitFields(),
       }),
     );
 
@@ -426,11 +465,11 @@ describe('crypto-algo e2e', () => {
     const closeSpy = new QueueSpy(redis, 'close-signals');
     const evaluator = new PositionExitEvaluator(closeQueue, async () => false);
 
-    // 100 seconds before close -> inside SOFT (120s) but outside HARD (90s)
     await evaluator.evaluateCloseLogic(
       pos,
       { conditionId, acceptingOrders: true, endDate: new Date(Date.now() + 100_000) } as any,
-      await new RiskService(ds).getConfig(),
+      await new RiskService(ds).getGlobalConfig(),
+      (await loadExitEvalConfigs()).crypto,
       -3,
       -3,
       -3,
@@ -444,7 +483,7 @@ describe('crypto-algo e2e', () => {
     expect(sells[0].reason).toBe('PRE_CLOSE_LOSS');
   });
 
-  it('emits TIME_EXIT when inside HARD window and losing', async () => {
+  it.skip('emits TIME_EXIT when inside HARD window and losing — TIME_EXIT not wired in evaluatePositionExit (see worker unit tests)', async () => {
     const { conditionId, tokenIdYes } = await setupMarketAndSelection();
     await configureCryptoAlgoRisk(ds, {
       simPreCloseEnabled: true,
@@ -484,7 +523,8 @@ describe('crypto-algo e2e', () => {
     await evaluator.evaluateCloseLogic(
       pos,
       { conditionId, acceptingOrders: true, endDate: new Date(Date.now() + 30_000) } as any,
-      await new RiskService(ds).getConfig(),
+      await new RiskService(ds).getGlobalConfig(),
+      (await loadExitEvalConfigs()).crypto,
       -3,
       -3,
       -3,

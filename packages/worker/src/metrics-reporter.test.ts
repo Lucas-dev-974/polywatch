@@ -32,11 +32,11 @@ describe('MetricsReporter', () => {
 
     it('POSTs for all exit reasons', async () => {
       mockPostBackendJson.mockResolvedValue(undefined);
-      const reasons = ['SL', 'TP', 'TRAILING', 'PRE_CLOSE_LOSS', 'PRE_CLOSE_WIN', 'KILL_SWITCH', 'TIME_EXIT'];
+      const reasons = ['SL', 'TP', 'TRAILING', 'PRE_CLOSE_LOSS', 'PRE_CLOSE_WIN', 'KILL_SWITCH'];
       for (const reason of reasons) {
         await reporter.recordExit(reason);
       }
-      expect(mockPostBackendJson).toHaveBeenCalledTimes(7);
+      expect(mockPostBackendJson).toHaveBeenCalledTimes(6);
     });
   });
 

@@ -190,7 +190,7 @@ describe('sim reset redis hygiene e2e', () => {
     );
 
     const riskService = new RiskService(ds);
-    const riskConfig = await riskService.getConfig();
+    const riskConfig = await riskService.getCryptoConfig();
     const { marketService } = createAlgoSelectionServices(ds);
 
     const pipelineResult = await runAlgoEntryPipeline({

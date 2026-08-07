@@ -34,7 +34,7 @@
 | `setConfig` / `applyTunables` générique | ❌ | runner hardcode naive L325–346 |
 | Store params par stratégie (JSON bag) | ❌ | colonnes plates `CryptoConfig` |
 | Catalogue UI stratégies | ⚠️ | hardcodé 1 entrée `CryptoAlgoSettingsGeneralTab.tsx` |
-| 2ᵉ stratégie / builder | 📋 plan | `docs/plans/2026-07-09_SPEC_STRATEGIE_BUILDER.md` |
+| 2ᵉ stratégie / builder | 📋 plan | `docs/plans/reference/2026-07-09_SPEC_STRATEGIE_BUILDER.md` |
 
 **Bottom line** : ajouter une stratégie = 1 classe sous `implementations/` + id dans `cryptoAlgoStrategies`. Pour du multi propre : auto-register, `applyTunables` registry-driven, params JSON par stratégie, priorité explicite (first-wins actuel).
 

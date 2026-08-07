@@ -160,14 +160,19 @@ async function main() {
   );
   const simRealismJanitor = new SimRealismJanitor(ds);
 
-  const handleEntry = wrapSimResetAwareHandler(simResetGeneration, (job) =>
-    executorA.handle(job),
+  // Explicit T: TS otherwise falls back to the constraint `{ mode: TradingMode }`
+  // and rejects passing `job` into OrderSignal / ExecutionResult handlers.
+  const handleEntry = wrapSimResetAwareHandler<OrderSignal>(
+    simResetGeneration,
+    (job) => executorA.handle(job),
   );
-  const handleClose = wrapSimResetAwareHandler(simResetGeneration, (job) =>
-    executorB.handle(job),
+  const handleClose = wrapSimResetAwareHandler<OrderSignal>(
+    simResetGeneration,
+    (job) => executorB.handle(job),
   );
-  const handleResult = wrapSimResetAwareHandler(simResetGeneration, (job) =>
-    resultsConsumer.handle(job),
+  const handleResult = wrapSimResetAwareHandler<ExecutionResult>(
+    simResetGeneration,
+    (job) => resultsConsumer.handle(job),
   );
 
   const orderQueueConsumer = new RedisQueue<OrderSignal>(

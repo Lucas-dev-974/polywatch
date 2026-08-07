@@ -4,22 +4,19 @@ import { Redis } from 'ioredis';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  sanitizePositiveNumber,
+  toFixed,
+  groupBy,
+  avg,
+  type SignalRow,
+} from './monitor-helpers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-
-function sanitizePositiveNumber(
-  raw: string | undefined,
-  fallback: number,
-  opts: { min: number; max?: number },
-): number {
-  const n = Number(raw ?? fallback);
-  if (!Number.isFinite(n) || n < opts.min) return fallback;
-  return opts.max != null ? Math.min(n, opts.max) : n;
-}
 
 const env = {
   databaseUrl: process.env.DATABASE_URL,
@@ -85,7 +82,7 @@ const SQL_SIGNALS_SNAPSHOT = `
   ORDER BY condition_id;
 `;
 
-const SQL_POSITIONS_AGG = (hours: number) => `
+const SQL_POSITIONS_AGG = `
   SELECT
     cp.interval AS interval,
     cp.mode AS mode,
@@ -100,7 +97,7 @@ const SQL_POSITIONS_AGG = (hours: number) => `
     AVG(cp.executable_bid_vwap) AS "avgCurrentBid"
   FROM copied_positions cp
   WHERE cp.reason LIKE 'ALGO_%'
-    AND cp.opened_at >= NOW() - INTERVAL '${hours} hours'
+    AND cp.opened_at >= NOW() - make_interval(hours => $1)
   GROUP BY cp.interval, cp.mode, cp.reason, cp.close_reason, cp.closing_reason
   ORDER BY cp.interval, cp.mode;
 `;
@@ -135,7 +132,7 @@ const SQL_POSITIONS_OPEN = `
   ORDER BY cp.unrealized_pnl ASC;
 `;
 
-const SQL_POSITIONS_CLOSED = (hours: number) => `
+const SQL_POSITIONS_CLOSED = `
   SELECT
     cp.interval AS interval,
     cp.mode AS mode,
@@ -151,7 +148,7 @@ const SQL_POSITIONS_CLOSED = (hours: number) => `
   LEFT JOIN markets m ON m.condition_id = cp.condition_id
   WHERE cp.reason LIKE 'ALGO_%'
     AND cp.status = 'closed'
-    AND cp.closed_at >= NOW() - INTERVAL '${hours} hours'
+    AND cp.closed_at >= NOW() - make_interval(hours => $1)
   ORDER BY cp.closed_at DESC
   LIMIT 500;
 `;
@@ -175,7 +172,7 @@ const SQL_EXIT_ATTEMPTS = `
   ORDER BY cp.exit_emit_blocked_count DESC, cp.forced_exit_failed_attempts DESC;
 `;
 
-const SQL_MARKET_ACTIVITY = (hours: number) => `
+const SQL_MARKET_ACTIVITY = `
   SELECT
     condition_id AS "conditionId",
     interval,
@@ -188,7 +185,7 @@ const SQL_MARKET_ACTIVITY = (hours: number) => `
     AVG(up_spread_pct) AS "avgUpSpreadPct",
     AVG(CASE WHEN ws_healthy THEN 1 ELSE 0 END) AS "wsHealthyRatio"
   FROM algo_price_ticks
-  WHERE recorded_at >= NOW() - INTERVAL '${hours} hours'
+  WHERE recorded_at >= NOW() - make_interval(hours => $1)
   GROUP BY condition_id, interval
   ORDER BY tick_count DESC;
 `;
@@ -196,24 +193,6 @@ const SQL_MARKET_ACTIVITY = (hours: number) => `
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-
-interface SignalRow {
-  conditionId: string;
-  interval: string | null;
-  lastSignalOutcome: string | null;
-  lastSignalConfidence: number | null;
-  lastSignalStrategyId: string | null;
-  lastAbstainReason: string | null;
-  upPrice: number | null;
-  downPrice: number | null;
-  upSpreadPct: number | null;
-  downSpreadPct: number | null;
-  wsHealthy: boolean | null;
-  openPositionsCount: number;
-  openExposureUsd: number | null;
-  unrealizedPnl: number | null;
-  recordedAt: Date;
-}
 
 interface PositionAggRow {
   interval: string | null;
@@ -375,26 +354,6 @@ interface Snapshot {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function toFixed(n: number | null | undefined, digits = 4): number | null {
-  if (n == null || Number.isNaN(n)) return null;
-  return Number(n.toFixed(digits));
-}
-
-function groupBy(rows: SignalRow[], key: keyof SignalRow): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const row of rows) {
-    const raw = row[key];
-    const k = raw == null ? 'unknown' : String(raw);
-    out[k] = (out[k] ?? 0) + 1;
-  }
-  return out;
-}
-
-function avg(arr: number[]): number | null {
-  if (arr.length === 0) return null;
-  return Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(4));
-}
-
 async function writeAtomicFile(filePath: string, data: string): Promise<void> {
   const tmpPath = `${filePath}.tmp`;
   await fs.writeFile(tmpPath, data, 'utf8');
@@ -441,11 +400,11 @@ async function main(): Promise<void> {
         runtimeStatusRaw,
       ] = await Promise.all([
         ds.query(SQL_SIGNALS_SNAPSHOT) as Promise<SignalRow[]>,
-        ds.query(SQL_POSITIONS_AGG(env.durationHours)) as Promise<PositionAggRow[]>,
+        ds.query(SQL_POSITIONS_AGG, [env.durationHours]) as Promise<PositionAggRow[]>,
         ds.query(SQL_POSITIONS_OPEN) as Promise<OpenPositionRow[]>,
-        ds.query(SQL_POSITIONS_CLOSED(env.durationHours)) as Promise<ClosedPositionRow[]>,
+        ds.query(SQL_POSITIONS_CLOSED, [env.durationHours]) as Promise<ClosedPositionRow[]>,
         ds.query(SQL_EXIT_ATTEMPTS) as Promise<ExitProblemRow[]>,
-        ds.query(SQL_MARKET_ACTIVITY(env.durationHours)) as Promise<MarketActivityRow[]>,
+        ds.query(SQL_MARKET_ACTIVITY, [env.durationHours]) as Promise<MarketActivityRow[]>,
         redis.get('crypto-algo:runtime-status'),
       ]);
 

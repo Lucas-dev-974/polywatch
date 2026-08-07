@@ -42,6 +42,7 @@ import { registerBuiltinStrategies } from './strategy/register-builtin-strategie
 import { StrategyRunner } from './strategy/strategy-runner.js';
 import { CryptoAlgoPriceFeed } from './price-feed.js';
 import { runAlgoEntryPipeline } from './processors/algo-entry-pipeline.js';
+import type { SlQuotaState } from './strategy/sl-quota.js';
 import { runMarketJanitorCycle, resolveMarketJanitorIntervalMs } from './auto-track-janitor.js';
 import { AlgoMarketPercentPublisher } from './algo-percent-publisher.js';
 import { AlgoChartTickPublisher } from './algo-chart-tick-publisher.js';
@@ -171,6 +172,7 @@ async function main() {
   });
 
   // 14. Create the onSignal callback that runs the entry pipeline
+  const slQuotaCache = new Map<string, SlQuotaState>();
   const onSignal = async (signal: AlgoSignal): Promise<boolean> => {
     const cryptoConfig = await cryptoConfigService.getConfig();
     const globalConfig = await globalConfigService.getConfig();
@@ -188,6 +190,8 @@ async function main() {
       redisCmd,
       backendUrl: config.backendUrl,
       serviceToken: config.serviceToken,
+      clobApi: config.clobApi,
+      slQuotaCache,
     });
     if (result !== null) {
       log.info(
@@ -224,6 +228,7 @@ async function main() {
   // 16. Set up WebSocket price feed integration
   strategyRunner.setPriceFeed(priceFeed);
   strategyRunner.setRedis(redisCmd);
+  strategyRunner.setSlQuotaCache(slQuotaCache);
   strategyRunner.setOnAbstain((conditionId, reason, detail) => {
     signalRegistry.recordAbstain(conditionId, reason, detail);
   });
@@ -265,10 +270,22 @@ async function main() {
   };
 
   // Create backend client for notifying frontend of market changes
-  const { postBackendJson } = createBackendClient({
+  const { postBackendJson, postBackendAlert } = createBackendClient({
     backendUrl: config.backendUrl,
     serviceToken: config.serviceToken,
   });
+
+  // Wire operator alert sink for re-entry Redis mirror failures (UI banner).
+  const alertSink = (message: string) => {
+    postBackendAlert('/api/internal/alerts', { type: 'warning', message });
+  };
+  strategyRunner.setReEntryAlertSink(alertSink);
+
+  // Wire operator alert sink for high WS/Gamma price deviation (F3).
+  const naiveMomentum = registry.getStrategy('naive-momentum');
+  if (naiveMomentum && 'setAlertSink' in naiveMomentum) {
+    (naiveMomentum as { setAlertSink: (s: (m: string) => void) => void }).setAlertSink(alertSink);
+  }
 
   // 17. Connect WebSocket and subscribe to active markets
   try {
@@ -381,6 +398,7 @@ async function main() {
 
   // 19c. Price tick cleanup: configurable via CryptoConfig
   let priceTickCleanupTimer: NodeJS.Timeout | null = null;
+  let shuttingDown = false;
 
   if (cryptoConfig.cryptoAlgoPriceTickCleanupEnabled) {
     const intervalMs = (cryptoConfig.cryptoAlgoPriceTickCleanupIntervalMinutes ?? 60) * 60 * 1000;
@@ -568,6 +586,10 @@ async function main() {
         );
 
         // Reconfigure price tick cleanup timer if settings changed
+        if (shuttingDown) {
+          log.info('config-changed during shutdown — skipping price tick cleanup reconfiguration');
+          return;
+        }
         if (priceTickCleanupTimer) {
           clearInterval(priceTickCleanupTimer);
           priceTickCleanupTimer = null;
@@ -598,6 +620,7 @@ async function main() {
   const shutdown = createShutdownHandler({
     log,
     clearProcessTimers: () => {
+      shuttingDown = true;
       if (marketJanitorTimer) clearInterval(marketJanitorTimer);
       clearInterval(heartbeatTimer);
       clearInterval(surveillanceRefreshTimer);

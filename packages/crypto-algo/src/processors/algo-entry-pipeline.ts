@@ -42,8 +42,6 @@ import { resolveSlQuotaEntryBlock } from '../strategy/sl-quota.js';
 
 const log = pino({ name: 'crypto-algo:entry-pipeline' });
 
-const CLOB_API = process.env.POLYMARKET_CLOB_API ?? 'https://clob.polymarket.com';
-
 /**
  * Pipeline parameters for {@link runAlgoEntryPipeline}.
  */
@@ -66,6 +64,10 @@ export interface AlgoEntryPipelineParams {
   backendUrl: string;
   /** Service token for backend auth. Required for real mode. */
   serviceToken: string;
+  /** Polymarket CLOB API base URL used by liquidity and MOS gates. */
+  clobApi: string;
+  /** Optional SL quota cache map (shared with StrategyRunner for invalidation). */
+  slQuotaCache?: Map<string, import('../strategy/sl-quota.js').SlQuotaState>;
 }
 
 /**
@@ -95,7 +97,9 @@ export async function runAlgoEntryPipeline(
     redisCmd,
     backendUrl,
     serviceToken,
+    clobApi,
     realTradingEnabled,
+    slQuotaCache,
   } = params;
 
   if (!risk.cryptoAlgoEnabled) {
@@ -156,7 +160,7 @@ export async function runAlgoEntryPipeline(
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     connectionManager,
-    clobApi: CLOB_API,
+    clobApi,
     maxRetries: 1,
     delayMs: 250,
   });
@@ -194,6 +198,8 @@ export async function runAlgoEntryPipeline(
         redisCmd,
         backendUrl,
         serviceToken,
+        clobApi,
+        slQuotaCache,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -252,6 +258,8 @@ async function runMode(args: {
   redisCmd: Pick<Redis, 'exists'>;
   backendUrl: string;
   serviceToken: string;
+  clobApi: string;
+  slQuotaCache?: Map<string, import('../strategy/sl-quota.js').SlQuotaState>;
 }): Promise<string | null> {
   const {
     signal,
@@ -268,6 +276,8 @@ async function runMode(args: {
     redisCmd,
     backendUrl,
     serviceToken,
+    clobApi,
+    slQuotaCache,
   } = args;
 
   if (await hasAlgoEntryCooldown(redisCmd, signal.conditionId, mode)) {
@@ -283,6 +293,7 @@ async function runMode(args: {
     conditionId: signal.conditionId,
     mode,
     risk,
+    ...(slQuotaCache ? { cache: slQuotaCache } : {}),
   });
   if (slQuotaBlock) {
     log.warn(
@@ -341,7 +352,7 @@ async function runMode(args: {
           const detailed = await resolveEntryMinOrderSharesDetailed({
             conditionId,
             assetId,
-            clobApi: CLOB_API,
+            clobApi,
           });
           return effectiveEntryMos(detailed);
         },
@@ -465,7 +476,7 @@ async function runMode(args: {
     maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk, mode),
     conditionId: signal.conditionId,
     assetId: signal.assetId,
-    clobApi: CLOB_API,
+    clobApi,
     connectionManager,
   });
   if (!mosGate.ok) {

@@ -28,6 +28,7 @@ const log = pino({ name: 'crypto-algo:naive-momentum' });
 
 /** Min interval between insufficient-history debug logs per conditionId. */
 const CURVE_INSUFFICIENT_LOG_INTERVAL_MS = 30_000;
+const DEVIATION_ALERT_INTERVAL_MS = 5 * 60_000;
 
 /**
  * Configuration for the naive momentum strategy.
@@ -105,6 +106,9 @@ export interface NaiveMomentumConfig {
 
   /** Minimum mid drop (probability points) to treat as descending. @default 0.01 */
   curveMinDelta: number;
+
+  /** Deviation threshold above which an operator alert is fired (in addition to log.warn). @default 0.15 */
+  alertPriceDeviation: number;
 }
 
 const DEFAULT_CONFIG: NaiveMomentumConfig = {
@@ -121,6 +125,7 @@ const DEFAULT_CONFIG: NaiveMomentumConfig = {
   curveFilterEnabled: false,
   curveLookbackMs: 10_000,
   curveMinDelta: 0.01,
+  alertPriceDeviation: 0.15,
 };
 
 /** Resolve BUY direction from entry price band on the bought token. */
@@ -148,6 +153,9 @@ export class NaiveMomentumStrategy implements ConfigurableCryptoAlgoStrategy {
   readonly id = 'naive-momentum';
   private config: NaiveMomentumConfig;
   private readonly lastInsufficientLogByCondition = new Map<string, number>();
+  private readonly lastDeviationAlertByCondition = new Map<string, number>();
+  /** Optional operator alert sink (e.g. high WS/Gamma deviation). */
+  private alertSink?: (message: string) => void;
 
   constructor(config: Partial<NaiveMomentumConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -156,6 +164,11 @@ export class NaiveMomentumStrategy implements ConfigurableCryptoAlgoStrategy {
   /** Hot-reload tunables from CryptoConfig (called by strategy runner). */
   setConfig(config: Partial<NaiveMomentumConfig>): void {
     this.config = { ...this.config, ...config };
+  }
+
+  /** Inject an operator-alert sink (e.g. backend UI banner via postBackendAlert). */
+  setAlertSink(sink: (message: string) => void): void {
+    this.alertSink = sink;
   }
 
   /** Registry-driven tunables application (Phase 2.3). */
@@ -427,7 +440,7 @@ export class NaiveMomentumStrategy implements ConfigurableCryptoAlgoStrategy {
         points,
         lookbackMs: this.config.curveLookbackMs,
       },
-      'curve filter enabled but insufficient mid history — fail-open',
+      'curve filter enabled but insufficient mid history — fail-closed (abstaining)',
     );
   }
 
@@ -453,6 +466,26 @@ export class NaiveMomentumStrategy implements ConfigurableCryptoAlgoStrategy {
           { conditionId, wsMidPrice: wsMid, gammaYesPrice, deviation },
           'WS/Gamma price deviation (non-blocking, using WebSocket)',
         );
+      }
+      if (
+        this.alertSink &&
+        deviation >= this.config.alertPriceDeviation &&
+        Number.isFinite(gammaYesPrice)
+      ) {
+        const nowMs = Date.now();
+        const lastAt = this.lastDeviationAlertByCondition.get(conditionId) ?? 0;
+        if (nowMs - lastAt >= DEVIATION_ALERT_INTERVAL_MS) {
+          this.lastDeviationAlertByCondition.set(conditionId, nowMs);
+          try {
+            this.alertSink(
+              `crypto-algo: deviation WS/Gamma élevée (${deviation.toFixed(3)}) ` +
+                `sur ${conditionId} — wsMid=${wsMid.toFixed(3)} gammaYes=${gammaYesPrice.toFixed(3)}. ` +
+                `Vérifier l'intégrité du flux WebSocket.`,
+            );
+          } catch (sinkErr) {
+            log.warn({ err: sinkErr }, 'deviation alert sink threw');
+          }
+        }
       }
       return { price: wsMid, priceSource: 'websocket' };
     }

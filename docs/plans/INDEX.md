@@ -1,6 +1,6 @@
 # Inventaire des plans — Polywatch
 
-> Dernière mise à jour : 2026-08-07  
+> Dernière mise à jour : 2026-08-08  
 > Critère `applied/` : plan d'implémentation dont les livrables concrets sont présents dans le code (vérification codebase, pas seulement les cases `[x]` du markdown).
 
 ## Structure des dossiers
@@ -16,12 +16,12 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 20 |
+| **applied** | 21 |
 | **partial** (racine) | 2 |
 | **not_implemented** (racine) | 2 |
 | **reference** | 7 |
 | **archived** | 5 |
-| **Total** | **36** |
+| **Total** | **38** |
 
 ---
 
@@ -51,6 +51,7 @@
 | [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` Postgres-only, `test-data-source.ts` pg-mem, docker-compose PG, `dialect.ts` supprimé |
 | [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` PG-only, `test-data-source.ts` pg-mem, `dialect.ts` supprimé, `audit-position-28455.ts` supprimé |
 | [applied/2026-08-07_PLAN-fix-audit-hardening.md](applied/2026-08-07_PLAN-fix-audit-hardening.md) | Fix R1/R2 relayer + C1 copy retry + dedupe exit SELL | `relayer-client.ts`, `copy-processor.ts`, `copy-exit-pipeline.ts` |
+| [applied/2026-08-07_PLAN_audit-crypto-algo.md](applied/2026-08-07_PLAN_audit-crypto-algo.md) | Audit crypto-algo complet (C1–C3, S1–S6, F1–F5) 100% implémenté | `strategy-runner.ts`, `naive-momentum.strategy.ts`, `monitor.ts`, `market-surveillance-recorder.ts`, `position-context-cache.ts` |
 
 ---
 

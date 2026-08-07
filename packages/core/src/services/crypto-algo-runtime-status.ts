@@ -7,6 +7,10 @@ export interface CryptoAlgoRuntimeStatusPayload {
   lastEvaluatedAt: string | null;
   lastSkipReason: string | null;
   lastSkipAt: string | null;
+  /** Number of entries (accepted signals) in the last tick cycle. */
+  entriesLastCycle: number;
+  /** Number of markets evaluated in the last tick cycle. */
+  evaluatedLastCycle: number;
 }
 
 export function parseCryptoAlgoRuntimeStatus(
@@ -22,6 +26,8 @@ export function parseCryptoAlgoRuntimeStatus(
       lastEvaluatedAt: parsed.lastEvaluatedAt ?? null,
       lastSkipReason: parsed.lastSkipReason ?? null,
       lastSkipAt: parsed.lastSkipAt ?? null,
+      entriesLastCycle: Number(parsed.entriesLastCycle) || 0,
+      evaluatedLastCycle: Number(parsed.evaluatedLastCycle) || 0,
     };
   } catch {
     return null;

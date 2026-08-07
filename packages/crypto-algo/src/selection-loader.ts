@@ -24,6 +24,8 @@ export class SelectionLoader {
   private selections = new Map<string, AlgoMarketSelection>();
   private periodicTimer: NodeJS.Timeout | null = null;
   private subscribed = false;
+  /** Serializes concurrent reload() calls (config-changed + periodic refresh). */
+  private reloadChain: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly service: AlgoMarketSelectionService,
@@ -41,8 +43,19 @@ export class SelectionLoader {
     log.info({ count: this.selections.size }, 'loaded enabled algo market selections');
   }
 
-  /** Runtime reload — silent on failure (service stays alive with stale selections). */
-  async reload(): Promise<void> {
+  /**
+   * Runtime reload — silent on failure (service stays alive with stale selections).
+   * Concurrent calls are serialized via an internal promise chain to avoid
+   * overlapping DB reads and racing snapshot swaps.
+   */
+  reload(): Promise<void> {
+    this.reloadChain = this.reloadChain.then(() => this.doReload()).catch((err) => {
+      log.error({ err }, 'reload chain swallowed error');
+    });
+    return this.reloadChain;
+  }
+
+  private async doReload(): Promise<void> {
     try {
       const entries = await this.service.loadAllEnabled();
       const next = new Map<string, AlgoMarketSelection>();

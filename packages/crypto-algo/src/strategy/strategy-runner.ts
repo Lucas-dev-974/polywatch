@@ -12,6 +12,7 @@ import {
   tryLoadCryptoReentryState,
   isCryptoReentrySuppressed,
   recordCryptoReentryFill,
+  type RecordCryptoReentryFillInput,
   type MarketService,
   type CryptoConfigService,
   type CryptoConfig,
@@ -46,7 +47,13 @@ import {
   recordReEntrySuccess,
   shouldSuppressReEntry,
 } from './re-entry-throttle.js';
-import { cleanupGlobalSlQuotaCache, invalidateGlobalSlQuotaCache } from './sl-quota.js';
+import {
+  cleanupGlobalSlQuotaCache,
+  cleanupSlQuotaCache,
+  invalidateGlobalSlQuotaCache,
+  invalidateSlQuotaCache,
+  type SlQuotaState,
+} from './sl-quota.js';
 
 const log = pino({ name: 'crypto-algo:strategy-runner' });
 
@@ -109,12 +116,24 @@ export class StrategyRunner {
   private configEpoch = 0;
   /** Set by stop() to reject new evaluations during shutdown. */
   private stopping = false;
+  /** SL quota cache (defaults to module-global; overridable for tests/DI). */
+  private slQuotaCache: Map<string, SlQuotaState> | null = null;
+  /** Counters for the current tick cycle (published then reset in runtime-status). */
+  private entriesThisCycle = 0;
+  private evaluatedThisCycle = 0;
   private onSelectionResolved?: (conditionId: string) => Promise<void>;
   private onAbstain?: (
     conditionId: string,
     reason: AbstainReasonCode,
     detail?: string,
   ) => void;
+  /** Optional sink for operator alerts (e.g. re-entry mirror failures). */
+  private reEntryAlertSink?: (message: string) => void;
+  /** Consecutive re-entry Redis mirror failures; alerts after threshold. */
+  private reEntryMirrorFailures = 0;
+  private static readonly RE_ENTRY_MIRROR_ALERT_THRESHOLD = 3;
+  private static readonly RE_ENTRY_MIRROR_RETRY_BASE_MS = 500;
+  private static readonly RE_ENTRY_MIRROR_RETRY_MAX_MS = 8_000;
 
   constructor(
     private readonly selectionLoader: SelectionLoader,
@@ -140,6 +159,21 @@ export class StrategyRunner {
     cb: (conditionId: string, reason: AbstainReasonCode, detail?: string) => void,
   ): void {
     this.onAbstain = cb;
+  }
+
+  /** Inject an operator-alert sink (e.g. backend UI banner via postBackendAlert). */
+  setReEntryAlertSink(sink: (message: string) => void): void {
+    this.reEntryAlertSink = sink;
+  }
+
+  /** Inject an SL quota cache map (overrides the module-global default). */
+  setSlQuotaCache(cache: Map<string, SlQuotaState>): void {
+    this.slQuotaCache = cache;
+  }
+
+  /** Expose the SL quota cache for the entry pipeline (shared with onSignal). */
+  getSlQuotaCache(): Map<string, SlQuotaState> | null {
+    return this.slQuotaCache;
   }
 
   /**
@@ -237,7 +271,11 @@ export class StrategyRunner {
 
   /** Drop cached SL quota for a market/mode (e.g. after SL close pub/sub). */
   invalidateSlQuotaCache(conditionId: string, mode?: TradingMode): void {
-    invalidateGlobalSlQuotaCache(conditionId, mode);
+    if (this.slQuotaCache) {
+      invalidateSlQuotaCache(this.slQuotaCache, conditionId, mode);
+    } else {
+      invalidateGlobalSlQuotaCache(conditionId, mode);
+    }
   }
 
   /**
@@ -279,24 +317,65 @@ export class StrategyRunner {
     recordReEntrySuccess(this.reentry, reEntryKey, nowMs, windowMs);
 
     if (this.redis && positionId != null && positionId > 0) {
-      void recordCryptoReentryFill(this.redis, {
-        conditionId,
-        outcome: normalized,
-        positionId,
-        windowMs,
-        nowMs,
-      }).catch((err) => {
-        log.warn(
-          { err, conditionId, outcome: normalized, positionId },
-          'failed to mirror re-entry fill into Redis',
-        );
-      });
+      void this.mirrorReEntryFillWithRetry(
+        { conditionId, outcome: normalized, positionId, windowMs, nowMs },
+        0,
+      );
     }
 
     log.info(
       { conditionId, outcome: normalized, windowMs, positionId },
       're-entry slot consumed after fill',
     );
+  }
+
+  /**
+   * Mirror a re-entry fill into Redis with exponential-backoff retry.
+   * After {@link RE_ENTRY_MIRROR_ALERT_THRESHOLD} consecutive failures, fires
+   * the optional alert sink so operators are notified (UI banner / monitoring).
+   */
+  private async mirrorReEntryFillWithRetry(
+    input: RecordCryptoReentryFillInput,
+    attempt: number,
+  ): Promise<void> {
+    if (this.stopping) return;
+    if (!this.redis || !input.positionId || input.positionId <= 0) return;
+    try {
+      await recordCryptoReentryFill(this.redis, input);
+      if (this.reEntryMirrorFailures > 0) {
+        log.info(
+          { failures: this.reEntryMirrorFailures },
+          're-entry Redis mirror recovered',
+        );
+      }
+      this.reEntryMirrorFailures = 0;
+    } catch (err) {
+      this.reEntryMirrorFailures += 1;
+      log.warn(
+        { err, attempt, failures: this.reEntryMirrorFailures, ...input },
+        'failed to mirror re-entry fill into Redis',
+      );
+      if (
+        this.reEntryMirrorFailures === StrategyRunner.RE_ENTRY_MIRROR_ALERT_THRESHOLD &&
+        this.reEntryAlertSink
+      ) {
+        try {
+          this.reEntryAlertSink(
+            `crypto-algo: ${this.reEntryMirrorFailures} échecs consécutifs de mirroring Redis re-entry (conditionId=${input.conditionId}). ` +
+              `Vérifier la disponibilité Redis — le re-entry throttle peut être incohérent après restart.`,
+          );
+        } catch (sinkErr) {
+          log.warn({ err: sinkErr }, 're-entry alert sink threw');
+        }
+      }
+      const delay = Math.min(
+        StrategyRunner.RE_ENTRY_MIRROR_RETRY_BASE_MS * 2 ** attempt,
+        StrategyRunner.RE_ENTRY_MIRROR_RETRY_MAX_MS,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      if (this.stopping) return;
+      void this.mirrorReEntryFillWithRetry(input, attempt + 1);
+    }
   }
 
   /** Reconfigure poll interval (e.g. on config-changed). */
@@ -485,7 +564,9 @@ export class StrategyRunner {
   private cleanupSlQuotaState(): void {
     const nowMs = Date.now();
     const maxAgeMs = 600_000; // 10 min max cache lifetime
-    const removed = cleanupGlobalSlQuotaCache(nowMs, maxAgeMs);
+    const removed = this.slQuotaCache
+      ? cleanupSlQuotaCache(this.slQuotaCache, nowMs, maxAgeMs)
+      : cleanupGlobalSlQuotaCache(nowMs, maxAgeMs);
     if (removed > 0) {
       log.debug({ removed }, 'cleaned up SL quota cache');
     }
@@ -818,6 +899,7 @@ export class StrategyRunner {
       return true;
     }
 
+    this.entriesThisCycle += 1;
     log.info(
       {
         conditionId: selection.conditionId,
@@ -878,8 +960,12 @@ export class StrategyRunner {
       }
     }
 
+    this.entriesThisCycle = 0;
+    this.evaluatedThisCycle = 0;
+
     for (const selection of selections) {
       if (!selection.enabled) continue;
+      this.evaluatedThisCycle += 1;
       await this.evaluateSelection(selection);
     }
 
@@ -887,6 +973,8 @@ export class StrategyRunner {
       enabledSelections: enabled.length,
       evaluableSelections,
       wsConnected: this.wsConnected,
+      entriesLastCycle: this.entriesThisCycle,
+      evaluatedLastCycle: this.evaluatedThisCycle,
     });
   }
 

@@ -29,6 +29,8 @@ export class CryptoAlgoRuntimeStatusPublisher {
       lastEvaluatedAt: partial.lastEvaluatedAt ?? new Date().toISOString(),
       lastSkipReason: partial.lastSkipReason ?? this.pending.lastSkipReason ?? null,
       lastSkipAt: partial.lastSkipAt ?? this.pending.lastSkipAt ?? null,
+      entriesLastCycle: partial.entriesLastCycle ?? this.pending.entriesLastCycle ?? 0,
+      evaluatedLastCycle: partial.evaluatedLastCycle ?? this.pending.evaluatedLastCycle ?? 0,
     };
 
     await this.redis.set(

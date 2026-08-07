@@ -23,6 +23,7 @@ export class MockConnectionManager implements IPolymarketConnectionManager {
       reconcile: () => {},
       syncAll: async () => {},
       isHealthy: () => true,
+      connect: async () => {},
       setOnMarketResolved: (cb) => {
         this.onMarketResolvedCb = cb;
       },

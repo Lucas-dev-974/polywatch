@@ -51,6 +51,8 @@ export class MarketSurveillanceRecorder {
   private readonly scheduled = new Map<string, ScheduledMarket>();
   private readonly closeInFlight = new Set<string>();
   private readonly surveillanceService: AlgoSurveillanceService;
+  /** Set by shutdown() to abort in-flight captureClose loops. */
+  private aborted = false;
 
   constructor(
     dataSource: DataSource,
@@ -128,6 +130,7 @@ export class MarketSurveillanceRecorder {
   }
 
   shutdown(): void {
+    this.aborted = true;
     for (const entry of this.scheduled.values()) {
       this.clearTimers(entry);
     }
@@ -252,6 +255,7 @@ export class MarketSurveillanceRecorder {
   }
 
   private async captureOpen(conditionId: string): Promise<void> {
+    if (this.aborted) return;
     try {
       const prices = await this.resolveOpenPrices(conditionId);
       const saved = await this.surveillanceService.recordOpenSnapshot(conditionId, prices);
@@ -265,6 +269,7 @@ export class MarketSurveillanceRecorder {
   }
 
   private async captureClose(conditionId: string): Promise<void> {
+    if (this.aborted) return;
     if (this.closeInFlight.has(conditionId)) return;
 
     this.closeInFlight.add(conditionId);
@@ -274,7 +279,7 @@ export class MarketSurveillanceRecorder {
 
       const deadline = Date.now() + SURVEILLANCE_CLOSE_TTL_MS;
 
-      while (Date.now() < deadline) {
+      while (Date.now() < deadline && !this.aborted) {
         let gamma: GammaMarket | null = null;
         try {
           gamma = await fetchGammaMarket(conditionId);
@@ -302,6 +307,11 @@ export class MarketSurveillanceRecorder {
         }
 
         await sleep(CLOSE_RESOLUTION_POLL_MS);
+      }
+
+      if (this.aborted) {
+        log.info({ conditionId }, 'captureClose aborted — shutdown in progress');
+        return;
       }
 
       log.warn(

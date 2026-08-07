@@ -20,6 +20,8 @@ const EMPTY_METRICS: PositionAggregateMetrics = {
 export class PositionContextCache {
   private readonly metricsByCondition = new Map<string, PositionAggregateMetrics>();
   private refreshInFlight: Promise<void> | null = null;
+  /** ConditionIds queued for a deferred refresh after the in-flight one finishes. */
+  private pendingConditionIds: string[] | null = null;
 
   constructor(private readonly ds: DataSource) {}
 
@@ -34,6 +36,7 @@ export class PositionContextCache {
     }
 
     if (this.refreshInFlight) {
+      this.pendingConditionIds = conditionIds;
       await this.refreshInFlight;
       return;
     }
@@ -43,6 +46,12 @@ export class PositionContextCache {
       await this.refreshInFlight;
     } finally {
       this.refreshInFlight = null;
+    }
+
+    if (this.pendingConditionIds) {
+      const next = this.pendingConditionIds;
+      this.pendingConditionIds = null;
+      await this.refresh(next);
     }
   }
 

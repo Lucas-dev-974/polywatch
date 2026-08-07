@@ -136,7 +136,7 @@ export class CryptoAlgoPriceFeed {
     }
 
     try {
-      await (this.wsClient as any).connect?.();
+      await this.wsClient.connect();
       this.connected = true;
       log.info('crypto-algo price feed connected');
     } catch (err) {

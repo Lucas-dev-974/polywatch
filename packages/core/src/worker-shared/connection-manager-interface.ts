@@ -31,6 +31,8 @@ export interface IBookWsClient {
   reconcile(assetIds: string[]): void;
   syncAll(): Promise<void>;
   isHealthy(): boolean;
+  /** Open the underlying WebSocket (no-op if already open). */
+  connect(): Promise<void>;
   setOnMarketResolved(cb: (conditionId: string) => void): void;
   /** Tear down WS + cancel reconnect (graceful shutdown). */
   disconnect(): void;

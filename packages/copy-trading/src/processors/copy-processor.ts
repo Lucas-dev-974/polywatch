@@ -84,6 +84,7 @@ export class CopyProcessor {
       recordSkip('real', skippedRealReason);
     }
 
+    let modeThrew = false;
     for (const mode of modes) {
       try {
         const modeResult = await this.processMode(
@@ -97,6 +98,7 @@ export class CopyProcessor {
           recordSkip(mode, modeResult.reason);
         }
       } catch (err) {
+        modeThrew = true;
         // Isolate modes: a sim failure must not block real (and vice versa).
         log.error(
           { err, moveId: move.id, mode },
@@ -104,6 +106,11 @@ export class CopyProcessor {
         );
         recordSkip(mode, 'process_mode_error');
       }
+    }
+
+    if (modeThrew) {
+      // Leave move unprocessed so Redis retries the job (idempotent per mode).
+      throw new Error(`copy_process_mode_error:${move.id}`);
     }
 
     await this.moveEventService.markProcessedWithReasons([move.id], skipReasons);

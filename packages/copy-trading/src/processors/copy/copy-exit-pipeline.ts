@@ -15,6 +15,9 @@ import { resolveMinOrderShares } from '../../clob/min-order-shares.js';
 
 const log = pino({ name: 'copy-exit-pipeline' });
 
+/** Dedupe window for copy SELL signals — prevents double enqueue on C1 move retries. */
+const COPY_EXIT_DEDUPE_TTL_SECONDS = 120;
+
 export async function runCopyExitPipeline(params: {
   ds: DataSource;
   move: MoveEventDto;
@@ -88,7 +91,7 @@ export async function runCopyExitPipeline(params: {
     side: 'SELL',
   });
 
-  await orderQueue.enqueue({
+  const job: OrderSignal = {
     id: signalId,
     copiedPositionId: pos.id,
     conditionId: move.conditionId,
@@ -99,7 +102,19 @@ export async function runCopyExitPipeline(params: {
     referenceVwap: bidVwap,
     reason,
     mode,
-  });
+  };
+
+  const enqueued = await orderQueue.enqueueUnique(
+    job,
+    signalId,
+    COPY_EXIT_DEDUPE_TTL_SECONDS,
+  );
+  if (!enqueued) {
+    log.info(
+      { moveId: move.id, signalId, mode, reason },
+      'copy exit signal already queued — skipping duplicate enqueue',
+    );
+  }
 
   return null;
 }

@@ -85,7 +85,7 @@ Fichiers : `suites.ts`, `process.ts`, `summary-parser.ts`, `run-dto.ts`,
 
 ### Retrait
 - **EOA (signatureType 0)** : `pusd-transfer.ts` — le signer (clé déchiffrée) doit correspondre à la deposit address ; `transfer` pUSD ou `approve` + `offramp.unwrap` pour USDC.e.
-- **Relayer (types 1/2/3)** : `relayer-client.ts` — idempotence **Redis atomique** (`SET key RESERVED NX EX`, TTL `PENDING_TTL_SECONDS`) : requête identique déjà complétée → hash existant renvoyé ; requête identique en vol → `withdraw_in_progress` (409) ; échec tx → réservation libérée (`clearReservation`) pour permettre le retry. Puis `client.execute(...)` / `executeDepositWalletBatch(...)`, attente du tx hash Polygon.
+- **Relayer (types 1/2/3)** : `relayer-client.ts` — idempotence **Redis atomique** (`SET key RESERVED NX EX`, TTL `PENDING_TTL_SECONDS`) : requête identique déjà complétée → hash existant renvoyé ; requête identique en vol → `withdraw_in_progress` (409) ; échec préflight ou tx → réservation libérée (`clearReservation`) ; succès on-chain avec échec Redis post-mark → retourne le `txHash` sans clear (retry best-effort `markCompleted`). Race rare NX+GET documentée dans le code (TTL auto-heal).
 - **MetaMask (type 3)** : `relayer-metamask-withdraw.ts` — `prepare` (nonce relayer + typed data EIP-712, TTL 35 min) puis `submit` (vérification de signature `verifyDepositWalletSignature` avant soumission au relayer).
 
 ### Autres

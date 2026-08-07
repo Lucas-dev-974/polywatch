@@ -96,7 +96,7 @@ logique métier dans `packages/copy-trading/src/processors/copy/` :
 | `copy-processor.ts` | Consomme `move-events`, résout modes, délègue |
 | `copy-risk-gate.ts` | Kill switch, filtres type mouvement, whitelist tags |
 | `copy-entry-pipeline.ts` | Entrées : filtres, VWAP, sizing, réservation, BUY |
-| `copy-exit-pipeline.ts` | Sorties : lookup position, qty proportionnelle, SELL |
+| `copy-exit-pipeline.ts` | Sorties : lookup position, qty proportionnelle, SELL `enqueueUnique` |
 | `copy-position-lookup.ts` | Recherche position ouverte |
 
 Consomme `move-events`. Pour chaque mouvement :
@@ -108,8 +108,10 @@ Consomme `move-events`. Pour chaque mouvement :
    - `sim` si `entry.simEnabled`.
    - `real` si `entry.realEnabled` **et** `risk.realTradingEnabled`.
    Chaque mode est traité dans son propre `try/catch` : une erreur sur un mode
-   (ex. `sim`) est loguée, enregistrée comme skip `process_mode_error`, et
-   **ne bloque pas** le traitement de l'autre mode.
+   est loguée et enregistrée comme skip `process_mode_error` sans bloquer
+   l'autre mode. Si **au moins un** mode throw, le move **n'est pas**
+   `markProcessed` — la queue Redis retente le job (idempotent par mode via
+   `hashCopyOrderSignalId` + reprise réservation).
 3. Filtres : entrées ignorées si `!entry.active` ; type filtré par
    `isCopyMoveAllowed` (`copyIncreaseEnabled` / `copyDecreaseEnabled`) ;
    kill switch (`shouldBlockEntry`).
@@ -223,7 +225,9 @@ ne se déclenche pas. Voir aussi [`configuration.md`](./configuration.md#filtre-
   totales (`CLOSED` → `COPY_CLOSE`) passent par l'Executor qui peut
   `revertClose` et attendre la résolution si qty < mos.
 - Émet un `OrderSignal` `SELL` (`COPY_DECREASE` ou `COPY_CLOSE`) sur
-  **`order-signals`** (pas `close-signals`).
+  **`order-signals`** (pas `close-signals`) via `enqueueUnique` (clé =
+  `hashCopyOrderSignalId`, TTL 120 s) — empêche un double enqueue si le
+  `CopyProcessor` retente le move après un throw sur l'autre mode.
 
 ### Réservation et limites de risque (`ReservationService`)
 

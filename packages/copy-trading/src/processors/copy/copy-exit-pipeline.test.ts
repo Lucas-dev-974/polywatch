@@ -43,7 +43,7 @@ describe('runCopyExitPipeline', () => {
 
     const move = makeMove({ type: 'DECREASED', previousTraderSize: 300, traderSize: 200 });
     const entry = makeEntry();
-    const orderQueue = { enqueue: vi.fn() } as unknown as RedisQueue<OrderSignal>;
+    const orderQueue = { enqueueUnique: vi.fn() } as unknown as RedisQueue<OrderSignal>;
     const connectionManager = {
       fetchExecutablePrices: vi.fn().mockResolvedValue({ executableBidVwap: 0.4 }),
     } as unknown as IPolymarketConnectionManager;
@@ -69,7 +69,7 @@ describe('runCopyExitPipeline', () => {
     });
 
     expect(result).toBe('Quantité de sortie sous le minimum marché');
-    expect(orderQueue.enqueue).not.toHaveBeenCalled();
+    expect(orderQueue.enqueueUnique).not.toHaveBeenCalled();
   });
 
   it('allows COPY_CLOSED regardless of min order size', async () => {
@@ -77,7 +77,9 @@ describe('runCopyExitPipeline', () => {
 
     const move = makeMove({ type: 'CLOSED', previousTraderSize: 300, traderSize: 0 });
     const entry = makeEntry();
-    const orderQueue = { enqueue: vi.fn().mockResolvedValue(undefined) } as unknown as RedisQueue<OrderSignal>;
+    const orderQueue = {
+      enqueueUnique: vi.fn().mockResolvedValue(true),
+    } as unknown as RedisQueue<OrderSignal>;
     const connectionManager = {
       fetchExecutablePrices: vi.fn().mockResolvedValue({ executableBidVwap: 0.4 }),
     } as unknown as IPolymarketConnectionManager;
@@ -103,6 +105,42 @@ describe('runCopyExitPipeline', () => {
     });
 
     expect(result).toBeNull();
-    expect(orderQueue.enqueue).toHaveBeenCalledTimes(1);
+    expect(orderQueue.enqueueUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats duplicate enqueueUnique as success (no flood on C1 retry)', async () => {
+    vi.mocked(resolveMinOrderShares).mockResolvedValue(1);
+
+    const move = makeMove({ type: 'CLOSED', previousTraderSize: 300, traderSize: 0 });
+    const entry = makeEntry();
+    const orderQueue = {
+      enqueueUnique: vi.fn().mockResolvedValue(false),
+    } as unknown as RedisQueue<OrderSignal>;
+    const connectionManager = {
+      fetchExecutablePrices: vi.fn().mockResolvedValue({ executableBidVwap: 0.4 }),
+    } as unknown as IPolymarketConnectionManager;
+    const ds = {
+      getRepository: vi.fn().mockReturnValue({
+        findOne: vi.fn().mockResolvedValue({
+          id: 1,
+          quantity: 100,
+          conditionId: '0xcond',
+          assetId: '0xasset',
+          mode: 'sim',
+        }),
+      }),
+    } as unknown as DataSource;
+
+    const result = await runCopyExitPipeline({
+      ds,
+      move,
+      entry: entry as any,
+      mode: 'sim' as TradingMode,
+      connectionManager,
+      orderQueue,
+    });
+
+    expect(result).toBeNull();
+    expect(orderQueue.enqueueUnique).toHaveBeenCalledTimes(1);
   });
 });

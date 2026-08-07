@@ -50,7 +50,7 @@ RedisQueue('move-events').enqueue()  +  notification backend (move_detected)
 |---|---|
 | `copy/copy-risk-gate.ts` | Kill switch, filtres mouvement, whitelist tags |
 | `copy/copy-entry-pipeline.ts` | Entrées complètes (filtres → réservation → BUY) |
-| `copy/copy-exit-pipeline.ts` | Sorties (qty proportionnelle, gate MOS, SELL) |
+| `copy/copy-exit-pipeline.ts` | Sorties (qty proportionnelle, gate MOS, SELL `enqueueUnique` TTL 120 s) |
 
 **Entrées (OPENED / INCREASED)**
 1. Vérifications : kill switch non déclenché, `isCopyMoveAllowed`, `isIncreaseAllowed`, trader actif. Trader absent → `markProcessed` immédiat.
@@ -72,13 +72,14 @@ RedisQueue('move-events').enqueue()  +  notification backend (move_detected)
 `simEnabled`, `real` si `realEnabled && realTradingEnabled`. Chaque mode est
 traité dans son propre `try/catch` dans `copy-processor.ts` : une erreur sur un
 mode est loguée et enregistrée comme skip `process_mode_error` sans bloquer
-l'autre mode.
+l'autre mode. Si au moins un mode throw, le move reste non traité (retry Redis).
 
 **Sorties (DECREASED / CLOSED)**
 1. Recherche de la position copiée `open` correspondante (`copy-position-lookup.ts`).
 2. `computeSellQuantity()` : vente proportionnelle à la réduction du trader (totale si CLOSED).
 3. **Gate MOS** : pour `DECREASED`, skip si `sellQty < resolveMinOrderShares()` (sortie partielle sous le minimum marché ; MOS public).
-4. Enqueue d'un `OrderSignal` SELL sur `order-signals` (pas `close-signals`).
+4. Enqueue d'un `OrderSignal` SELL sur `order-signals` via `enqueueUnique`
+   (clé = `signalId`, TTL 120 s) — dedupe contre les retries C1 du move.
 
 ## 3. Exécution (executor)
 

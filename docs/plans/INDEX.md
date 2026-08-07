@@ -16,9 +16,9 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 19 |
+| **applied** | 20 |
 | **partial** (racine) | 2 |
-| **not_implemented** (racine) | 3 |
+| **not_implemented** (racine) | 2 |
 | **reference** | 7 |
 | **archived** | 5 |
 | **Total** | **36** |
@@ -50,6 +50,7 @@
 | [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` Postgres-only, `test-data-source.ts` pg-mem, docker PG, docs nettoyées |
 | [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` Postgres-only, `test-data-source.ts` pg-mem, docker-compose PG, `dialect.ts` supprimé |
 | [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` PG-only, `test-data-source.ts` pg-mem, `dialect.ts` supprimé, `audit-position-28455.ts` supprimé |
+| [applied/2026-08-07_PLAN-fix-audit-hardening.md](applied/2026-08-07_PLAN-fix-audit-hardening.md) | Fix R1/R2 relayer + C1 copy retry + dedupe exit SELL | `relayer-client.ts`, `copy-processor.ts`, `copy-exit-pipeline.ts` |
 
 ---
 
@@ -66,7 +67,6 @@
 
 | Fichier | Résumé | Écart principal |
 |---------|--------|-----------------|
-| [2026-08-07_PLAN-fix-audit-hardening.md](2026-08-07_PLAN-fix-audit-hardening.md) | Fix bugs post-patch (relayer R1/R2, copy C1, hygiène) | Décisions Q1–Q4 ouvertes ; aucun correctif code encore |
 | [2026-08-05_PLAN-backtest-engine-universel.md](2026-08-05_PLAN-backtest-engine-universel.md) | Moteur backtest universel event-driven | Pas de `packages/backtest/`, pas d'entités/routes/UI |
 | [2026-08-06_PLAN-phase3-data-stream-rtds.md](2026-08-06_PLAN-phase3-data-stream-rtds.md) | Phase 3 RTDS/oracle data stream | **Désimplémenté / reporté 2026-08-07** — spec conservée, aucun code en repo |
 

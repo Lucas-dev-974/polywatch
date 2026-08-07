@@ -29,8 +29,11 @@ import {
   PUSD_TOKEN_ADDRESS,
 } from './pusd-erc20.js';
 import { deriveRelayerExecutionWallet } from './relayer-wallet-derive.js';
+import pino from 'pino';
 
 export { normalizeRelayerError } from './relayer-errors.js';
+
+const log = pino({ name: 'relayer-client' });
 
 export const SIGNATURE_TYPE_EOA = 0;
 export const SIGNATURE_TYPE_POLY_PROXY = 1;
@@ -73,6 +76,9 @@ type IdemReservation =
 /**
  * Atomically reserve the idempotency key before submitting on-chain.
  * Returns an existing completed hash, or inflight if another request holds the reservation.
+ *
+ * Rare race: NX fails, a concurrent request clears the reservation, GET returns null
+ * → inflight (409) for a few ms. Accepted — TTL 300 s auto-heals; no Lua retry.
  */
 async function reserveOrGet(idemKey: string): Promise<IdemReservation> {
   const redis = getRedis();
@@ -291,18 +297,18 @@ export async function withdrawViaRelayer(
     throw new Error('withdraw_in_progress');
   }
 
-  await assertRelayerWithdrawReady(
-    creds.signerPkEnc,
-    depositAddress,
-    mode,
-    amountRaw,
-  );
-
-  const signerPrivateKey = decrypt(creds.signerPkEnc);
-  const client = createRelayClient(creds, signerPrivateKey, mode);
-
+  let txHash: string | undefined;
   try {
-    let txHash: string;
+    await assertRelayerWithdrawReady(
+      creds.signerPkEnc,
+      depositAddress,
+      mode,
+      amountRaw,
+    );
+
+    const signerPrivateKey = decrypt(creds.signerPkEnc);
+    const client = createRelayClient(creds, signerPrivateKey, mode);
+
     if (mode === 'deposit') {
       const response = await client.executeDepositWalletBatch(
         buildRelayerDepositWalletCalls(asset, recipientAddress, amountRaw),
@@ -321,6 +327,15 @@ export async function withdrawViaRelayer(
     await markCompleted(idemKey, txHash);
     return txHash;
   } catch (err) {
+    if (txHash) {
+      // On-chain success — never clear; best-effort mark so retries return the hash.
+      await markCompleted(idemKey, txHash).catch(() => {});
+      log.error(
+        { err, txHash, idemKey },
+        'withdraw succeeded on-chain but post-mark failed',
+      );
+      return txHash;
+    }
     await clearReservation(idemKey).catch(() => {});
     throw normalizeRelayerError(err);
   }

@@ -46,6 +46,7 @@ export function PusdTransferDialog(props: PusdTransferDialogProps) {
   const [depositTab, setDepositTab] = createSignal<DepositTab>('metamask');
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [inProgress, setInProgress] = createSignal(false);
   const [txHash, setTxHash] = createSignal<string | null>(null);
   const [bridgeCompleted, setBridgeCompleted] = createSignal(false);
   const [connectedAccount, setConnectedAccount] = createSignal<string | null>(null);
@@ -66,6 +67,7 @@ export function PusdTransferDialog(props: PusdTransferDialogProps) {
         setOutputAsset('usdc_e');
         setDepositTab('metamask');
         setError(null);
+        setInProgress(false);
         setTxHash(null);
         setBridgeCompleted(false);
         setConnectedAccount(null);
@@ -101,6 +103,7 @@ export function PusdTransferDialog(props: PusdTransferDialogProps) {
 
   async function submit() {
     setError(null);
+    setInProgress(false);
     setSubmitting(true);
     try {
       if (isDeposit()) {
@@ -110,7 +113,12 @@ export function PusdTransferDialog(props: PusdTransferDialogProps) {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur inconnue';
-      setError(mapPusdTransferError(msg));
+      if (msg === 'withdraw_in_progress' || msg.startsWith('withdraw_in_progress:')) {
+        setInProgress(true);
+        setError(null);
+      } else {
+        setError(mapPusdTransferError(msg));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -210,6 +218,13 @@ export function PusdTransferDialog(props: PusdTransferDialogProps) {
 
         <Show when={error()}>
           <p class="form-error">{error()}</p>
+        </Show>
+
+        <Show when={inProgress()}>
+          <p class="form-hint">
+            Un retrait identique est deja en cours d'execution. Patientez quelques
+            secondes puis rechargez les soldes — pas besoin de relancer.
+          </p>
         </Show>
 
         <Show when={txHash()}>

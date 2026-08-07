@@ -122,11 +122,12 @@ export class StrategyProcessing {
           markBid,
         }),
       (positionId) => this.positionService.clearExitEmitBlock(positionId),
-      async (positionId, blockReason, closeReason, ageMs) => {
-        await notifyBackendAlert(
+      (positionId, blockReason, closeReason, ageMs) => {
+        notifyBackendAlert(
           'warning',
           `Exit emit blocked #${positionId}: ${closeReason} / ${blockReason} for ${Math.round(ageMs / 1000)}s`,
         );
+        return Promise.resolve();
       },
     );
   }

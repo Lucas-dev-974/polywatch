@@ -1,7 +1,11 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { config } from '../config.js';
+import pino from 'pino';
 
+const log = pino({ name: 'encryption' });
 const ALGO = 'aes-256-gcm';
+
+let legacyKeyWarned = false;
 
 /**
  * Accepts both key formats:
@@ -21,7 +25,18 @@ function getKey(): Buffer {
       'MASTER_ENCRYPTION_KEY must be 64 hex chars (npm run generate-secrets) or exactly 32 bytes',
     );
   }
+  if (!legacyKeyWarned) {
+    legacyKeyWarned = true;
+    log.warn(
+      'MASTER_ENCRYPTION_KEY uses legacy 32-char UTF-8 format without KDF — prefer 64 hex chars from `npm run generate-secrets`',
+    );
+  }
   return key;
+}
+
+/** Call once at backend boot to surface legacy-key warning early. */
+export function warnIfLegacyMasterEncryptionKey(): void {
+  getKey();
 }
 
 export function encrypt(plaintext: string): string {

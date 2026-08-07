@@ -18,7 +18,7 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 
 ## Crypto
 
-- `crypto/encryption.ts` : AES-256-GCM, IV 12 octets, format `iv:tag:ciphertext` (hex). Clé = `MASTER_ENCRYPTION_KEY` : soit 64 caractères hex (décodés en 32 bytes — sortie de `generate-secrets.mjs`), soit une chaîne UTF-8 de 32 bytes.
+- `crypto/encryption.ts` : AES-256-GCM, IV 12 octets, format `iv:tag:ciphertext` (hex). Clé = `MASTER_ENCRYPTION_KEY` : soit 64 caractères hex (décodés en 32 bytes — sortie de `generate-secrets.mjs`), soit une chaîne UTF-8 de 32 bytes (**legacy** : acceptée sans KDF mais `warnIfLegacyMasterEncryptionKey()` logue un `warn` au boot — une seule fois grâce au flag `legacyKeyWarned`).
 - `crypto/private-key.ts` : normalisation (`0x` + 64 hex), validation via `ethers.Wallet`, dérivation d'adresse.
 
 ## Routes REST
@@ -85,7 +85,7 @@ Fichiers : `suites.ts`, `process.ts`, `summary-parser.ts`, `run-dto.ts`,
 
 ### Retrait
 - **EOA (signatureType 0)** : `pusd-transfer.ts` — le signer (clé déchiffrée) doit correspondre à la deposit address ; `transfer` pUSD ou `approve` + `offramp.unwrap` pour USDC.e.
-- **Relayer (types 1/2/3)** : `relayer-client.ts` — idempotence en mémoire, `client.execute(...)` / `executeDepositWalletBatch(...)`, attente du tx hash Polygon.
+- **Relayer (types 1/2/3)** : `relayer-client.ts` — idempotence **Redis atomique** (`SET key RESERVED NX EX`, TTL `PENDING_TTL_SECONDS`) : requête identique déjà complétée → hash existant renvoyé ; requête identique en vol → `withdraw_in_progress` (409) ; échec tx → réservation libérée (`clearReservation`) pour permettre le retry. Puis `client.execute(...)` / `executeDepositWalletBatch(...)`, attente du tx hash Polygon.
 - **MetaMask (type 3)** : `relayer-metamask-withdraw.ts` — `prepare` (nonce relayer + typed data EIP-712, TTL 35 min) puis `submit` (vérification de signature `verifyDepositWalletSignature` avant soumission au relayer).
 
 ### Autres
@@ -97,7 +97,7 @@ Fichiers : `suites.ts`, `process.ts`, `summary-parser.ts`, `run-dto.ts`,
 - `polygon.ts` / `token-balance.ts` / `pusd-balance.ts` / `pusd-erc20.ts` : provider RPC et lectures de soldes.
 - `wallet-history.ts` : historique d'activité on-chain par compte ; pour REDEEM Data API avec `usdcSize = 0`, pas de prix unitaire dérivé (évite faux « Rachat 1,00 $ »).
 - `wallet-account-context.ts` / `wallet-context.ts` / `wallet-route-context.ts` / `wallet-validation.ts` : résolution du compte actif et validations partagées des routes wallet.
-- `ramp-errors.ts` / `relayer-errors.ts` / `withdraw-errors.ts` / `wallet-bridge-errors.ts` : normalisation des erreurs en codes métier (consommés par le frontend pour les messages FR).
+- `ramp-errors.ts` / `relayer-errors.ts` / `withdraw-errors.ts` / `wallet-bridge-errors.ts` : normalisation des erreurs en codes métier (consommés par le frontend pour les messages FR). `withdraw-errors.ts` mappe notamment `withdraw_in_progress` → **409** (double soumission d'un retrait identique encore en vol).
 
 ## Scripts racine
 

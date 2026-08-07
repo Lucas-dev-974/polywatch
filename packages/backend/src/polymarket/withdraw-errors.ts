@@ -65,6 +65,15 @@ export function mapWithdrawError(err: unknown): WithdrawErrorResponse | null {
           message: 'La demande de retrait a expire. Relancez le retrait.',
         },
       };
+    case 'withdraw_in_progress':
+      return {
+        status: 409,
+        body: {
+          error: 'withdraw_in_progress',
+          message:
+            'Un retrait identique est deja en cours d execution. Patientez puis rechargez les soldes.',
+        },
+      };
     case 'metamask_account_mismatch':
       return {
         status: 400,

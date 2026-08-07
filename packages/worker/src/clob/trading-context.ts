@@ -12,6 +12,7 @@ import {
   parseApiClobCredentials,
 } from './credentials.js';
 import { config } from '../config.js';
+import { BACKEND_HTTP_TIMEOUT_MS } from '../backend-client.js';
 import pino from 'pino';
 
 const log = pino({ name: 'trading-context' });
@@ -46,8 +47,13 @@ interface CachedEntry {
 
 let cached: CachedEntry | null = null;
 let loadInFlight: Promise<TradingContextResult> | null = null;
+/** Bumped by clearTradingContextCache so in-flight builds never rewrite stale credentials. */
+let cacheGeneration = 0;
+let loadInFlightGeneration = 0;
 
-async function buildTradingContext(): Promise<TradingContextResult> {
+async function buildTradingContext(
+  generation: number,
+): Promise<TradingContextResult> {
   const now = Date.now();
 
   const data = await fetchInternalClobCredentials();
@@ -99,6 +105,7 @@ async function buildTradingContext(): Promise<TradingContextResult> {
     const approvalsRes = await fetch(approvalsUrl, {
       method: 'POST',
       headers: { 'x-service-token': config.serviceToken },
+      signal: AbortSignal.timeout(BACKEND_HTTP_TIMEOUT_MS),
     });
     if (!approvalsRes.ok) {
       log.warn({ status: approvalsRes.status }, 'clob approvals check failed');
@@ -121,11 +128,14 @@ async function buildTradingContext(): Promise<TradingContextResult> {
     },
   };
 
-  cached = {
-    context,
-    expiresAt: now + CACHE_TTL_MS,
-    collateralSyncedAt: now,
-  };
+  // Cache only if this build still matches the current generation.
+  if (generation === cacheGeneration) {
+    cached = {
+      context,
+      expiresAt: now + CACHE_TTL_MS,
+      collateralSyncedAt: now,
+    };
+  }
 
   return { ok: true, context };
 }
@@ -143,14 +153,19 @@ export async function loadTradingContextResult(): Promise<TradingContextResult> 
     return { ok: true, context: cached.context };
   }
 
-  if (loadInFlight) {
+  const generation = cacheGeneration;
+  if (loadInFlight && loadInFlightGeneration === generation) {
     return loadInFlight;
   }
 
-  loadInFlight = buildTradingContext().finally(() => {
-    loadInFlight = null;
+  const promise = buildTradingContext(generation).finally(() => {
+    if (loadInFlight === promise) {
+      loadInFlight = null;
+    }
   });
-  return loadInFlight;
+  loadInFlight = promise;
+  loadInFlightGeneration = generation;
+  return promise;
 }
 
 export async function loadTradingContext(): Promise<TradingContext | null> {
@@ -160,6 +175,7 @@ export async function loadTradingContext(): Promise<TradingContext | null> {
 
 export function clearTradingContextCache(): void {
   cached = null;
+  cacheGeneration += 1;
 }
 
 export async function refreshTradingContext(): Promise<TradingContext | null> {

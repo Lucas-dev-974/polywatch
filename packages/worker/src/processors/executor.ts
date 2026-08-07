@@ -580,7 +580,7 @@ export class Executor {
       referenceVwap: signal.referenceVwap,
       slippagePercent:
         signal.referenceVwap != null && signal.referenceVwap > 0
-          ? computeSlippagePercent(fak.vwap, signal.referenceVwap)
+          ? computeSlippagePercent(fak.vwap, signal.referenceVwap, signal.side)
           : undefined,
       closeRetryAttempt: signal.closeRetryAttempt,
       executedAt: new Date(),

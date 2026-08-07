@@ -48,6 +48,8 @@ export class BuilderNotConfiguredError extends Error {
 }
 
 const PENDING_TTL_SECONDS = 300; // 5 minutes - prevents double submission
+/** Placeholder written with SET NX before the on-chain call completes. */
+const RESERVED_MARKER = '__reserved__';
 
 /**
  * Idempotency key built on the raw 6-decimal integer amount: float inputs
@@ -63,14 +65,43 @@ function idempotencyKey(
   return `withdraw:pending:${depositAddress.toLowerCase()}:${recipientAddress.toLowerCase()}:${amountRaw.toString()}:${asset}`;
 }
 
-// Persisted in Redis (with TTL) so a backend restart between two clicks
-// cannot drop the double-submission protection.
-async function checkPending(idemKey: string): Promise<string | null> {
-  return getRedis().get(idemKey);
+type IdemReservation =
+  | { kind: 'reserved' }
+  | { kind: 'existing'; hash: string }
+  | { kind: 'inflight' };
+
+/**
+ * Atomically reserve the idempotency key before submitting on-chain.
+ * Returns an existing completed hash, or inflight if another request holds the reservation.
+ */
+async function reserveOrGet(idemKey: string): Promise<IdemReservation> {
+  const redis = getRedis();
+  const set = await redis.set(
+    idemKey,
+    RESERVED_MARKER,
+    'EX',
+    PENDING_TTL_SECONDS,
+    'NX',
+  );
+  if (set === 'OK') return { kind: 'reserved' };
+
+  const existing = await redis.get(idemKey);
+  if (existing && existing !== RESERVED_MARKER) {
+    return { kind: 'existing', hash: existing };
+  }
+  return { kind: 'inflight' };
 }
 
-async function markPending(idemKey: string, hash: string): Promise<void> {
+async function markCompleted(idemKey: string, hash: string): Promise<void> {
   await getRedis().set(idemKey, hash, 'EX', PENDING_TTL_SECONDS);
+}
+
+async function clearReservation(idemKey: string): Promise<void> {
+  const redis = getRedis();
+  const current = await redis.get(idemKey);
+  if (current === RESERVED_MARKER) {
+    await redis.del(idemKey);
+  }
 }
 
 export function resolveWithdrawMode(
@@ -254,8 +285,11 @@ export async function withdrawViaRelayer(
 
   const amountRaw = parsePusdAmountRaw(amount);
   const idemKey = idempotencyKey(depositAddress, recipientAddress, amountRaw, asset);
-  const pendingHash = await checkPending(idemKey);
-  if (pendingHash) return pendingHash;
+  const reservation = await reserveOrGet(idemKey);
+  if (reservation.kind === 'existing') return reservation.hash;
+  if (reservation.kind === 'inflight') {
+    throw new Error('withdraw_in_progress');
+  }
 
   await assertRelayerWithdrawReady(
     creds.signerPkEnc,
@@ -284,9 +318,10 @@ export async function withdrawViaRelayer(
       txHash = await waitForTxHash(response);
     }
 
-    await markPending(idemKey, txHash);
+    await markCompleted(idemKey, txHash);
     return txHash;
   } catch (err) {
+    await clearReservation(idemKey).catch(() => {});
     throw normalizeRelayerError(err);
   }
 }

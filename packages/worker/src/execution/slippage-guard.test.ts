@@ -6,9 +6,9 @@ import {
 } from './slippage-guard.js';
 
 describe('slippage-guard', () => {
-  it('blocks guarded entry reasons when slippage exceeds max', () => {
+  it('blocks guarded BUY entry when adverse slippage exceeds max', () => {
     const result = evaluateSlippageGuard(
-      { reason: 'COPY_OPEN', referenceVwap: 0.5 },
+      { reason: 'COPY_OPEN', referenceVwap: 0.5, side: 'BUY' },
       0.6,
       5,
     );
@@ -16,9 +16,19 @@ describe('slippage-guard', () => {
     expect(result.slippagePercent).toBeCloseTo(20, 5);
   });
 
-  it('blocks ALGO_OPEN when slippage exceeds max', () => {
+  it('does not block guarded BUY when fill is better than reference', () => {
     const result = evaluateSlippageGuard(
-      { reason: 'ALGO_OPEN', referenceVwap: 0.12 },
+      { reason: 'COPY_OPEN', referenceVwap: 0.5, side: 'BUY' },
+      0.4,
+      5,
+    );
+    expect(result.blocked).toBe(false);
+    expect(result.slippagePercent).toBeCloseTo(-20, 5);
+  });
+
+  it('blocks ALGO_OPEN when adverse slippage exceeds max', () => {
+    const result = evaluateSlippageGuard(
+      { reason: 'ALGO_OPEN', referenceVwap: 0.12, side: 'BUY' },
       0.57,
       5,
     );
@@ -26,18 +36,30 @@ describe('slippage-guard', () => {
     expect(result.slippagePercent).toBeGreaterThan(5);
   });
 
-  it('does not block forced exits but reports excess slippage', () => {
+  it('does not block forced exits but reports excess adverse slippage', () => {
     const result = evaluateSlippageGuard(
-      { reason: 'SL', referenceVwap: 0.5 },
-      0.6,
+      { reason: 'SL', referenceVwap: 0.5, side: 'SELL' },
+      0.4,
       5,
     );
     expect(result.blocked).toBe(false);
     expect(isForcedExitSlippageExceeded(result.slippagePercent, 5)).toBe(true);
   });
 
-  it('computes slippage symmetrically for buy and sell fills', () => {
-    expect(computeSlippagePercent(0.55, 0.5)).toBeCloseTo(10, 5);
-    expect(computeSlippagePercent(0.45, 0.5)).toBeCloseTo(10, 5);
+  it('does not block TP SELL when fill is better (higher) than reference', () => {
+    const result = evaluateSlippageGuard(
+      { reason: 'TP', referenceVwap: 0.5, side: 'SELL' },
+      0.6,
+      5,
+    );
+    expect(result.blocked).toBe(false);
+    expect(result.slippagePercent).toBeLessThanOrEqual(0);
+  });
+
+  it('computes adverse slippage by side', () => {
+    expect(computeSlippagePercent(0.55, 0.5, 'BUY')).toBeCloseTo(10, 5);
+    expect(computeSlippagePercent(0.45, 0.5, 'BUY')).toBeCloseTo(-10, 5);
+    expect(computeSlippagePercent(0.45, 0.5, 'SELL')).toBeCloseTo(10, 5);
+    expect(computeSlippagePercent(0.55, 0.5, 'SELL')).toBeCloseTo(-10, 5);
   });
 });

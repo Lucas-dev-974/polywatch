@@ -19,6 +19,7 @@ import { getRedis } from './redis.js';
 import { requireServiceToken } from './middleware/auth.js';
 import { initWebSocket } from './websocket.js';
 import { createAuthRouter } from './routes/auth.js';
+import { warnIfLegacyMasterEncryptionKey } from './crypto/encryption.js';
 import { createWatchlistRouter } from './routes/watchlist.js';
 import { createPositionsRouter } from './routes/positions.js';
 import { createConfigRouter } from './routes/config.js';
@@ -88,6 +89,8 @@ async function main() {
   await seedDefaults(ds);
 
   initBackendConfigService(ds);
+
+  warnIfLegacyMasterEncryptionKey();
 
   log.info('boot phase: bootstrapping wallet accounts');
   await bootstrapWalletAccounts(ds);

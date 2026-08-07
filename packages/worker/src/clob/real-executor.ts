@@ -207,7 +207,11 @@ export class RealExecutor {
         referenceVwap: signal.referenceVwap,
         slippagePercent:
           signal.referenceVwap != null && signal.referenceVwap > 0
-            ? computeSlippagePercent(fill.actualFillPrice, signal.referenceVwap)
+            ? computeSlippagePercent(
+                fill.actualFillPrice,
+                signal.referenceVwap,
+                signal.side,
+              )
             : undefined,
         executedAt: new Date(),
       };

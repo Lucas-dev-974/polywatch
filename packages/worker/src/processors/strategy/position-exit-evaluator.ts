@@ -218,11 +218,11 @@ export class PositionExitEvaluator {
         const lastAlert = this.lastExitBlockAlertAt.get(pos.id) ?? 0;
         if (now - lastAlert >= EXIT_BLOCK_ALERT_COOLDOWN_MS) {
           this.lastExitBlockAlertAt.set(pos.id, now);
-          try {
-            await this.alertExitEmitBlock(pos.id, blockReason, closeReason, ageMs);
-          } catch (err) {
-            log.warn({ err, positionId: pos.id }, 'failed to alert exit emit block');
-          }
+          void Promise.resolve(
+            this.alertExitEmitBlock(pos.id, blockReason, closeReason, ageMs),
+          ).catch((err) =>
+            log.warn({ err, positionId: pos.id }, 'failed to alert exit emit block'),
+          );
         }
       }
     }

@@ -163,8 +163,8 @@ const clobOrderType =
 - [x] `negRisk` flag pour marchés multi-outcomes
 
 #### 3.3 Points critiques
-- [x] Slippage guard implémenté (`evaluateSlippageGuard` dans `worker/src/clob/prepare-fak-order.ts:115`)
-- [x] Timeout CLOB (`CLOB_ORDER_TIMEOUT_MS` dans `constants.ts:105`, appel `real-executor.ts:111`)
+- [x] Slippage guard implémenté (`evaluateSlippageGuard` dans `worker/src/execution/slippage-guard.ts:31`, appelé depuis `prepare-fak-order.ts`). **Signé** depuis le patch du 2026-08-07 : `computeSlippagePercent(fill, ref, side)` est positif uniquement quand le fill est défavorable (BUY trop cher / SELL trop bas) ; un fill plus avantageux que le VWAP de référence ne bloque plus l'ordre
+- [x] Timeout CLOB (`CLOB_ORDER_TIMEOUT_MS` dans `constants.ts`, appel `real-executor.ts`)
 - [x] Parsing fill response (`parseFillResponse`)
 - [x] Gestion `ORDER_DELAYED` → return `null` (réconciliation différée)
 
@@ -348,7 +348,12 @@ const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 
 #### 7.3 Stockage sécurisé
 - [x] Chiffrement AES-256-GCM pour les credentials
-- [x] `MASTER_ENCRYPTION_KEY` en env
+- [x] `MASTER_ENCRYPTION_KEY` en env — format recommandé : 64 hex chars (sortie `generate-secrets.mjs`). Le format legacy 32 caractères UTF-8 (sans KDF) reste accepté mais déclenche un `log.warn` unique au boot via `warnIfLegacyMasterEncryptionKey()` (`backend/src/crypto/encryption.ts`, appelé dans `backend/src/index.ts`)
+
+#### 7.4 Idempotence des retraits relayer (patch 2026-08-07)
+- [x] `withdrawViaRelayer` réserve la clé d'idempotence en Redis via `SET NX EX` **atomique** (`reserveOrGet`) avant toute exécution
+- [x] Requête identique déjà complétée → hash existant renvoyé ; requête identique en vol → `withdraw_in_progress` (HTTP 409, affiché côté frontend comme hint informatif, pas comme erreur)
+- [x] Échec de la transaction → `clearReservation` libère la clé pour permettre un retry
 
 ---
 
@@ -384,6 +389,22 @@ const payoffPerShare = getRedemptionPayoff(market.winningTokenId, assetId);
 | `trailingActivationPercent` vs `trailingActivationBidPoints` | Mineure | 4 | ✅ Corrigé dans ce doc |
 | `negRisk` flag marqué "À vérifier" | Mineure | 6 | ✅ Résolu positivement |
 | EIP-712 / ERC-7739 marqués "À vérifier" | Mineure | 7 | ✅ Résolu (délégué au SDK) |
+
+### 🔧 Patch de durcissement appliqué (2026-08-07)
+
+Suite à l'audit approfondi des pipelines, les correctifs suivants ont été appliqués :
+
+|| Correctif | Fichiers |
+||-----------|----------|
+|| Timeout sur le fetch `/api/internal/clob-approvals/ensure` (`BACKEND_HTTP_TIMEOUT_MS`) | `worker/src/clob/trading-context.ts` |
+|| Compteur `cacheGeneration` : un build de trading-context en vol ne réécrit plus le cache après une invalidation | `worker/src/clob/trading-context.ts` |
+|| Overrides DB `worker.*` propagés aux importeurs via `export let` + `syncNamedExportsFromWorkerConfig()` (live bindings ESM) | `worker/src/constants.ts` |
+|| Slippage guard signé : ne bloque que le slippage défavorable | `worker/src/execution/slippage-guard.ts`, `executor.ts`, `real-executor.ts` |
+|| Isolation des modes sim/real : `try/catch` par mode, skip `process_mode_error` | `copy-trading/src/processors/copy-processor.ts` |
+|| Idempotence relayer atomique Redis (`SET NX EX`) + `withdraw_in_progress` → 409 | `backend/src/polymarket/relayer-client.ts`, `withdraw-errors.ts`, `frontend/src/components/PusdTransferDialog.tsx`, `frontend/src/lib/pusd-errors.ts` |
+|| Warning au boot si `MASTER_ENCRYPTION_KEY` legacy 32 car. UTF-8 | `backend/src/crypto/encryption.ts`, `backend/src/index.ts` |
+|| Alertes backend fire-and-forget (ne bloquent plus la boucle stratégie) | `worker/src/clob/notify-alert.ts`, `processors/strategy/position-exit-evaluator.ts` |
+|| WebSocket user : timeout de connexion + rejet si `close`/`error` avant `open` | `worker/src/polymarket/websocket-user.ts` |
 
 ---
 

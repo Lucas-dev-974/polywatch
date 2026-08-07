@@ -85,9 +85,24 @@ export class CopyProcessor {
     }
 
     for (const mode of modes) {
-      const modeResult = await this.processMode(move, entry, mode, copyConfig, globalConfig);
-      if (modeResult.kind === 'skip') {
-        recordSkip(mode, modeResult.reason);
+      try {
+        const modeResult = await this.processMode(
+          move,
+          entry,
+          mode,
+          copyConfig,
+          globalConfig,
+        );
+        if (modeResult.kind === 'skip') {
+          recordSkip(mode, modeResult.reason);
+        }
+      } catch (err) {
+        // Isolate modes: a sim failure must not block real (and vice versa).
+        log.error(
+          { err, moveId: move.id, mode },
+          'copy processMode failed — continuing with remaining modes',
+        );
+        recordSkip(mode, 'process_mode_error');
       }
     }
 

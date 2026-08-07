@@ -44,6 +44,8 @@ const PUSD_TRANSFER_ERRORS: Record<string, string> = {
   bridge_min_amount: 'Montant inferieur au minimum requis pour ce bridge.',
   bridge_asset_unsupported: 'Actif non supporte par le Bridge Polymarket.',
   bridge_quote_missing: 'Calculez d\'abord le devis avant d\'envoyer.',
+  withdraw_in_progress:
+    'Un retrait identique est deja en cours d\'execution. Patientez quelques secondes puis rechargez.',
   'MetaMask non detecte': 'MetaMask requis pour cette operation.',
   invalid_token: SESSION_EXPIRED_MESSAGE,
   session_expired: SESSION_EXPIRED_MESSAGE,

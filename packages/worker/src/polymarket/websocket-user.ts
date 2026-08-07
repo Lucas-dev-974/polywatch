@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import type { UserWsAuth } from '../clob/ws-user-events.js';
 import {
   WS_BASE_RECONNECT_DELAY_MS,
+  WS_CONNECT_TIMEOUT_MS,
   WS_HEARTBEAT_INTERVAL_MS,
   WS_MAX_RECONNECT_ATTEMPTS,
 } from '../constants.js';
@@ -121,24 +122,48 @@ export class PolymarketUserWebSocket {
     }
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+
+      const connectTimeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        log.warn({ wsUrl: config.wsUserUrl }, 'polymarket user ws connect timeout');
+        this.healthy = false;
+        if (this.ws) {
+          this.disposeSocket(this.ws);
+          this.ws = null;
+        }
+        this.scheduleReconnect();
+        reject(new Error('polymarket user ws connect timeout'));
+      }, WS_CONNECT_TIMEOUT_MS);
+
+      const onSettled = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connectTimeout);
+        fn();
+      };
+
       try {
         log.info({ wsUrl: config.wsUserUrl }, 'connecting to polymarket user ws');
         this.ws = new WebSocket(config.wsUserUrl);
 
         this.ws.on('open', () => {
-          log.info('polymarket user ws connected');
-          this.healthy = true;
-          this.reconnectAttempts = 0;
-          this.reconnectExhaustedNotified = false;
-          this.startHeartbeat();
-          this.sendInitialSubscription();
-          if (this.wasDisconnected) {
-            // Fills/cancellations may have happened while offline — let the
-            // owner reconcile `placing` executions against the CLOB REST API.
-            this.wasDisconnected = false;
-            this.onReconnected?.();
-          }
-          resolve();
+          onSettled(() => {
+            log.info('polymarket user ws connected');
+            this.healthy = true;
+            this.reconnectAttempts = 0;
+            this.reconnectExhaustedNotified = false;
+            this.startHeartbeat();
+            this.sendInitialSubscription();
+            if (this.wasDisconnected) {
+              // Fills/cancellations may have happened while offline — let the
+              // owner reconcile `placing` executions against the CLOB REST API.
+              this.wasDisconnected = false;
+              this.onReconnected?.();
+            }
+            resolve();
+          });
         });
 
         this.ws.on('message', (raw: Buffer) => {
@@ -151,17 +176,28 @@ export class PolymarketUserWebSocket {
           this.wasDisconnected = true;
           this.stopHeartbeat();
           this.scheduleReconnect();
+          onSettled(() => {
+            reject(
+              new Error(`polymarket user ws closed before open (code=${code})`),
+            );
+          });
         });
 
         this.ws.on('error', (err) => {
           log.warn({ err }, 'polymarket user ws error');
           this.healthy = false;
+          onSettled(() => {
+            this.scheduleReconnect();
+            reject(err);
+          });
         });
       } catch (err) {
         log.error({ err }, 'polymarket user ws connect failed');
-        this.healthy = false;
-        this.scheduleReconnect();
-        reject(err);
+        onSettled(() => {
+          this.healthy = false;
+          this.scheduleReconnect();
+          reject(err as Error);
+        });
       }
     });
   }

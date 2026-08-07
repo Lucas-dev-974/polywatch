@@ -66,7 +66,7 @@ façade `/api/config/{global,copy,crypto,weather}`. Catalogue routes = [`api.md`
 | `clob-credentials.ts` | Formulaire credentials L2 + Builder |
 | `private-key.ts` | Validation/dérivation d'adresse depuis une clé privée (saisie wallet account) |
 | `ethereum.ts` | Détection MetaMask, connexion, `ensurePolygonNetwork` (avec `wallet_addEthereumChain`) |
-| `pusd-errors.ts` | Mapping codes d'erreur backend → messages français |
+| `pusd-errors.ts` | Mapping codes d'erreur backend → messages français. `withdraw_in_progress` (409) n'est pas affiché comme erreur : `PusdTransferDialog` l'intercepte et montre un hint informatif « retrait déjà en cours » (l'utilisateur n'a qu'à attendre) |
 | `move-events.ts` | Types et labels des mouvements copy-trading (`MoveEvent`, filtres mode/source) |
 | `algo-events.ts` | Types et labels des événements algo (`AlgoEvent`, status, formatage temps/marché) |
 | `wallet-history.ts`, `address.ts`, `date.ts`, `clipboard.ts` | Utilitaires |

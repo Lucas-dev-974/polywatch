@@ -34,6 +34,13 @@ export const SYSTEM_CONFIG_DEFAULTS: { key: string; value: string; category: str
   { key: 'worker.clob.position_lock_timeout_ms', value: '60000', category: 'worker', description: 'Position lock timeout' },
   { key: 'worker.circuit_breaker.failure_threshold', value: '5', category: 'worker', description: 'Circuit breaker failure threshold' },
   { key: 'worker.circuit_breaker.cooldown_ms', value: '30000', category: 'worker', description: 'Circuit breaker cooldown' },
+  {
+    key: 'worker.log.book_404_errors',
+    value: 'false',
+    category: 'worker',
+    description:
+      'When true, log CLOB order-book HTTP 404 warnings (transient for new/expired tokens). Default false to keep console quiet.',
+  },
 
   // Surveillance
   { key: 'surveillance.open_snapshot_delay_ms', value: '5000', category: 'surveillance', description: 'Delay before capturing open snapshot' },

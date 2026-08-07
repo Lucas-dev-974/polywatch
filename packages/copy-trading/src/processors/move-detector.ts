@@ -10,6 +10,7 @@ import {
   CopyConfigService,
   TraderSnapshot,
   WatchlistService,
+  isPollableTraderAddress,
   type MoveEventDto,
   type RedisQueue,
 } from '@polywatch/core';
@@ -186,8 +187,11 @@ export class MoveDetector {
 
   async pollAll(): Promise<{ moves: number; traders: number; skipped: number }> {
     const watchlist = await this.watchlistService.loadAll();
-    const traders = watchlist.filter(
+    const enabled = watchlist.filter(
       (e) => e.active || e.simEnabled || e.realEnabled,
+    );
+    const traders = enabled.filter((e) =>
+      isPollableTraderAddress(e.traderAddress),
     );
     const skipped = watchlist.length - traders.length;
     if (traders.length === 0) return { moves: 0, traders: 0, skipped };

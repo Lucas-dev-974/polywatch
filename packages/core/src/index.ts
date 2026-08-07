@@ -97,6 +97,7 @@ export * from './positions/outcome.js';
 export * from './positions/redemption-wait.js';
 export * from './positions/size.js';
 export { resolveClosedExitBidVwap } from './positions/exit-bid.js';
+export * from './traders/is-pollable-trader-address.js';
 export * from './market/lifecycle.js';
 export { MarketType } from './market/market-type.js';
 export { MarketClassifier, marketClassifier } from './market/classifier.js';

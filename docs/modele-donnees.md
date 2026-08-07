@@ -296,7 +296,12 @@ non-crypto de `AlgoPriceTick`.
 Configuration systeme cle/valeur avec categorisation. Utilisee pour les parametres
 d'infrastructure (timeouts, thresholds, feature flags) qui ne sont pas lies au risque
 ou au trading. Exposee via `GET /api/system-config`, `GET /api/system-config/:key`,
-`GET /api/system-config/by-category/:category`.
+`GET /api/system-config/by-category/:category`, UI **Config systeme**.
+
+Exemples de cles worker :
+- timings / caches / circuit breaker (`worker.*`) — overlays boot via `initWorkerConfigCache`
+- `worker.log.book_404_errors` (`false` par defaut) — si `true`, logue les warnings
+  CLOB book HTTP 404 (souvent transitoires) ; sinon silences via `book-error-log.ts`
 
 ### `ExitAttemptEvent` (`exit_attempt_events`)
 Journal d'audit des tentatives de sortie. Enregistre chaque evaluation de sortie

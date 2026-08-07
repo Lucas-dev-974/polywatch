@@ -62,6 +62,7 @@ import {
   initWorkerConfigCache,
   workerConfig,
 } from './constants.js';
+import { initBook404LogConfig } from './polymarket/book-error-log.js';
 
 const log = pino({ name: 'worker' });
 
@@ -71,6 +72,7 @@ async function main() {
   const ds = await initializeDataSource(createDataSource());
   await assertDatabaseExists(ds);
   await initWorkerConfigCache(ds);
+  initBook404LogConfig(ds);
 
   const simulationService = new SimulationService(ds);
   try {

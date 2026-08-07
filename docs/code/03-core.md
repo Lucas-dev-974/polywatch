@@ -23,6 +23,7 @@ core/src/
 ├── simulation/    accounting cash, algo-kind, trader-rollup (wrapper), analytics, snapshot-decision-collector, auto-snapshot
 ├── snapshot/      helpers purs partagés sim/real — `decision-collector-shared`, `trader-rollup-shared` (`buildTraderRollup`)
 ├── sizing/        compute, entry-sizing, entry-mos / resolve-entry-mos, depth-retry, enqueue, resume-reserved
+├── traders/       `isPollableTraderAddress` (filtre Data API — exclut sentinelles algo)
 ├── types/         types partagés (TradingMode, OrderSignal, etc.)
 ├── crypto-algo/   optimize-report, config-fingerprint, comparaison rapports
 ├── lib/           utilitaires (`ttl-cache`, `algo-price-tick-snapshot`, `safe-parse-json`, `to-iso`, `is-postgres`)

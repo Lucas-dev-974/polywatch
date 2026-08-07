@@ -7,6 +7,7 @@ import {
 import type { OrderBook, LiquidityStatus } from '@polywatch/core';
 import pino from 'pino';
 import { fetchOrderBook } from './api-client.js';
+import { logBookFetchFailure } from './book-error-log.js';
 import { MarketMetricsCache } from './market-metrics-cache.js';
 import { PolymarketBookWebSocket } from './websocket-book.js';
 import { safeInterval } from '../helpers.js';
@@ -146,7 +147,7 @@ export class PolymarketConnectionManager {
       this.orderBooks.set(assetId, book);
       return book;
     } catch (err) {
-      log.warn({ err, assetId }, 'one-off book fetch failed');
+      await logBookFetchFailure(log, err, assetId, 'one-off book fetch failed');
       return undefined;
     }
   }
@@ -168,7 +169,7 @@ export class PolymarketConnectionManager {
       this.bookHealthy = true;
       return book;
     } catch (err) {
-      log.warn({ err, assetId }, 'force book refresh failed');
+      await logBookFetchFailure(log, err, assetId, 'force book refresh failed');
       this.bookHealthy = false;
       return undefined;
     }
@@ -207,7 +208,12 @@ export class PolymarketConnectionManager {
       this.orderBooks.set(assetId, book);
       return this.pricesFromBook(book, quantity);
     } catch (err) {
-      log.warn({ err, assetId }, 'sell book REST fallback failed');
+      await logBookFetchFailure(
+        log,
+        err,
+        assetId,
+        'sell book REST fallback failed',
+      );
       return fromCache;
     }
   }
@@ -233,7 +239,12 @@ export class PolymarketConnectionManager {
         };
         this.orderBooks.set(assetId, book);
       } catch (err) {
-        log.warn({ err, assetId }, 'sell book REST fallback failed (depth)');
+        await logBookFetchFailure(
+          log,
+          err,
+          assetId,
+          'sell book REST fallback failed (depth)',
+        );
         return {
           executableBidVwap: 0,
           executableAskVwap: 0,
@@ -284,7 +295,7 @@ export class PolymarketConnectionManager {
         updatedAt: new Date(),
       });
     } catch (err) {
-      log.warn({ err, assetId }, 'book refresh failed');
+      await logBookFetchFailure(log, err, assetId, 'book refresh failed');
       this.bookHealthy = false;
     }
   }

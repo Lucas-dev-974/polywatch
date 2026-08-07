@@ -37,6 +37,9 @@ RedisQueue('move-events').enqueue()  +  notification backend (move_detected)
   Si le poll est **tronqué**, la baseline n'est **pas** écrite et le flag reste
   actif jusqu'à un poll complet (`!truncated`). Traders déjà connus en base :
   `runPollCycle` direct (pas de reconcile).
+- `pollAll` ne poll que les adresses Ethereum valides (`isPollableTraderAddress`) ;
+  les sentinelles watchlist `crypto-algo` / `weather-algo` sont skippées (pas
+  d'appel Data API).
 - `TraderSnapshotSeq` fournit un numéro de séquence monotone par trader, inclus dans le hash.
 
 ## 2. Décision de copie (module `copy/` dans `@polywatch/copy-trading`)
@@ -66,7 +69,10 @@ RedisQueue('move-events').enqueue()  +  notification backend (move_detected)
     skip permanent → libération réservation.
 
 **Modes** : `resolveCopyModesWithReasons` (`copy-risk-gate.ts`) — `sim` si
-`simEnabled`, `real` si `realEnabled && realTradingEnabled`.
+`simEnabled`, `real` si `realEnabled && realTradingEnabled`. Chaque mode est
+traité dans son propre `try/catch` dans `copy-processor.ts` : une erreur sur un
+mode est loguée et enregistrée comme skip `process_mode_error` sans bloquer
+l'autre mode.
 
 **Sorties (DECREASED / CLOSED)**
 1. Recherche de la position copiée `open` correspondante (`copy-position-lookup.ts`).

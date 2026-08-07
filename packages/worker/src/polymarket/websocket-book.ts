@@ -3,6 +3,7 @@ import type { OrderBook, OrderBookLevel } from '@polywatch/core';
 import pino from 'pino';
 import { config } from '../config.js';
 import { fetchOrderBook } from './api-client.js';
+import { logBookFetchFailure } from './book-error-log.js';
 import type { MarketMetricsCache } from './market-metrics-cache.js';
 import {
   WS_BASE_RECONNECT_DELAY_MS,
@@ -147,7 +148,12 @@ export class PolymarketBookWebSocket {
         this.sendSubscribe(assetId);
       }
     } catch (err) {
-      log.warn({ err, assetId }, 'initial book snapshot fetch failed; not subscribing');
+      await logBookFetchFailure(
+        log,
+        err,
+        assetId,
+        'initial book snapshot fetch failed; not subscribing',
+      );
     }
   }
 
@@ -193,7 +199,7 @@ export class PolymarketBookWebSocket {
           this.storeBook(assetId, data.bids, data.asks);
           synced++;
         } catch (err) {
-          log.warn({ err, assetId }, 'book sync fetch failed');
+          await logBookFetchFailure(log, err, assetId, 'book sync fetch failed');
         }
       }
       if (synced === 0) {
@@ -208,7 +214,7 @@ export class PolymarketBookWebSocket {
         const data = await fetchOrderBook(assetId);
         this.storeBook(assetId, data.bids, data.asks);
       } catch (err) {
-        log.warn({ err, assetId }, 'book sync fetch failed');
+        await logBookFetchFailure(log, err, assetId, 'book sync fetch failed');
       }
     }
   }

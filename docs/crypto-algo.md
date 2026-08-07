@@ -18,7 +18,7 @@ Strategy Evaluation (Momentum) -> Generation signaux Algo ->
 Publication WebSocket (real-time %) -> Backend API -> Frontend UI
 ```
 
-Toutes les executions et les positions associees a la couche algorithmique sont rattachees a une watchlist entry sentinelle ayant l'adresse `'crypto-algo'` (`CRYPTO_ALGO_TRADER_ADDRESS`). Cela permet de les integrer naturellement dans l'interface de copy-trading classique sans perturber le modele de donnees.
+Toutes les executions et les positions associees a la couche algorithmique sont rattachees a une watchlist entry sentinelle ayant l'adresse `'crypto-algo'` (`CRYPTO_ALGO_TRADER_ADDRESS`). Cela permet de les integrer naturellement dans l'interface de copy-trading classique sans perturber le modele de donnees. Cette adresse n'est **pas** un wallet Ethereum : le `MoveDetector` ne la poll pas sur la Data API (`isPollableTraderAddress`).
 
 **Execution sim** : meme pre-ordre que le reel (`prepareFakMarketOrder`), tunables `GlobalConfig` (latence, auto-impact, preflight, shadow). Voir [simulation-execution.md](./simulation-execution.md).
 

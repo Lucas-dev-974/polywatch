@@ -74,6 +74,11 @@ Points clés :
 - **Pagination Data API** : `sizeThreshold=0`, limite 500/page, offset max 10 000.
   Si troncature détectée, les positions absentes du snapshot ne génèrent **pas**
   de faux `CLOSED` (`snapshotTruncated` dans `PollCycleService`).
+- **Sentinelles algo** : `MoveDetector.pollAll` filtre via
+  `isPollableTraderAddress` — seules les adresses `0x…` (40 hex) sont pollées.
+  Les entrées `crypto-algo` / `weather-algo` (rattachement UI/positions) ne
+  déclenchent pas d'appel `/positions` (évite HTTP 400 et pollution du circuit
+  breaker Data API).
 - **Reconcile boot** : `firstPollPending` pour les traders nouvellement ajoutés à
   la watchlist. Tant que le premier poll est **tronqué**, le flag reste actif et
   la baseline (`upsertBaseline`) n'est **pas** écrite — évite une baseline
@@ -102,6 +107,9 @@ Consomme `move-events`. Pour chaque mouvement :
 2. Détermine les **modes** à appliquer (`resolveCopyModesWithReasons`) :
    - `sim` si `entry.simEnabled`.
    - `real` si `entry.realEnabled` **et** `risk.realTradingEnabled`.
+   Chaque mode est traité dans son propre `try/catch` : une erreur sur un mode
+   (ex. `sim`) est loguée, enregistrée comme skip `process_mode_error`, et
+   **ne bloque pas** le traitement de l'autre mode.
 3. Filtres : entrées ignorées si `!entry.active` ; type filtré par
    `isCopyMoveAllowed` (`copyIncreaseEnabled` / `copyDecreaseEnabled`) ;
    kill switch (`shouldBlockEntry`).

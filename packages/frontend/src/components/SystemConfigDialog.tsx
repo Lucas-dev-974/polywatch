@@ -89,14 +89,14 @@ export function SystemConfigDialog(props: SystemConfigDialogProps) {
     }
   });
 
-  async function handleSave(key: string) {
+  async function handleSave(key: string, value?: string) {
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
       await api(`/system-config/${encodeURIComponent(key)}`, {
         method: 'PUT',
-        body: JSON.stringify({ value: editValue() }),
+        body: JSON.stringify({ value: value ?? editValue() }),
       });
       setEditingKey(null);
       const meta = getSystemConfigMeta(key);
@@ -109,6 +109,10 @@ export function SystemConfigDialog(props: SystemConfigDialogProps) {
     } finally {
       setSaving(false);
     }
+  }
+
+  function isBooleanEnabled(value: string): boolean {
+    return value === 'true' || value === '1';
   }
 
   async function handleSeed() {
@@ -211,68 +215,101 @@ export function SystemConfigDialog(props: SystemConfigDialogProps) {
 
                             <div class="sys-config-item-control">
                               <Show
-                                when={editingKey() === entry.key}
+                                when={meta().unit === 'boolean'}
                                 fallback={
-                                  <div class="sys-config-value-display">
-                                    <span class="sys-config-value">
-                                      {formattedValue()}
-                                    </span>
-                                    <span class="sys-config-raw-value">
-                                      brut : {entry.value}
-                                    </span>
-                                  </div>
+                                  <>
+                                    <Show
+                                      when={editingKey() === entry.key}
+                                      fallback={
+                                        <div class="sys-config-value-display">
+                                          <span class="sys-config-value">
+                                            {formattedValue()}
+                                          </span>
+                                          <span class="sys-config-raw-value">
+                                            brut : {entry.value}
+                                          </span>
+                                        </div>
+                                      }
+                                    >
+                                      <input
+                                        type="text"
+                                        class="form-input sys-config-edit-input"
+                                        value={editValue()}
+                                        onInput={(e) =>
+                                          setEditValue(e.currentTarget.value)
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter')
+                                            void handleSave(entry.key);
+                                          if (e.key === 'Escape')
+                                            setEditingKey(null);
+                                        }}
+                                        aria-label={`Valeur pour ${meta().label}`}
+                                        autofocus
+                                      />
+                                    </Show>
+
+                                    <div class="sys-config-item-actions">
+                                      <Show
+                                        when={editingKey() === entry.key}
+                                        fallback={
+                                          <button
+                                            type="button"
+                                            class="btn btn-secondary btn-sm"
+                                            onClick={() => {
+                                              setEditingKey(entry.key);
+                                              setEditValue(entry.value);
+                                            }}
+                                          >
+                                            Modifier
+                                          </button>
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          class="btn btn-primary btn-sm"
+                                          disabled={saving()}
+                                          onClick={() =>
+                                            void handleSave(entry.key)
+                                          }
+                                        >
+                                          {saving() ? '…' : 'Enregistrer'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          class="btn btn-secondary btn-sm"
+                                          onClick={() => setEditingKey(null)}
+                                        >
+                                          Annuler
+                                        </button>
+                                      </Show>
+                                    </div>
+                                  </>
                                 }
                               >
-                                <input
-                                  type="text"
-                                  class="form-input sys-config-edit-input"
-                                  value={editValue()}
-                                  onInput={(e) =>
-                                    setEditValue(e.currentTarget.value)
-                                  }
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter')
-                                      void handleSave(entry.key);
-                                    if (e.key === 'Escape') setEditingKey(null);
-                                  }}
-                                  aria-label={`Valeur pour ${meta().label}`}
-                                  autofocus
-                                />
-                              </Show>
-
-                              <div class="sys-config-item-actions">
-                                <Show
-                                  when={editingKey() === entry.key}
-                                  fallback={
-                                    <button
-                                      type="button"
-                                      class="btn btn-secondary btn-sm"
-                                      onClick={() => {
-                                        setEditingKey(entry.key);
-                                        setEditValue(entry.value);
+                                <div class="sys-config-value-display">
+                                  <label class="toggle-switch">
+                                    <input
+                                      type="checkbox"
+                                      checked={isBooleanEnabled(entry.value)}
+                                      disabled={saving()}
+                                      onChange={(e) => {
+                                        void handleSave(
+                                          entry.key,
+                                          e.currentTarget.checked
+                                            ? 'true'
+                                            : 'false',
+                                        );
                                       }}
-                                    >
-                                      Modifier
-                                    </button>
-                                  }
-                                >
-                                  <button
-                                    type="button"
-                                    class="btn btn-primary btn-sm"
-                                    disabled={saving()}
-                                    onClick={() => void handleSave(entry.key)}
-                                  >
-                                    {saving() ? '…' : 'Enregistrer'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    class="btn btn-secondary btn-sm"
-                                    onClick={() => setEditingKey(null)}
-                                  >
-                                    Annuler
-                                  </button>
-                                </Show>
-                              </div>
+                                      aria-label={meta().label}
+                                    />
+                                    <span class="toggle-track" />
+                                    <span class="toggle-label">
+                                      {formattedValue()}
+                                    </span>
+                                  </label>
+                                </div>
+                              </Show>
                             </div>
                           </div>
                         </article>

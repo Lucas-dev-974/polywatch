@@ -1,4 +1,4 @@
-export type SystemConfigUnit = 'ms' | 'seconds' | 'count' | 'ratio' | 'decimals';
+export type SystemConfigUnit = 'ms' | 'seconds' | 'count' | 'ratio' | 'decimals' | 'boolean';
 
 export interface SystemConfigKeyMeta {
   label: string;
@@ -42,6 +42,7 @@ export const SYSTEM_CONFIG_GROUP_LABELS: Record<string, string> = {
   cache: 'Caches & fraîcheur des données',
   clob: 'CLOB & ordres',
   safety: 'Sécurité & circuit breaker',
+  logging: 'Logs',
   api: 'API & pagination',
   snapshots: 'Snapshots de position',
   thresholds: 'Seuils gain / perte',
@@ -62,6 +63,7 @@ export const SYSTEM_CONFIG_GROUP_ORDER: Record<string, string[]> = {
     'cache',
     'clob',
     'safety',
+    'logging',
     'api',
   ],
   surveillance: ['snapshots', 'thresholds'],
@@ -247,6 +249,12 @@ export const SYSTEM_CONFIG_KEY_META: Record<string, SystemConfigKeyMeta> = {
     group: 'safety',
     unit: 'ms',
   },
+  'worker.log.book_404_errors': {
+    label: 'Logger les erreurs 404 carnet',
+    hint: 'Affiche dans la console les avertissements CLOB book 404 (souvent transitoires sur tokens nouveaux ou expirés). Désactivé par défaut pour éviter le bruit.',
+    group: 'logging',
+    unit: 'boolean',
+  },
   'worker.data_api.page_limit': {
     label: 'Taille de page Data API',
     hint: 'Nombre d’éléments récupérés par page lors des appels Data API.',
@@ -406,6 +414,10 @@ export function formatSystemConfigValue(
 
   if (unit === 'ratio') {
     return `${trimTrailingZero(num * 100)} %`;
+  }
+
+  if (unit === 'boolean') {
+    return value === 'true' || value === '1' ? 'activé' : 'désactivé';
   }
 
   if (unitLabel) return `${value} ${unitLabel}`;

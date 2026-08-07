@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MoveDetector } from './move-detector.js';
 import type { DataSource } from 'typeorm';
 import { CopyConfigService, type RedisQueue, type MoveEventDto } from '@polywatch/core';
+import { fetchTraderPositions } from '../polymarket/api-client.js';
 
 vi.mock('@polywatch/core', async () => {
   const actual = await vi.importActual('@polywatch/core');
@@ -120,6 +121,46 @@ describe('MoveDetector', () => {
 
       expect(detector.isRunning()).toBe(false);
       expect((detector as any).stopped).toBe(true);
+    });
+  });
+
+  describe('pollAll', () => {
+    it('skips algo sentinel addresses and only polls Ethereum wallets', async () => {
+      const watchlistService = (detector as any).watchlistService;
+      watchlistService.loadAll.mockResolvedValue([
+        {
+          traderAddress: '0x6af75d4e4aaf700450efbac3708cce1665810ff1',
+          active: true,
+          simEnabled: true,
+          realEnabled: false,
+        },
+        {
+          traderAddress: 'crypto-algo',
+          active: true,
+          simEnabled: true,
+          realEnabled: true,
+        },
+        {
+          traderAddress: 'weather-algo',
+          active: true,
+          simEnabled: true,
+          realEnabled: true,
+        },
+      ]);
+
+      vi.mocked(fetchTraderPositions).mockResolvedValue({
+        positions: [],
+        truncated: false,
+      });
+
+      const result = await detector.pollAll();
+
+      expect(fetchTraderPositions).toHaveBeenCalledTimes(1);
+      expect(fetchTraderPositions).toHaveBeenCalledWith(
+        '0x6af75d4e4aaf700450efbac3708cce1665810ff1',
+      );
+      expect(result.traders).toBe(1);
+      expect(result.skipped).toBe(2);
     });
   });
 });

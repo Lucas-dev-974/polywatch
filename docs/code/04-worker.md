@@ -73,7 +73,7 @@ Purge `MarketPriceTick` horaire si `MARKET_PRICE_TICK_RETENTION_DAYS` > 0 (défa
 
 | Fichier | Rôle |
 |---|---|
-| `trading-context.ts` | Cache singleton (TTL 30 min) : ClobClient POLY_1271, deposit wallet, credentials WS. Sync collatéral 5 min. Invalidé par `config-changed` / `backend-ready` |
+| `trading-context.ts` | Cache singleton (TTL 30 min) : ClobClient POLY_1271, deposit wallet, credentials WS. Sync collatéral 5 min. Invalidé par `config-changed` / `backend-ready`. Fetch `clob-approvals/ensure` borné par `BACKEND_HTTP_TIMEOUT_MS`. Compteur `cacheGeneration` : un build en vol ne réécrit jamais le cache après une invalidation |
 | `client-factory.ts` / `credentials.ts` | Construction du ClobClient ; credentials via `/api/internal/clob-credentials` |
 | `real-executor.ts` | Ordre FAK : prix → slippage → tick → **mos (SELL)** → `lastTradePrice` pour sorties forcées → post (timeout 30 s) |
 | `execution-reconciler.ts` | Réconciliation `getOrder` / `getTrades` |
@@ -89,7 +89,7 @@ Purge `MarketPriceTick` horaire si `MARKET_PRICE_TICK_RETENTION_DAYS` > 0 (défa
 | `clob/execution-completion.ts` | Finalisation d'exécution CLOB |
 | `clob/notify-execution.ts` | Notification backend avec circuit breaker |
 | `clob/prepare-fak-order.ts` | Pré-ordre FAK partagé sim/réel (slippage, tick, MOS sortie) |
-| `execution/slippage-guard.ts` | Protection slippage avant envoi ordre |
+| `execution/slippage-guard.ts` | Protection slippage avant envoi ordre. `computeSlippagePercent(fill, ref, side)` est **signé** (BUY : > 0 si trop cher ; SELL : > 0 si trop bas) ; le guard ne bloque que le slippage **défavorable** — un fill plus avantageux que le VWAP de référence passe toujours. Sans `side`, fallback sur la distance absolue (métriques legacy) |
 | `execution/sl-close-retry.ts` | Retry des forced exits (SL, trailing, kill-switch) |
 | `execution/latency-calibrator.ts` | Latence sim calibrée depuis échantillons RTT réels (`clob_latency_samples`) |
 | `execution/self-impact-registry.ts` | Auto-impact liquidité : profondeur consommée par fills sim récents (TTL mémoire) |
@@ -109,9 +109,10 @@ Voir aussi [simulation-execution.md](../simulation-execution.md) pour le pipelin
 | Fichier | Rôle |
 |---|---|
 | `websocket-book.ts` | Carnet en mémoire ; reconnexion backoff ; fallback REST si WS injoignable au boot |
-| `websocket-user.ts` | Canal user authentifié ; réconciliation `placing` à la reconnexion |
+| `websocket-user.ts` | Canal user authentifié ; réconciliation `placing` à la reconnexion. Timeout de connexion `WS_CONNECT_TIMEOUT_MS` + rejet si `close`/`error` avant `open` (aligné sur `websocket-book.ts`) |
 | `sync-book-subscriptions.ts` | Resync abonnements book (10 s) + assets pending move (TTL 30 s) |
 | `connection-manager.ts` | Hub central des connexions WebSocket et carnets d'ordres ; importé par 20+ fichiers |
+| `book-error-log.ts` | Filtre les `log.warn` CLOB book **404** selon `system_config` `worker.log.book_404_errors` (défaut `false`) ; les autres erreurs book restent toujours loguées |
 | `circuit-breaker.ts` / `token-bucket.ts` / `rate-limited-fetch.ts` | Résilience / rate-limit (**shims** → `@polywatch/core`) |
 | `book-freshness.ts` / `ensure-book-ready.ts` | Fraîcheur book + gate avant entry |
 
@@ -142,7 +143,11 @@ Voir aussi [simulation-execution.md](../simulation-execution.md) pour le pipelin
 
 POST authentifiés (`x-service-token`) : exécutions, pnl-ticks, move-detected, alertes, **circuit-breaker** (seul push métrique actif).
 
+`clob/notify-alert.ts` (`notifyBackendAlert`) est **fire-and-forget synchrone** : il délègue à `postBackendAlert` (qui avale les erreurs fetch) sans `await`, donc une alerte lente ne bloque jamais la boucle stratégie ni l'émetteur (DLQ, exit evaluator, etc.).
+
 ## Cadences (`constants.ts`)
+
+Toutes les constantes sont des `export let` initialisées depuis `WORKER_CONFIG_DEFAULTS` puis **réassignées** par `syncNamedExportsFromWorkerConfig()` à la fin de `initWorkerConfigCache()` (lecture des overrides `worker.*` en DB). Les live bindings ESM propagent les valeurs DB vers tous les importeurs — ne pas reconvertir en `export const` sous peine de rendre les overrides inopérants.
 
 | Constante | Valeur | Composant |
 |---|---|---|

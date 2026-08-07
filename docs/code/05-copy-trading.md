@@ -36,7 +36,7 @@ Voir aussi [`02-pipeline-copy-trading.md`](02-pipeline-copy-trading.md) et
 
 | Fichier | Rôle |
 |---|---|
-| `move-detector.ts` | Polling Data API (intervalle `CopyConfig.moveDetectorIntervalMs`, défaut 2 s), enqueue `move-events` |
+| `move-detector.ts` | Polling Data API (intervalle `CopyConfig.moveDetectorIntervalMs`, défaut 2 s), enqueue `move-events`. **Ignore** les adresses non Ethereum (`isPollableTraderAddress`) — sentinelles `crypto-algo` / `weather-algo` non pollées |
 | `copy-processor.ts` | Consomme `move-events`, gates, pipelines → `order-signals` (`markProcessedWithReasons`) |
 | `copy/copy-entry-pipeline.ts` | Sizing, MOS, depth-retry, réservation, BUY `COPY_OPEN` / `COPY_INCREASE` |
 | `copy/copy-exit-pipeline.ts` | SELL miroir `COPY_CLOSE` / `COPY_DECREASE` |
@@ -64,6 +64,11 @@ Voir aussi [`02-pipeline-copy-trading.md`](02-pipeline-copy-trading.md) et
 - Polling du `MoveDetector` est **interrompu** lorsque `simCopyTradingEnabled`
   **et** `realCopyTradingEnabled` sont tous deux désactivés. Aucune adresse de
   la watchlist n'est alors interrogée.
+- Même lorsque le polling tourne, seules les adresses `0x…` (40 hex) sont
+  interrogées via Data API `/positions` (`isPollableTraderAddress` dans
+  `@polywatch/core`). Les entrées sentinelles algo (`crypto-algo`,
+  `weather-algo`) restent en watchlist pour le rattachement des positions, mais
+  ne génèrent plus d'erreurs 400 ni de pression sur le circuit breaker Data API.
 - Le detector est relancé automatiquement sur `config-changed` dès que l'un
   des deux toggles est réactivé.
 - `simCopyTradingEnabled` / `realCopyTradingEnabled` bloquent uniquement les

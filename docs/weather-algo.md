@@ -27,7 +27,8 @@ worker Executor
 (palier) choisi automatiquement. **Au plus une position ouverte par ville.**
 
 Positions rattachées à une watchlist sentinelle weather-algo. Snapshot forecast
-d'entrée dans `WeatherPositionForecast`.
+d'entrée dans `WeatherPositionForecast`. Comme `crypto-algo`, l'adresse
+sentinelle n'est pas pollée par le MoveDetector Data API.
 
 ---
 

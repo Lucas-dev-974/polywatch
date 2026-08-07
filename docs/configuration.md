@@ -16,7 +16,7 @@ en remontant jusqu'au `package.json` nommé `polywatch`. Partir de
 | `JWT_SECRET` | dev fallback | backend | Secret de signature des access tokens (>= 32 car.) |
 | `JWT_REFRESH_SECRET` | dev fallback | backend | Secret des refresh tokens |
 | `SERVICE_TOKEN` | dev fallback | backend, worker, copy-trading, crypto-algo | Jeton d'auth des routes internes (`x-service-token`) |
-| `MASTER_ENCRYPTION_KEY` | dev fallback | backend | Cle AES-256-GCM : 64 car. hex (sortie de `npm run generate-secrets`) ou chaine UTF-8 de 32 bytes |
+| `MASTER_ENCRYPTION_KEY` | dev fallback | backend | Cle AES-256-GCM : 64 car. hex (sortie de `npm run generate-secrets`, recommande) ou chaine UTF-8 de 32 bytes (legacy — acceptee mais un `warn` est logue au boot) |
 | `REDIS_URL` | `redis://localhost:6379` | backend, worker, copy-trading, crypto-algo | Connexion Redis |
 | `CORS_ORIGIN` | `http://localhost:5173,http://127.0.0.1:5173` | backend | Whitelist CORS (Express + Socket.IO), origines separees par des virgules |
 | `PORT` | `3000` | backend | Port HTTP |
@@ -61,7 +61,7 @@ Répartie en `global_config`, `copy_config`, `crypto_config`, `weather_config`, 
 | `maxExposureUsdc` / `simMaxExposureUsdc` / `realMaxExposureUsdc` | Plafond d'exposition total (globale et par mode) |
 | `maxDailyLossUsdc` / `simMaxDailyLossUsdc` / `realMaxDailyLossUsdc` | Perte maximale journaliere (globale et par mode) |
 | `maxPositionSizeUsdc` / `simMaxPositionSizeUsdc` / `realMaxPositionSizeUsdc` | Taille maximale par position (globale et par mode) |
-| `maxSlippagePercent` | Garde-fou de slippage a l'execution (ecart fill vs `referenceVwap` ask) ; sim et reel ; **modifiable UI** dans Parametres env (onglet Risk) et Configuration Crypto Algo (onglet General). **Les sorties forcees (`SL`, `TRAILING`, `PRE_CLOSE_LOSS`, `KILL_SWITCH`) ne sont pas bloques par le slippage guard** : en marche illiquide elles peuvent donc s'executer sous le `lastTradePrice` connu, au prix d'un fill plus eloigne du bid affiche. |
+| `maxSlippagePercent` | Garde-fou de slippage a l'execution (ecart fill vs `referenceVwap` ask) ; sim et reel ; **modifiable UI** dans Parametres env (onglet Risk) et Configuration Crypto Algo (onglet General). Seul le slippage **defavorable** bloque (BUY plus cher / SELL plus bas que la reference) : un fill plus avantageux passe toujours. **Les sorties forcees (`SL`, `TRAILING`, `PRE_CLOSE_LOSS`, `KILL_SWITCH`) ne sont pas bloquees par le slippage guard** : en marche illiquide elles peuvent donc s'executer sous le `lastTradePrice` connu, au prix d'un fill plus eloigne du bid affiche. |
 | `exitSlippageGuardPercent` | Garde-fou de slippage specifique aux sorties (defaut 50%). Applique aux sorties forcees. |
 | `slConfirmationTicks` | Nombre d'evaluations consecutives ou la condition SL doit etre vraie avant d'emettre le signal (defaut 2). Evite les faux positifs sur micro-pics de liquidite. |
 | `simMinBidToAskRatio` / `realMinBidToAskRatio` | Ratio **bid VWAP / ask VWAP** minimum pour autoriser une **entree** copiee (`0` = filtre desactive ; defaut `0.9`) ; UI : **Configurer** -> onglet Entree |
@@ -283,6 +283,21 @@ pas le SL/TP — le CLOB peut encore avoir des bids utilisables apres
 
 Logique detaillee : `evaluatePreCloseExit` dans `packages/core/src/risk/exit-decision.ts`.
 Pipeline : `docs/pipeline-copy-trading.md` (etape strategie + liquidity gate).
+
+## 2.1 Configuration systeme (`system_config`)
+
+Table cle/valeur d'infrastructure (timeouts worker, surveillance, auto-track,
+backend, feature flags), distincte des 4 tables trading. UI : **Config systeme**
+(heroes Sim/Reel). Seed : `packages/core/src/seed/system-config-defaults.ts`
+(insert des cles manquantes uniquement). Cache processus TTL ~10 s.
+
+| Cle | Defaut | Effet |
+|-----|--------|-------|
+| `worker.log.book_404_errors` | `false` | Si `true`, logue les warnings CLOB book HTTP 404 dans la console worker ; sinon silences (404 souvent transitoires sur tokens nouveaux/expires). Autres erreurs book toujours loguees. UI : Worker → Logs. |
+
+Les timings `worker.*` numeriques sont charges au boot worker via
+`initWorkerConfigCache`. Le flag de log ci-dessus est relu a la volee (cache
+`SystemConfigService`).
 
 ## 3. Scripts npm
 

@@ -292,4 +292,6 @@ TTL 120 s) : `enabledSelections`, `evaluableSelections`, `wsConnected`,
   **Événements** de la page Simulation (`EventsPanel` + `AlgoEventRow`,
   filtrable par source Copy/Algo via `GET /api/algo/events`).
 - **Watchlist** : l'entrée sentinelle `'crypto-algo'` fait apparaître les
-  positions algo dans les dashboards Simulation / Réel.
+  positions algo dans les dashboards Simulation / Réel. Ce n'est **pas** un
+  wallet Polymarket : le `MoveDetector` copy-trading l'exclut du poll Data API
+  (`isPollableTraderAddress`).

@@ -18,10 +18,10 @@
 |--------|--------|
 | **applied** | 19 |
 | **partial** (racine) | 2 |
-| **not_implemented** (racine) | 2 |
+| **not_implemented** (racine) | 3 |
 | **reference** | 7 |
 | **archived** | 5 |
-| **Total** | **35** |
+| **Total** | **36** |
 
 ---
 
@@ -66,6 +66,7 @@
 
 | Fichier | Résumé | Écart principal |
 |---------|--------|-----------------|
+| [2026-08-07_PLAN-fix-audit-hardening.md](2026-08-07_PLAN-fix-audit-hardening.md) | Fix bugs post-patch (relayer R1/R2, copy C1, hygiène) | Décisions Q1–Q4 ouvertes ; aucun correctif code encore |
 | [2026-08-05_PLAN-backtest-engine-universel.md](2026-08-05_PLAN-backtest-engine-universel.md) | Moteur backtest universel event-driven | Pas de `packages/backtest/`, pas d'entités/routes/UI |
 | [2026-08-06_PLAN-phase3-data-stream-rtds.md](2026-08-06_PLAN-phase3-data-stream-rtds.md) | Phase 3 RTDS/oracle data stream | **Désimplémenté / reporté 2026-08-07** — spec conservée, aucun code en repo |
 

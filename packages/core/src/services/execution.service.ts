@@ -19,9 +19,6 @@ import { RESERVATION_CLOSE_REASON_RELEASED } from '../positions/reservation-clos
 import { SimulationService } from './simulation.service.js';
 import { ExitAttemptEventService } from './exit-attempt-event.service.js';
 
-// PostgreSQL always supports pessimistic locking — this helper is kept for clarity.
-const supportsPessimisticLock = (_ds: DataSource): boolean => true;
-
 const OPTIMISTIC_LOCK_ERROR = 'OptimisticLockVersionMismatchError';
 const ACTIVE_SELL_STATUSES = ['placing', 'live_on_clob', 'partial'] as const;
 /** After this age, a real/sim REDEMPTION stuck in `placing` may be retried. */
@@ -389,9 +386,8 @@ export class ExecutionService {
   }
 
   async finalize(input: FinalizeInput): Promise<CopiedPosition | null> {
-    const lock = supportsPessimisticLock(this.ds);
     try {
-      return await this.finalizeWithLock(input, lock);
+      return await this.finalizeWithLock(input);
     } catch (err) {
       if (
         err &&
@@ -415,25 +411,26 @@ export class ExecutionService {
 
   private async finalizeWithLock(
     input: FinalizeInput,
-    lock: boolean,
   ): Promise<CopiedPosition | null> {
     return this.ds.transaction(async (manager) => {
       const execRepo = manager.getRepository(Execution);
       const posRepo = manager.getRepository(CopiedPosition);
       const resRepo = manager.getRepository(PositionReservation);
 
-      const execQuery = execRepo
+      const exec = await execRepo
         .createQueryBuilder('e')
         .where('e.orderSignalId = :orderSignalId', {
           orderSignalId: input.orderSignalId,
-        });
-      const exec = await (lock ? execQuery.setLock('pessimistic_write') : execQuery).getOne();
+        })
+        .setLock('pessimistic_write')
+        .getOne();
       if (!exec) throw new Error('execution_not_found');
 
-      const posQuery = posRepo
+      const pos = await posRepo
         .createQueryBuilder('p')
-        .where('p.id = :id', { id: exec.copiedPositionId });
-      const pos = await (lock ? posQuery.setLock('pessimistic_write') : posQuery).getOne();
+        .where('p.id = :id', { id: exec.copiedPositionId })
+        .setLock('pessimistic_write')
+        .getOne();
       if (!pos) throw new Error('position_not_found');
 
       const now = new Date();

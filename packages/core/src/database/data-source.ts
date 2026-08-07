@@ -328,27 +328,6 @@ export function createMigratorDataSource(): DataSource {
   return createDataSource({ synchronize: false, migrationsRun: false });
 }
 
-/**
- * Create a PostgreSQL DataSource from a connection URL.
- * Useful for tests or tools that need a direct connection.
- */
-export function createPostgresDataSource(
-  url: string,
-  opts?: { synchronize?: boolean },
-): DataSource {
-  const previousUrl = process.env.DATABASE_URL;
-  process.env.DATABASE_URL = url;
-  try {
-    return new DataSource(buildDataSourceOptions({ synchronize: opts?.synchronize, migrationsRun: false }));
-  } finally {
-    if (previousUrl === undefined) {
-      delete process.env.DATABASE_URL;
-    } else {
-      process.env.DATABASE_URL = previousUrl;
-    }
-  }
-}
-
 export async function initializeDataSource(ds: DataSource): Promise<DataSource> {
   if (!ds.isInitialized) {
     await ds.initialize();

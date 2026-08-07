@@ -417,15 +417,9 @@ avant réutilisation ou à supprimer une fois le diagnostic terminé.
 
 | Script | Cible | Dépendances |
 |--------|-------|-------------|
-| `audit-position-28455.ts` / `audit-position-28455-pg.ts` | Dump position #28455 (variantes TypeORM/SQLite et PostgreSQL direct) | SQLite `data/polywatch.db` / PostgreSQL |
+| `audit-position-28455-pg.ts` | Dump position #28455 (PostgreSQL direct via `pg`) | PostgreSQL |
 | `audit-algo-tick-timestamps.ts` | 5 derniers ticks `algo_price_ticks` pour un `condition_id` codé en dur | PostgreSQL (localhost hardcodé) |
 | `audit-redemption-sl-miss.ts` | Positions REDEMPTION de perte (IDs 16029, 16036) — prix d'entrée, SL, peak PnL | PostgreSQL |
 | `audit-failed.ts` | Distribution des tailles d'ordre `below_min_order_size` (COPY_OPEN sim) | PostgreSQL |
 | `analyze-db.ts` | Distribution des échecs `below_min_order_size` (min/max/avg qty) | PostgreSQL |
 | `optimization-report.ts` | Rapport comparatif avant/après optimisation (stats figées, aucune lecture DB) | Aucune |
-
-### Variantes legacy SQLite
-
-`audit-position-28455.ts` et `audit-db.ts` utilisent SQLite (`./data/polywatch.db`)
-via TypeORM — variantes antérieures à la migration PostgreSQL. Préférer les versions
-`*-pg.ts` / `*-direct.ts` qui attaquent PostgreSQL directement.

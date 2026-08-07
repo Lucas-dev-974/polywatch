@@ -3,7 +3,7 @@
 > **Objectif** : Éliminer toute trace de SQLite du codebase Polywatch. Le projet tourne désormais exclusivement sur PostgreSQL. Toute la couche d'abstraction dialect (`sqlite | postgres`) doit être supprimée, et le code simplifié pour ne cibler que Postgres.
 
 > **Date** : 2026-07-03  
-> **Statut** : À valider avant exécution
+> **Statut** : Appliqué (2026-08-07) — retrait SQLite complet, Postgres-only + pg-mem
 
 ---
 

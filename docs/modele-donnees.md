@@ -57,9 +57,13 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `E2eRunPosition` | `e2e_run_positions` | Positions d'un run E2E (conditionId, cryptoSymbol, interval, prix d'entree, PnL, statut) |
 | `WeatherMarketSelection` | `weather_market_selections` | **Supprimé** — remplacé par `WeatherAutoTrackRule` (city-first) |
 | `WeatherAutoTrackRule` | `weather_auto_track_rules` | **Sélection active** : ville surveillée (`city`, `metric=highest_temp`, `lookAheadDays`, `mode=city_follow`) |
-| `WeatherConfig` | `weather_config` | Config weather-algo (edge, switch mode, hysteresis, throttle, capital sim…) — API `GET/PUT /api/config/weather` |
-| `WeatherForecastCache` | `weather_forecast_cache` | Cache Open-Meteo — **actif** |
+| `WeatherConfig` | `weather_config` | Config weather-algo (edge, switch mode, hysteresis, throttle, capital sim, **toggles/rétention recording**…) — API `GET/PUT /api/config/weather` |
+| `WeatherForecastCache` | `weather_forecast_cache` | Cache Open-Meteo upsert — **actif** |
 | `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture — **actif** (index unique `copied_position_id`). Colonnes `entry_bucket_comparison` + `entry_bucket_bounds` pour bucket-exit. |
+| `WeatherForecastHistory` | `weather_forecast_history` | Historique append-only des fetchs Open-Meteo (backtest) — `fetchedAt` |
+| `WeatherMarketSnapshot` | `weather_market_snapshots` | Snapshot marché par cycle × ville × date — `recordedAt` |
+| `WeatherBucketTick` | `weather_bucket_ticks` | Prix YES/NO d’un bucket actif ; FK `snapshot_id` **ON DELETE CASCADE** |
+| `WeatherEvaluationLog` | `weather_evaluation_log` | Journal signal/abstain ; FK `snapshot_id` **ON DELETE SET NULL** |
 
 ## Relations conceptuelles
 

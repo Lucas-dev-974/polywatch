@@ -272,6 +272,12 @@ const weatherConfigUpdateSchema = z.object({
   weatherAlgoBucketHysteresisPolls: z.number().int().min(1).max(10),
   weatherAlgoReentryThrottleMs: z.number().int().min(0).max(86_400_000),
   simInitialCapitalWeather: nonNegNumber,
+  weatherAlgoForecastHistoryRecordingEnabled: z.boolean(),
+  weatherAlgoMarketSnapshotRecordingEnabled: z.boolean(),
+  weatherAlgoEvaluationLogRecordingEnabled: z.boolean(),
+  weatherAlgoForecastHistoryRetentionDays: z.number().int().min(1).max(365),
+  weatherAlgoMarketSnapshotRetentionDays: z.number().int().min(1).max(365),
+  weatherAlgoEvaluationLogRetentionDays: z.number().int().min(1).max(365),
 }).partial().strict();
 
 // ─── Router factory ──────────────────────────────────────────────────

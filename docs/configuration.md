@@ -146,6 +146,14 @@ Parametres du trading algorithmique meteo, stockes dans `weather_config` et modi
 | `weatherAlgoCityFollowSwitchMode` | `close_and_reenter` | Si la prevision change de palier : `close_and_reenter` (fermer puis re-entrer) ou `hold` (garder ; drift/pre-close restent actifs). `add_position` est coerce vers `close_and_reenter`. |
 | `weatherAlgoBucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
 | `weatherAlgoReentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree sur la meme ville |
+| `weatherAlgoForecastHistoryRecordingEnabled` | `true` | Enregistre `weather_forecast_history` a chaque fetch Open-Meteo reel |
+| `weatherAlgoMarketSnapshotRecordingEnabled` | `true` | Enregistre snapshots + bucket ticks a chaque cycle |
+| `weatherAlgoEvaluationLogRecordingEnabled` | `true` | Enregistre le journal d'evaluation (signal/abstain) |
+| `weatherAlgoForecastHistoryRetentionDays` | `90` | Retention purge horaire forecast history |
+| `weatherAlgoMarketSnapshotRetentionDays` | `30` | Retention snapshots (cascade ticks) |
+| `weatherAlgoEvaluationLogRetentionDays` | `90` | Retention evaluation log |
+
+UI : Parametres (toggles/retention) + onglet **Donnees** (exploration/purge). Voir [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 #### Bande d'entree crypto-algo (`cryptoAlgoEntryPrice*`)
 

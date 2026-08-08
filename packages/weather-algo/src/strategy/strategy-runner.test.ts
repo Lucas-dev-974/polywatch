@@ -172,6 +172,7 @@ describe('pickBestEdgeBucket', () => {
       forecastProbability: 0.2,
       marketPrice: 0.05,
       edge: 0.15,
+      dynamicMinEdge: 0.05,
       entryBucketComparison: 'exact',
       entryBucketBounds: { target: 33 },
       ...overrides,
@@ -303,6 +304,7 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
     ];
 
     const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+      1,
       'Paris',
       'highest_temp',
       '2026-08-02',
@@ -337,6 +339,7 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
     });
 
     const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+      1,
       'Paris',
       'highest_temp',
       '2026-08-02',
@@ -368,6 +371,7 @@ describe('applySelectionMode', () => {
       forecastProbability: 0.2,
       marketPrice: 0.05,
       edge: 0.15,
+      dynamicMinEdge: 0.05,
       entryBucketComparison: 'exact',
       entryBucketBounds: { target: 33 },
       ...overrides,
@@ -494,6 +498,7 @@ describe('dedupSignalsByCity', () => {
       forecastProbability: 0.2,
       marketPrice: 0.05,
       edge,
+      dynamicMinEdge: 0.05,
       entryBucketComparison: 'exact',
       entryBucketBounds: { target: 33 },
     };

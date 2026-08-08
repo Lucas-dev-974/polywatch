@@ -176,4 +176,48 @@ export class WeatherConfig {
     default: DEFAULT_SIM_BALANCE,
   })
   simInitialCapitalWeather!: number;
+
+  // ── Backtest data recording ───────────────────────────────────────
+
+  @Column({
+    type: 'boolean',
+    name: 'weather_algo_forecast_history_recording_enabled',
+    default: true,
+  })
+  weatherAlgoForecastHistoryRecordingEnabled!: boolean;
+
+  @Column({
+    type: 'boolean',
+    name: 'weather_algo_market_snapshot_recording_enabled',
+    default: true,
+  })
+  weatherAlgoMarketSnapshotRecordingEnabled!: boolean;
+
+  @Column({
+    type: 'boolean',
+    name: 'weather_algo_evaluation_log_recording_enabled',
+    default: true,
+  })
+  weatherAlgoEvaluationLogRecordingEnabled!: boolean;
+
+  @Column({
+    type: 'integer',
+    name: 'weather_algo_forecast_history_retention_days',
+    default: 90,
+  })
+  weatherAlgoForecastHistoryRetentionDays!: number;
+
+  @Column({
+    type: 'integer',
+    name: 'weather_algo_market_snapshot_retention_days',
+    default: 30,
+  })
+  weatherAlgoMarketSnapshotRetentionDays!: number;
+
+  @Column({
+    type: 'integer',
+    name: 'weather_algo_evaluation_log_retention_days',
+    default: 90,
+  })
+  weatherAlgoEvaluationLogRetentionDays!: number;
 }

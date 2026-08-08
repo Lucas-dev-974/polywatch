@@ -16,12 +16,12 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 21 |
-| **partial** (racine) | 2 |
+| **applied** | 22 |
+| **partial** (racine) | 3 |
 | **not_implemented** (racine) | 2 |
 | **reference** | 7 |
 | **archived** | 5 |
-| **Total** | **38** |
+| **Total** | **39** |
 
 ---
 
@@ -52,6 +52,7 @@
 | [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` PG-only, `test-data-source.ts` pg-mem, `dialect.ts` supprimé, `audit-position-28455.ts` supprimé |
 | [applied/2026-08-07_PLAN-fix-audit-hardening.md](applied/2026-08-07_PLAN-fix-audit-hardening.md) | Fix R1/R2 relayer + C1 copy retry + dedupe exit SELL | `relayer-client.ts`, `copy-processor.ts`, `copy-exit-pipeline.ts` |
 | [applied/2026-08-07_PLAN_audit-crypto-algo.md](applied/2026-08-07_PLAN_audit-crypto-algo.md) | Audit crypto-algo complet (C1–C3, S1–S6, F1–F5) 100% implémenté | `strategy-runner.ts`, `naive-momentum.strategy.ts`, `monitor.ts`, `market-surveillance-recorder.ts`, `position-context-cache.ts` |
+| [applied/2026-08-08_IMPL-weather-market-data-persistence.md](applied/2026-08-08_IMPL-weather-market-data-persistence.md) | Persistance snapshots/ticks/eval/forecast history + onglet Données / purge | `weather-algo-data.service.ts`, recorders, `WeatherAlgoDataTab.tsx`, migration `0100` |
 
 ---
 
@@ -63,6 +64,7 @@
 |---------|--------|-----------------|
 | [2026-08-05_PLAN-strategies-crypto-algo-5min.md](2026-08-05_PLAN-strategies-crypto-algo-5min.md) | Stop-bleed + multi-stratégies + RTDS + backtest | Phases 0–2 OK ; Phase 3 RTDS reportée, Phase 4/5 ouvertes |
 | [POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md](POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md) | Checklist conformité protocole Polymarket | Pipelines vérifiés ; tests intégration live et items « à vérifier » ouverts |
+| [2026-08-08_PLAN-weather-market-data-persistence.md](2026-08-08_PLAN-weather-market-data-persistence.md) | Persistance données weather (v4) | Phases 0–4 + UI Données **OK** ; Phase 5 backtest différée — voir `applied/…_IMPL-…` |
 
 ### Non implémentés
 

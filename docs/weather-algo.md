@@ -79,12 +79,33 @@ Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept 
 | Métrique forcée `highest_temp` | Actif |
 | Expand / follow par `conditionId` | Retiré |
 | `add_position` | Hors scope (coercé → `close_and_reenter`) |
+| Persistance snapshots / ticks / eval / forecast history | Actif (toggles ON par défaut) |
+| Onglet UI Données (cards, drill-down, purge) | Actif |
 
 ---
 
-## 5. API & config
+## 5. Persistance données (backtest / audit)
 
-- Routes : [`api.md`](./api.md) § Weather Algo
+Enregistrement **best-effort** pendant les cycles du runner (toggles ON par défaut) :
+
+| Table | Contenu |
+|-------|---------|
+| `weather_forecast_history` | Révisions forecast (fetch réel uniquement) |
+| `weather_market_snapshots` + `weather_bucket_ticks` | Contexte marché + prix YES/NO buckets actifs |
+| `weather_evaluation_log` | Décisions signal/abstain |
+
+Purge horaire selon rétention (`weatherAlgo*RetentionDays`), indépendante des toggles.
+
+**UI** : page Weather Algo → onglet **Données** (cards, cadence, drill-down, purge) ; toggles dans **Paramètres**.
+
+Doc d’implémentation : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+
+---
+
+## 6. API & config
+
+- Routes trading : [`api.md`](./api.md) § Weather Algo
+- Routes données : [`api.md`](./api.md) § Weather Algo data (`/api/weather-algo-data/*`)
 - Config : [`configuration.md`](./configuration.md) § Weather Algo ; entité `WeatherConfig` ; présentation API `packages/core/src/risk/weather-config-api.ts`
 - Sorties / defaults intervalle : `packages/core/src/risk/weather-exit-params.ts` (`resolveWeatherEntryExitParams`)
 - Redis : `weather-reentry-throttle.ts`, `weather-bucket-hysteresis.ts`

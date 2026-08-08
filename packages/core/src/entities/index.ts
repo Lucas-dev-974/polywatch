@@ -67,4 +67,8 @@ export { GlobalConfig } from './GlobalConfig.js';
 export { CopyConfig } from './CopyConfig.js';
 export { CryptoConfig } from './CryptoConfig.js';
 export { WeatherConfig } from './WeatherConfig.js';
+export { WeatherForecastHistory } from './WeatherForecastHistory.js';
+export { WeatherMarketSnapshot } from './WeatherMarketSnapshot.js';
+export { WeatherBucketTick } from './WeatherBucketTick.js';
+export { WeatherEvaluationLog } from './WeatherEvaluationLog.js';
 export { PostEntryMidSample } from './PostEntryMidSample.js';

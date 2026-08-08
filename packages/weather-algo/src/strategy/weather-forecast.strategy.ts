@@ -5,6 +5,8 @@ import {
   calculateEdge,
   resolveDynamicMinEdge,
   computeMarketImpliedProbabilities,
+  binaryPricesFromParsed,
+  binaryPricesToUpDown,
 } from '@polywatch/core';
 import type {
   WeatherStrategy,
@@ -74,14 +76,10 @@ export class WeatherForecastStrategy implements WeatherStrategy {
         kind: 'abstain',
         reason: 'zero_forecast_probability',
         detail: `target=${parsed.targetValue ?? `${parsed.targetValueLow}-${parsed.targetValueHigh}`} comparison=${parsed.comparison}`,
+        forecastProb: 0,
       };
     }
 
-    // Filter long-shot buckets: a low forecastProb (e.g. 0.15) can pass the
-    // probability-edge gate (edge = forecastProb - marketPrice ≥ minEdge) yet
-    // resolve YES only ~15% of the time — structurally producing a near-0%
-    // win rate. Require a directional thesis (forecastProb ≥ min) unless the
-    // filter is disabled (null).
     if (
       this.minForecastProbability != null &&
       forecastYesProb < this.minForecastProbability
@@ -90,6 +88,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
         kind: 'abstain',
         reason: 'forecast_probability_below_min',
         detail: `forecastProb=${forecastYesProb.toFixed(4)} < min=${this.minForecastProbability.toFixed(4)}`,
+        forecastProb: forecastYesProb,
       };
     }
 
@@ -98,17 +97,27 @@ export class WeatherForecastStrategy implements WeatherStrategy {
         kind: 'abstain',
         reason: 'forecast_too_uncertain',
         detail: `stdDev=${ctx.forecastStdDev.toFixed(2)} > max=${this.maxForecastStd}`,
+        forecastProb: forecastYesProb,
       };
     }
 
-    if (!market.outcomePrices || market.outcomePrices.length < 2) {
-      return { kind: 'abstain', reason: 'no_market_prices' };
+    const sidePrices = binaryPricesFromParsed(market.outcomePrices ?? []);
+    const { upPrice: yesPrice } = binaryPricesToUpDown(sidePrices);
+
+    if (yesPrice == null) {
+      return {
+        kind: 'abstain',
+        reason: 'no_market_prices',
+        forecastProb: forecastYesProb,
+      };
     }
 
-    const yesPrice = market.outcomePrices[0]?.price ?? 0;
-
     if (yesPrice <= 0) {
-      return { kind: 'abstain', reason: 'zero_prices' };
+      return {
+        kind: 'abstain',
+        reason: 'zero_prices',
+        forecastProb: forecastYesProb,
+      };
     }
 
     const yesEdge = calculateEdge(forecastYesProb, yesPrice);
@@ -127,12 +136,21 @@ export class WeatherForecastStrategy implements WeatherStrategy {
         kind: 'abstain',
         reason: 'insufficient_edge',
         detail: `yesEdge=${yesEdge.toFixed(4)} threshold=${dynamicThreshold.toFixed(4)}`,
+        forecastProb: forecastYesProb,
+        edge: yesEdge,
+        dynamicMinEdge: dynamicThreshold,
       };
     }
 
     const assetId = market.tokenIdYes;
     if (!assetId) {
-      return { kind: 'abstain', reason: 'missing_token' };
+      return {
+        kind: 'abstain',
+        reason: 'missing_token',
+        forecastProb: forecastYesProb,
+        edge: yesEdge,
+        dynamicMinEdge: dynamicThreshold,
+      };
     }
 
     const targetDate = market.endDate ? new Date(market.endDate) : new Date();
@@ -163,6 +181,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       forecastProbability: forecastYesProb,
       marketPrice: yesPrice,
       edge: yesEdge,
+      dynamicMinEdge: dynamicThreshold,
       entryBucketComparison: parsed.comparison,
       entryBucketBounds: {
         low: parsed.targetValueLow,

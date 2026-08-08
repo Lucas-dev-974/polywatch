@@ -163,4 +163,24 @@ export {
 export {
   WeatherForecastService,
   type ForecastResult,
+  type GetOrFetchResult,
 } from './weather-forecast.service.js';
+export { WeatherForecastHistoryRecorder } from './weather-forecast-history-recorder.js';
+export {
+  WeatherMarketSnapshotRecorder,
+  type BucketTickInput,
+} from './weather-market-snapshot-recorder.js';
+export {
+  WeatherEvaluationRecorder,
+  type EvaluationLogInput,
+} from './weather-evaluation-recorder.js';
+export {
+  WeatherAlgoDataService,
+  type WeatherAlgoDataCoverage,
+  type WeatherAlgoDataTableId,
+  type WeatherAlgoDataTableSummary,
+  type WeatherAlgoDataTablesResponse,
+  type WeatherAlgoDataDeleteAllResponse,
+  type WeatherBucketTickRow,
+  type WeatherPositionForecastRow,
+} from './weather-algo-data.service.js';

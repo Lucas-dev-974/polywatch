@@ -8,6 +8,9 @@ import {
   WeatherAutoTrackService,
   WeatherForecastService,
   WeatherPositionForecastService,
+  WeatherForecastHistoryRecorder,
+  WeatherMarketSnapshotRecorder,
+  WeatherEvaluationRecorder,
   createRedis,
   safeInterval,
   waitForBackendReady,
@@ -51,6 +54,9 @@ async function main() {
   const globalConfigService = new GlobalConfigService(ds);
   const forecastService = new WeatherForecastService(ds);
   const positionForecastService = new WeatherPositionForecastService(ds);
+  const forecastHistoryRecorder = new WeatherForecastHistoryRecorder(ds);
+  const marketSnapshotRecorder = new WeatherMarketSnapshotRecorder(ds);
+  const evaluationRecorder = new WeatherEvaluationRecorder(ds);
   const autoTrackService = new WeatherAutoTrackService(ds);
   const marketService = new MarketService(ds);
   const reservationService = new ReservationService(ds);
@@ -158,6 +164,9 @@ async function main() {
     runtimeStatus,
     exitEvaluator,
     onParseResult: (parsed) => metricsPublisher.recordParse(parsed),
+    forecastHistoryRecorder,
+    marketSnapshotRecorder,
+    evaluationRecorder,
   });
   strategyRunner.setRiskConfig(weatherConfig);
   const runAutoTrackTick = async (): Promise<void> => {
@@ -178,6 +187,29 @@ async function main() {
 
   strategyRunner.start();
   metricsPublisher.start();
+
+  const dataPurgeTimer = safeInterval(
+    async () => {
+      const cfg = await weatherConfigService.getConfig();
+      try {
+        const fhMs = cfg.weatherAlgoForecastHistoryRetentionDays * 86_400_000;
+        const snapMs = cfg.weatherAlgoMarketSnapshotRetentionDays * 86_400_000;
+        const evalMs = cfg.weatherAlgoEvaluationLogRetentionDays * 86_400_000;
+        const fhDeleted = await forecastHistoryRecorder.purgeOlderThan(fhMs);
+        if (fhDeleted > 0) log.info({ deleted: fhDeleted }, 'purged weather_forecast_history');
+        const snapDeleted = await marketSnapshotRecorder.purgeOlderThan(snapMs);
+        if (snapDeleted > 0) {
+          log.info({ deleted: snapDeleted }, 'purged weather_market_snapshots (cascade bucket_ticks)');
+        }
+        const evalDeleted = await evaluationRecorder.purgeOlderThan(evalMs);
+        if (evalDeleted > 0) log.info({ deleted: evalDeleted }, 'purged weather_evaluation_log');
+      } catch (err) {
+        log.error({ err }, 'weather data purge failed');
+      }
+    },
+    60 * 60 * 1000,
+    'weather-algo:data-purge',
+  );
 
   const autoTrackTimer = safeInterval(
     () => runAutoTrackTick(),
@@ -251,6 +283,7 @@ async function main() {
     metricsPublisher.stop();
     clearInterval(heartbeatTimer);
     clearInterval(autoTrackTimer);
+    clearInterval(dataPurgeTimer);
     try {
       await connectionManager.getWsClient().disconnect();
     } catch {

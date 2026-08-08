@@ -26,7 +26,7 @@ export const SYSTEM_PAGE_TABS = ['overview', 'reports', 'snapshots', 'e2e-tests'
 | **Marchés** | `MarketsPage` : filtres Gamma, métriques, `MarketChartDialog` → `UpDownPriceChart` |
 | **Portefeuille** | `WalletPage` |
 | **Crypto-Algo** | `CryptoAlgoPage` : marchés, surveillance, settings (`CryptoAlgoSettingsDialog` : General / Entrée / Sortie / Autotrack), Rapport + Hub Système |
-| **Weather Algo** | `WeatherAlgoPage` : onglets Marchés / Positions / Villes / Paramètres — voir arbre §3 et [`weather-algo.md`](./weather-algo.md) |
+| **Weather Algo** | `WeatherAlgoPage` : onglets Marchés / Positions / Villes / **Données** / Paramètres — voir arbre §3 et [`weather-algo.md`](./weather-algo.md) |
 | **Système** | `SystemPage` : Overview, Rapports, Snapshots, E2E, Metrics, **Crypto Algo Monitor** (`CryptoAlgoMonitorPage`) |
 
 L'en-tête : navigation, `EnvSettingsDialog` / watchlist, `NotificationCenter`, déconnexion. `AlertBanner` au-dessus des pages.
@@ -123,11 +123,13 @@ src/
 │   │   ├── CryptoAlgoSettingsExitTab.tsx       SL/TP/trailing/pre-close
 │   │   └── CryptoAlgoSettingsAutotrackTab.tsx  auto-track
 │   ├── CryptoAlgoMonitorPage.tsx       moniteur système (Système → onglet)
-│   ├── WeatherAlgoPage.tsx             shell weather (4 onglets)
+│   ├── WeatherAlgoPage.tsx             shell weather (5 onglets)
 │   │   ├── WeatherAlgoHeader.tsx / WeatherAlgoCapitalHero.tsx
 │   │   ├── WeatherAlgoActiveMarketsPanel.tsx / WeatherAlgoDiscoverPanel.tsx
 │   │   ├── WeatherAlgoPositionsPanel.tsx / WeatherAlgoExecutionsPanel.tsx
-│   │   ├── WeatherAlgoAutoTrackTab.tsx / WeatherAlgoSettingsTab.tsx
+│   │   ├── WeatherAlgoAutoTrackTab.tsx
+│   │   ├── WeatherAlgoDataTab.tsx      Données : cards tables, drill-down, purge
+│   │   ├── WeatherAlgoSettingsTab.tsx  toggles recording + rétention
 │   │   └── WeatherCityGroup.tsx
 │   ├── AlgoMarketCard.tsx, AlgoCarousel.tsx, AlgoCarouselNav.tsx
 │   ├── AlgoMarketChartTrigger.tsx / SurveillanceHistoryCard.tsx

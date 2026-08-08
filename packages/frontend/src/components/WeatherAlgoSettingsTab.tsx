@@ -66,6 +66,12 @@ export function WeatherAlgoSettingsTab() {
         weatherAlgoTrailingBidPoints: c.weatherAlgoTrailingBidPoints,
         weatherAlgoTrailingActivationBidPoints: c.weatherAlgoTrailingActivationBidPoints,
         simInitialCapitalWeather: c.simInitialCapitalWeather,
+        weatherAlgoForecastHistoryRecordingEnabled: c.weatherAlgoForecastHistoryRecordingEnabled,
+        weatherAlgoMarketSnapshotRecordingEnabled: c.weatherAlgoMarketSnapshotRecordingEnabled,
+        weatherAlgoEvaluationLogRecordingEnabled: c.weatherAlgoEvaluationLogRecordingEnabled,
+        weatherAlgoForecastHistoryRetentionDays: c.weatherAlgoForecastHistoryRetentionDays,
+        weatherAlgoMarketSnapshotRetentionDays: c.weatherAlgoMarketSnapshotRetentionDays,
+        weatherAlgoEvaluationLogRetentionDays: c.weatherAlgoEvaluationLogRetentionDays,
       });
       const { sessionRotation: _sessionRotation, ...cfg } = updated as WeatherConfig & {
         sessionRotation?: unknown;
@@ -357,6 +363,50 @@ export function WeatherAlgoSettingsTab() {
               step={1}
               hint="Changer cette valeur peut déclencher une rotation de session sim."
               onChange={(value) => update('simInitialCapitalWeather', value)}
+            />
+
+            <h3 class="settings-subheading">Enregistrement données backtest</h3>
+            <ToggleField
+              label="Historique forecasts"
+              checked={c().weatherAlgoForecastHistoryRecordingEnabled}
+              hint="Append-only à chaque fetch Open-Meteo réel (pas cache hit)."
+              onChange={(checked) => update('weatherAlgoForecastHistoryRecordingEnabled', checked)}
+            />
+            <ToggleField
+              label="Snapshots marché + bucket ticks"
+              checked={c().weatherAlgoMarketSnapshotRecordingEnabled}
+              hint="Prix YES/NO de chaque bucket actif, à chaque cycle d'évaluation."
+              onChange={(checked) => update('weatherAlgoMarketSnapshotRecordingEnabled', checked)}
+            />
+            <ToggleField
+              label="Journal d'évaluation"
+              checked={c().weatherAlgoEvaluationLogRecordingEnabled}
+              hint="Décisions signal/abstain par bucket × stratégie."
+              onChange={(checked) => update('weatherAlgoEvaluationLogRecordingEnabled', checked)}
+            />
+            <NumberField
+              label="Rétention forecast history (jours)"
+              value={c().weatherAlgoForecastHistoryRetentionDays}
+              min={1}
+              max={365}
+              step={1}
+              onChange={(value) => update('weatherAlgoForecastHistoryRetentionDays', value)}
+            />
+            <NumberField
+              label="Rétention snapshots (jours)"
+              value={c().weatherAlgoMarketSnapshotRetentionDays}
+              min={1}
+              max={365}
+              step={1}
+              onChange={(value) => update('weatherAlgoMarketSnapshotRetentionDays', value)}
+            />
+            <NumberField
+              label="Rétention evaluation log (jours)"
+              value={c().weatherAlgoEvaluationLogRetentionDays}
+              min={1}
+              max={365}
+              step={1}
+              onChange={(value) => update('weatherAlgoEvaluationLogRetentionDays', value)}
             />
           </div>
         )}

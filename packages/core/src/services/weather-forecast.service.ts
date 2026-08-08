@@ -1,4 +1,4 @@
-import { LessThan, MoreThan, DataSource } from 'typeorm';
+import { LessThan, DataSource } from 'typeorm';
 import pino from 'pino';
 import { WeatherForecastCache } from '../entities/WeatherForecastCache.js';
 import { fetchWeatherForecast } from '../weather/weather-api-client.js';
@@ -19,24 +19,39 @@ export interface ForecastResult {
   isFresh: boolean;
 }
 
+export interface GetOrFetchResult {
+  forecastMean: number;
+  forecastStdDev: number;
+  modelValues: Record<string, number>;
+  latitude: number;
+  longitude: number;
+  isFresh: boolean;
+  isStaleFallback: boolean;
+}
+
 export class WeatherForecastService {
   constructor(private readonly ds: DataSource) {}
 
   /**
    * Get a forecast from cache or fetch from Open-Meteo and persist.
-   * Returns null on failure.
+   * Returns null on failure with no stale cache.
    */
   async getOrFetch(
     city: string,
     forecastDate: Date,
     metric: 'highest_temp' | 'lowest_temp' | string,
     ttlMs: number = 3600_000,
-  ): Promise<{ forecastMean: number; forecastStdDev: number } | null> {
+  ): Promise<GetOrFetchResult | null> {
     const cached = await this.getCached(city, forecastDate, metric);
     if (cached?.isFresh) {
       return {
         forecastMean: cached.forecastMean,
         forecastStdDev: cached.forecastStdDev,
+        modelValues: cached.modelValues,
+        latitude: cached.latitude,
+        longitude: cached.longitude,
+        isFresh: true,
+        isStaleFallback: false,
       };
     }
 
@@ -48,11 +63,15 @@ export class WeatherForecastService {
     );
     if (!fresh) {
       log.warn({ city, forecastDate }, 'forecast fetch failed');
-      // Stale cache is better than nothing
       if (cached) {
         return {
           forecastMean: cached.forecastMean,
           forecastStdDev: cached.forecastStdDev,
+          modelValues: cached.modelValues,
+          latitude: cached.latitude,
+          longitude: cached.longitude,
+          isFresh: false,
+          isStaleFallback: true,
         };
       }
       return null;
@@ -76,6 +95,11 @@ export class WeatherForecastService {
     return {
       forecastMean: fresh.forecastMean,
       forecastStdDev: fresh.forecastStdDev,
+      modelValues: fresh.modelValues,
+      latitude: fresh.latitude,
+      longitude: fresh.longitude,
+      isFresh: false,
+      isStaleFallback: false,
     };
   }
 
@@ -108,9 +132,6 @@ export class WeatherForecastService {
 
   async save(result: ForecastResult): Promise<void> {
     const repo = this.ds.getRepository(WeatherForecastCache);
-    // Upsert: find existing row by (city, forecastDate, metric) and update,
-    // or insert if not found. Pass fetchedAt explicitly so it's refreshed
-    // on update (GHOST-2 fix: @CreateDateColumn only fires on INSERT).
     const existing = await repo.findOne({
       where: { city: result.city, forecastDate: result.forecastDate, metric: result.metric },
     });

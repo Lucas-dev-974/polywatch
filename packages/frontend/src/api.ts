@@ -612,6 +612,129 @@ export interface WeatherConfig {
   weatherAlgoTrailingBidPoints: number | null;
   weatherAlgoTrailingActivationBidPoints: number | null;
   simInitialCapitalWeather: number;
+  weatherAlgoForecastHistoryRecordingEnabled: boolean;
+  weatherAlgoMarketSnapshotRecordingEnabled: boolean;
+  weatherAlgoEvaluationLogRecordingEnabled: boolean;
+  weatherAlgoForecastHistoryRetentionDays: number;
+  weatherAlgoMarketSnapshotRetentionDays: number;
+  weatherAlgoEvaluationLogRetentionDays: number;
+}
+
+export interface WeatherAlgoDataCoverage {
+  from: string | null;
+  to: string | null;
+  cities: string[];
+  totalSnapshots: number;
+  totalEvaluations: number;
+  totalForecastHistory: number;
+  totalBucketTicks: number;
+}
+
+export type WeatherAlgoDataTableId =
+  | 'forecast_history'
+  | 'market_snapshots'
+  | 'bucket_ticks'
+  | 'evaluation_log'
+  | 'forecast_cache'
+  | 'position_forecasts';
+
+export interface WeatherAlgoDataTableSummary {
+  id: WeatherAlgoDataTableId;
+  tableName: string;
+  rowCount: number;
+  oldestAt: string | null;
+  newestAt: string | null;
+}
+
+export interface WeatherAlgoDataTablesResponse {
+  tables: WeatherAlgoDataTableSummary[];
+}
+
+export interface WeatherAlgoDataListResponse<T> {
+  items: T[];
+  total: number;
+}
+
+export interface WeatherAlgoForecastHistoryRow {
+  id: number;
+  city: string;
+  forecastDate: string;
+  metric: string;
+  forecastMean: number;
+  forecastStdDev: number;
+  modelValuesJson: string;
+  latitude: number;
+  longitude: number;
+  fetchedAt: string;
+}
+
+export interface WeatherAlgoMarketSnapshotRow {
+  id: number;
+  city: string;
+  cityNormalized: string;
+  targetDateIso: string;
+  metric: string;
+  forecastMean: number | null;
+  forecastStdDev: number | null;
+  bucketCount: number;
+  totalBucketCount: number;
+  ruleId: number | null;
+  recordedAt: string;
+  bucketTicks?: unknown[];
+}
+
+export interface WeatherAlgoBucketTickRow {
+  id: number;
+  snapshotId: number;
+  conditionId: string;
+  eventSlug: string | null;
+  question: string | null;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  yesPrice: number | null;
+  noPrice: number | null;
+  recordedAt: string;
+  cityNormalized: string | null;
+}
+
+export interface WeatherAlgoEvaluationLogRow {
+  id: number;
+  snapshotId: number | null;
+  conditionId: string;
+  strategyId: string;
+  yesPrice: number | null;
+  forecastProb: number | null;
+  edge: number | null;
+  dynamicMinEdge: number | null;
+  decision: string;
+  reason: string | null;
+  evaluatedAt: string;
+}
+
+export interface WeatherAlgoForecastCacheRow {
+  id: number;
+  city: string;
+  forecastDate: string;
+  metric: string;
+  forecastMean: number;
+  forecastStdDev: number;
+  modelValues: string;
+  fetchedAt: string;
+  expiresAt: string;
+}
+
+export interface WeatherAlgoPositionForecastRow {
+  id: number;
+  copiedPositionId: number;
+  city: string;
+  targetDate: string;
+  metric: string;
+  entryForecastMean: number;
+  entryForecastStdDev: number;
+  entryBucketComparison: string | null;
+  openedAt: string | null;
 }
 
 export async function fetchGlobalConfig(): Promise<GlobalConfig> {
@@ -644,6 +767,104 @@ export async function fetchWeatherConfig(): Promise<WeatherConfig> {
 
 export async function updateWeatherConfig(data: Partial<WeatherConfig>): Promise<WeatherConfig> {
   return api<WeatherConfig>('/config/weather', { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function fetchWeatherAlgoDataCoverage(): Promise<WeatherAlgoDataCoverage> {
+  return api<WeatherAlgoDataCoverage>('/weather-algo-data/coverage');
+}
+
+export async function fetchWeatherAlgoDataTables(): Promise<WeatherAlgoDataTablesResponse> {
+  return api<WeatherAlgoDataTablesResponse>('/weather-algo-data/tables');
+}
+
+export interface WeatherAlgoDataDeleteAllResponse {
+  deleted: Record<WeatherAlgoDataTableId, number>;
+  totalDeleted: number;
+}
+
+export async function deleteWeatherAlgoDataTables(): Promise<WeatherAlgoDataDeleteAllResponse> {
+  return api<WeatherAlgoDataDeleteAllResponse>('/weather-algo-data/tables', {
+    method: 'DELETE',
+  });
+}
+
+function weatherAlgoDataQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === '') continue;
+    qs.set(key, String(value));
+  }
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function fetchWeatherAlgoForecastHistory(params: {
+  city?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<WeatherAlgoDataListResponse<WeatherAlgoForecastHistoryRow>> {
+  return api(
+    `/weather-algo-data/forecast-history${weatherAlgoDataQuery(params)}`,
+  );
+}
+
+export async function fetchWeatherAlgoMarketSnapshots(params: {
+  city?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+  includeTicks?: boolean;
+}): Promise<WeatherAlgoDataListResponse<WeatherAlgoMarketSnapshotRow>> {
+  return api(
+    `/weather-algo-data/market-snapshots${weatherAlgoDataQuery(params)}`,
+  );
+}
+
+export async function fetchWeatherAlgoBucketTicks(params: {
+  city?: string;
+  conditionId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<WeatherAlgoDataListResponse<WeatherAlgoBucketTickRow>> {
+  return api(`/weather-algo-data/bucket-ticks${weatherAlgoDataQuery(params)}`);
+}
+
+export async function fetchWeatherAlgoEvaluationLog(params: {
+  from?: string;
+  to?: string;
+  strategyId?: string;
+  decision?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<WeatherAlgoDataListResponse<WeatherAlgoEvaluationLogRow>> {
+  return api(`/weather-algo-data/evaluation-log${weatherAlgoDataQuery(params)}`);
+}
+
+export async function fetchWeatherAlgoForecastCache(params: {
+  city?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<WeatherAlgoDataListResponse<WeatherAlgoForecastCacheRow>> {
+  return api(`/weather-algo-data/forecast-cache${weatherAlgoDataQuery(params)}`);
+}
+
+export async function fetchWeatherAlgoPositionForecasts(params: {
+  city?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<WeatherAlgoDataListResponse<WeatherAlgoPositionForecastRow>> {
+  return api(
+    `/weather-algo-data/position-forecasts${weatherAlgoDataQuery(params)}`,
+  );
 }
 
 /** Compose the legacy EnvSettings view from the four isolated config tables. */

@@ -18,6 +18,7 @@ export interface WeatherSignal {
   forecastProbability: number;
   marketPrice: number;
   edge: number;
+  dynamicMinEdge: number;
   /** Bucket comparison type at entry time (city-follow). Null for manual/expand entries. */
   entryBucketComparison?: 'exact' | 'between' | 'or_below' | 'or_above' | null;
   /** Bucket bounds at entry time (city-follow). Null for manual/expand entries. */
@@ -31,7 +32,14 @@ export interface WeatherEvaluationContext {
 
 export type WeatherEvaluationResult =
   | { kind: 'signal'; signal: WeatherSignal }
-  | { kind: 'abstain'; reason: string; detail?: string };
+  | {
+      kind: 'abstain';
+      reason: string;
+      detail?: string;
+      forecastProb?: number;
+      edge?: number;
+      dynamicMinEdge?: number;
+    };
 
 export interface WeatherStrategy {
   readonly id: string;

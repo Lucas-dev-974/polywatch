@@ -130,10 +130,15 @@ import { AddWeatherAlgoMinForecastProbability1700000000092 } from '../migrations
 import { CryptoAlgoStopBleed1700000000093 } from '../migrations/CryptoAlgoStopBleed1700000000093.js';
 import { AddCryptoAlgoStrategyParams1700000000094 } from '../migrations/AddCryptoAlgoStrategyParams1700000000094.js';
 import { CreatePostEntryMidSamples1700000000095 } from '../migrations/CreatePostEntryMidSamples1700000000095.js';
+import { AddWeatherMarketDataPersistence1700000000100 } from '../migrations/AddWeatherMarketDataPersistence1700000000100.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
 import { PostEntryMidSample } from '../entities/PostEntryMidSample.js';
+import { WeatherForecastHistory } from '../entities/WeatherForecastHistory.js';
+import { WeatherMarketSnapshot } from '../entities/WeatherMarketSnapshot.js';
+import { WeatherBucketTick } from '../entities/WeatherBucketTick.js';
+import { WeatherEvaluationLog } from '../entities/WeatherEvaluationLog.js';
 
 export const migrations = [
   Baseline1700000000000,
@@ -215,6 +220,7 @@ export const migrations = [
   CryptoAlgoStopBleed1700000000093,
   AddCryptoAlgoStrategyParams1700000000094,
   CreatePostEntryMidSamples1700000000095,
+  AddWeatherMarketDataPersistence1700000000100,
 ];
 
 export const entities = [
@@ -268,6 +274,10 @@ export const entities = [
   CryptoConfig,
   WeatherConfig,
   PostEntryMidSample,
+  WeatherForecastHistory,
+  WeatherMarketSnapshot,
+  WeatherBucketTick,
+  WeatherEvaluationLog,
 ];
 
 /**

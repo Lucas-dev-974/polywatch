@@ -10,9 +10,10 @@ import { WeatherAlgoPositionsPanel } from './WeatherAlgoPositionsPanel';
 import { WeatherAlgoExecutionsPanel } from './WeatherAlgoExecutionsPanel';
 import { WeatherAlgoAutoTrackTab } from './WeatherAlgoAutoTrackTab';
 import { WeatherAlgoSettingsTab } from './WeatherAlgoSettingsTab';
+import { WeatherAlgoDataTab } from './WeatherAlgoDataTab';
 import { NewSessionResetDialog } from './NewSessionResetDialog';
 
-type Tab = 'markets' | 'positions' | 'cities' | 'settings';
+type Tab = 'markets' | 'positions' | 'cities' | 'data' | 'settings';
 
 export function WeatherAlgoPage() {
   const dashboard = useWeatherAlgoDashboard();
@@ -38,6 +39,7 @@ export function WeatherAlgoPage() {
           { id: 'markets' as const, label: 'Marchés' },
           { id: 'positions' as const, label: 'Positions' },
           { id: 'cities' as const, label: 'Villes' },
+          { id: 'data' as const, label: 'Données' },
           { id: 'settings' as const, label: 'Paramètres' },
         ]}>
           {(item) => (
@@ -91,6 +93,10 @@ export function WeatherAlgoPage() {
             void dashboard.updateAllAutoTrackLookAhead(lookAheadDays)
           }
         />
+      </Show>
+
+      <Show when={tab() === 'data'}>
+        <WeatherAlgoDataTab />
       </Show>
 
       <Show when={tab() === 'settings'}>

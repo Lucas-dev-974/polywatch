@@ -97,6 +97,7 @@ function baseSignal(overrides: Partial<WeatherSignal> = {}): WeatherSignal {
     forecastProbability: 0.6,
     marketPrice: 0.1,
     edge: 0.5,
+    dynamicMinEdge: 0.1,
     entryBucketComparison: 'exact',
     entryBucketBounds: { target: 33 },
     ...overrides,

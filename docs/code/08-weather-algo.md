@@ -24,7 +24,8 @@ dédiées (`close-signals`).
 | `strategy/strategy.ts` | Contrats `WeatherSignal` / `WeatherStrategy` |
 | `strategy/registry.ts` | Registre simple (pas de filtre JSON strategies) |
 | `strategy/weather-forecast.strategy.ts` | Stratégie edge BUY YES |
-| `strategy/strategy-runner.ts` | Boucle poll : exits puis entrées city-follow |
+| `strategy/strategy-runner.ts` | Boucle poll : exits puis entrées city-follow ; enregistrement snapshot / forecast history / eval log |
+| `strategy/runner-bucket-helpers.ts` | Prix YES/NO buckets via `binaryPricesFromParsed` / `binaryPricesToUpDown` |
 | `processors/weather-entry-pipeline.ts` | Sizing / MOS / reserve / enqueue |
 | `processors/weather-exit-evaluator.ts` | Pre-close / drift / bucket-exit + hysteresis |
 
@@ -175,13 +176,30 @@ documenter le miroir et converger par copie consciente.
 Knobs runtime : colonnes `weatherAlgo*` de `WeatherConfig` +
 `GlobalConfig.realTradingEnabled`. Voir [`../configuration.md`](../configuration.md).
 
+## Persistance données marché (Phases 0–4)
+
+Recorders core (injectés dans le runner depuis `index.ts`) :
+
+- `WeatherForecastHistoryRecorder` — append-only si fetch réel (`!cache hit`, `!stale`)
+- `WeatherMarketSnapshotRecorder` — snapshot + bulk `weather_bucket_ticks` (transaction)
+- `WeatherEvaluationRecorder` — batch `weather_evaluation_log`
+
+Purge horaire dans `index.ts` (rétention `WeatherConfig`, **même si recording OFF**).
+
+Lecture / purge manuelle : `WeatherAlgoDataService` + routes
+`/api/weather-algo-data/*` (backend). UI : onglet **Données**
+(`WeatherAlgoDataTab`).
+
+Détail : [`../plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](../plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+
 ## Raccordements
 
 - **Worker** : consomme `weather-order-signals` + `close-signals`.
-- **Backend** : routes weather-algo (capital, executions, settings) —
-  [`../api.md`](../api.md) ; métriques internes parse questions.
+- **Backend** : routes weather-algo (capital, executions, settings) +
+  **weather-algo-data** — [`../api.md`](../api.md) ; métriques internes parse questions.
 - **Core** : `discoverWeatherMarkets`, `WeatherForecastService`, edge helpers,
-  redis throttles / hysteresis, `resolveWeatherEntryExitParams`.
-- **Frontend** : page Weather Algo + settings tabs.
+  redis throttles / hysteresis, `resolveWeatherEntryExitParams`, recorders data.
+- **Frontend** : page Weather Algo (Marchés / Positions / Villes / **Données** /
+  Paramètres).
 
 Démarrage : `npm run dev:weather-algo` ou `npm run dev`.

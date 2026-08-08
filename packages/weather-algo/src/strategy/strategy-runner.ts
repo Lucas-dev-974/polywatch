@@ -7,6 +7,11 @@ import {
   type WeatherForecastService,
   type WeatherAutoTrackService,
   type WeatherAutoTrackRule,
+  type WeatherForecastHistoryRecorder,
+  type WeatherMarketSnapshotRecorder,
+  type WeatherEvaluationRecorder,
+  type EvaluationLogInput,
+  type BucketTickInput,
   CopiedPosition,
   WeatherPositionForecast,
   PositionReservation,
@@ -20,6 +25,7 @@ import {
 } from '@polywatch/core';
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherSignal, WeatherStrategy } from './strategy.js';
+import { resolveBucketPrices } from './runner-bucket-helpers.js';
 import { WeatherAlgoRuntimeStatusPublisher } from '../runtime-status.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import { WEATHER_FORECAST_CACHE_TTL_MS_DEFAULT } from '../config.js';
@@ -39,6 +45,9 @@ export interface StrategyRunnerParams {
   runtimeStatus?: WeatherAlgoRuntimeStatusPublisher;
   exitEvaluator?: WeatherExitEvaluator;
   onParseResult?: (parsed: boolean) => void;
+  forecastHistoryRecorder?: WeatherForecastHistoryRecorder;
+  marketSnapshotRecorder?: WeatherMarketSnapshotRecorder;
+  evaluationRecorder?: WeatherEvaluationRecorder;
 }
 
 export class WeatherStrategyRunner {
@@ -58,6 +67,9 @@ export class WeatherStrategyRunner {
   private runtimeStatus?: WeatherAlgoRuntimeStatusPublisher;
   private exitEvaluator?: WeatherExitEvaluator;
   private readonly onParseResult?: (parsed: boolean) => void;
+  private readonly forecastHistoryRecorder?: WeatherForecastHistoryRecorder;
+  private readonly marketSnapshotRecorder?: WeatherMarketSnapshotRecorder;
+  private readonly evaluationRecorder?: WeatherEvaluationRecorder;
 
   constructor(params: StrategyRunnerParams) {
     this.ds = params.ds;
@@ -71,6 +83,9 @@ export class WeatherStrategyRunner {
     this.runtimeStatus = params.runtimeStatus;
     this.exitEvaluator = params.exitEvaluator;
     this.onParseResult = params.onParseResult;
+    this.forecastHistoryRecorder = params.forecastHistoryRecorder;
+    this.marketSnapshotRecorder = params.marketSnapshotRecorder;
+    this.evaluationRecorder = params.evaluationRecorder;
   }
 
   setRiskConfig(risk: WeatherConfig): void {
@@ -395,6 +410,7 @@ export class WeatherStrategyRunner {
       for (const [dateKey, markets] of byDate) {
         try {
           const signal = await this.evaluateCityFollowDateGroup(
+            rule.id,
             rule.city,
             metric,
             dateKey,
@@ -419,6 +435,7 @@ export class WeatherStrategyRunner {
   }
 
   private async evaluateCityFollowDateGroup(
+    ruleId: number,
     city: string,
     metric: 'highest_temp' | 'lowest_temp',
     dateKey: string,
@@ -432,24 +449,108 @@ export class WeatherStrategyRunner {
       return null;
     }
 
-    const forecast = await this.forecastService.getOrFetch(city, targetDate, metric, this.forecastCacheTtlMs);
-    if (!forecast) {
-      log.warn({ city, targetDate, metric }, 'city-follow: forecast unavailable — skipping');
-      return null;
-    }
-
-    const buckets: BucketCandidate[] = [];
+    const allBuckets: BucketCandidate[] = [];
     for (const market of markets) {
-      if (!isMarketActiveForWeather(market, minHoursToClose)) continue;
-      const q = market.question;
-      if (!q) continue;
-      const parsed = parseWeatherQuestion(q);
+      if (!market.question) continue;
+      const parsed = parseWeatherQuestion(market.question);
       this.onParseResult?.(parsed != null);
       if (!parsed) continue;
-      buckets.push({ conditionId: market.conditionId, market, parsed });
+      allBuckets.push({ conditionId: market.conditionId, market, parsed });
+    }
+    const totalBucketCount = allBuckets.length;
+    const activeBuckets = allBuckets.filter((b) =>
+      isMarketActiveForWeather(b.market, minHoursToClose),
+    );
+
+    const forecast = await this.forecastService.getOrFetch(
+      city,
+      targetDate,
+      metric,
+      this.forecastCacheTtlMs,
+    );
+
+    if (
+      forecast &&
+      !forecast.isFresh &&
+      !forecast.isStaleFallback &&
+      this.risk?.weatherAlgoForecastHistoryRecordingEnabled &&
+      this.forecastHistoryRecorder
+    ) {
+      try {
+        await this.forecastHistoryRecorder.record({
+          city,
+          forecastDate: targetDate,
+          metric,
+          forecastMean: forecast.forecastMean,
+          forecastStdDev: forecast.forecastStdDev,
+          modelValues: forecast.modelValues,
+          latitude: forecast.latitude,
+          longitude: forecast.longitude,
+        });
+      } catch (err) {
+        log.warn({ err, city, targetDate }, 'forecast history record failed — continuing');
+      }
     }
 
-    if (buckets.length === 0) {
+    let snapshotId: number | null = null;
+    const snapshotEnabled = this.risk?.weatherAlgoMarketSnapshotRecordingEnabled ?? false;
+    const evalLogEnabled = this.risk?.weatherAlgoEvaluationLogRecordingEnabled ?? false;
+
+    if (evalLogEnabled && !snapshotEnabled) {
+      log.warn(
+        { city, dateKey },
+        'evaluation_log actif sans market_snapshot — snapshotId sera null',
+      );
+    }
+
+    if (snapshotEnabled && this.marketSnapshotRecorder) {
+      const bucketInputs: BucketTickInput[] = activeBuckets.map((b) => {
+        const prices = resolveBucketPrices(b.market);
+        return {
+          conditionId: b.market.conditionId,
+          eventSlug: b.market.eventSlug ?? null,
+          question: b.market.question ?? null,
+          bucketComparison: b.parsed.comparison,
+          bucketTarget: b.parsed.targetValue,
+          bucketLow: b.parsed.targetValueLow,
+          bucketHigh: b.parsed.targetValueHigh,
+          yesPrice: prices.yesPrice,
+          noPrice: prices.noPrice,
+          yesTokenId: prices.yesTokenId,
+          noTokenId: prices.noTokenId,
+          volume: b.market.volume ?? null,
+          volume24hr: b.market.volume24hr ?? null,
+          liquidityClob: b.market.liquidityClob ?? null,
+          acceptingOrders: b.market.acceptingOrders ?? null,
+          closed: b.market.closed ?? false,
+          endDate: b.market.endDate ? new Date(b.market.endDate) : null,
+        };
+      });
+
+      try {
+        const result = await this.marketSnapshotRecorder.recordSnapshot({
+          city,
+          cityNormalized: normalizeWeatherCity(city),
+          targetDateIso: dateKey,
+          metric,
+          forecastMean: forecast?.forecastMean ?? null,
+          forecastStdDev: forecast?.forecastStdDev ?? null,
+          buckets: bucketInputs,
+          totalBucketCount,
+          ruleId,
+        });
+        snapshotId = result.snapshotId;
+      } catch (err) {
+        log.warn({ err, city, dateKey }, 'market snapshot record failed — continuing without snapshot');
+        snapshotId = null;
+      }
+    }
+
+    if (!forecast) {
+      log.warn({ city, dateKey, metric }, 'city-follow: forecast unavailable — skipping evaluate');
+      return null;
+    }
+    if (activeBuckets.length === 0) {
       log.debug({ city, dateKey, marketCount: markets.length }, 'city-follow: no active markets');
       return null;
     }
@@ -459,22 +560,61 @@ export class WeatherStrategyRunner {
       forecastStdDev: forecast.forecastStdDev,
     };
 
+    const evaluationInputs: EvaluationLogInput[] = [];
     const candidates: WeatherSignal[] = [];
     const abstainReasons: string[] = [];
-    for (const bucket of buckets) {
+
+    for (const bucket of activeBuckets) {
       for (const strategy of strategies) {
         const result = await strategy.evaluate(bucket.market, ctx);
+
+        if (evalLogEnabled && this.evaluationRecorder) {
+          const prices = resolveBucketPrices(bucket.market);
+          evaluationInputs.push({
+            snapshotId,
+            conditionId: bucket.conditionId,
+            bucketComparison: bucket.parsed.comparison,
+            bucketTarget: bucket.parsed.targetValue,
+            bucketLow: bucket.parsed.targetValueLow,
+            bucketHigh: bucket.parsed.targetValueHigh,
+            strategyId: strategy.id,
+            yesPrice: prices.yesPrice,
+            forecastProb:
+              result.kind === 'signal'
+                ? result.signal.forecastProbability
+                : (result.forecastProb ?? null),
+            edge:
+              result.kind === 'signal' ? result.signal.edge : (result.edge ?? null),
+            dynamicMinEdge:
+              result.kind === 'signal'
+                ? result.signal.dynamicMinEdge
+                : (result.dynamicMinEdge ?? null),
+            decision: result.kind === 'signal' ? 'signal' : 'abstain',
+            reason: result.kind === 'abstain' ? result.reason : null,
+          });
+        }
+
         if (result.kind === 'signal') {
           candidates.push(result.signal);
           break;
-        } else {
-          abstainReasons.push(`${bucket.parsed.comparison}:${result.reason}`);
         }
+        abstainReasons.push(`${bucket.parsed.comparison}:${result.reason}`);
+      }
+    }
+
+    if (evalLogEnabled && this.evaluationRecorder && evaluationInputs.length > 0) {
+      try {
+        await this.evaluationRecorder.recordBatch(evaluationInputs);
+      } catch (err) {
+        log.warn({ err, city, dateKey }, 'evaluation log batch failed — continuing');
       }
     }
 
     if (candidates.length === 0) {
-      log.debug({ city, dateKey, bucketCount: buckets.length, abstainReasons }, 'city-follow: no bucket with sufficient edge');
+      log.debug(
+        { city, dateKey, bucketCount: activeBuckets.length, abstainReasons },
+        'city-follow: no bucket with sufficient edge',
+      );
       return null;
     }
 

@@ -381,6 +381,23 @@ sous-marché) renvoie **410 Gone**.
 | GET | `/api/weather-algo/capital` | JWT | Capital sim (`SimulationService.getSnapshot('weather')`) + cash réel on-chain pUSD (wallet partagé) |
 | GET | `/api/weather-algo/executions` | JWT | Exécutions `WEATHER_*` (pagination `limit`/`offset`, filtres `conditionId`, `mode`, `status`/`statusGroup=pending`, `from`/`to`) — enrichi marchés + `WeatherPositionForecast` |
 
+### Weather Algo data (persistance / audit)
+
+Routes JWT sous `/api/weather-algo-data`. Service : `WeatherAlgoDataService`.  
+Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/weather-algo-data/tables` | Résumé des 6 tables (`id`, `tableName`, `rowCount`, `oldestAt`, `newestAt`) |
+| DELETE | `/api/weather-algo-data/tables` | Vide les 6 tables → `{ deleted, totalDeleted }` |
+| GET | `/api/weather-algo-data/forecast-history` | Liste paginée (`city`, `from`, `to`, `limit`≤500, `offset`) |
+| GET | `/api/weather-algo-data/market-snapshots` | Liste (`city`, `from`, `to`, `limit`≤200) ; `includeTicks=true` pour embarquer les ticks (défaut **false**) |
+| GET | `/api/weather-algo-data/bucket-ticks` | Liste (`city`, `conditionId`, `from`, `to`, `limit`≤500) |
+| GET | `/api/weather-algo-data/evaluation-log` | Liste (`from`, `to`, `strategyId`, `decision`, `limit`≤500) |
+| GET | `/api/weather-algo-data/forecast-cache` | Liste cache Open-Meteo opérationnel |
+| GET | `/api/weather-algo-data/position-forecasts` | Liste snapshots d’entrée (+ `openedAt` joint) |
+| GET | `/api/weather-algo-data/coverage` | Agrégat legacy (période snapshots + totaux) — UI Paramètres retirée |
+
 ## Système — audit & monitor
 
 | Méthode | Route | Auth | Description |

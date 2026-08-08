@@ -12,11 +12,13 @@ import {
   type WeatherAlgoDataTableId,
   type WeatherAlgoDataTableSummary,
 } from '../api';
+import { WeatherBucketTimelineView } from './WeatherBucketTimelineView';
 
 const PAGE_SIZE = 50;
 const DEFAULT_POLL_MS = 1_800_000;
 
 type View = 'grid' | 'detail';
+type DetailMode = 'list' | 'timeline';
 
 interface TableMeta {
   title: string;
@@ -158,6 +160,7 @@ export function WeatherAlgoDataTab() {
   const [rows, setRows] = createSignal<Record<string, unknown>[]>([]);
   const [detailLoading, setDetailLoading] = createSignal(false);
   const [detailError, setDetailError] = createSignal<string | null>(null);
+  const [detailMode, setDetailMode] = createSignal<DetailMode>('list');
 
   async function refreshSummary() {
     setSummaryLoading(true);
@@ -283,6 +286,7 @@ export function WeatherAlgoDataTab() {
     setRows([]);
     setTotal(0);
     setDetailError(null);
+    setDetailMode('list');
     setView('detail');
     void loadDetail(0, id);
   }
@@ -409,6 +413,23 @@ export function WeatherAlgoDataTab() {
               <span class="algo-panel-count">{total().toLocaleString()} lignes</span>
             </div>
 
+            <Show when={selectedId() === 'bucket_ticks'}>
+              <div class="weather-data-mode-toggle" role="tablist">
+                {(['list', 'timeline'] as const).map((mode) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={detailMode() === mode}
+                    class={`weather-data-mode-btn${detailMode() === mode ? ' active' : ''}`}
+                    onClick={() => setDetailMode(mode)}
+                  >
+                    {mode === 'list' ? 'Liste' : 'Timeline'}
+                  </button>
+                ))}
+              </div>
+            </Show>
+
+            <Show when={selectedId() !== 'bucket_ticks' || detailMode() === 'list'}>
             <form
               class="weather-data-filters"
               onSubmit={(e) => {
@@ -534,6 +555,11 @@ export function WeatherAlgoDataTab() {
                   Suiv.
                 </button>
               </div>
+            </Show>
+            </Show>
+
+            <Show when={selectedId() === 'bucket_ticks' && detailMode() === 'timeline'}>
+              <WeatherBucketTimelineView />
             </Show>
           </div>
         )}

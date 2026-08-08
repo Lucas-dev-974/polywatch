@@ -92,6 +92,28 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
     res.json(await service.getTablesSummary());
   });
 
+  router.get('/bucket-ticks/dates', requireJwt, async (_req, res) => {
+    res.json(await service.listBucketTickDates());
+  });
+
+  router.get('/bucket-ticks/timeline', requireJwt, async (req, res) => {
+    const targetDateIso =
+      typeof req.query.targetDateIso === 'string' ? req.query.targetDateIso : '';
+    const city = typeof req.query.city === 'string' ? req.query.city : undefined;
+    const from = parseOptionalDate(req.query.from);
+    const to = parseOptionalDate(req.query.to);
+    const maxTicks = Number(req.query.maxTicks);
+    res.json(
+      await service.getBucketTicksTimeline({
+        targetDateIso,
+        city,
+        from,
+        to,
+        maxTicks: Number.isFinite(maxTicks) ? maxTicks : undefined,
+      }),
+    );
+  });
+
   router.delete('/tables', requireJwt, async (_req, res) => {
     res.json(await service.deleteAllRecordedData());
   });

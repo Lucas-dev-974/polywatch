@@ -834,6 +834,57 @@ export async function fetchWeatherAlgoBucketTicks(params: {
   return api(`/weather-algo-data/bucket-ticks${weatherAlgoDataQuery(params)}`);
 }
 
+export interface BucketTickDateEntry {
+  targetDateIso: string;
+  cityCount: number;
+  tickCount: number;
+}
+
+export interface BucketTimelineSeriesPoint {
+  recordedAt: string;
+  yesPrice: number | null;
+}
+
+export interface BucketTimelineBucket {
+  conditionId: string;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  series: BucketTimelineSeriesPoint[];
+}
+
+export interface BucketTimelineCity {
+  cityNormalized: string;
+  forecastMean: number | null;
+  forecastStdDev: number | null;
+  bucketCount: number;
+  firstRecordedAt: string;
+  lastRecordedAt: string;
+  buckets: BucketTimelineBucket[];
+}
+
+export interface BucketTimelineDate {
+  targetDateIso: string;
+  cities: BucketTimelineCity[];
+}
+
+export async function fetchBucketTickDates(): Promise<{ dates: BucketTickDateEntry[] }> {
+  return api('/weather-algo-data/bucket-ticks/dates');
+}
+
+export async function fetchBucketTickTimeline(
+  targetDateIso: string,
+  params?: { city?: string; maxTicks?: number },
+): Promise<{ dates: BucketTimelineDate[] }> {
+  const qs = weatherAlgoDataQuery({
+    targetDateIso,
+    city: params?.city,
+    maxTicks: params?.maxTicks,
+  });
+  return api(`/weather-algo-data/bucket-ticks/timeline${qs}`);
+}
+
 export async function fetchWeatherAlgoEvaluationLog(params: {
   from?: string;
   to?: string;

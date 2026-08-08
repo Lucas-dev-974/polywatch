@@ -183,4 +183,10 @@ export {
   type WeatherAlgoDataDeleteAllResponse,
   type WeatherBucketTickRow,
   type WeatherPositionForecastRow,
+  type BucketTickDateEntry,
+  type BucketTimelineResponse,
+  type BucketTimelineDate,
+  type BucketTimelineCity,
+  type BucketTimelineBucket,
+  type BucketTimelineSeriesPoint,
 } from './weather-algo-data.service.js';

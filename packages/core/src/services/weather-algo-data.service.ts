@@ -66,6 +66,45 @@ export type WeatherBucketTickRow = WeatherBucketTick & {
   cityNormalized: string | null;
 };
 
+export interface BucketTickDateEntry {
+  targetDateIso: string;
+  cityCount: number;
+  tickCount: number;
+}
+
+export interface BucketTimelineSeriesPoint {
+  recordedAt: string;
+  yesPrice: number | null;
+}
+
+export interface BucketTimelineBucket {
+  conditionId: string;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  series: BucketTimelineSeriesPoint[];
+}
+
+export interface BucketTimelineCity {
+  cityNormalized: string;
+  forecastMean: number | null;
+  forecastStdDev: number | null;
+  bucketCount: number;
+  firstRecordedAt: string;
+  lastRecordedAt: string;
+  buckets: BucketTimelineBucket[];
+}
+
+export interface BucketTimelineDate {
+  targetDateIso: string;
+  cities: BucketTimelineCity[];
+}
+
+export interface BucketTimelineResponse {
+  dates: BucketTimelineDate[];
+}
+
 function toIso(value: Date | string | null | undefined): string | null {
   if (value == null) return null;
   const d = value instanceof Date ? value : new Date(value);
@@ -223,6 +262,165 @@ export class WeatherAlgoDataService {
     }));
 
     return { items, total };
+  }
+
+  async listBucketTickDates(): Promise<{ dates: BucketTickDateEntry[] }> {
+    const rows = await this.ds
+      .getRepository(WeatherMarketSnapshot)
+      .createQueryBuilder('s')
+      .innerJoin(WeatherBucketTick, 't', 't.snapshotId = s.id')
+      .select('s.targetDateIso', 'targetDateIso')
+      .addSelect('COUNT(DISTINCT s.cityNormalized)', 'cityCount')
+      .addSelect('COUNT(t.id)', 'tickCount')
+      .groupBy('s.targetDateIso')
+      .orderBy('s.targetDateIso', 'DESC')
+      .getRawMany<{
+        targetDateIso: string;
+        cityCount: string | number;
+        tickCount: string | number;
+      }>();
+
+    const dates: BucketTickDateEntry[] = rows
+      .filter((r) => typeof r.targetDateIso === 'string' && r.targetDateIso)
+      .map((r) => ({
+        targetDateIso: r.targetDateIso,
+        cityCount: Number(r.cityCount ?? 0),
+        tickCount: Number(r.tickCount ?? 0),
+      }));
+
+    return { dates };
+  }
+
+  async getBucketTicksTimeline(options: {
+    targetDateIso: string;
+    city?: string;
+    from?: Date;
+    to?: Date;
+    maxTicks?: number;
+  }): Promise<BucketTimelineResponse> {
+    const target = options.targetDateIso.trim();
+    if (!target) return { dates: [] };
+
+    const maxTicks = Math.max(1, Math.min(options.maxTicks ?? 2000, 5000));
+
+    // D.1 — Une seule requête bornée via innerJoin snapshot↔tick.
+    // Évite de charger tous les snapshots puis un IN (:...ids) non borné
+    // (risque d'explosion PostgreSQL >65k paramètres sur une date très active).
+    const tickQb = this.ds
+      .getRepository(WeatherBucketTick)
+      .createQueryBuilder('t')
+      .innerJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
+      .where('s.targetDateIso = :target', { target });
+
+    if (options.city) {
+      tickQb.andWhere('s.cityNormalized = :city', {
+        city: options.city.trim().toLowerCase(),
+      });
+    }
+    if (options.from) {
+      tickQb.andWhere('s.recordedAt >= :from', { from: options.from });
+    }
+    if (options.to) {
+      tickQb.andWhere('s.recordedAt <= :to', { to: options.to });
+    }
+
+    // D.2 — Tri par recordedAt (et non id) pour garantir l'ordre chronologique
+    // des séries et la cohérence de first/lastRecordedAt.
+    const ticks = await tickQb
+      .orderBy('t.recordedAt', 'ASC')
+      .addOrderBy('t.id', 'ASC')
+      .limit(maxTicks)
+      .getMany();
+
+    if (ticks.length === 0) {
+      return { dates: [] };
+    }
+
+    // Snapshots distincts requis pour résoudre city/forecast : on ne charge
+    // que ceux effectivement référencés par les ticks retournés (borne ≤ maxTicks).
+    const snapshotIds = [...new Set(ticks.map((t) => t.snapshotId))];
+    const snapshots = await this.ds
+      .getRepository(WeatherMarketSnapshot)
+      .createQueryBuilder('s')
+      .where('s.id IN (:...snapshotIds)', { snapshotIds })
+      .getMany();
+
+    // D.4 — Tri explicite des snapshots par recordedAt pour déterminer
+    // le « dernier » (forecastMean) indépendamment de l'ordre d'insertion.
+    snapshots.sort(
+      (a, b) => a.recordedAt.getTime() - b.recordedAt.getTime(),
+    );
+
+    const snapshotById = new Map<number, WeatherMarketSnapshot>();
+    for (const s of snapshots) snapshotById.set(s.id, s);
+
+    // D.3 — Accumulateur avec Map<conditionId, bucket> par ville (lookup O(1)).
+    interface CityAccumulator {
+      city: BucketTimelineCity;
+      bucketMap: Map<string, BucketTimelineBucket>;
+    }
+    const cityMap = new Map<string, CityAccumulator>();
+
+    for (const tick of ticks) {
+      const snap = snapshotById.get(tick.snapshotId);
+      if (!snap) continue;
+      const cityKey = snap.cityNormalized || snap.city;
+
+      let acc = cityMap.get(cityKey);
+      if (!acc) {
+        acc = {
+          city: {
+            cityNormalized: cityKey,
+            forecastMean: snap.forecastMean,
+            forecastStdDev: snap.forecastStdDev,
+            bucketCount: 0,
+            firstRecordedAt: toIso(tick.recordedAt) ?? '',
+            lastRecordedAt: toIso(tick.recordedAt) ?? '',
+            buckets: [],
+          },
+          bucketMap: new Map(),
+        };
+        cityMap.set(cityKey, acc);
+      }
+
+      // Ticks triés par recordedAt ASC : chaque tick est plus récent ou égal
+      // au précédent, donc on écrase lastRecordedAt et forecastMean à chaque
+      // tick (le dernier tick de la boucle = le plus récent).
+      acc.city.lastRecordedAt = toIso(tick.recordedAt) ?? acc.city.lastRecordedAt;
+      acc.city.forecastMean = snap.forecastMean;
+      acc.city.forecastStdDev = snap.forecastStdDev;
+
+      const ts = toIso(tick.recordedAt);
+      const point: BucketTimelineSeriesPoint = {
+        recordedAt: ts ?? '',
+        yesPrice: tick.yesPrice,
+      };
+
+      let bucket = acc.bucketMap.get(tick.conditionId);
+      if (!bucket) {
+        bucket = {
+          conditionId: tick.conditionId,
+          bucketComparison: tick.bucketComparison,
+          bucketTarget: tick.bucketTarget,
+          bucketLow: tick.bucketLow,
+          bucketHigh: tick.bucketHigh,
+          series: [],
+        };
+        acc.bucketMap.set(tick.conditionId, bucket);
+      }
+      bucket.series.push(point);
+    }
+
+    // Projection : Map → tableau, bucketCount = taille réelle de la Map.
+    const cities = [...cityMap.values()]
+      .map((acc) => {
+        acc.city.buckets = [...acc.bucketMap.values()];
+        acc.city.bucketCount = acc.bucketMap.size;
+        return acc.city;
+      })
+      .sort((a, b) => a.cityNormalized.localeCompare(b.cityNormalized));
+
+    return { dates: [{ targetDateIso: target, cities }] };
   }
 
   async listEvaluationLog(options: {

@@ -2,6 +2,11 @@ import { createSignal, For, Show } from 'solid-js';
 import { useWeatherAlgoDashboard } from '../hooks/useWeatherAlgoDashboard';
 import { useWeatherAlgoPositions } from '../hooks/useWeatherAlgoPositions';
 import { useWeatherAlgoExecutions } from '../hooks/useWeatherAlgoExecutions';
+import {
+  UI_KEYS,
+  WEATHER_ALGO_PAGE_TABS,
+  usePersistedEnum,
+} from '../lib/ui-persistence';
 import { WeatherAlgoHeader } from './WeatherAlgoHeader';
 import { WeatherAlgoCapitalHero } from './WeatherAlgoCapitalHero';
 import { WeatherAlgoDiscoverPanel } from './WeatherAlgoDiscoverPanel';
@@ -14,13 +19,15 @@ import { WeatherAlgoDataTab } from './WeatherAlgoDataTab';
 import { WeatherAlgoBacktestTab } from './WeatherAlgoBacktestTab';
 import { NewSessionResetDialog } from './NewSessionResetDialog';
 
-type Tab = 'markets' | 'positions' | 'cities' | 'data' | 'backtest' | 'settings';
-
 export function WeatherAlgoPage() {
   const dashboard = useWeatherAlgoDashboard();
   const positions = useWeatherAlgoPositions();
   const executions = useWeatherAlgoExecutions();
-  const [tab, setTab] = createSignal<Tab>('markets');
+  const [tab, setTab] = usePersistedEnum(
+    UI_KEYS.weatherAlgoTab,
+    'markets',
+    WEATHER_ALGO_PAGE_TABS,
+  );
   const [resetDialogOpen, setResetDialogOpen] = createSignal(false);
 
   return (

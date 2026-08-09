@@ -49,6 +49,66 @@ export const SIM_PAGE_TABS = ['activity', 'analytics'] as const;
 export type SnapshotsPageMode = 'sim' | 'real';
 export const SNAPSHOTS_PAGE_MODES = ['sim', 'real'] as const;
 
+export type WeatherAlgoPageTab =
+  | 'markets'
+  | 'positions'
+  | 'cities'
+  | 'data'
+  | 'backtest'
+  | 'settings';
+export const WEATHER_ALGO_PAGE_TABS = [
+  'markets',
+  'positions',
+  'cities',
+  'data',
+  'backtest',
+  'settings',
+] as const;
+
+export type WeatherAlgoPosTab = 'open' | 'history';
+export const WEATHER_ALGO_POS_TABS = ['open', 'history'] as const;
+
+export type WeatherAlgoPosModeFilter = 'all' | 'live' | 'sim';
+export const WEATHER_ALGO_POS_MODE_FILTERS = ['all', 'live', 'sim'] as const;
+
+export type WeatherAlgoPosOpenSubTab = 'live' | 'sim';
+export const WEATHER_ALGO_POS_OPEN_SUB_TABS = ['live', 'sim'] as const;
+
+export type WeatherAlgoExecModeFilter = 'all' | 'sim' | 'real';
+export const WEATHER_ALGO_EXEC_MODE_FILTERS = ['all', 'sim', 'real'] as const;
+
+export type WeatherAlgoExecStatusFilter = 'all' | 'filled' | 'failed' | 'pending';
+export const WEATHER_ALGO_EXEC_STATUS_FILTERS = [
+  'all',
+  'filled',
+  'failed',
+  'pending',
+] as const;
+
+export type WeatherAlgoDataView = 'grid' | 'detail';
+export const WEATHER_ALGO_DATA_VIEWS = ['grid', 'detail'] as const;
+
+export type WeatherAlgoDataDetailMode = 'list' | 'timeline';
+export const WEATHER_ALGO_DATA_DETAIL_MODES = ['list', 'timeline'] as const;
+
+export type WeatherAlgoDataTableId =
+  | 'forecast_history'
+  | 'market_snapshots'
+  | 'bucket_ticks'
+  | 'evaluation_log'
+  | 'forecast_cache'
+  | 'position_forecasts';
+export const WEATHER_ALGO_DATA_TABLE_IDS = [
+  'forecast_history',
+  'market_snapshots',
+  'bucket_ticks',
+  'evaluation_log',
+  'forecast_cache',
+  'position_forecasts',
+] as const;
+
+export const WEATHER_ALGO_TIMELINE_MAX_TICKS = [500, 2000, 5000] as const;
+
 export const POSITION_TABS = ['open', 'redemption', 'failed', 'history'] as const;
 
 export const POSITION_LIST_LAYOUTS = ['flat', 'split'] as const;
@@ -61,6 +121,27 @@ export const UI_KEYS = {
   systemTab: 'polywatch_system_tab',
   simTab: 'polywatch_sim_tab',
   snapshotsMode: 'polywatch_snapshots_mode',
+  weatherAlgoTab: 'polywatch_weather_algo_tab',
+  weatherAlgoPosTab: 'polywatch_weather_algo_pos_tab',
+  weatherAlgoPosModeFilter: 'polywatch_weather_algo_pos_mode_filter',
+  weatherAlgoPosOpenSubTab: 'polywatch_weather_algo_pos_open_sub_tab',
+  weatherAlgoExecModeFilter: 'polywatch_weather_algo_exec_mode_filter',
+  weatherAlgoExecStatusFilter: 'polywatch_weather_algo_exec_status_filter',
+  weatherAlgoExecPage: 'polywatch_weather_algo_exec_page',
+  weatherAlgoDataView: 'polywatch_weather_algo_data_view',
+  weatherAlgoDataTableId: 'polywatch_weather_algo_data_table_id',
+  weatherAlgoDataDetailMode: 'polywatch_weather_algo_data_detail_mode',
+  weatherAlgoDataCity: 'polywatch_weather_algo_data_city',
+  weatherAlgoDataFrom: 'polywatch_weather_algo_data_from',
+  weatherAlgoDataTo: 'polywatch_weather_algo_data_to',
+  weatherAlgoDataConditionId: 'polywatch_weather_algo_data_condition_id',
+  weatherAlgoDataStrategyId: 'polywatch_weather_algo_data_strategy_id',
+  weatherAlgoDataDecision: 'polywatch_weather_algo_data_decision',
+  weatherAlgoDataPage: 'polywatch_weather_algo_data_page',
+  weatherAlgoTimelineDate: 'polywatch_weather_algo_timeline_date',
+  weatherAlgoTimelineMaxTicks: 'polywatch_weather_algo_timeline_max_ticks',
+  weatherAlgoBacktestSelectedId: 'polywatch_weather_algo_backtest_selected_id',
+  weatherAlgoBacktestPage: 'polywatch_weather_algo_backtest_page',
   positionsTab: (mode: UiMode) => `polywatch_positions_tab_${mode}`,
   positionsListLayout: (mode: UiMode) => `polywatch_positions_list_layout_${mode}`,
   positionsMarketNavWidth: (mode: UiMode) =>

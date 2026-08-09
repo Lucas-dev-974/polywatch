@@ -1,5 +1,13 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { api } from '../api';
+import {
+  UI_KEYS,
+  WEATHER_ALGO_POS_MODE_FILTERS,
+  WEATHER_ALGO_POS_TABS,
+  usePersistedEnum,
+  type WeatherAlgoPosModeFilter,
+  type WeatherAlgoPosTab,
+} from '../lib/ui-persistence';
 import { onGlobalRefresh } from '../socket';
 
 export interface WeatherForecastSnapshot {
@@ -38,8 +46,8 @@ export interface WeatherPosition {
   weatherForecast: WeatherForecastSnapshot | null;
 }
 
-export type WeatherPosTab = 'open' | 'history';
-export type WeatherPosModeFilter = 'all' | 'live' | 'sim';
+export type WeatherPosTab = WeatherAlgoPosTab;
+export type WeatherPosModeFilter = WeatherAlgoPosModeFilter;
 
 const POLL_MS = 10_000;
 
@@ -53,8 +61,16 @@ export function useWeatherAlgoPositions() {
   const [closedPositions, setClosedPositions] = createSignal<WeatherPosition[]>([]);
   const [loadingHistory, setLoadingHistory] = createSignal(false);
   const [historyLoaded, setHistoryLoaded] = createSignal(false);
-  const [posTab, setPosTab] = createSignal<WeatherPosTab>('open');
-  const [posModeFilter, setPosModeFilter] = createSignal<WeatherPosModeFilter>('all');
+  const [posTab, setPosTab] = usePersistedEnum(
+    UI_KEYS.weatherAlgoPosTab,
+    'open',
+    WEATHER_ALGO_POS_TABS,
+  );
+  const [posModeFilter, setPosModeFilter] = usePersistedEnum(
+    UI_KEYS.weatherAlgoPosModeFilter,
+    'all',
+    WEATHER_ALGO_POS_MODE_FILTERS,
+  );
 
   async function refresh() {
     try {
@@ -98,6 +114,9 @@ export function useWeatherAlgoPositions() {
 
   onMount(() => {
     void refresh();
+    if (posTab() === 'history') {
+      void refreshHistory();
+    }
     const poll = setInterval(() => void refresh(), POLL_MS);
     // Refresh immediately on any simulation reset (payload-algoKind agnostic —
     // this hook already filters weather-only rows, a spurious refetch is cheap).

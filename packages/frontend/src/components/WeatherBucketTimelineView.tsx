@@ -7,6 +7,11 @@ import {
   type BucketTimelineCity,
   type BucketTimelineSeriesPoint,
 } from '../api';
+import {
+  UI_KEYS,
+  WEATHER_ALGO_TIMELINE_MAX_TICKS,
+  usePersistedSignal,
+} from '../lib/ui-persistence';
 import { Dialog } from './Dialog';
 import { Icon } from './Icon';
 import { useChartWidth } from '../hooks/useChartWidth';
@@ -435,20 +440,35 @@ function CityCard(props: {
 
 export function WeatherBucketTimelineView() {
   const [dates, setDates] = createSignal<BucketTickDateEntry[]>([]);
-  const [selectedDate, setSelectedDate] = createSignal<string>('');
+  const [selectedDate, setSelectedDate] = usePersistedSignal(
+    UI_KEYS.weatherAlgoTimelineDate,
+    '',
+    (value): value is string => typeof value === 'string',
+  );
   const [cities, setCities] = createSignal<BucketTimelineCity[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [openCity, setOpenCity] = createSignal<BucketTimelineCity | null>(null);
-  const [maxTicks, setMaxTicks] = createSignal<number>(2000);
+  const [maxTicks, setMaxTicks] = usePersistedSignal(
+    UI_KEYS.weatherAlgoTimelineMaxTicks,
+    2000,
+    (value): value is number =>
+      typeof value === 'number' &&
+      (WEATHER_ALGO_TIMELINE_MAX_TICKS as readonly number[]).includes(value),
+  );
 
   async function loadDates() {
     try {
       const res = await fetchBucketTickDates();
       setDates(res.dates);
-      if (res.dates.length > 0 && !res.dates.some((d) => d.targetDateIso === selectedDate())) {
+      if (res.dates.length === 0) return;
+      const current = selectedDate();
+      const match = res.dates.some((d) => d.targetDateIso === current);
+      if (!match) {
         setSelectedDate(res.dates[0]!.targetDateIso);
         void loadTimeline(res.dates[0]!.targetDateIso);
+      } else {
+        void loadTimeline(current);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Dates indisponibles');

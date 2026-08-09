@@ -1,13 +1,22 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { api } from '../api';
 import type { Execution } from '../lib/execution';
+import {
+  UI_KEYS,
+  WEATHER_ALGO_EXEC_MODE_FILTERS,
+  WEATHER_ALGO_EXEC_STATUS_FILTERS,
+  usePersistedEnum,
+  usePersistedSignal,
+  type WeatherAlgoExecModeFilter,
+  type WeatherAlgoExecStatusFilter,
+} from '../lib/ui-persistence';
 import type { WeatherForecastSnapshot } from './useWeatherAlgoPositions';
 import { connectSocket } from '../socket';
 
 export const WEATHER_ALGO_EXECUTIONS_PAGE_SIZE = 20;
 
-export type WeatherExecModeFilter = 'all' | 'sim' | 'real';
-export type WeatherExecStatusFilter = 'all' | 'filled' | 'failed' | 'pending';
+export type WeatherExecModeFilter = WeatherAlgoExecModeFilter;
+export type WeatherExecStatusFilter = WeatherAlgoExecStatusFilter;
 
 export interface WeatherExecution extends Execution {
   marketUrl?: string | null;
@@ -22,9 +31,21 @@ interface ExecutionsResponse {
 export function useWeatherAlgoExecutions() {
   const [executions, setExecutions] = createSignal<WeatherExecution[]>([]);
   const [total, setTotal] = createSignal(0);
-  const [page, setPage] = createSignal(0);
-  const [modeFilter, setModeFilterState] = createSignal<WeatherExecModeFilter>('all');
-  const [statusFilter, setStatusFilterState] = createSignal<WeatherExecStatusFilter>('all');
+  const [page, setPage] = usePersistedSignal(
+    UI_KEYS.weatherAlgoExecPage,
+    0,
+    (value): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0,
+  );
+  const [modeFilter, setModeFilterState] = usePersistedEnum(
+    UI_KEYS.weatherAlgoExecModeFilter,
+    'all',
+    WEATHER_ALGO_EXEC_MODE_FILTERS,
+  );
+  const [statusFilter, setStatusFilterState] = usePersistedEnum(
+    UI_KEYS.weatherAlgoExecStatusFilter,
+    'all',
+    WEATHER_ALGO_EXEC_STATUS_FILTERS,
+  );
   const [loading, setLoading] = createSignal(true);
 
   const pageCount = () =>
@@ -85,7 +106,7 @@ export function useWeatherAlgoExecutions() {
   }
 
   onMount(() => {
-    void load(0);
+    void load(page());
     const socket = connectSocket();
     const onExecution = () => refresh();
     socket.on('execution', onExecution);

@@ -1,6 +1,11 @@
-import { createMemo, createSignal, For, Show } from 'solid-js';
+import { createMemo, For, Show } from 'solid-js';
 import type { useWeatherAlgoPositions, WeatherPosition } from '../hooks/useWeatherAlgoPositions';
 import { formatShortDateTime } from '../lib/date';
+import {
+  UI_KEYS,
+  WEATHER_ALGO_POS_OPEN_SUB_TABS,
+  usePersistedEnum,
+} from '../lib/ui-persistence';
 import { CollapsibleSection } from './CollapsibleSection';
 import {
   formatPnlAmount,
@@ -119,7 +124,11 @@ function WeatherPositionCard(props: { pos: WeatherPosition; onClose: (id: number
 
 export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps) {
   const p = () => props.positions;
-  const [activeTab, setActiveTab] = createSignal<'live' | 'sim'>('live');
+  const [activeTab, setActiveTab] = usePersistedEnum(
+    UI_KEYS.weatherAlgoPosOpenSubTab,
+    'live',
+    WEATHER_ALGO_POS_OPEN_SUB_TABS,
+  );
 
   const openPositions = createMemo(() =>
     p().positions().filter((pos) => matchesMode(pos, p().posModeFilter())),

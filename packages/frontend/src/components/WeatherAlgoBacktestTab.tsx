@@ -13,6 +13,7 @@ import {
   type BacktestPositionDto,
   type BacktestRunDto,
 } from '../api';
+import { UI_KEYS, usePersistedSignal } from '../lib/ui-persistence';
 import { BacktestEquityChart } from './BacktestEquityChart';
 
 const PAGE_SIZE = 20;
@@ -79,10 +80,19 @@ export function WeatherAlgoBacktestTab() {
   const [runs, setRuns] = createSignal<BacktestRunDto[]>([]);
   const [listTotal, setListTotal] = createSignal(0);
   const [listLoading, setListLoading] = createSignal(false);
-  const [page, setPage] = createSignal(0);
+  const [page, setPage] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestPage,
+    0,
+    (value): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0,
+  );
 
   // ── Détail d'un run ──────────────────────────────────────────────
-  const [selectedId, setSelectedId] = createSignal<number | null>(null);
+  const [selectedId, setSelectedId] = usePersistedSignal<number | null>(
+    UI_KEYS.weatherAlgoBacktestSelectedId,
+    null,
+    (value): value is number | null =>
+      value === null || (typeof value === 'number' && Number.isInteger(value) && value > 0),
+  );
   const [detail, setDetail] = createSignal<BacktestRunDto | null>(null);
   const [equity, setEquity] = createSignal<BacktestEquityPointDto[]>([]);
   const [positions, setPositions] = createSignal<BacktestPositionDto[]>([]);
@@ -157,6 +167,10 @@ export function WeatherAlgoBacktestTab() {
   onMount(() => {
     void refreshCoverage();
     void refreshList();
+    const restoredId = selectedId();
+    if (restoredId != null) {
+      openRun(restoredId);
+    }
   });
 
   async function submit(e: Event) {

@@ -12,13 +12,19 @@ import {
   type WeatherAlgoDataTableId,
   type WeatherAlgoDataTableSummary,
 } from '../api';
+import {
+  UI_KEYS,
+  WEATHER_ALGO_DATA_DETAIL_MODES,
+  WEATHER_ALGO_DATA_TABLE_IDS,
+  WEATHER_ALGO_DATA_VIEWS,
+  usePersistedEnum,
+  usePersistedSignal,
+  type WeatherAlgoDataView,
+} from '../lib/ui-persistence';
 import { WeatherBucketTimelineView } from './WeatherBucketTimelineView';
 
 const PAGE_SIZE = 50;
 const DEFAULT_POLL_MS = 1_800_000;
-
-type View = 'grid' | 'detail';
-type DetailMode = 'list' | 'timeline';
 
 interface TableMeta {
   title: string;
@@ -140,27 +146,62 @@ function toDateInputValue(iso: string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
+function isPersistedString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function isNonNegativeInt(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
 export function WeatherAlgoDataTab() {
-  const [view, setView] = createSignal<View>('grid');
-  const [selectedId, setSelectedId] = createSignal<WeatherAlgoDataTableId | null>(null);
+  const [view, setView] = usePersistedEnum(
+    UI_KEYS.weatherAlgoDataView,
+    'grid',
+    WEATHER_ALGO_DATA_VIEWS,
+  );
+  const [selectedId, setSelectedId] = usePersistedSignal<WeatherAlgoDataTableId | null>(
+    UI_KEYS.weatherAlgoDataTableId,
+    null,
+    (value): value is WeatherAlgoDataTableId | null =>
+      value === null ||
+      (typeof value === 'string' &&
+        (WEATHER_ALGO_DATA_TABLE_IDS as readonly string[]).includes(value)),
+  );
   const [tables, setTables] = createSignal<WeatherAlgoDataTableSummary[]>([]);
   const [summaryLoading, setSummaryLoading] = createSignal(false);
   const [summaryError, setSummaryError] = createSignal<string | null>(null);
   const [deleting, setDeleting] = createSignal(false);
   const [pollMs, setPollMs] = createSignal(DEFAULT_POLL_MS);
 
-  const [city, setCity] = createSignal('');
-  const [from, setFrom] = createSignal('');
-  const [to, setTo] = createSignal('');
-  const [conditionId, setConditionId] = createSignal('');
-  const [strategyId, setStrategyId] = createSignal('');
-  const [decision, setDecision] = createSignal('');
-  const [page, setPage] = createSignal(0);
+  const [city, setCity] = usePersistedSignal(UI_KEYS.weatherAlgoDataCity, '', isPersistedString);
+  const [from, setFrom] = usePersistedSignal(UI_KEYS.weatherAlgoDataFrom, '', isPersistedString);
+  const [to, setTo] = usePersistedSignal(UI_KEYS.weatherAlgoDataTo, '', isPersistedString);
+  const [conditionId, setConditionId] = usePersistedSignal(
+    UI_KEYS.weatherAlgoDataConditionId,
+    '',
+    isPersistedString,
+  );
+  const [strategyId, setStrategyId] = usePersistedSignal(
+    UI_KEYS.weatherAlgoDataStrategyId,
+    '',
+    isPersistedString,
+  );
+  const [decision, setDecision] = usePersistedSignal(
+    UI_KEYS.weatherAlgoDataDecision,
+    '',
+    isPersistedString,
+  );
+  const [page, setPage] = usePersistedSignal(UI_KEYS.weatherAlgoDataPage, 0, isNonNegativeInt);
   const [total, setTotal] = createSignal(0);
   const [rows, setRows] = createSignal<Record<string, unknown>[]>([]);
   const [detailLoading, setDetailLoading] = createSignal(false);
   const [detailError, setDetailError] = createSignal<string | null>(null);
-  const [detailMode, setDetailMode] = createSignal<DetailMode>('list');
+  const [detailMode, setDetailMode] = usePersistedEnum(
+    UI_KEYS.weatherAlgoDataDetailMode,
+    'list',
+    WEATHER_ALGO_DATA_DETAIL_MODES,
+  );
 
   async function refreshSummary() {
     setSummaryLoading(true);
@@ -244,6 +285,14 @@ export function WeatherAlgoDataTab() {
       .catch(() => {
         /* keep default poll cadence */
       });
+
+    const restoredView: WeatherAlgoDataView = view();
+    const restoredId = selectedId();
+    if (restoredView === 'detail' && restoredId) {
+      void loadDetail(page(), restoredId);
+    } else if (restoredView === 'detail' && !restoredId) {
+      setView('grid');
+    }
   });
 
   function totalRows(): number {

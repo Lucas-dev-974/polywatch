@@ -1,26 +1,21 @@
 {
-  "name": "@polywatch/weather-algo",
+  "name": "@polywatch/backtest",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/public-api.js",
-  "types": "./dist/public-api.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/public-api.d.ts",
-      "import": "./dist/public-api.js"
-    }
+    ".": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx src/index.ts",
     "lint": "eslint src",
     "start": "node dist/index.js",
     "test": "vitest run"
   },
   "dependencies": {
     "@polywatch/core": "*",
-    "ioredis": "^5.6.1",
+    "@polywatch/weather-algo": "*",
     "pino": "^9.6.0",
     "zod": "^3.24.4"
   },

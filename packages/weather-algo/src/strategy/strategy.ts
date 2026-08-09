@@ -46,6 +46,7 @@ export interface WeatherStrategy {
   evaluate(
     market: MarketListItemDto,
     ctx: WeatherEvaluationContext,
+    now?: Date,
   ): Promise<WeatherEvaluationResult>;
   /** Push runtime risk tunables into the strategy. Optional; default no-op. */
   setRiskConfig?(risk: WeatherConfig): void;

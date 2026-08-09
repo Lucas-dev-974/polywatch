@@ -81,6 +81,7 @@ Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept 
 | `add_position` | Hors scope (coercé → `close_and_reenter`) |
 | Persistance snapshots / ticks / eval / forecast history | Actif (toggles ON par défaut) |
 | Onglet UI Données (cards, drill-down, purge) | Actif |
+| Onglet UI **Backtest** (lancer runs, métriques, equity, positions) | Actif (domaine weather) |
 
 ---
 
@@ -100,16 +101,21 @@ Purge horaire selon rétention (`weatherAlgo*RetentionDays`), indépendante des 
 
 Doc d’implémentation : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
 
+Le **backtest** de la stratégie (rejouer les données persistées ci-dessus) est
+décrit dans [`backtest.md`](./backtest.md).
+
 ---
 
 ## 6. API & config
 
 - Routes trading : [`api.md`](./api.md) § Weather Algo
 - Routes données : [`api.md`](./api.md) § Weather Algo data (`/api/weather-algo-data/*`)
+- Routes backtest : [`api.md`](./api.md) § Backtest (`/api/backtest/*`) ; moteur : [`backtest.md`](./backtest.md)
 - Config : [`configuration.md`](./configuration.md) § Weather Algo ; entité `WeatherConfig` ; présentation API `packages/core/src/risk/weather-config-api.ts`
 - Sorties / defaults intervalle : `packages/core/src/risk/weather-exit-params.ts` (`resolveWeatherEntryExitParams`)
 - Redis : `weather-reentry-throttle.ts`, `weather-bucket-hysteresis.ts`
 - Entités : [`modele-donnees.md`](./modele-donnees.md)
+- Backtest : [`backtest.md`](./backtest.md)
 - Détail technique package : [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 
 Démarrage : `npm run dev:weather-algo` ou `npm run dev`.

@@ -64,6 +64,9 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `WeatherMarketSnapshot` | `weather_market_snapshots` | Snapshot marché par cycle × ville × date — `recordedAt` |
 | `WeatherBucketTick` | `weather_bucket_ticks` | Prix YES/NO d’un bucket actif ; FK `snapshot_id` **ON DELETE CASCADE** |
 | `WeatherEvaluationLog` | `weather_evaluation_log` | Journal signal/abstain ; FK `snapshot_id` **ON DELETE SET NULL** |
+| `BacktestRun` | `backtest_runs` | Run de backtest (job) : cycle de vie, params, stats, warnings, fingerprint config, plage de données |
+| `BacktestPosition` | `backtest_positions` | Position simulée d'un run backtest ; FK `run_id` **ON DELETE CASCADE** |
+| `BacktestEquityPoint` | `backtest_equity_points` | Points d'equity (courbe) d'un run backtest ; FK `run_id` **ON DELETE CASCADE** |
 
 ## Relations conceptuelles
 

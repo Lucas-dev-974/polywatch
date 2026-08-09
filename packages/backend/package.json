@@ -13,6 +13,7 @@
     "@polymarket/builder-relayer-client": "^0.0.10",
     "@polymarket/builder-signing-sdk": "^0.0.8",
     "@polywatch/core": "*",
+    "@polywatch/backtest": "*",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",

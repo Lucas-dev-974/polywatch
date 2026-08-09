@@ -6,7 +6,7 @@
 
 ## 1. Organisation du monorepo
 
-Polywatch est un monorepo npm (`workspaces: ["packages/*"]`) composé de sept
+Polywatch est un monorepo npm (`workspaces: ["packages/*"]`) composé de huit
 packages liés par dépendances internes (`@polywatch/core` est consommé par
 backend, worker, copy-trading, crypto-algo et weather-algo).
 
@@ -18,6 +18,7 @@ packages/
 ├── worker/        @polywatch/worker       → exécution CLOB/sim + sorties risque
 ├── crypto-algo/   @polywatch/crypto-algo  → trading algorithmique crypto court-terme
 ├── weather-algo/  @polywatch/weather-algo → trading algorithmique météo (température)
+├── backtest/      @polywatch/backtest     → moteur de backtest événementiel (replay)
 └── frontend/      @polywatch/frontend     → UI SolidJS
 ```
 
@@ -29,6 +30,7 @@ packages/
 | `worker` | `tsc` | `tsx watch src/index.ts` | Exécution + sorties risque (pas de serveur HTTP) |
 | `crypto-algo` | `tsc` | `tsx watch src/index.ts` | Trading algorithmique crypto (pas de serveur HTTP) |
 | `weather-algo` | `tsc` | `tsx watch src/index.ts` | Trading météo (pas de serveur HTTP) |
+| `backtest` | `tsc` | — | Bibliothèque, consommée par le backend (aucun process autonome) |
 | `frontend` | `vite build` | `vite` | SPA servie par Vite |
 
 ## 2. Les processus applicatifs
@@ -170,6 +172,18 @@ Process sans serveur HTTP — trading météo **par ville**. Détail :
 - Snapshot forecast à l'ouverture (`WeatherPositionForecast`) ; throttle re-entry Redis après close bucket/drift.
 - Janitor : cleanup legacy (no-op après suppression de `WeatherMarketSelection`).
 - Heartbeat + `weather-algo:runtime-status`.
+
+### Backtest (`packages/backtest`)
+
+Bibliothèque consommée par le backend — aucun processus autonome. Moteur de
+backtest **événementiel** (domaine weather v1) : rejoue les données persistées
+sur une horloge virtuelle déterministe en réutilisant `WeatherForecastStrategy`.
+Détail : [`backtest.md`](./backtest.md) · [`docs/code/09-backtest.md`](code/09-backtest.md).
+
+- Deux modes : `reevaluate` (ré-exécute la stratégie) et `replay` (rejoue les décisions enregistrées).
+- Exécuté **in-process** par le backend (async, yields `setImmediate`) ; la UI polle le run.
+- Verrou singleton (un run weather actif) ; runs orphelins marqués `failed` au boot.
+- Résultats persistés dans `backtest_runs` / `backtest_positions` / `backtest_equity_points`.
 
 ### Frontend (`packages/frontend`)
 

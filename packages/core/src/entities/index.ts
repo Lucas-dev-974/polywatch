@@ -72,3 +72,6 @@ export { WeatherMarketSnapshot } from './WeatherMarketSnapshot.js';
 export { WeatherBucketTick } from './WeatherBucketTick.js';
 export { WeatherEvaluationLog } from './WeatherEvaluationLog.js';
 export { PostEntryMidSample } from './PostEntryMidSample.js';
+export { BacktestRun, type BacktestRunStatus, type BacktestDomain, type BacktestMode } from './BacktestRun.js';
+export { BacktestPosition, type BacktestExitReason } from './BacktestPosition.js';
+export { BacktestEquityPoint } from './BacktestEquityPoint.js';

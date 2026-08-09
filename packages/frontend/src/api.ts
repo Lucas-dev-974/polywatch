@@ -974,3 +974,144 @@ const copyConfigProxy = {} as CopyConfig;
 const cryptoConfigProxy = {} as CryptoConfig;
 const weatherConfigProxy = {} as WeatherConfig;
 
+// ─── Backtest API ───────────────────────────────────────────────────
+
+export type BacktestRunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type BacktestMode = 'reevaluate' | 'replay';
+
+export interface BacktestRunDto {
+  id: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  status: BacktestRunStatus;
+  progressPct: number;
+  domain: string;
+  mode: BacktestMode;
+  label: string | null;
+  params: Record<string, unknown>;
+  dataRangeFrom: string | null;
+  dataRangeTo: string | null;
+  stats: BacktestStats | null;
+  fidelityWarnings: string[] | null;
+  engineVersion: string | null;
+  error: string | null;
+}
+
+export interface BacktestStats {
+  totalPnl: number;
+  pnlPct: number;
+  finalEquity: number;
+  maxDrawdown: number;
+  winRate: number;
+  profitFactor: number;
+  avgWin: number;
+  avgLoss: number;
+  expectancy: number;
+  totalTrades: number;
+  avgHoldingMs: number;
+  byExitReason: Record<string, number>;
+  byCity: Record<string, number>;
+}
+
+export interface BacktestDataCoverage {
+  from: string | null;
+  to: string | null;
+  totalTicks: number;
+  cities: string[];
+}
+
+export interface BacktestRunParamsInput {
+  mode: BacktestMode;
+  from: string;
+  to: string;
+  cities?: string[];
+  strategyId?: string;
+  configOverrides?: Record<string, unknown>;
+  capital?: number;
+  entryUsdc?: number;
+  slippageBps?: number;
+  maxConcurrentPositions?: number;
+  detectionDelayMs?: number;
+  label?: string;
+}
+
+export interface BacktestPositionDto {
+  id: number;
+  runId: number;
+  conditionId: string;
+  city: string | null;
+  side: string;
+  qty: number;
+  entryPrice: number;
+  exitPrice: number | null;
+  entryAt: string;
+  exitAt: string | null;
+  entryReason: string | null;
+  exitReason: string | null;
+  pnl: number | null;
+  fees: number;
+}
+
+export interface BacktestEquityPointDto {
+  t: string;
+  equity: number;
+  cash: number;
+  openPositions: number;
+}
+
+export interface BacktestListResponse {
+  items: BacktestRunDto[];
+  total: number;
+}
+
+export async function fetchBacktestDataCoverage(): Promise<BacktestDataCoverage> {
+  return api<BacktestDataCoverage>('/backtest/data-coverage');
+}
+
+export async function launchBacktestRun(data: BacktestRunParamsInput): Promise<{ id: number; status: string }> {
+  return api<{ id: number; status: string }>('/backtest/runs', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchBacktestRuns(params: {
+  limit?: number;
+  offset?: number;
+  status?: BacktestRunStatus;
+} = {}): Promise<BacktestListResponse> {
+  return api<BacktestListResponse>(
+    `/backtest/runs${weatherAlgoDataQuery(params)}`,
+  );
+}
+
+export async function fetchBacktestRun(id: number): Promise<BacktestRunDto> {
+  return api<BacktestRunDto>(`/backtest/runs/${id}`);
+}
+
+export async function cancelBacktestRun(id: number): Promise<{ id: number; status: string }> {
+  return api<{ id: number; status: string }>(`/backtest/runs/${id}/cancel`, {
+    method: 'POST',
+  });
+}
+
+export async function deleteBacktestRun(id: number): Promise<{ id: number; deleted: boolean }> {
+  return api<{ id: number; deleted: boolean }>(`/backtest/runs/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function fetchBacktestPositions(
+  id: number,
+  params: { limit?: number; offset?: number; exitReason?: string } = {},
+): Promise<{ items: BacktestPositionDto[]; total: number }> {
+  return api(
+    `/backtest/runs/${id}/positions${weatherAlgoDataQuery(params)}`,
+  );
+}
+
+export async function fetchBacktestEquity(id: number): Promise<{ points: BacktestEquityPointDto[] }> {
+  return api(`/backtest/runs/${id}/equity`);
+}
+

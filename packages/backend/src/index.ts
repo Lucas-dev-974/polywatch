@@ -60,6 +60,11 @@ import { createWeatherAlgoForecastsRouter } from './routes/weather-algo-forecast
 import { createWeatherAlgoAutoTrackRouter } from './routes/weather-algo-auto-track.js';
 import { createWeatherAlgoExecutionsRouter } from './routes/weather-algo-executions.js';
 import { createWeatherAlgoDataRouter } from './routes/weather-algo-data.js';
+import {
+  createBacktestRouter,
+  recoverOrphanedBacktestRuns,
+  cancelAllActiveBacktestRuns,
+} from './routes/backtest.js';
 import { killAllAuditProcesses } from './services/system-audit-runner.js';
 import { killAllCryptoAlgoMonitorProcesses } from './services/crypto-algo-monitor.service.js';
 
@@ -101,6 +106,9 @@ async function main() {
 
   log.info('boot phase: recovering stale e2e runs');
   await e2eRunner.recoverStaleRuns();
+
+  log.info('boot phase: recovering orphaned backtest runs');
+  await recoverOrphanedBacktestRuns(ds);
 
   const app = express();
   const registry = new Registry();
@@ -203,6 +211,7 @@ async function main() {
   app.use('/api/weather-algo/executions', jwtLimiter, createWeatherAlgoExecutionsRouter(ds));
   app.use('/api/weather-algo/capital', jwtLimiter, createWeatherAlgoCapitalRouter(ds));
   app.use('/api/weather-algo-data', jwtLimiter, createWeatherAlgoDataRouter(ds));
+  app.use('/api/backtest', jwtLimiter, createBacktestRouter(ds));
   app.use('/api/internal', createInternalRouter(ds));
 
   const server = createServer(app);
@@ -215,6 +224,7 @@ async function main() {
 
   const shutdown = (signal: string) => {
     log.info({ signal }, 'shutting down');
+    cancelAllActiveBacktestRuns();
     killAllAuditProcesses();
     killAllCryptoAlgoMonitorProcesses();
     stopSimAutoSnapshotLoop();

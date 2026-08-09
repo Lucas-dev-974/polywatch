@@ -190,3 +190,11 @@ export {
   type BucketTimelineBucket,
   type BucketTimelineSeriesPoint,
 } from './weather-algo-data.service.js';
+export {
+  BacktestRunService,
+  type BacktestRunInput,
+  type BacktestRunStats,
+  type BacktestPositionInput,
+  type BacktestEquityPointInput,
+  type ListBacktestRunsOptions,
+} from './backtest-run.service.js';

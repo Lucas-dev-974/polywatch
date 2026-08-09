@@ -51,7 +51,9 @@ export class WeatherForecastStrategy implements WeatherStrategy {
   async evaluate(
     market: MarketListItemDto,
     ctx: WeatherEvaluationContext,
+    now?: Date,
   ): Promise<WeatherEvaluationResult> {
+    const nowMs = now?.getTime() ?? Date.now();
     if (!market.question) {
       return { kind: 'abstain', reason: 'no_question' };
     }
@@ -123,7 +125,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     const yesEdge = calculateEdge(forecastYesProb, yesPrice);
 
     const hoursToResolution = market.endDate
-      ? Math.max(0, (new Date(market.endDate).getTime() - Date.now()) / 3_600_000)
+      ? Math.max(0, (new Date(market.endDate).getTime() - nowMs) / 3_600_000)
       : DEFAULT_HOURS_TO_RESOLUTION_FALLBACK;
     const dynamicThreshold = resolveDynamicMinEdge(
       ctx.forecastStdDev,
@@ -153,7 +155,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       };
     }
 
-    const targetDate = market.endDate ? new Date(market.endDate) : new Date();
+    const targetDate = market.endDate ? new Date(market.endDate) : new Date(nowMs);
 
     const signal: WeatherSignal = {
       conditionId: market.conditionId,

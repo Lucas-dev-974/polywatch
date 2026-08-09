@@ -398,6 +398,24 @@ Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./pla
 | GET | `/api/weather-algo-data/position-forecasts` | Liste snapshots d’entrée (+ `openedAt` joint) |
 | GET | `/api/weather-algo-data/coverage` | Agrégat legacy (période snapshots + totaux) — UI Paramètres retirée |
 
+### Backtest (`/api/backtest`)
+
+Routes JWT sous `/api/backtest`. Service : `BacktestRunService` + moteur `@polywatch/backtest`.  
+Doc : [`backtest.md`](./backtest.md).
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/backtest/data-coverage` | Couverture des données de ticks (`from`, `to`, `totalTicks`, `cities`) |
+| POST | `/api/backtest/runs` | Lance un run — **202** `{ id, status }` ; **409** `run_already_active` si un run weather est déjà `running`/`queued` ; **400** `invalid_params` si params Zod invalides |
+| GET | `/api/backtest/runs` | Liste paginée (`domain`, `status`, `limit`≤100, `offset`) → `{ items, total }` |
+| GET | `/api/backtest/runs/:id` | Détail d'un run (params, stats, warnings, plage) |
+| POST | `/api/backtest/runs/:id/cancel` | Cancel coopératif (si `running`/`queued`) |
+| DELETE | `/api/backtest/runs/:id` | Supprime le run + ses positions + son equity |
+| GET | `/api/backtest/runs/:id/positions` | Positions paginées (`limit`≤500, `offset`, filtre `exitReason`) |
+| GET | `/api/backtest/runs/:id/equity` | Courbe d'equity `{ points: [{ t, equity, cash, openPositions }] }` |
+
+Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId`, `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs`, `label`.
+
 ## Système — audit & monitor
 
 | Méthode | Route | Auth | Description |

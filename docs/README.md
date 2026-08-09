@@ -25,6 +25,7 @@ kill switch, limites d'exposition).
 | [`frontend.md`](./frontend.md) | Application SolidJS (pages, composants, temps réel) |
 | [`crypto-algo.md`](./crypto-algo.md) | Module d'automatisation et de trading algorithmique (Auto-Track, stratégies) |
 | [`weather-algo.md`](./weather-algo.md) | Module weather-algo (température, Open-Meteo, entrées/sorties, auto-track) |
+| [`backtest.md`](./backtest.md) | Moteur de backtest événementiel (domaine weather : runs, modes, fidélité, API, UI) |
 | [`code/`](./code/README.md) | Documentation détaillée du code — architecture, pipeline, packages (core, copy-trading, worker, backend, frontend, crypto-algo, weather-algo) |
 
 > Les rapports d'audits et plans d'optimisation sont disponibles dans le dossier [`audits/`](./audits/).
@@ -70,9 +71,16 @@ kill switch, limites d'exposition).
 > [`audit-weather-algo-2026-08-04.md`](./audit-weather-algo-2026-08-04.md) ·
 > [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 >
-> Persistance données weather + onglet Données (2026-08-08) — **appliqué** (Phases 0–4 ; Phase 5 backtest différée) :
+> Persistance données weather + onglet Données (2026-08-08) — **appliqué** (Phases 0–4) :
 > [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md) ·
 > [`plans/2026-08-08_PLAN-weather-market-data-persistence.md`](./plans/2026-08-08_PLAN-weather-market-data-persistence.md)
+>
+> Backtest événementiel weather (moteur `@polywatch/backtest` + onglet Backtest) — **appliqué** :
+> [`backtest.md`](./backtest.md)
+>
+> Moteur de backtest événementiel (domaine weather) + onglet Backtest (2026-08-08) — **appliqué** :
+> [`backtest.md`](./backtest.md) ·
+> [`plans/2026-08-05_PLAN-backtest-engine-universel.md`](./plans/2026-08-05_PLAN-backtest-engine-universel.md)
 >
 > Sim-reset Redis hygiene (2026-07-12 + fixes 4.5) — **appliqué** (abort worker in-flight inclus, 2026-08-07) :
 > [`plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](./plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)

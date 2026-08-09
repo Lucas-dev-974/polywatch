@@ -5,7 +5,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @polywatch/core && npm run build -w @polywatch/backend && npm run build -w @polywatch/worker && npm run build -w @polywatch/copy-trading && npm run build -w @polywatch/crypto-algo && npm run build -w @polywatch/weather-algo && npm run build -w @polywatch/frontend",
+    "build": "npm run build -w @polywatch/core && npm run build -w @polywatch/backend && npm run build -w @polywatch/worker && npm run build -w @polywatch/copy-trading && npm run build -w @polywatch/crypto-algo && npm run build -w @polywatch/weather-algo && npm run build -w @polywatch/backtest && npm run build -w @polywatch/frontend",
     "dev": "node scripts/dev-preflight.mjs && concurrently -n core,backend,worker,copy-trading,crypto-algo,weather-algo,frontend -c blue,green,yellow,red,cyan,white,magenta \"npm run dev -w @polywatch/core\" \"npm run dev -w @polywatch/backend\" \"npm run dev:worker\" \"npm run dev:copy-trading\" \"npm run dev:crypto-algo\" \"npm run dev:weather-algo\" \"npm run dev:frontend\"",
     "dev:worker": "npm run dev -w @polywatch/worker",
     "dev:copy-trading": "npm run dev -w @polywatch/copy-trading",

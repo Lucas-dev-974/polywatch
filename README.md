@@ -12,6 +12,7 @@ packages/
   worker/        — @polywatch/worker (exécution CLOB/sim, SL/TP, sorties risque, janitors)
   crypto-algo/   — @polywatch/crypto-algo (trading algorithmique crypto court-terme)
   weather-algo/  — @polywatch/weather-algo (trading algorithmique météo, Open-Meteo)
+  backtest/      — @polywatch/backtest (moteur de backtest événementiel — replay weather)
   frontend/      — @polywatch/frontend (UI SolidJS)
 ```
 
@@ -66,4 +67,5 @@ npm run dry-run:real        # Vérifications pré-trading réel
 | [docs/metrics.md](docs/metrics.md) | Métriques Prometheus |
 | [docs/snapshots-simulation.md](docs/snapshots-simulation.md) | Snapshots simulation |
 | [docs/crypto-algo.md](docs/crypto-algo.md) | Trading algorithmique (Auto-Track, stratégies) |
+| [docs/backtest.md](docs/backtest.md) | Moteur de backtest événementiel (weather) |
 | [docs/code/](docs/code/README.md) | Documentation détaillée du code par package |

@@ -1,0 +1,219 @@
+{
+  "generatedAt": "2026-08-09T07:25:31.479Z",
+  "strategyId": "weather-forecast",
+  "ok": 6,
+  "warn": 2,
+  "fail": 0,
+  "info": 6,
+  "findings": [
+    {
+      "id": "cfg_snapshot",
+      "severity": "info",
+      "title": "Config live (seuils stratégiques)",
+      "detail": "{\n  \"enabled\": true,\n  \"sim\": true,\n  \"real\": false,\n  \"minEdge\": 0.1,\n  \"maxStd\": 1.5,\n  \"minForecastProb\": 0.3,\n  \"selectionMode\": \"multi\",\n  \"maxSignals\": 20,\n  \"switchMode\": \"close_and_reenter\",\n  \"hysteresis\": 2,\n  \"reentryMs\": 30000,\n  \"closeBeforeH\": 1,\n  \"driftThreshold\": 2,\n  \"entryUsdc\": 1,\n  \"maxOpen\": 40,\n  \"slBid\": 0.2,\n  \"tpBid\": 1,\n  \"trailingBid\": 0.1\n}"
+    },
+    {
+      "id": "counts",
+      "severity": "info",
+      "title": "Volume positions WEATHER_OPEN",
+      "detail": "13 positions",
+      "count": 13,
+      "samples": [
+        {
+          "statusBreakdown": {
+            "open": 4,
+            "closed": 8,
+            "cancelled": 1
+          },
+          "outcomeBreakdown": {
+            "YES": 13
+          },
+          "closeReasonBreakdown": {
+            "WEATHER_BUCKET_EXIT": 8,
+            "reservation_released": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "r_buy_yes_only",
+      "severity": "ok",
+      "title": "Règle BUY YES uniquement",
+      "detail": "Toutes les positions sont BUY YES",
+      "count": 0,
+      "samples": []
+    },
+    {
+      "id": "r_forecast_snapshot",
+      "severity": "ok",
+      "title": "Snapshot WeatherPositionForecast présent",
+      "detail": "Snapshot présent pour 12 positions pertinentes",
+      "count": 0,
+      "samples": []
+    },
+    {
+      "id": "r_one_per_city",
+      "severity": "ok",
+      "title": "Au plus 1 position active par ville",
+      "detail": "4 position(s) active(s), 1 max par ville respecté",
+      "count": 0,
+      "samples": []
+    },
+    {
+      "id": "r_entry_gates_recomputed",
+      "severity": "ok",
+      "title": "Gates entrée recomputés (forecastProb / std / edge floor)",
+      "detail": "12 positions recomputées, 0 skippées, 0 violation(s) nette(s) vs config actuelle (attention: config a pu changer depuis l'entrée)",
+      "count": 0,
+      "samples": []
+    },
+    {
+      "id": "r_bucket_selection_live",
+      "severity": "info",
+      "title": "Sélection bucket live = best edge (pas forecast-aligned)",
+      "detail": "9/12 positions (75%) ont un forecastMean HORS du bucket d'entrée au moment de l'entrée. C'est conforme à pickBestEdgeBucket (max edge), pas à selectForecastAlignedBucket (doc obsolète).",
+      "count": 9,
+      "samples": [
+        {
+          "id": 30506,
+          "city": "Amsterdam",
+          "entryPrice": 0.14,
+          "forecastProb": 0.3238,
+          "edge": 0.1838
+        },
+        {
+          "id": 30505,
+          "city": "Austin",
+          "entryPrice": 0.1,
+          "forecastProb": 0.3357,
+          "edge": 0.2357
+        },
+        {
+          "id": 30504,
+          "city": "Austin",
+          "entryPrice": 0.12,
+          "forecastProb": 0.3499,
+          "edge": 0.2299
+        },
+        {
+          "id": 30503,
+          "city": "Austin",
+          "entryPrice": 0.13,
+          "forecastProb": 0.3499,
+          "edge": 0.2199
+        },
+        {
+          "id": 30502,
+          "city": "Austin",
+          "entryPrice": 0.13,
+          "forecastProb": 0.3546,
+          "edge": 0.2246
+        },
+        {
+          "id": 30501,
+          "city": "Austin",
+          "entryPrice": 0.15,
+          "forecastProb": 0.3445,
+          "edge": 0.1945
+        },
+        {
+          "id": 30500,
+          "city": "Austin",
+          "entryPrice": 0.15,
+          "forecastProb": 0.3097,
+          "edge": 0.1597
+        },
+        {
+          "id": 30498,
+          "city": "Austin",
+          "entryPrice": 0.14,
+          "forecastProb": 0.3097,
+          "edge": 0.1697
+        },
+        {
+          "id": 30496,
+          "city": "Austin",
+          "entryPrice": 0.14,
+          "forecastProb": 0.3097,
+          "edge": 0.1697
+        }
+      ]
+    },
+    {
+      "id": "dist_entry_quality",
+      "severity": "info",
+      "title": "Distribution qualité entrée (recomputée)",
+      "detail": "{\n  \"n\": 12,\n  \"entryPrice\": {\n    \"min\": 0.1,\n    \"median\": 0.14,\n    \"max\": 0.56\n  },\n  \"forecastProb\": {\n    \"min\": 0.3097,\n    \"median\": 0.3499,\n    \"max\": 0.7037\n  },\n  \"pctEntryPriceBelow010\": 0,\n  \"pctForecastProbBelow030\": 0,\n  \"pctOutOfBucketAtEntry\": 75\n}"
+    },
+    {
+      "id": "r_eval_log_signals",
+      "severity": "ok",
+      "title": "weather_evaluation_log — signaux vs seuils",
+      "detail": "92 signals / 2387 rows auditées ; 0 signal(s) incohérent(s)",
+      "count": 0,
+      "samples": [
+        {
+          "abstainReasonsTop": [
+            {
+              "reason": "forecast_probability_below_min",
+              "n": 2062
+            },
+            {
+              "reason": "insufficient_edge",
+              "n": 172
+            },
+            {
+              "reason": "zero_forecast_probability",
+              "n": 44
+            },
+            {
+              "reason": "forecast_too_uncertain",
+              "n": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kpi_sim_closed",
+      "severity": "info",
+      "title": "KPI sim closed",
+      "detail": "{\n  \"closed\": 8,\n  \"winners\": 0,\n  \"losers\": 8,\n  \"winRatePct\": 0,\n  \"realizedPnl\": -2.1218\n}"
+    },
+    {
+      "id": "r_hold_no_bucket_exit",
+      "severity": "ok",
+      "title": "Cohérence switchMode / WEATHER_BUCKET_EXIT",
+      "detail": "switchMode=close_and_reenter; WEATHER_BUCKET_EXIT=8"
+    },
+    {
+      "id": "ops_multi_aggressive",
+      "severity": "warn",
+      "title": "Selection multi agressive",
+      "detail": "selectionMode=multi maxSignals=20 — risque de churn / cancels élevé"
+    },
+    {
+      "id": "ops_reentry_short",
+      "severity": "warn",
+      "title": "Re-entry throttle très court",
+      "detail": "reentryThrottleMs=30000 (<60s) — favorise les re-entrées immédiates après bucket/drift exit"
+    },
+    {
+      "id": "auto_track",
+      "severity": "info",
+      "title": "Règles auto-track",
+      "detail": "4/44 enabled",
+      "count": 44,
+      "samples": [
+        {
+          "metrics": [
+            {
+              "metric": "highest_temp",
+              "n": 44
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

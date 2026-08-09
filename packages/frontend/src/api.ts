@@ -1004,7 +1004,8 @@ export interface BacktestStats {
   finalEquity: number;
   maxDrawdown: number;
   winRate: number;
-  profitFactor: number;
+  /** null = +Infinity (aucun trade perdant), JSON-safe */
+  profitFactor: number | null;
   avgWin: number;
   avgLoss: number;
   expectancy: number;

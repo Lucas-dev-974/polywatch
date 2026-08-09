@@ -3,7 +3,7 @@
 **Date** : 2026-08-08  
 **Statut** : **Appliqué** (Phases 0–4 du plan + UI onglet Données / purge)  
 **Plan source** : [`../2026-08-08_PLAN-weather-market-data-persistence.md`](../2026-08-08_PLAN-weather-market-data-persistence.md)  
-**Hors scope initial** : Phase 5 (`WeatherDataLoader` / `packages/backtest`) — **implémentée depuis 2026-08-09** ; voir [`../backtest.md`](../backtest.md) et [`../2026-08-05_PLAN-backtest-engine-universel.md`](../2026-08-05_PLAN-backtest-engine-universel.md)
+**Hors scope initial** : Phase 5 (`WeatherDataLoader` / `packages/backtest`) — **implémentée depuis 2026-08-09** ; voir [`../../backtest.md`](../../backtest.md), [`../2026-08-05_PLAN-backtest-engine-universel.md`](../2026-08-05_PLAN-backtest-engine-universel.md), et patch [`2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) (`engineVersion` 0.2.0)
 
 ---
 

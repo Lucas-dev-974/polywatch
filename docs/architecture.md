@@ -177,14 +177,16 @@ Process sans serveur HTTP — trading météo **par ville**. Détail :
 
 Bibliothèque consommée par le backend — aucun processus autonome. Moteur de
 backtest **événementiel** (domaine weather v1) : rejoue les données persistées
-sur une horloge virtuelle déterministe en réutilisant `WeatherForecastStrategy`.
-Détail : [`backtest.md`](./backtest.md) · [`docs/code/09-backtest.md`](code/09-backtest.md).
+sur une horloge virtuelle déterministe en réutilisant `WeatherForecastStrategy`
+et `resolveWeatherEntryExitParams` (seuils SL/TP alignés live, `engineVersion`
+semver). Détail : [`backtest.md`](./backtest.md) · [`docs/code/09-backtest.md`](code/09-backtest.md).
 
-- Deux modes : `reevaluate` (ré-exécute la stratégie) et `replay` (rejoue les décisions enregistrées).
+- Deux modes : `reevaluate` (ré-exécute la stratégie + filtre lifecycle marché) et `replay` (rejoue les décisions enregistrées).
 - Exécuté **in-process** par le backend (async, yields `setImmediate`) ; la UI polle le run.
-- Verrou singleton (un run weather actif) ; runs orphelins marqués `failed` au boot.
+- Verrou singleton (un run weather actif) ; DELETE refusé si run actif ; orphelins → `failed` au boot.
 - Timeout (`BACKTEST_TIMEOUT_MS`, défaut 30 min) et cancel coopératif avec flush final
   (cancel conserve les stats ; timeout → `failed` sans stats).
+- Kill-switch `force_close_all` → sorties `KILL_SWITCH` ; throttle re-entry = bucket/drift seulement.
 - Résultats persistés dans `backtest_runs` / `backtest_positions` / `backtest_equity_points`.
 
 ### Frontend (`packages/frontend`)

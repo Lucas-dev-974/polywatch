@@ -57,7 +57,8 @@ export interface BacktestRunStats {
   finalEquity: number;
   maxDrawdown: number;
   winRate: number;
-  profitFactor: number;
+  /** Null means +Infinity (no losing trades) — JSON-safe. */
+  profitFactor: number | null;
   avgWin: number;
   avgLoss: number;
   expectancy: number;

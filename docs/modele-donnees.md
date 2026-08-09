@@ -343,12 +343,15 @@ Service : `BacktestRunService`. Doc : [`backtest.md`](./backtest.md).
 **`backtest_runs`** — job de replay :
 - Cycle de vie : `queued` → `running` → `completed` | `failed` | `cancelled`
 - `params_json` (plage, mode, villes, capital…), `config_snapshot_json`, `config_fingerprint`
-- `stats_json` (PnL, win rate, profit factor, max drawdown…), `fidelity_warnings_json`
+- `engine_version` (semver moteur, ex. `0.2.0` via `BACKTEST_ENGINE_VERSION`)
+- `stats_json` (PnL, win rate, `profitFactor` **null = +∞**, max drawdown, `byExitReason`, `byCity`…), `fidelity_warnings_json`
 - `data_range_from` / `data_range_to` (plage réellement couverte par les events)
 - `error` si `failed` (exception, `timeout`, `backend_restart`)
 
 **`backtest_positions`** — positions simulées (FK `run_id` ON DELETE CASCADE) :
-- Entrée/sortie, prix, PnL, fees, `entry_reason`, `exit_reason`, `meta_json` (edge, bucket…)
+- Entrée/sortie, prix, PnL, fees, `entry_reason`, `exit_reason`
+  (`SL`/`TP`/`TRAILING`/`RESOLUTION`/`KILL_SWITCH`/`WEATHER_*`…),
+  `meta_json` (edge, bucket, seuils SL/TP résolus à l’entrée…)
 - Positions encore ouvertes en fin de run : `exit_price` / `exit_at` / `pnl` = `null`
 
 **`backtest_equity_points`** — courbe d'equity (~1 point/min de temps rejoué) :

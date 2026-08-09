@@ -10,6 +10,7 @@ import {
 } from './params.js';
 
 export { parseBacktestParams, backtestRunParamsSchema, type BacktestRunParams };
+export { BACKTEST_ENGINE_VERSION } from './engine-version.js';
 
 export interface RunBacktestInput {
   runId: number;

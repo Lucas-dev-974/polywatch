@@ -7,6 +7,7 @@ export type BacktestExitReason =
   | 'RESOLUTION'
   | 'STRATEGY_FLIP'
   | 'WINDOW_CLOSE'
+  | 'KILL_SWITCH'
   | 'WEATHER_PRE_CLOSE'
   | 'WEATHER_FORECAST_CHANGE'
   | 'WEATHER_BUCKET_EXIT';

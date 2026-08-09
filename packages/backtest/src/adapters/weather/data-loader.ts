@@ -27,7 +27,7 @@ export async function* loadWeatherEvents(
     loadTickEvents(ds, from, to, cities),
   ];
   if (params.mode === 'replay') {
-    streams.push(loadSignalEvents(ds, from, to, cities));
+    streams.push(loadSignalEvents(ds, from, to, cities, params.strategyId));
   }
 
   yield* mergeEventStreams(streams);
@@ -45,7 +45,7 @@ export async function countWeatherEvents(
   let total = await countForecastEvents(ds, from, to, cities);
   total += await countTickEvents(ds, from, to, cities);
   if (params.mode === 'replay') {
-    total += await countSignalEvents(ds, from, to, cities);
+    total += await countSignalEvents(ds, from, to, cities, params.strategyId);
   }
   return total;
 }
@@ -90,13 +90,16 @@ async function countSignalEvents(
   from: Date,
   to: Date,
   cities: string[] | null,
+  strategyId: string,
 ): Promise<number> {
   const qb = ds
     .getRepository(WeatherEvaluationLog)
     .createQueryBuilder('e')
     .leftJoin(WeatherMarketSnapshot, 's', 's.id = e.snapshotId')
     .where('e.evaluatedAt >= :from', { from })
-    .andWhere('e.evaluatedAt <= :to', { to });
+    .andWhere('e.evaluatedAt <= :to', { to })
+    .andWhere("e.decision = 'signal'")
+    .andWhere('e.strategyId = :strategyId', { strategyId });
   if (cities) {
     qb.andWhere('LOWER(s.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
   }
@@ -276,6 +279,7 @@ async function* loadSignalEvents(
   from: Date,
   to: Date,
   cities: string[] | null,
+  strategyId: string,
 ): AsyncGenerator<BacktestEvent> {
   const CHUNK = 5000;
   let cursor: TimeIdCursor | null = null;
@@ -302,6 +306,8 @@ async function* loadSignalEvents(
       ])
       .where('e.evaluatedAt >= :from', { from })
       .andWhere('e.evaluatedAt <= :to', { to })
+      .andWhere("e.decision = 'signal'")
+      .andWhere('e.strategyId = :strategyId', { strategyId })
       .orderBy('e.evaluatedAt', 'ASC')
       .addOrderBy('e.id', 'ASC')
       .limit(CHUNK);

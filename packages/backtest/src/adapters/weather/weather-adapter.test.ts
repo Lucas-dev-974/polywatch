@@ -22,6 +22,7 @@ function baseRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
     weatherAlgoMaxSignalsPerEvent: 3,
     weatherAlgoForecastChangeThreshold: 2,
     weatherAlgoBucketHysteresisPolls: 2,
+    weatherAlgoPollMs: 1_800_000,
     weatherAlgoReentryThrottleMs: 1_800_000,
     weatherAlgoCityFollowSwitchMode: 'close_and_reenter',
     weatherAlgoSlEnabled: true,

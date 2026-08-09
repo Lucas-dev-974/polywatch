@@ -21,6 +21,7 @@ import {
   normalizeWeatherCity,
   buildLookAheadTargetDates,
   resolveMarketTargetDateIso,
+  isMarketActiveForWeather,
   type BucketCandidate,
 } from '@polywatch/core';
 import type { WeatherStrategyRegistry } from './registry.js';
@@ -675,23 +676,6 @@ export class WeatherStrategyRunner {
     const best = signals.reduce((a, b) => (b.edge > a.edge ? b : a));
     return [best];
   }
-}
-
-function isMarketActiveForWeather(
-  market: MarketListItemDto,
-  minHoursToClose: number,
-): boolean {
-  if (market.closed) return false;
-  if (market.acceptingOrders === false) return false;
-  // Weather markets must be CLOB-tradable: a YES token id is required for
-  // execution, otherwise the worker will cancel the order with no fill.
-  if (!market.tokenIdYes) return false;
-  if (market.endDate) {
-    const end = new Date(market.endDate).getTime();
-    const minMs = Math.max(0, minHoursToClose) * 3_600_000;
-    if (end - Date.now() < minMs) return false;
-  }
-  return true;
 }
 
 /**

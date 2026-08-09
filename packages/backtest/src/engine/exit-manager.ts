@@ -16,14 +16,26 @@ export interface ExitDecision {
   fees: number;
 }
 
+function readResolvedBidPoints(
+  meta: Record<string, unknown>,
+  key: string,
+): number | null {
+  const v = meta[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
 /**
  * Weather exit rules evaluated purely in-memory at each book tick that
- * touches an open position. The live WeatherExitEvaluator is Redis/network
- * coupled, so this mirrors its behaviour with a local hysteresis map.
+ * touches an open position. Mirrors live WeatherExitEvaluator behaviour:
+ * - re-entry throttle only for bucket/drift exits
+ * - bucket hysteresis advances at most once per weatherAlgoPollMs
+ * - SL/TP/trailing use thresholds resolved at entry (meta.*BidPoints)
  */
 export class WeatherExitManager {
   /** positionId (conditionId) -> consecutive out-of-bucket polls. */
   private bucketHysteresis = new Map<string, number>();
+  /** positionId -> last virtual time hysteresis was advanced. */
+  private lastHysteresisAdvanceAt = new Map<string, number>();
   /** city -> last close timestamp (re-entry throttle). */
   private reentryThrottle = new Map<string, number>();
 
@@ -61,6 +73,8 @@ export class WeatherExitManager {
     const now = input.now;
 
     const closeBeforeHours = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+    // Negative hoursToEnd (endDate already past) is intentional: the helper
+    // treats hoursToEnd <= closeBeforeHours as pre-close (see R3 follow-up).
     let hoursToEnd = Number.POSITIVE_INFINITY;
     if (input.endDate) {
       hoursToEnd = (input.endDate.getTime() - now.getTime()) / 3_600_000;
@@ -71,7 +85,6 @@ export class WeatherExitManager {
         yesPrice: input.yesPrice,
         slippageBps: input.slippageBps,
       });
-      this.markClosed(pos.city ?? '', now);
       return { reason: 'WEATHER_PRE_CLOSE', exitPrice, fees };
     }
 
@@ -93,15 +106,28 @@ export class WeatherExitManager {
       );
       const switchMode = resolveCityFollowSwitchMode(risk.weatherAlgoCityFollowSwitchMode);
       const hysteresisPolls = risk.weatherAlgoBucketHysteresisPolls ?? 2;
+      const pollMs = risk.weatherAlgoPollMs ?? 1_800_000;
 
       if (!leftBucket) {
         this.bucketHysteresis.delete(pos.conditionId);
+        this.lastHysteresisAdvanceAt.delete(pos.conditionId);
       } else {
-        const consecutive = (this.bucketHysteresis.get(pos.conditionId) ?? 0) + 1;
-        this.bucketHysteresis.set(pos.conditionId, consecutive);
-        bucketExit =
-          switchMode === 'close_and_reenter' &&
-          shouldEmitBucketExit(switchMode, true, consecutive, hysteresisPolls);
+        const lastAdvance = this.lastHysteresisAdvanceAt.get(pos.conditionId);
+        const canAdvance =
+          lastAdvance == null || now.getTime() - lastAdvance >= pollMs;
+        if (canAdvance) {
+          const consecutive = (this.bucketHysteresis.get(pos.conditionId) ?? 0) + 1;
+          this.bucketHysteresis.set(pos.conditionId, consecutive);
+          this.lastHysteresisAdvanceAt.set(pos.conditionId, now.getTime());
+          bucketExit =
+            switchMode === 'close_and_reenter' &&
+            shouldEmitBucketExit(switchMode, true, consecutive, hysteresisPolls);
+        } else {
+          const consecutive = this.bucketHysteresis.get(pos.conditionId) ?? 0;
+          bucketExit =
+            switchMode === 'close_and_reenter' &&
+            shouldEmitBucketExit(switchMode, true, consecutive, hysteresisPolls);
+        }
       }
     }
 
@@ -117,13 +143,13 @@ export class WeatherExitManager {
     });
     this.markClosed(pos.city ?? '', now);
     this.bucketHysteresis.delete(pos.conditionId);
+    this.lastHysteresisAdvanceAt.delete(pos.conditionId);
     return { reason, exitPrice, fees };
   }
 
   /**
-   * SL/TP/Trailing exit decision using the config thresholds resolved at
-   * entry (weatherAlgoSlBidPoints etc). Mirrors evaluateSlTpTrailing for a
-   * buy-YES position where thresholds are bid offsets from entry.
+   * SL/TP/Trailing using thresholds resolved at entry and stored on
+   * `pos.meta` (via resolveWeatherEntryExitParams). Null = leg disabled.
    */
   evaluateSlTpTrailing(
     pos: LedgerPosition,
@@ -133,51 +159,50 @@ export class WeatherExitManager {
       slippageBps: number;
     },
   ): ExitDecision | null {
-    const risk = this.risk;
     const bid = input.yesPrice;
     const entry = pos.entryPrice;
+    const slBidPoints = readResolvedBidPoints(pos.meta, 'slBidPoints');
+    const tpBidPoints = readResolvedBidPoints(pos.meta, 'tpBidPoints');
+    const trailingBidPoints = readResolvedBidPoints(pos.meta, 'trailingBidPoints');
+    const trailingActivationBidPoints = readResolvedBidPoints(
+      pos.meta,
+      'trailingActivationBidPoints',
+    );
 
-    if (risk.weatherAlgoSlEnabled !== false && risk.weatherAlgoSlBidPoints != null) {
-      const slBidAbsolute = entry - risk.weatherAlgoSlBidPoints;
+    if (slBidPoints != null) {
+      const slBidAbsolute = entry - slBidPoints;
       if (bid <= slBidAbsolute) {
         const { exitPrice, fees } = simulateWeatherExitFill({
           qty: pos.qty,
           yesPrice: input.yesPrice,
           slippageBps: input.slippageBps,
         });
-        this.markClosed(pos.city ?? '', input.now);
         return { reason: 'SL', exitPrice, fees };
       }
     }
 
-    if (risk.weatherAlgoTpEnabled !== false && risk.weatherAlgoTpBidPoints != null) {
-      const tpBidAbsolute = Math.min(entry + risk.weatherAlgoTpBidPoints, 1);
+    if (tpBidPoints != null) {
+      const tpBidAbsolute = Math.min(entry + tpBidPoints, 1);
       if (bid >= tpBidAbsolute) {
         const { exitPrice, fees } = simulateWeatherExitFill({
           qty: pos.qty,
           yesPrice: input.yesPrice,
           slippageBps: input.slippageBps,
         });
-        this.markClosed(pos.city ?? '', input.now);
         return { reason: 'TP', exitPrice, fees };
       }
     }
 
-    if (
-      risk.weatherAlgoTrailingEnabled !== false &&
-      risk.weatherAlgoTrailingBidPoints != null &&
-      risk.weatherAlgoTrailingBidPoints > 0
-    ) {
+    if (trailingBidPoints != null && trailingBidPoints > 0) {
       const armed =
-        risk.weatherAlgoTrailingActivationBidPoints == null ||
-        bid >= entry + risk.weatherAlgoTrailingActivationBidPoints;
-      if (armed && pos.peakBid - bid >= risk.weatherAlgoTrailingBidPoints) {
+        trailingActivationBidPoints == null ||
+        bid >= entry + trailingActivationBidPoints;
+      if (armed && pos.peakBid - bid >= trailingBidPoints) {
         const { exitPrice, fees } = simulateWeatherExitFill({
           qty: pos.qty,
           yesPrice: input.yesPrice,
           slippageBps: input.slippageBps,
         });
-        this.markClosed(pos.city ?? '', input.now);
         return { reason: 'TRAILING', exitPrice, fees };
       }
     }

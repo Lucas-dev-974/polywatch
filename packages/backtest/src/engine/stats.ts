@@ -41,11 +41,12 @@ export function computeStats(
   const winRate = totalTrades > 0 ? wins.length / totalTrades : 0;
   const grossWin = wins.reduce((s, p) => s + p.pnl, 0);
   const grossLoss = losses.reduce((s, p) => s + p.pnl, 0);
-  const profitFactor =
+  // Infinity is not JSON-safe (becomes null). Encode "no losses" as null.
+  const profitFactor: number | null =
     grossLoss !== 0
       ? grossWin / Math.abs(grossLoss)
       : grossWin > 0
-        ? Number.POSITIVE_INFINITY
+        ? null
         : 0;
   const avgWin = wins.length > 0 ? grossWin / wins.length : 0;
   const avgLoss = losses.length > 0 ? grossLoss / losses.length : 0;

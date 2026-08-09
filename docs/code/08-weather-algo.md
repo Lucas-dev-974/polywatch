@@ -24,7 +24,7 @@ dédiées (`close-signals`).
 | `strategy/strategy.ts` | Contrats `WeatherSignal` / `WeatherStrategy` |
 | `strategy/registry.ts` | Registre simple (pas de filtre JSON strategies) |
 | `strategy/weather-forecast.strategy.ts` | Stratégie edge BUY YES |
-| `strategy/strategy-runner.ts` | Boucle poll : exits puis entrées city-follow ; enregistrement snapshot / forecast history / eval log |
+| `strategy/strategy-runner.ts` | Boucle poll : exits puis entrées city-follow ; filtre `isMarketActiveForWeather` (core, partagé backtest) ; recorders data |
 | `strategy/runner-bucket-helpers.ts` | Prix YES/NO buckets via `binaryPricesFromParsed` / `binaryPricesToUpDown` |
 | `processors/weather-entry-pipeline.ts` | Sizing / MOS / reserve / enqueue |
 | `processors/weather-exit-evaluator.ts` | Pre-close / drift / bucket-exit + hysteresis |

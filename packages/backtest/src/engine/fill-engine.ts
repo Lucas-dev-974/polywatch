@@ -8,14 +8,10 @@ export const BACKTEST_PLATFORM_FEE: PlatformFeeParams = {
 
 export interface FillInput {
   conditionId: string;
-  city?: string | null;
   yesPrice: number;
   entryUsdc: number;
-  entryAt: Date;
   slippageBps: number;
   maxPositionSizeUsdc?: number;
-  entryReason?: string | null;
-  meta?: Record<string, unknown>;
 }
 
 export interface FillResult {

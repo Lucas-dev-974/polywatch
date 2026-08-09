@@ -132,9 +132,9 @@ describe('computeStats', () => {
     expect(stats.expectancy).toBe(0);
   });
 
-  it('reports infinite profit factor on no losses', () => {
+  it('reports null profit factor on no losses (JSON-safe Infinity)', () => {
     const stats = computeStats([closed({ pnl: 5, ms: 1000, reason: 'TP' })], 1000, 1005, []);
-    expect(stats.profitFactor).toBe(Number.POSITIVE_INFINITY);
+    expect(stats.profitFactor).toBeNull();
   });
 });
 

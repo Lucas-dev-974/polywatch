@@ -38,17 +38,24 @@ export function buildWeatherQuestion(input: {
   const date = formatDate(input.targetDateIso);
   const comparison = input.bucketComparison;
 
-  if (comparison === 'between' && input.bucketLow != null && input.bucketHigh != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be between ${input.bucketLow}-${input.bucketHigh}°C on ${date}?`;
+  // parseWeatherQuestion only accepts integer °C (`-?\d+`). Round non-integers
+  // so synthesized questions remain parseable.
+  const intTarget =
+    input.bucketTarget != null ? Math.round(input.bucketTarget) : null;
+  const intLow = input.bucketLow != null ? Math.round(input.bucketLow) : null;
+  const intHigh = input.bucketHigh != null ? Math.round(input.bucketHigh) : null;
+
+  if (comparison === 'between' && intLow != null && intHigh != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be between ${intLow}-${intHigh}°C on ${date}?`;
   }
-  if (comparison === 'or_below' && input.bucketTarget != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be ${input.bucketTarget}°C or below on ${date}?`;
+  if (comparison === 'or_below' && intTarget != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be ${intTarget}°C or below on ${date}?`;
   }
-  if (comparison === 'or_above' && input.bucketTarget != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be ${input.bucketTarget}°C or above on ${date}?`;
+  if (comparison === 'or_above' && intTarget != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be ${intTarget}°C or above on ${date}?`;
   }
-  if (comparison === 'exact' && input.bucketTarget != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be ${input.bucketTarget}°C on ${date}?`;
+  if (comparison === 'exact' && intTarget != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be ${intTarget}°C on ${date}?`;
   }
 
   // Unrecognized comparison/bounds — cannot synthesize a parseable question.

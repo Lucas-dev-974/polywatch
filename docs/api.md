@@ -412,11 +412,13 @@ Doc : [`backtest.md`](./backtest.md).
 | GET | `/api/backtest/runs` | Liste paginée (`domain`, `status`, `limit`≤100, `offset`) → `{ items, total }` |
 | GET | `/api/backtest/runs/:id` | Détail d'un run (params, stats, warnings, plage, `error` si failed) |
 | POST | `/api/backtest/runs/:id/cancel` | Cancel coopératif (si `running`/`queued`) → **200** `{ id, status: 'cancelling' }` ; le runner flush ensuite equity + positions et passe en `cancelled` (stats partielles). **400** `not_cancellable` sinon |
-| DELETE | `/api/backtest/runs/:id` | Supprime le run + ses positions + son equity ; si un run in-process est actif, pose aussi le flag cancel |
+| DELETE | `/api/backtest/runs/:id` | Supprime le run + ses positions + son equity ; **409** `run_still_active` si le run est encore `running`/`queued` (annuler d’abord) |
 | GET | `/api/backtest/runs/:id/positions` | Positions paginées (`limit`≤500, `offset`, filtre `exitReason`) |
 | GET | `/api/backtest/runs/:id/equity` | Courbe d'equity `{ points: [{ t, equity, cash, openPositions }] }` (`t` = ISO timestamp) |
 
-Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId`, `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs` (accepté mais non appliqué → warning `detection_delay_unused` si > 0), `label`.
+Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId` (défaut `weather-forecast` — **filtré en SQL** en mode `replay`), `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs` (accepté mais non appliqué → warning `detection_delay_unused` si > 0), `label`.
+
+`engine_version` du run = `BACKTEST_ENGINE_VERSION` du package (`0.2.0`+). `stats.profitFactor` peut être `null` (= +∞, aucun trade perdant).
 
 Timeout : si `BACKTEST_TIMEOUT_MS` est dépassé, flush equity + positions puis `status=failed` / `error=timeout` (sans `statsJson`).
 

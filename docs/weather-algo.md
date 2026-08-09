@@ -102,7 +102,9 @@ Purge horaire selon rétention (`weatherAlgo*RetentionDays`), indépendante des 
 Doc d’implémentation : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 Le **backtest** de la stratégie (rejouer les données persistées ci-dessus) est
-décrit dans [`backtest.md`](./backtest.md).
+décrit dans [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.2.0` pour une
+fidélité alignée live : SL/TP via `resolveWeatherEntryExitParams`, filtre
+`isMarketActiveForWeather`, throttle bucket/drift, kill-switch).
 
 ---
 

@@ -9,7 +9,12 @@ import {
   type BacktestExitReason,
   type WeatherConfig,
 } from '@polywatch/core';
-import { runBacktest, parseBacktestParams, type BacktestRunParams } from '@polywatch/backtest';
+import {
+  runBacktest,
+  parseBacktestParams,
+  BACKTEST_ENGINE_VERSION,
+  type BacktestRunParams,
+} from '@polywatch/backtest';
 import { requireJwt } from '../middleware/auth.js';
 import pino from 'pino';
 
@@ -55,6 +60,7 @@ function parseExitReason(value: unknown): BacktestExitReason | null {
   if (typeof value !== 'string' || !value.trim()) return null;
   const known: BacktestExitReason[] = [
     'SL', 'TP', 'TRAILING', 'RESOLUTION', 'STRATEGY_FLIP', 'WINDOW_CLOSE',
+    'KILL_SWITCH',
     'WEATHER_PRE_CLOSE', 'WEATHER_FORECAST_CHANGE', 'WEATHER_BUCKET_EXIT',
   ];
   return known.includes(value as BacktestExitReason) ? (value as BacktestExitReason) : null;
@@ -112,7 +118,7 @@ export function createBacktestRouter(ds: DataSource): Router {
       paramsJson: JSON.stringify(params),
       configSnapshotJson: JSON.stringify(config),
       configFingerprint: computeConfigFingerprint(config),
-      engineVersion: '1',
+      engineVersion: BACKTEST_ENGINE_VERSION,
       label: params.label ?? null,
     });
 
@@ -206,9 +212,9 @@ export function createBacktestRouter(ds: DataSource): Router {
       res.status(404).json({ error: 'not_found' });
       return;
     }
-    const tracker = activeRuns.get(id);
-    if (tracker) {
-      tracker.cancelled = true;
+    if (run.status === 'running' || run.status === 'queued') {
+      res.status(409).json({ error: 'run_still_active', status: run.status });
+      return;
     }
     await service.delete(id);
     activeRuns.delete(id);

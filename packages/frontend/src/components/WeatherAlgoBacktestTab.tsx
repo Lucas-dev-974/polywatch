@@ -1,4 +1,4 @@
-import { createSignal, For, Show, onMount } from 'solid-js';
+import { createSignal, For, Show, onMount, onCleanup } from 'solid-js';
 import {
   cancelBacktestRun,
   deleteBacktestRun,
@@ -40,6 +40,12 @@ function fmtUsd(value: number | null | undefined): string {
   return fmtNum(value, 2);
 }
 
+/** Capital from a completed/selected run — never trust form state for the equity chart. */
+function resolveRunCapital(params: Record<string, unknown> | null | undefined): number {
+  const n = Number(params?.capital);
+  return Number.isFinite(n) && n > 0 ? n : 1000;
+}
+
 function toDateInputValue(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -51,12 +57,21 @@ const EXIT_REASON_LABEL: Record<string, string> = {
   TP: 'Take profit',
   TRAILING: 'Trailing',
   RESOLUTION: 'Résolution',
+  KILL_SWITCH: 'Kill-switch',
   WEATHER_PRE_CLOSE: 'Pré-close',
   WEATHER_FORECAST_CHANGE: 'Dérive forecast',
   WEATHER_BUCKET_EXIT: 'Sortie de bucket',
   STRATEGY_FLIP: 'Flip stratégie',
   WINDOW_CLOSE: 'Fenêtre',
 };
+
+function fmtHolding(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
+  const h = ms / 3_600_000;
+  if (h >= 1) return `${h.toFixed(1)} h`;
+  const m = ms / 60_000;
+  return `${m.toFixed(0)} min`;
+}
 
 export function WeatherAlgoBacktestTab() {
   // ── Coverage (disponibilité des données) ─────────────────────────
@@ -128,6 +143,7 @@ export function WeatherAlgoBacktestTab() {
   }
 
   async function refreshDetail(id: number) {
+    setDetailLoading(true);
     try {
       const run = await fetchBacktestRun(id);
       setDetail(run);
@@ -145,6 +161,8 @@ export function WeatherAlgoBacktestTab() {
       setDetailError(null);
     } catch (err) {
       setDetailError(err instanceof Error ? err.message : 'Détail indisponible');
+    } finally {
+      setDetailLoading(false);
     }
   }
 
@@ -171,6 +189,10 @@ export function WeatherAlgoBacktestTab() {
     if (restoredId != null) {
       openRun(restoredId);
     }
+  });
+
+  onCleanup(() => {
+    stopPolling();
   });
 
   async function submit(e: Event) {
@@ -237,8 +259,13 @@ export function WeatherAlgoBacktestTab() {
       await deleteBacktestRun(id);
       if (selectedId() === id) closeRun();
       await refreshList();
-    } catch {
-      /* ignore */
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Suppression impossible';
+      setDetailError(
+        msg.includes('run_still_active')
+          ? 'Impossible de supprimer un run en cours — annulez-le d’abord.'
+          : msg,
+      );
     }
   }
 
@@ -381,7 +408,7 @@ export function WeatherAlgoBacktestTab() {
           positions={positions()}
           loading={detailLoading()}
           error={detailError()}
-          capital={Number(capital()) || 1000}
+          capital={resolveRunCapital(selectedRun()!.params)}
           onBack={closeRun}
           onCancel={() => void doCancel(selectedRun()!.id)}
           onDelete={() => void doDelete(selectedRun()!.id)}
@@ -598,12 +625,38 @@ function MetricGrid(props: { stats: NonNullable<BacktestRunDto['stats']>; capita
       </div>
       <div class="backtest-metric">
         <span class="backtest-metric-label">Profit factor</span>
-        <span class="backtest-metric-value">{fmtNum(s.profitFactor, 2)}</span>
+        <span class="backtest-metric-value">
+          {s.profitFactor == null && s.totalTrades > 0 ? '∞' : fmtNum(s.profitFactor, 2)}
+        </span>
       </div>
       <div class="backtest-metric">
         <span class="backtest-metric-label">Expectancy</span>
         <span class="backtest-metric-value">{fmtUsd(s.expectancy)}</span>
       </div>
+      <div class="backtest-metric">
+        <span class="backtest-metric-label">Durée moy.</span>
+        <span class="backtest-metric-value">{fmtHolding(s.avgHoldingMs)}</span>
+      </div>
+      <Show when={Object.keys(s.byExitReason ?? {}).length > 0}>
+        <div class="backtest-metric backtest-metric--wide">
+          <span class="backtest-metric-label">Par sortie</span>
+          <span class="backtest-metric-value">
+            {Object.entries(s.byExitReason)
+              .map(([k, n]) => `${EXIT_REASON_LABEL[k] ?? k}: ${n}`)
+              .join(' · ')}
+          </span>
+        </div>
+      </Show>
+      <Show when={Object.keys(s.byCity ?? {}).length > 0}>
+        <div class="backtest-metric backtest-metric--wide">
+          <span class="backtest-metric-label">Par ville</span>
+          <span class="backtest-metric-value">
+            {Object.entries(s.byCity)
+              .map(([k, n]) => `${k}: ${n}`)
+              .join(' · ')}
+          </span>
+        </div>
+      </Show>
     </div>
   );
 }

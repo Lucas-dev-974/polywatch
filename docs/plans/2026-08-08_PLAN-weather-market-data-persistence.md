@@ -1,22 +1,22 @@
 # Plan v4 — Persistance données marché weather (buckets par ville suivie)
 
 **Date** : 2026-08-08 (v4 corrigée revue code)
-**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; **Phase 5 implémentée** (2026-08-09) — moteur `@polywatch/backtest` + onglet **Backtest** dans Weather Algo (voir [`../backtest.md`](../backtest.md))
-**Doc d’implémentation** : [`applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./applied/2026-08-08_IMPL-weather-market-data-persistence.md)
+**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; **Phase 5 implémentée** (2026-08-09) — moteur `@polywatch/backtest` + onglet **Backtest** dans Weather Algo (voir `[../backtest.md](../backtest.md)`) ; patch fidélité audit `[applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)` (`0.2.0`). Warnings quantitatifs §12.2 **non livrés**.
+**Doc d’implémentation** : `[applied/2026-08-08_IMPL-weather-market-data-persistence.md](./applied/2026-08-08_IMPL-weather-market-data-persistence.md)`
 **Scope** : Enregistrer les données marché (prix buckets) + forecasts versionnés pour backtester les stratégies weather
-**Référence backtest** : [`2026-08-05_PLAN-backtest-engine-universel.md`](./2026-08-05_PLAN-backtest-engine-universel.md) §1.3 et Phase 0.3
-**Référence audit** : [`2026-08-08_audit-weather-forecast-strategy.md`](../strategies-audit/2026-08-08_audit-weather-forecast-strategy.md)
-**Référence spec multi-stratégies** : [`2026-08-08_SPEC_multi-strategy-weather-algo.md`](../strategies-audit/2026-08-08_SPEC_multi-strategy-weather-algo.md)
+**Référence backtest** : `[2026-08-05_PLAN-backtest-engine-universel.md](./2026-08-05_PLAN-backtest-engine-universel.md)` §1.3 et Phase 0.3
+**Référence audit** : `[2026-08-08_audit-weather-forecast-strategy.md](../strategies-audit/2026-08-08_audit-weather-forecast-strategy.md)`
+**Référence spec multi-stratégies** : `[2026-08-08_SPEC_multi-strategy-weather-algo.md](../strategies-audit/2026-08-08_SPEC_multi-strategy-weather-algo.md)`
 
 ### Objectif final (clarification)
 
 À chaque cycle d’évaluation du `WeatherStrategyRunner` (période = `weatherAlgoPollMs`, défaut **30 min**), pour chaque **ville suivie** (règle auto-track enabled) × date look-ahead :
 
 1. Persister un **snapshot marché** + les **prix YES/NO de chaque bucket actif**
-2. Persister un **forecast versionné** seulement si un fetch Open-Meteo réel a eu lieu (pas cache hit, pas stale)
+2. Persister un **forecast versionné** seulement si un fetch Open-Meteo réel a eu lieu (pas cache hit, pas stalez)
 3. Persister le **journal d’évaluation** (signal / abstain + edge / seuil) par bucket × stratégie
 
-Ces données alimentent le backtest weather (Phase 5 — **implémentée**, voir [`../backtest.md`](../backtest.md)). **UI livrée** : toggles / rétention dans **Paramètres** + onglet **Données** (exploration / purge) + onglet **Backtest** dans Weather Algo (lancement de runs, métriques, equity).
+Ces données alimentent le backtest weather (Phase 5 — **implémentée**, voir `[../backtest.md](../backtest.md)`). **UI livrée** : toggles / rétention dans **Paramètres** + onglet **Données** (exploration / purge) + onglet **Backtest** dans Weather Algo (lancement de runs, métriques, equity).
 
 ---
 
@@ -24,44 +24,50 @@ Ces données alimentent le backtest weather (Phase 5 — **implémentée**, voir
 
 ### v2 — 12 corrections (revue 1)
 
-| # | Bug v1 | Fix v2 | Décision |
-|---|---|---|---|
-| 1 | Purge dans mauvais process (backend inexistant) | Purge dans `weather-algo` (process propriétaire) | Choix utilisateur |
-| 2 | `result.forecastProb`/`edge` n'existent pas sur `abstain` → compile error | Étendre `WeatherEvaluationResult` avec `forecastProb`, `edge`, `dynamicMinEdge` sur les 2 variants | Choix utilisateur |
-| 3 | `noPrice` approximation `1 - yes` fausse pour arbitrage | Lire vrai `outcomePrices[1]`, `null` si absent + warning | Fix technique |
-| 4 | Recorders toggles non atomiques → orphelins | 3 toggles indépendants + guard cohérence (eval ⇒ snapshot) | Choix utilisateur (split) |
-| 5 | `forecast_history` enregistré aussi par les exits | Enregistrer dans le runner, pas dans `getOrFetch` | Fix technique |
-| 6 | `dynamicMinEdge` non exposé par la stratégie → donnée fausse | Étendre `WeatherEvaluationResult` (même fix que #2) | Choix utilisateur |
-| 7 | Pas de FK/CASCADE pour bucket_ticks | FK `snapshot_id` + `ON DELETE CASCADE` | Choix utilisateur |
-| 8 | `rule.id` non passé à `evaluateCityFollowDateGroup` | Ajouter paramètre `ruleId` à la méthode | Fix technique |
-| 9 | I/O synchrone (N inserts individuels) | Batch les `evaluation_log` en 1 INSERT + `await` (sûr) | Choix utilisateur |
-| 10 | Forecast snapshot vs history décalé | Backtest utilise `forecast_mean` du snapshot (déjà prévu) ; `forecast_history` pour révisions uniquement | Fix technique |
-| 11 | Buckets inactifs exclus → Σ arbitrage faux | Enregistrer seulement les buckets actifs + warning fidélité backtest | Choix utilisateur |
-| 12 | Ordre `outcomePrices` non garanti YES/NO | Résoudre via `outcomes[]` (side 0 = YES, side 1 = NO) | Fix technique |
+
+| #   | Bug v1                                                                    | Fix v2                                                                                                   | Décision                  |
+| --- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------- |
+| 1   | Purge dans mauvais process (backend inexistant)                           | Purge dans `weather-algo` (process propriétaire)                                                         | Choix utilisateur         |
+| 2   | `result.forecastProb`/`edge` n'existent pas sur `abstain` → compile error | Étendre `WeatherEvaluationResult` avec `forecastProb`, `edge`, `dynamicMinEdge` sur les 2 variants       | Choix utilisateur         |
+| 3   | `noPrice` approximation `1 - yes` fausse pour arbitrage                   | Lire vrai `outcomePrices[1]`, `null` si absent + warning                                                 | Fix technique             |
+| 4   | Recorders toggles non atomiques → orphelins                               | 3 toggles indépendants + guard cohérence (eval ⇒ snapshot)                                               | Choix utilisateur (split) |
+| 5   | `forecast_history` enregistré aussi par les exits                         | Enregistrer dans le runner, pas dans `getOrFetch`                                                        | Fix technique             |
+| 6   | `dynamicMinEdge` non exposé par la stratégie → donnée fausse              | Étendre `WeatherEvaluationResult` (même fix que #2)                                                      | Choix utilisateur         |
+| 7   | Pas de FK/CASCADE pour bucket_ticks                                       | FK `snapshot_id` + `ON DELETE CASCADE`                                                                   | Choix utilisateur         |
+| 8   | `rule.id` non passé à `evaluateCityFollowDateGroup`                       | Ajouter paramètre `ruleId` à la méthode                                                                  | Fix technique             |
+| 9   | I/O synchrone (N inserts individuels)                                     | Batch les `evaluation_log` en 1 INSERT + `await` (sûr)                                                   | Choix utilisateur         |
+| 10  | Forecast snapshot vs history décalé                                       | Backtest utilise `forecast_mean` du snapshot (déjà prévu) ; `forecast_history` pour révisions uniquement | Fix technique             |
+| 11  | Buckets inactifs exclus → Σ arbitrage faux                                | Enregistrer seulement les buckets actifs + warning fidélité backtest                                     | Choix utilisateur         |
+| 12  | Ordre `outcomePrices` non garanti YES/NO                                  | Résoudre via `outcomes[]` (side 0 = YES, side 1 = NO)                                                    | Fix technique             |
+
 
 ### v3 — 6 corrections (revue 2)
 
-| # | Bug v2 | Fix v3 | Type |
-|---|---|---|---|
-| R1 | `resolveBucketPrices` duplique un helper core | Utiliser les helpers **réels** `binaryPricesFromParsed` + `binaryPricesToUpDown` (noms v3 erronés) | Bug |
-| R2 | `getOrFetch` ne retourne pas modelValues/lat/lon → forecast_history incomplet | Étendre retour de `getOrFetch` à `GetOrFetchResult` ; vérifier appelants (safe) | Bug |
-| R3 | `dynamicMinEdge` parsé depuis `reasons[]` (fragile) pour les signals | Étendre `WeatherSignal` avec `dynamicMinEdge: number` ; renseigner dans la stratégie | Bug |
-| R4 | Tests existants cassent (signature + recorders manquants) | Recorders optionnels + null-check ; `buildRunner` (test) fonctionne sans recorders ; MAJ signature `evaluateCityFollowDateGroup` | Bug |
-| Z1 | Stale fallback non détecté → forecast_history enregistre un forecast non rafraîchi | Flag `isStaleFallback` dans `getOrFetch` ; ne pas enregistrer forecast_history si stale | Fantôme |
-| Z2 | Snapshot non enregistré sur retour anticipé (forecast null, 0 buckets) → gaps backtest | Enregistrer snapshot (même vide / forecast null) **avant** les guards de retour | Fantôme |
+
+| #   | Bug v2                                                                                 | Fix v3                                                                                                                           | Type    |
+| --- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| R1  | `resolveBucketPrices` duplique un helper core                                          | Utiliser les helpers **réels** `binaryPricesFromParsed` + `binaryPricesToUpDown` (noms v3 erronés)                               | Bug     |
+| R2  | `getOrFetch` ne retourne pas modelValues/lat/lon → forecast_history incomplet          | Étendre retour de `getOrFetch` à `GetOrFetchResult` ; vérifier appelants (safe)                                                  | Bug     |
+| R3  | `dynamicMinEdge` parsé depuis `reasons[]` (fragile) pour les signals                   | Étendre `WeatherSignal` avec `dynamicMinEdge: number` ; renseigner dans la stratégie                                             | Bug     |
+| R4  | Tests existants cassent (signature + recorders manquants)                              | Recorders optionnels + null-check ; `buildRunner` (test) fonctionne sans recorders ; MAJ signature `evaluateCityFollowDateGroup` | Bug     |
+| Z1  | Stale fallback non détecté → forecast_history enregistre un forecast non rafraîchi     | Flag `isStaleFallback` dans `getOrFetch` ; ne pas enregistrer forecast_history si stale                                          | Fantôme |
+| Z2  | Snapshot non enregistré sur retour anticipé (forecast null, 0 buckets) → gaps backtest | Enregistrer snapshot (même vide / forecast null) **avant** les guards de retour                                                  | Fantôme |
+
 
 ### v4 — corrections revue code (2026-08-08)
 
-| # | Bug / lacune v3 | Fix v4 |
-|---|---|---|
-| V4-1 | Noms fantômes `resolveSide0Side1Prices` / `mapSidePricesToUpDown` | Utiliser `binaryPricesFromParsed` + `binaryPricesToUpDown` (`outcome-tokens.ts`, exportés via `@polywatch/core`) |
-| V4-2 | Purge conditionnée aux toggles recording → stockage infini si toggles OFF après collecte | Purger **toujours** selon les jours de rétention (recorder présent), indépendamment des toggles d’écriture |
-| V4-3 | Z2 incomplet : `if (!forecast) return null` actuel est avant collecte | Ordre imposé : fetch → collecte → snapshot → **puis** `if (!forecast \|\| activeBuckets.length === 0) return null` → evaluate |
-| V4-4 | Plumbing config/API omis (Zod `.strict()`, `data-source`, exports) | Checklist obligatoire Phase 0 / 3 (voir §14) |
-| V4-5 | Perf / volume basés sur `pollMs = 15s` | Recalculés sur défaut réel `weatherAlgoPollMs = 1_800_000` (30 min) |
-| V4-6 | Phase 5 suppose `packages/backtest` (inexistant) | Phase 5 **hors scope** de ce plan ; différée au plan backtest universel |
-| V4-7 | Diagramme FK `forecast_history ← snapshots` incorrect | Corrige : seule FK = `bucket_ticks`/`evaluation_log` → `snapshots` |
-| V4-8 | Risque `forecast_mean = 0` répété 6× dans §16 | Une seule ligne |
+
+| #    | Bug / lacune v3                                                                          | Fix v4                                                                                                                      |
+| ---- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| V4-1 | Noms fantômes `resolveSide0Side1Prices` / `mapSidePricesToUpDown`                        | Utiliser `binaryPricesFromParsed` + `binaryPricesToUpDown` (`outcome-tokens.ts`, exportés via `@polywatch/core`)            |
+| V4-2 | Purge conditionnée aux toggles recording → stockage infini si toggles OFF après collecte | Purger **toujours** selon les jours de rétention (recorder présent), indépendamment des toggles d’écriture                  |
+| V4-3 | Z2 incomplet : `if (!forecast) return null` actuel est avant collecte                    | Ordre imposé : fetch → collecte → snapshot → **puis** `if (!forecast || activeBuckets.length === 0) return null` → evaluate |
+| V4-4 | Plumbing config/API omis (Zod `.strict()`, `data-source`, exports)                       | Checklist obligatoire Phase 0 / 3 (voir §14)                                                                                |
+| V4-5 | Perf / volume basés sur `pollMs = 15s`                                                   | Recalculés sur défaut réel `weatherAlgoPollMs = 1_800_000` (30 min)                                                         |
+| V4-6 | Phase 5 suppose `packages/backtest` (inexistant)                                         | Phase 5 **hors scope** de ce plan ; différée au plan backtest universel                                                     |
+| V4-7 | Diagramme FK `forecast_history ← snapshots` incorrect                                    | Corrige : seule FK = `bucket_ticks`/`evaluation_log` → `snapshots`                                                          |
+| V4-8 | Risque `forecast_mean = 0` répété 6× dans §16                                            | Une seule ligne                                                                                                             |
+
 
 ---
 
@@ -69,14 +75,16 @@ Ces données alimentent le backtest weather (Phase 5 — **implémentée**, voir
 
 ### 1.1 État actuel des données weather
 
-| Donnée | Persistance | Granularité | Suffisant pour backtest ? |
-|---|---|---|---|
-| Forecast (mean, std, model_values) | `weather_forecast_cache` — **upsert destructif** | par (city, date, metric) | **Non** — pas d'historique de révisions |
-| Snapshot forecast à l'entrée | `weather_position_forecasts` | 1/position | Partiel — seulement si position ouverte |
-| Prix marché (tous buckets) | **Non persisté** | — | **Non** — discovery stateless, prix live uniquement |
-| Prix marché (bucket sélectionné) | `market_position_ticks` — 500 ms | si position ouverte | Partiel — uniquement après entrée |
-| Prix marché (fallback horaire) | `market_price_ticks` | mid horaire | Partiel — pas de BBO, pas tous les buckets |
-| Snapshot discovery (marchés trouvés) | **Non persisté** | — | **Non** — stateless |
+
+| Donnée                               | Persistance                                      | Granularité              | Suffisant pour backtest ?                           |
+| ------------------------------------ | ------------------------------------------------ | ------------------------ | --------------------------------------------------- |
+| Forecast (mean, std, model_values)   | `weather_forecast_cache` — **upsert destructif** | par (city, date, metric) | **Non** — pas d'historique de révisions             |
+| Snapshot forecast à l'entrée         | `weather_position_forecasts`                     | 1/position               | Partiel — seulement si position ouverte             |
+| Prix marché (tous buckets)           | **Non persisté**                                 | —                        | **Non** — discovery stateless, prix live uniquement |
+| Prix marché (bucket sélectionné)     | `market_position_ticks` — 500 ms                 | si position ouverte      | Partiel — uniquement après entrée                   |
+| Prix marché (fallback horaire)       | `market_price_ticks`                             | mid horaire              | Partiel — pas de BBO, pas tous les buckets          |
+| Snapshot discovery (marchés trouvés) | **Non persisté**                                 | —                        | **Non** — stateless                                 |
+
 
 ### 1.2 Objectifs du plan
 
@@ -344,6 +352,7 @@ CREATE INDEX idx_wbt_recorded_at ON weather_bucket_ticks (recorded_at);
 ```
 
 **Fix vs v1** :
+
 - `yes_price` et `no_price` sont **nullable** (REAL sans NOT NULL) — pas d'approximation si absent.
 - FK `snapshot_id` avec `ON DELETE CASCADE` (fix bug #7) — la suppression d'un snapshot supprime automatiquement ses bucket_ticks.
 - Seuls les buckets **actifs** sont enregistrés (fix #11, choix utilisateur).
@@ -380,6 +389,7 @@ CREATE INDEX idx_wel_evaluated_at ON weather_evaluation_log (evaluated_at);
 ```
 
 **Fix vs v1** :
+
 - `snapshot_id` est une FK avec `ON DELETE SET NULL` (pas CASCADE) — les eval_logs survivent à la purge des snapshots (90j vs 30j), avec `snapshot_id = null`.
 - `forecast_prob`, `edge`, `dynamic_min_edge` sont **nullable** (peuvent être absents sur abstain précoce).
 - `yes_price` nullable (peut être absent si `no_market_prices`).
@@ -394,14 +404,16 @@ CREATE INDEX idx_wel_evaluated_at ON weather_evaluation_log (evaluated_at);
 
 Choix utilisateur : 3 toggles séparés au lieu d'un seul, pour pouvoir activer les forecasts seuls (très léger) sans les snapshots (plus lourd).
 
-| Colonne | Type | Défaut | Rôle |
-|---|---|---|---|
-| `weather_algo_forecast_history_recording_enabled` | boolean | **`true`** | Active l'enregistrement `weather_forecast_history` |
-| `weather_algo_market_snapshot_recording_enabled` | boolean | **`true`** | Active `weather_market_snapshots` + `weather_bucket_ticks` |
-| `weather_algo_evaluation_log_recording_enabled` | boolean | **`true`** | Active `weather_evaluation_log` |
-| `weather_algo_forecast_history_retention_days` | integer | `90` | Rétention `weather_forecast_history` |
-| `weather_algo_market_snapshot_retention_days` | integer | `30` | Rétention `weather_market_snapshots` + `weather_bucket_ticks` (cascade) |
-| `weather_algo_evaluation_log_retention_days` | integer | `90` | Rétention `weather_evaluation_log` |
+
+| Colonne                                           | Type    | Défaut     | Rôle                                                                    |
+| ------------------------------------------------- | ------- | ---------- | ----------------------------------------------------------------------- |
+| `weather_algo_forecast_history_recording_enabled` | boolean | `**true**` | Active l'enregistrement `weather_forecast_history`                      |
+| `weather_algo_market_snapshot_recording_enabled`  | boolean | `**true**` | Active `weather_market_snapshots` + `weather_bucket_ticks`              |
+| `weather_algo_evaluation_log_recording_enabled`   | boolean | `**true**` | Active `weather_evaluation_log`                                         |
+| `weather_algo_forecast_history_retention_days`    | integer | `90`       | Rétention `weather_forecast_history`                                    |
+| `weather_algo_market_snapshot_retention_days`     | integer | `30`       | Rétention `weather_market_snapshots` + `weather_bucket_ticks` (cascade) |
+| `weather_algo_evaluation_log_retention_days`      | integer | `90`       | Rétention `weather_evaluation_log`                                      |
+
 
 ### Guard de cohérence (fix bug #4)
 
@@ -1023,23 +1035,31 @@ export class AddWeatherMarketDataPersistence1700000000100 implements MigrationIn
 
 ### 12.1 Routes
 
-| Méthode | Path | Réponse | Usage |
-|---|---|---|---|
-| `GET` | `/api/weather-algo-data/forecast-history?city=&from=&to=&limit=` | `{ items, total }` | Backtest / audit forecasts |
-| `GET` | `/api/weather-algo-data/market-snapshots?city=&from=&to=&limit=&includeTicks=` | `{ items, total }` ; `includeTicks` défaut **`false`** (ticks via `/bucket-ticks`) | Backtest / audit marchés |
-| `GET` | `/api/weather-algo-data/bucket-ticks?...` | `{ items, total }` (+ `cityNormalized`) | Audit ticks |
-| `GET` | `/api/weather-algo-data/evaluation-log?from=&to=&strategyId=&decision=&limit=` | `{ items, total }` | Audit décisions algo |
-| `GET` | `/api/weather-algo-data/forecast-cache?...` | `{ items, total }` | Cache opérationnel |
-| `GET` | `/api/weather-algo-data/position-forecasts?...` | `{ items, total }` (+ `openedAt`) | Snapshots d’entrée |
-| `GET` | `/api/weather-algo-data/tables` | `{ tables[] }` rowCount / oldest / newest | UI onglet Données |
-| `DELETE` | `/api/weather-algo-data/tables` | `{ deleted, totalDeleted }` | Purge UI (6 tables) |
-| `GET` | `/api/weather-algo-data/coverage` | `{ from, to, cities[], totals… }` | Legacy (UI Paramètres retirée) |
 
-**Fichier** : `packages/backend/src/routes/weather-algo-data.ts` — détail : [`applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./applied/2026-08-08_IMPL-weather-market-data-persistence.md)
+| Méthode  | Path                                                                           | Réponse                                                                            | Usage                          |
+| -------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------ |
+| `GET`    | `/api/weather-algo-data/forecast-history?city=&from=&to=&limit=`               | `{ items, total }`                                                                 | Backtest / audit forecasts     |
+| `GET`    | `/api/weather-algo-data/market-snapshots?city=&from=&to=&limit=&includeTicks=` | `{ items, total }` ; `includeTicks` défaut `**false**` (ticks via `/bucket-ticks`) | Backtest / audit marchés       |
+| `GET`    | `/api/weather-algo-data/bucket-ticks?...`                                      | `{ items, total }` (+ `cityNormalized`)                                            | Audit ticks                    |
+| `GET`    | `/api/weather-algo-data/evaluation-log?from=&to=&strategyId=&decision=&limit=` | `{ items, total }`                                                                 | Audit décisions algo           |
+| `GET`    | `/api/weather-algo-data/forecast-cache?...`                                    | `{ items, total }`                                                                 | Cache opérationnel             |
+| `GET`    | `/api/weather-algo-data/position-forecasts?...`                                | `{ items, total }` (+ `openedAt`)                                                  | Snapshots d’entrée             |
+| `GET`    | `/api/weather-algo-data/tables`                                                | `{ tables[] }` rowCount / oldest / newest                                          | UI onglet Données              |
+| `DELETE` | `/api/weather-algo-data/tables`                                                | `{ deleted, totalDeleted }`                                                        | Purge UI (6 tables)            |
+| `GET`    | `/api/weather-algo-data/coverage`                                              | `{ from, to, cities[], totals… }`                                                  | Legacy (UI Paramètres retirée) |
+
+
+**Fichier** : `packages/backend/src/routes/weather-algo-data.ts` — détail : `[applied/2026-08-08_IMPL-weather-market-data-persistence.md](./applied/2026-08-08_IMPL-weather-market-data-persistence.md)`
 
 ### 12.2 Warnings de fidélité backtest
 
-Le `WeatherDataLoader` doit émettre ces warnings (fix #11 — buckets inactifs non enregistrés) :
+> **Non livré (2026-08-09)** : les warnings quantitatifs ci-dessous
+> (`inactiveBucketsExcluded`, `arbitrage_unreliable`, `missingSnapshots`, …)
+> ne sont **pas** implémentés dans `packages/backtest`. Voir les codes réellement
+> émis dans `[../backtest.md](../backtest.md)` §1 et le patch
+> `[applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](./applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)`.
+
+Le `WeatherDataLoader` devait émettre ces warnings (fix #11 — buckets inactifs non enregistrés) :
 
 ```typescript
 {
@@ -1060,15 +1080,18 @@ Le `WeatherDataLoader` doit émettre ces warnings (fix #11 — buckets inactifs 
 
 ### Overhead par cycle (batch + await — choix utilisateur)
 
-| Opération | Coût | Fréquence |
-|---|---|---|
-| INSERT forecast_history | 1 insert | par (city, date) si fetch réel (cache miss, TTL typique 1 h) |
-| INSERT snapshot + buckets (transaction) | 2 inserts (1 snapshot + 1 bulk bucket_ticks) | par ville/date évaluée |
-| INSERT evaluation_log (batch) | 1 bulk insert | par ville/date évaluée |
+
+| Opération                               | Coût                                         | Fréquence                                                    |
+| --------------------------------------- | -------------------------------------------- | ------------------------------------------------------------ |
+| INSERT forecast_history                 | 1 insert                                     | par (city, date) si fetch réel (cache miss, TTL typique 1 h) |
+| INSERT snapshot + buckets (transaction) | 2 inserts (1 snapshot + 1 bulk bucket_ticks) | par ville/date évaluée                                       |
+| INSERT evaluation_log (batch)           | 1 bulk insert                                | par ville/date évaluée                                       |
+
 
 **Défaut réel** : `weatherAlgoPollMs = 1_800_000` (30 min), pas 15 s.
 
 **Estimation au défaut** (~10 villes × 3 dates look-ahead, toggles ON) :
+
 - ~30 groupes ville/date / cycle → ~30 snapshots + ~30 batch eval_log + quelques forecast_history (cache hits dominants)
 - Latence I/O ajoutée : ordre de grandeur **dizaines de ms** → négligeable vs poll 30 min
 - Volume snapshots : ~30 × 48 cycles/jour ≈ **~1 440/jour** (pas ~2 880) ; bucket_ticks / eval_log proportionnels au nb de buckets actifs
@@ -1085,71 +1108,81 @@ Si l’utilisateur baisse `pollMs` (min Zod = 10 s), le volume monte linéaireme
 
 ### Phase 0 — Foundation (~4h30)
 
-| Tâche | Fichier | Effort |
-|---|---|---|
-| Migration `AddWeatherMarketDataPersistence` (timestamp **après** `1700000000095`) | `packages/core/src/migrations/` | 45 min |
-| Enregistrer migration + 4 entités dans `data-source.ts` (V4-4) | `packages/core/src/database/data-source.ts` | 15 min |
-| 4 entités TypeORM | `packages/core/src/entities/Weather{ForecastHistory,MarketSnapshot,BucketTick,EvaluationLog}.ts` | 1h |
-| Export des entités dans `packages/core/src/entities/index.ts` | existant | 5 min |
-| 6 colonnes `WeatherConfig` (3 toggles + 3 rétentions) | `packages/core/src/entities/WeatherConfig.ts` | 20 min |
-| Zod : 6 champs dans `weatherConfigUpdateSchema` (`.strict()`) (V4-4) | `packages/backend/src/routes/config-per-kind.ts` | 15 min |
-| `resolveBucketPrices` helper (`binaryPricesFromParsed`) | `packages/weather-algo/src/strategy/runner-bucket-helpers.ts` | 30 min |
-| `WeatherForecastHistoryRecorder` + export `services/index` | `packages/core/src/services/` | 45 min |
-| `WeatherMarketSnapshotRecorder` (transaction) + export | `packages/core/src/services/` | 1h |
-| `WeatherEvaluationRecorder` (batch) + export | `packages/core/src/services/` | 30 min |
+
+| Tâche                                                                             | Fichier                                                                                          | Effort |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------ |
+| Migration `AddWeatherMarketDataPersistence` (timestamp **après** `1700000000095`) | `packages/core/src/migrations/`                                                                  | 45 min |
+| Enregistrer migration + 4 entités dans `data-source.ts` (V4-4)                    | `packages/core/src/database/data-source.ts`                                                      | 15 min |
+| 4 entités TypeORM                                                                 | `packages/core/src/entities/Weather{ForecastHistory,MarketSnapshot,BucketTick,EvaluationLog}.ts` | 1h     |
+| Export des entités dans `packages/core/src/entities/index.ts`                     | existant                                                                                         | 5 min  |
+| 6 colonnes `WeatherConfig` (3 toggles + 3 rétentions)                             | `packages/core/src/entities/WeatherConfig.ts`                                                    | 20 min |
+| Zod : 6 champs dans `weatherConfigUpdateSchema` (`.strict()`) (V4-4)              | `packages/backend/src/routes/config-per-kind.ts`                                                 | 15 min |
+| `resolveBucketPrices` helper (`binaryPricesFromParsed`)                           | `packages/weather-algo/src/strategy/runner-bucket-helpers.ts`                                    | 30 min |
+| `WeatherForecastHistoryRecorder` + export `services/index`                        | `packages/core/src/services/`                                                                    | 45 min |
+| `WeatherMarketSnapshotRecorder` (transaction) + export                            | `packages/core/src/services/`                                                                    | 1h     |
+| `WeatherEvaluationRecorder` (batch) + export                                      | `packages/core/src/services/`                                                                    | 30 min |
+
 
 **Critère** : migration passe, entités compilent, recorders unit-testés (insert + purge + cascade), PATCH `/config/weather` accepte les 6 champs.
 
 ### Phase 1 — Extension interfaces + intégration runner (~4h)
 
-| Tâche | Fichier | Effort |
-|---|---|---|
-| Étendre `WeatherEvaluationResult` (forecastProb, edge, dynamicMinEdge sur abstain) | `packages/weather-algo/src/strategy/strategy.ts` | 15 min |
-| Étendre `WeatherSignal` avec `dynamicMinEdge` | `packages/weather-algo/src/strategy/strategy.ts` | 10 min |
-| Mettre à jour `WeatherForecastStrategy.evaluate` (exposer champs sur abstain) | `packages/weather-algo/src/strategy/weather-forecast.strategy.ts` | 45 min |
-| Étendre `WeatherForecastService.getOrFetch` (retourner `isFresh` + modelValues + `isStaleFallback`) | `packages/core/src/services/weather-forecast.service.ts` | 30 min |
-| Restructurer `evaluateCityFollowDateGroup` (ordre V4-3 : collecte → snapshot → guards → evaluate ; ajouter `ruleId`) | `packages/weather-algo/src/strategy/strategy-runner.ts` | 1h |
-| Injection recorders + 3 points d'injection | idem | 1h |
-| Guard de cohérence (eval sans snapshot → warning) | idem | 15 min |
-| try/catch best-effort sur tous les `await recorder.*` | idem | 15 min |
-| MAJ appels tests `evaluateCityFollowDateGroup` (R4) | `strategy-runner.test.ts` | 20 min |
+
+| Tâche                                                                                                                | Fichier                                                           | Effort |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------ |
+| Étendre `WeatherEvaluationResult` (forecastProb, edge, dynamicMinEdge sur abstain)                                   | `packages/weather-algo/src/strategy/strategy.ts`                  | 15 min |
+| Étendre `WeatherSignal` avec `dynamicMinEdge`                                                                        | `packages/weather-algo/src/strategy/strategy.ts`                  | 10 min |
+| Mettre à jour `WeatherForecastStrategy.evaluate` (exposer champs sur abstain)                                        | `packages/weather-algo/src/strategy/weather-forecast.strategy.ts` | 45 min |
+| Étendre `WeatherForecastService.getOrFetch` (retourner `isFresh` + modelValues + `isStaleFallback`)                  | `packages/core/src/services/weather-forecast.service.ts`          | 30 min |
+| Restructurer `evaluateCityFollowDateGroup` (ordre V4-3 : collecte → snapshot → guards → evaluate ; ajouter `ruleId`) | `packages/weather-algo/src/strategy/strategy-runner.ts`           | 1h     |
+| Injection recorders + 3 points d'injection                                                                           | idem                                                              | 1h     |
+| Guard de cohérence (eval sans snapshot → warning)                                                                    | idem                                                              | 15 min |
+| try/catch best-effort sur tous les `await recorder.*`                                                                | idem                                                              | 15 min |
+| MAJ appels tests `evaluateCityFollowDateGroup` (R4)                                                                  | `strategy-runner.test.ts`                                         | 20 min |
+
 
 **Critère** : avec toggles ON, chaque cycle écrit forecast_history (si fetch) + snapshot + bucket_ticks + batch eval_log. Avec toggles OFF, aucun I/O. Guard de cohérence logge warning si eval sans snapshot. Snapshot écrit même si forecast null / 0 buckets.
 
 ### Phase 2 — Purge + bootstrap (~1h30)
 
-| Tâche | Fichier | Effort |
-|---|---|---|
-| Instancier recorders dans `main()` | `packages/weather-algo/src/index.ts` | 15 min |
+
+| Tâche                                                              | Fichier                              | Effort |
+| ------------------------------------------------------------------ | ------------------------------------ | ------ |
+| Instancier recorders dans `main()`                                 | `packages/weather-algo/src/index.ts` | 15 min |
 | Purge horaire `safeInterval` (**indépendante des toggles** — V4-2) | `packages/weather-algo/src/index.ts` | 30 min |
-| `clearInterval` dans `shutdown` | idem | 5 min |
-| Passer recorders au `StrategyRunner` | idem | 10 min |
+| `clearInterval` dans `shutdown`                                    | idem                                 | 5 min  |
+| Passer recorders au `StrategyRunner`                               | idem                                 | 10 min |
+
 
 **Critère** : purge horaire supprime les lignes > rétention même si recording OFF ; cascade bucket_ticks ; ne bloque pas le shutdown.
 
 ### Phase 3 — UI (~1h45) — **FAIT** (évolué)
 
-| Tâche | Fichier | Effort |
-|---|---|---|
-| 3 toggles UI "Enregistrement données backtest" (onglet **Paramètres**) | `WeatherAlgoSettingsTab.tsx` | 30 min |
-| 3 champs rétention UI | idem | 15 min |
+
+| Tâche                                                                                    | Fichier                                          | Effort    |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------ | --------- |
+| 3 toggles UI "Enregistrement données backtest" (onglet **Paramètres**)                   | `WeatherAlgoSettingsTab.tsx`                     | 30 min    |
+| 3 champs rétention UI                                                                    | idem                                             | 15 min    |
 | ~~Mini panneau couverture~~ → **remplacé** par onglet **Données** (`WeatherAlgoDataTab`) | `WeatherAlgoPage.tsx` + `WeatherAlgoDataTab.tsx` | post-plan |
-| Type `WeatherConfig` + payload (6 champs) (V4-4) | `api.ts` + SettingsTab | 20 min |
+| Type `WeatherConfig` + payload (6 champs) (V4-4)                                         | `api.ts` + SettingsTab                           | 20 min    |
+
 
 **Critère** : 3 toggles persistés indépendamment, rétention configurable, round-trip GET/PATCH OK. Exploration / purge via onglet Données.
 
 ### Phase 4 — API lecture (~2h) — **FAIT** (+ extensions UI)
 
-| Tâche | Fichier | Effort |
-|---|---|---|
-| Routes list + `/coverage` + mount | `weather-algo-data.ts` / `index.ts` | plan |
+
+| Tâche                                                                                                                         | Fichier                               | Effort    |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------- |
+| Routes list + `/coverage` + mount                                                                                             | `weather-algo-data.ts` / `index.ts`   | plan      |
 | Extensions post-plan : `/tables`, `DELETE /tables`, `/bucket-ticks`, `/forecast-cache`, `/position-forecasts`, `includeTicks` | idem + `weather-algo-data.service.ts` | post-plan |
+
 
 Voir doc d’implémentation pour l’état réel des routes.
 
 ### Phase 5 — Intégration backtest — **HORS SCOPE** (V4-6)
 
-`packages/backtest` n’existe pas encore. Différer au plan [`2026-08-05_PLAN-backtest-engine-universel.md`](./2026-08-05_PLAN-backtest-engine-universel.md) (Phase weather + `WeatherDataLoader` consommant `weather_market_snapshots` / `weather_bucket_ticks` / `weather_forecast_history` / `weather_evaluation_log`).
+`packages/backtest` n’existe pas encore. Différer au plan `[2026-08-05_PLAN-backtest-engine-universel.md](./2026-08-05_PLAN-backtest-engine-universel.md)` (Phase weather + `WeatherDataLoader` consommant `weather_market_snapshots` / `weather_bucket_ticks` / `weather_forecast_history` / `weather_evaluation_log`).
 
 Ne pas bloquer le merge prod des Phases 0–4 sur cette phase.
 
@@ -1161,19 +1194,21 @@ Ne pas bloquer le merge prod des Phases 0–4 sur cette phase.
 
 ### 15.1 Tests unitaires
 
-| Composant | Test |
-|---|---|
-| `resolveBucketPrices` | Résolution YES/NO via `outcomes[]`, null si absent, ordre non garanti |
-| `WeatherForecastHistoryRecorder` | Insert append-only, pas d'écrasement, purge batch |
-| `WeatherMarketSnapshotRecorder` | Insert snapshot + buckets en transaction, cascade delete via FK |
-| `WeatherEvaluationRecorder` | Batch insert (1 INSERT pour N inputs), purge |
-| `WeatherForecastStrategy` (étendu) | abstain expose `forecastProb`/`edge`/`dynamicMinEdge` quand calculés |
-| Runner avec tous toggles OFF | Aucun I/O, comportement inchangé |
-| Runner avec forecastHistory ON seul | 1 forecast_history si fetch, 0 snapshot, 0 eval_log |
-| Runner avec snapshot ON seul | N snapshots + bucket_ticks, 0 eval_log |
-| Runner avec eval ON sans snapshot | Warning loggé, eval_logs avec snapshotId null |
-| Runner avec tous ON | 1 forecast + N snapshots + N bucket_ticks + 1 batch eval_log par cycle |
-| Erreur BDD pendant recording | Cycle continue, warning loggé, trading non interrompu |
+
+| Composant                           | Test                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `resolveBucketPrices`               | Résolution YES/NO via `outcomes[]`, null si absent, ordre non garanti  |
+| `WeatherForecastHistoryRecorder`    | Insert append-only, pas d'écrasement, purge batch                      |
+| `WeatherMarketSnapshotRecorder`     | Insert snapshot + buckets en transaction, cascade delete via FK        |
+| `WeatherEvaluationRecorder`         | Batch insert (1 INSERT pour N inputs), purge                           |
+| `WeatherForecastStrategy` (étendu)  | abstain expose `forecastProb`/`edge`/`dynamicMinEdge` quand calculés   |
+| Runner avec tous toggles OFF        | Aucun I/O, comportement inchangé                                       |
+| Runner avec forecastHistory ON seul | 1 forecast_history si fetch, 0 snapshot, 0 eval_log                    |
+| Runner avec snapshot ON seul        | N snapshots + bucket_ticks, 0 eval_log                                 |
+| Runner avec eval ON sans snapshot   | Warning loggé, eval_logs avec snapshotId null                          |
+| Runner avec tous ON                 | 1 forecast + N snapshots + N bucket_ticks + 1 batch eval_log par cycle |
+| Erreur BDD pendant recording        | Cycle continue, warning loggé, trading non interrompu                  |
+
 
 ### 15.2 Test d'intégration
 
@@ -1203,18 +1238,20 @@ Ne pas bloquer le merge prod des Phases 0–4 sur cette phase.
 
 ## 16. Risques résiduels
 
-| Risque | Mitigation |
-|---|---|
-| `getOrFetch` étendu casse d'autres appelants | `getCached` inchangé ; `getOrFetch` retourne un sur-type (ajoute champs, ne supprime pas) |
-| Restructuration `evaluateCityFollowDateGroup` introduit une régression | MAJ tests R4 ; assertions métier inchangées (best-edge, abstain → null) |
-| Batch eval_log échoue partiellement | TypeORM `insert` est atomique (tout ou rien) — pas de partial insert |
-| Performance batch + await si BDD lente | Guard `cycleRunning`/`pendingRerun` ; volume réel au défaut 30 min reste faible |
-| Buckets inactifs exclus → arbitrage unreliable | Warning `arbitrage_unreliable` dans le backtest ; spec arbitrage documente la limitation |
-| `resolveBucketPrices` retourne null si outcomes vides | Snapshot enregistre null, backtest ignore le bucket, warning `yesPriceNulls` |
-| FK CASCADE supprime des bucket_ticks en cascade | Comportement voulu (snapshot = parent) |
-| `forecast_mean = 0` confondu avec « indisponible » | Colonnes nullable ; `null` = indisponible, `0` = vraie température ; backtest teste `IS NULL` (pas falsy) |
-| Purge oubliée si toggles OFF | V4-2 : purge toujours selon rétention |
-| Phase 5 / `packages/backtest` absent | V4-6 : hors scope ; collecte seule livrable en prod |
+
+| Risque                                                                 | Mitigation                                                                                                |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `getOrFetch` étendu casse d'autres appelants                           | `getCached` inchangé ; `getOrFetch` retourne un sur-type (ajoute champs, ne supprime pas)                 |
+| Restructuration `evaluateCityFollowDateGroup` introduit une régression | MAJ tests R4 ; assertions métier inchangées (best-edge, abstain → null)                                   |
+| Batch eval_log échoue partiellement                                    | TypeORM `insert` est atomique (tout ou rien) — pas de partial insert                                      |
+| Performance batch + await si BDD lente                                 | Guard `cycleRunning`/`pendingRerun` ; volume réel au défaut 30 min reste faible                           |
+| Buckets inactifs exclus → arbitrage unreliable                         | Warning `arbitrage_unreliable` dans le backtest ; spec arbitrage documente la limitation                  |
+| `resolveBucketPrices` retourne null si outcomes vides                  | Snapshot enregistre null, backtest ignore le bucket, warning `yesPriceNulls`                              |
+| FK CASCADE supprime des bucket_ticks en cascade                        | Comportement voulu (snapshot = parent)                                                                    |
+| `forecast_mean = 0` confondu avec « indisponible »                     | Colonnes nullable ; `null` = indisponible, `0` = vraie température ; backtest teste `IS NULL` (pas falsy) |
+| Purge oubliée si toggles OFF                                           | V4-2 : purge toujours selon rétention                                                                     |
+| Phase 5 / `packages/backtest` absent                                   | V4-6 : hors scope ; collecte seule livrable en prod                                                       |
+
 
 ---
 
@@ -1229,6 +1266,7 @@ Ne pas bloquer le merge prod des Phases 0–4 sur cette phase.
 **Recommandation prod SIM** : implémenter Phases 0–4 ; **à la première mise en prod SIM, les 3 toggles d’enregistrement sont activés par défaut** (migration `DEFAULT true`) pour démarrer l’accumulation immédiatement. En prod REAL, désactiver manuellement ou prévoir un override si besoin.
 
 **Décisions utilisateur (2026-08-08)** :
+
 - Phase 5 (backtest) : **différée**
 - Phase 4 + UI : **onglet Données** (cards / drill-down / purge) — remplace le mini panneau couverture Paramètres (voir doc IMPL)
 - Activation SIM : **3 toggles ON par défaut** à la migration (`weather_algo_*_recording_enabled DEFAULT true`)
@@ -1293,3 +1331,4 @@ Ne pas bloquer le merge prod des Phases 0–4 sur cette phase.
                     │    WeatherDataLoader — hors scope    │
                     └─────────────────────────────────────┘
 ```
+

@@ -129,7 +129,7 @@ src/
 │   │   ├── WeatherAlgoPositionsPanel.tsx / WeatherAlgoExecutionsPanel.tsx
 │   │   ├── WeatherAlgoAutoTrackTab.tsx
 │   │   ├── WeatherAlgoDataTab.tsx      Données : cards tables, drill-down, purge
-│   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire, liste, détail (erreur si failed ; equity/positions fetchés seulement si completed)
+│   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire, liste, détail (poll `onCleanup` ; capital chart = `run.params` ; equity/positions si `completed` ; métriques byExit/byCity)
 │   │   │   └── BacktestEquityChart.tsx courbe d'equity (SVG, axe X = champ `t`)
 │   │   ├── WeatherAlgoSettingsTab.tsx  toggles recording + rétention
 │   │   └── WeatherCityGroup.tsx

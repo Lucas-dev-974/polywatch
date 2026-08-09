@@ -89,7 +89,7 @@ export class ForecastRevisionStore {
    * Returns the latest revision seen for a city/date/metric. Events arrive in
    * global timestamp order via merge-sort, so the store is as-of by construction.
    */
-  get(city: string, dateIso: string, metric: string, _at: Date): ForecastRevisionData | null {
+  get(city: string, dateIso: string, metric: string): ForecastRevisionData | null {
     return this.revisions.get(this.key(city, dateIso, metric)) ?? null;
   }
 }

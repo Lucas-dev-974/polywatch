@@ -183,6 +183,8 @@ Détail : [`backtest.md`](./backtest.md) · [`docs/code/09-backtest.md`](code/09
 - Deux modes : `reevaluate` (ré-exécute la stratégie) et `replay` (rejoue les décisions enregistrées).
 - Exécuté **in-process** par le backend (async, yields `setImmediate`) ; la UI polle le run.
 - Verrou singleton (un run weather actif) ; runs orphelins marqués `failed` au boot.
+- Timeout (`BACKTEST_TIMEOUT_MS`, défaut 30 min) et cancel coopératif avec flush final
+  (cancel conserve les stats ; timeout → `failed` sans stats).
 - Résultats persistés dans `backtest_runs` / `backtest_positions` / `backtest_equity_points`.
 
 ### Frontend (`packages/frontend`)

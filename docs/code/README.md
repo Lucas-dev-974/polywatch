@@ -1,7 +1,7 @@
 # Documentation du code — Polywatch
 
-Documentation technique du code (dernière mise à jour : 2026-08-08 — ajout
-`09-backtest.md`).
+Documentation technique du code (dernière mise à jour : 2026-08-09 — sync
+`09-backtest.md` : merge k-way, pagination temporelle, cycle de vie runs).
 
 ## Sommaire
 

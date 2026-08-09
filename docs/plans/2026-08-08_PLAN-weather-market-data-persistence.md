@@ -1,7 +1,7 @@
 # Plan v4 — Persistance données marché weather (buckets par ville suivie)
 
 **Date** : 2026-08-08 (v4 corrigée revue code)
-**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; Phase 5 différée (`packages/backtest` inexistant)
+**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; **Phase 5 implémentée** (2026-08-09) — moteur `@polywatch/backtest` + onglet **Backtest** dans Weather Algo (voir [`../backtest.md`](../backtest.md))
 **Doc d’implémentation** : [`applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./applied/2026-08-08_IMPL-weather-market-data-persistence.md)
 **Scope** : Enregistrer les données marché (prix buckets) + forecasts versionnés pour backtester les stratégies weather
 **Référence backtest** : [`2026-08-05_PLAN-backtest-engine-universel.md`](./2026-08-05_PLAN-backtest-engine-universel.md) §1.3 et Phase 0.3
@@ -16,7 +16,7 @@
 2. Persister un **forecast versionné** seulement si un fetch Open-Meteo réel a eu lieu (pas cache hit, pas stale)
 3. Persister le **journal d’évaluation** (signal / abstain + edge / seuil) par bucket × stratégie
 
-Ces données alimentent plus tard le backtest weather. **UI livrée** : toggles / rétention dans **Paramètres** + onglet **Données** (exploration / purge). L’UI de **lancement** de backtest reste dans le plan universel (onglet Système `Backtests`) — Phase 5 hors scope.
+Ces données alimentent le backtest weather (Phase 5 — **implémentée**, voir [`../backtest.md`](../backtest.md)). **UI livrée** : toggles / rétention dans **Paramètres** + onglet **Données** (exploration / purge) + onglet **Backtest** dans Weather Algo (lancement de runs, métriques, equity).
 
 ---
 

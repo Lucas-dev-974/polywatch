@@ -335,6 +335,26 @@ Configuration de la synchronisation des marches : intervalles de polling,
 backoff en cas d'erreur, limites de concurrence. Exposee via
 `GET/PUT /api/market-sync-config`.
 
+### `BacktestRun` / `BacktestPosition` / `BacktestEquityPoint`
+
+Tables dédiées au moteur de backtest weather (migration `AddBacktestTables1700000000101`).
+Service : `BacktestRunService`. Doc : [`backtest.md`](./backtest.md).
+
+**`backtest_runs`** — job de replay :
+- Cycle de vie : `queued` → `running` → `completed` | `failed` | `cancelled`
+- `params_json` (plage, mode, villes, capital…), `config_snapshot_json`, `config_fingerprint`
+- `stats_json` (PnL, win rate, profit factor, max drawdown…), `fidelity_warnings_json`
+- `data_range_from` / `data_range_to` (plage réellement couverte par les events)
+- `error` si `failed` (exception, `timeout`, `backend_restart`)
+
+**`backtest_positions`** — positions simulées (FK `run_id` ON DELETE CASCADE) :
+- Entrée/sortie, prix, PnL, fees, `entry_reason`, `exit_reason`, `meta_json` (edge, bucket…)
+- Positions encore ouvertes en fin de run : `exit_price` / `exit_at` / `pnl` = `null`
+
+**`backtest_equity_points`** — courbe d'equity (~1 point/min de temps rejoué) :
+- Colonne / champ API : `t` (timestamp ISO), `equity`, `cash`, `open_positions`
+- L'UI chart utilise `t` comme axe X (pas un index)
+
 ## Files Redis (etat hors-PostgreSQL)
 
 | Cle | Type | Producteur -> Consommateur |

@@ -29,24 +29,43 @@ AsyncIterable<BacktestEvent>  ──►  mergeEventStreams (k-way, heap borné)
                         │                               │
                         └───────────────┬───────────────┘
                                         ▼
-                        StatsComputer → BacktestRunService (DB)
+                        computeStats → BacktestRunService (DB)
 ```
 
 ### Principes
 
-- **Déterminisme** : aucune date système dans le chemin de replay — tout passe par
-  `VirtualClock` avancée par le runner à chaque événement.
+- **Déterminisme** : les décisions de trading utilisent uniquement `VirtualClock`
+  (avancée par le runner à chaque événement). `Date.now()` n'intervient que pour
+  le throttle de persistance de progression (~2 s wall-clock).
 - **Zéro réécriture métier** : le mode `reevaluate` réutilise
   `WeatherForecastStrategy.evaluate` (via `ClockedWeatherForecastStrategy` qui injecte
-  `now`). Le mode `replay` rejoue les décisions `signal` déjà enregistrées.
+  `now`) **à chaque `book_tick`**. Le mode `replay` rejoue les décisions `signal`
+  déjà enregistrées.
 - **Fidélité explicite** : chaque approximation est consignée dans
   `fidelity_warnings` et affichée dans l'UI du run.
-- **Mémoire bornée** : pagination keyset par source + **merge k-way** (heap ≤ 3
-  têtes), jamais de buffer de tous les events en RAM.
+- **Mémoire bornée** : pagination keyset `(timestamp, id)` par source + **merge k-way**
+  (heap ≤ 3 têtes), jamais de buffer de tous les events en RAM.
+
+### Ordre temporel (prérequis du moteur)
+
+Le `VirtualClock` exige un flux **monotone croissant** sur `event.at`. Deux
+invariants garantissent cela :
+
+1. **Chaque stream SQL** est paginé en `ORDER BY <timestamp> ASC, id ASC` avec
+   curseur keyset `(lastAt, lastId)` — jamais `ORDER BY id` seul (les inserts
+   multi-villes peuvent avoir un id plus grand et un timestamp plus ancien).
+2. **`mergeEventStreams`** fusionne les têtes des streams via un min-heap ; chaque
+   insertion initiale appelle `bubbleUp` (sinon le stream 0 est toujours émis
+   en premier, même s'il est plus tardif).
+
+Si l'un de ces invariants est violé, le runner lève
+`virtual_clock_regression: tried to advance from … to …`.
 
 ### Limites de fidélité documentées (warnings)
 
-Le run émet des `fidelity_warnings` explicites, notamment :
+Les codes statics (`fill_*`, `risk_*`, `detection_delay_*`) sont émis **à la
+première tentative d'entrée** (`canEnter`), pas au démarrage du run. Les codes
+de résolution / metric sont émis quand le cas survient (`warnOnce`).
 
 | Code | Signification |
 |------|---------------|
@@ -54,11 +73,17 @@ Le run émet des `fidelity_warnings` explicites, notamment :
 | `risk_sl_confirmation_ignored` | SL déclenché au 1er tick (pas de confirmation ticks live) |
 | `risk_sizing_simplified_fixed_usdc` | Taille fixe `entryUsdc` (pas de signal-score sizing) |
 | `risk_min_time_to_close_ignored` | `minTimeToClose` non appliqué |
-| `detection_delay_unused` | `detectionDelayMs` paramétré mais non appliqué |
+| `detection_delay_unused` | `detectionDelayMs > 0` paramétré mais non appliqué |
+| `no_events_in_range` | Aucune donnée sur la plage demandée |
 | `resolution_proxy_forecast` | Résolution approximée via forecast (pas température observée) |
+| `resolution_no_endate_fallback` | `endDate` absent → fallback `targetDateIso T23:59:59Z + 24h` |
+| `resolution_no_forecast` | Résolution impossible sans forecast — position laissée ouverte |
+| `resolution_invalid_date` | Date de résolution invalide — skip |
+| `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
 
-Garde-fous **implémentés** en backtest : `maxExposure`, `maxDailyLoss`, cash
-insuffisant, one-thesis-per-city.
+Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
+`maxExposure`, `maxDailyLoss`, cash insuffisant, one-thesis-per-city,
+throttle re-entry (`weatherAlgoReentryThrottleMs`).
 
 ---
 
@@ -66,11 +91,12 @@ insuffisant, one-thesis-per-city.
 
 | Mode | Comportement | Usage |
 |------|--------------|-------|
-| `reevaluate` | Reconstruit le contexte marché + forecast et appelle `WeatherForecastStrategy.evaluate` à chaque tick → décide l'entrée | Tester une stratégie sur données passées |
-| `replay` | Entre sur chaque décision `signal` déjà enregistrée dans `weather_evaluation_log` | Simuler l'exécution des décisions passées |
+| `reevaluate` | À chaque `book_tick` : reconstruit le contexte marché + forecast as-of et appelle `WeatherForecastStrategy.evaluate` → décide l'entrée | Tester une stratégie sur données passées |
+| `replay` | Entre sur chaque décision `signal` déjà enregistrée dans `weather_evaluation_log` (pas de re-stratégie) | Simuler l'exécution des décisions passées |
 
 Les **sorties** (drift / bucket-exit / pre-close / SL-TP-trailing / résolution) sont
-évaluées en mémoire à chaque tick qui met à jour le prix d'une position ouverte.
+évaluées en mémoire à chaque `book_tick` pour **toutes** les positions ouvertes
+(via cache `lastTickByCondition`, pas seulement le `conditionId` du tick courant).
 
 ---
 
@@ -82,13 +108,13 @@ Les **sorties** (drift / bucket-exit / pre-close / SL-TP-trailing / résolution)
 |---------|------|
 | `virtual-clock.ts` | Horloge virtuelle `now()` / `advanceTo(t)` avec garde anti-retour |
 | `events.ts` | Types d'événements `book_tick`, `forecast`, `signal`, `timer` |
-| `event-bus.ts` | Min-heap (legacy / tests) |
+| `event-bus.ts` | Min-heap synchrone — **non utilisé** (ni prod, ni tests) ; chemin réel = `mergeEventStreams` |
 | `merge-event-streams.ts` | Merge k-way de streams async par timestamp |
-| `ledger.ts` | Cash + positions ; mark-to-market via `markPrice` courant |
+| `ledger.ts` | Cash + positions ; mark-to-market via `markPrice` courant (`peakBid` seulement pour trailing) |
 | `fill-engine.ts` | Fill d'entrée/sortie simulé : `yesPrice × (1 ± slippageBps)` + `computeTakerFee` |
-| `exit-manager.ts` | Sorties weather en mémoire (drift, bucket-exit + hysteresis, pre-close, SL/TP/trailing) |
-| `stats.ts` | `computeStats` (PnL, win rate, profit factor, expectancy, max drawdown) |
-| `runner.ts` | Boucle événementielle : avance la clock, délègue à l'adapter, persiste progression + equity + positions |
+| `exit-manager.ts` | Sorties weather en mémoire (drift, bucket-exit + hysteresis, pre-close, SL/TP/trailing) + throttle re-entry |
+| `stats.ts` | Fonction `computeStats` (PnL, win rate, profit factor, expectancy, max drawdown) |
+| `runner.ts` | Boucle `for await` : avance la clock, délègue à l'adapter, persiste progression + equity + positions |
 
 ### 3.2 Adaptateur weather (`src/adapters/weather/`)
 
@@ -103,9 +129,11 @@ Les **sorties** (drift / bucket-exit / pre-close / SL-TP-trailing / résolution)
 
 ### 3.3 Point d'entrée (`src/index.ts`)
 
-- `runBacktest(input)` : charge les événements, construit l'adapter weather, exécute le runner.
+- `runBacktest(input)` : parse les params, applique `configOverrides` sur le snapshot
+  config, charge les événements, construit `WeatherBacktestAdapter`, exécute le runner.
 - `parseBacktestParams` / `backtestRunParamsSchema` (validation Zod).
-- `createWeatherAdapter(ctx)` : fabrique d'adapter pour la route backend.
+- `createWeatherAdapter(ctx)` : export utilitaire (la route backend appelle
+  `runBacktest` directement, qui instancie l'adapter elle-même).
 
 ---
 
@@ -143,23 +171,14 @@ un run `running` **ou** `queued` → la route `POST /runs` renvoie `409`.
 | `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > weatherAlgoForecastChangeThreshold` |
 | `WEATHER_BUCKET_EXIT` | Forecast hors palier + `close_and_reenter` après `bucketHysteresisPolls` polls consécutifs |
 | `SL` / `TP` / `TRAILING` | Seuils `weatherAlgo*BidPoints` (offsets depuis le prix d'entrée) |
-| `RESOLUTION` | Marché résolu (endDate passé, ou fallback `targetDateIso + 24h` si endDate absent) |
+| `RESOLUTION` | Marché résolu (`endDate` passé, ou fallback `targetDateIso T23:59:59Z + 24h` si `endDate` absent) |
 
 ---
 
 ## 6. Fidélité & avertissements
 
-Chaque approximation est signalée dans `fidelity_warnings` (affiché dans l'UI) :
-
-| Code | Signification |
-|------|---------------|
-| `no_events_in_range` | Aucune donnée sur la plage demandée |
-| `resolution_proxy_forecast` | Résolution approximée par le forecast final (pas d'observation réelle) |
-| `resolution_no_endate_fallback` | Résolution via `targetDateIso+24h` (endDate absent) |
-| `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
-
-Le **fill** est simulé au prix YES enregistré ± slippage, sans profondeur de book :
-le PnL est une **borne indicative**, pas une exécution réelle.
+Voir le tableau §1. Le **fill** est simulé au prix YES enregistré ± slippage, sans
+profondeur de book : le PnL est une **borne indicative**, pas une exécution réelle.
 
 ---
 
@@ -167,8 +186,16 @@ le PnL est une **borne indicative**, pas une exécution réelle.
 
 - Routes : `packages/backend/src/routes/backtest.ts`, montées sous `/api/backtest` (JWT).
 - Le run s'exécute **in-process** en async (`yields setImmediate` toutes les 5000
-  événements pour ne pas bloquer l'event loop). La UI **polle** le run via
-  `GET /runs/:id` (pas de Socket.IO).
+  événements pour ne pas bloquer l'event loop). Progression flushée ~toutes les 2 s
+  wall-clock. La UI **polle** le run via `GET /runs/:id` (pas de Socket.IO).
+- **Timeout** : `BACKTEST_TIMEOUT_MS` (env, défaut 30 min) → flush equity + positions
+  puis `markFailed` (`error: 'timeout'`). Pas de `statsJson` / `fidelityWarningsJson`
+  persistés sur timeout (contrairement au cancel).
+- **Cancel** : `POST /runs/:id/cancel` répond `{ status: 'cancelling' }` et pose un
+  flag coopératif ; le runner flush equity + positions puis marque `cancelled`
+  (stats partielles + warnings conservés).
+- **Shutdown** : `cancelAllActiveBacktestRuns()` annule les runs in-process avant
+  arrêt du backend.
 - Au boot, `recoverOrphanedBacktestRuns` marque les runs `running`/`queued`
   orphelins comme `failed` (`error: 'backend_restart'`).
 
@@ -180,25 +207,45 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 `BacktestEquityChart`) :
 
 - **Couverture de données** affichée avant lancement.
-- **Formulaire** : mode, période, villes, capital, slippage, entrée USDC, positions max.
+- **Formulaire** : mode, période, villes, capital, slippage, entrée USDC, positions max
+  (pas d'UI pour `configOverrides` / `detectionDelayMs` — disponibles via API).
 - **Liste des runs** : statut, progression, métriques.
-- **Détail** : métriques (PnL, win rate, PF, max drawdown), courbe d'equity,
-  tableau des positions, avertissements de fidélité.
+- **Détail** : métriques (PnL, win rate, PF, max drawdown), avertissements de
+  fidélité, message d'erreur si `status === failed`.
+- Courbe d'equity + tableau des positions : chargés **uniquement** si
+  `status === 'completed'` (un run `cancelled` peut avoir des rows en DB mais
+  l'UI ne les fetch pas). Axe X du chart = champ `t` (timestamp ISO des
+  `backtest_equity_points`), pas un index.
 
 ---
 
 ## 9. Tests
 
 - `src/engine/stats.test.ts` : Ledger, `computeStats`, `computeMaxDrawdown`.
+- `src/engine/merge-event-streams.test.ts` : merge k-way, régression heap init
+  (stream 0 plus tardif que stream 1).
 - `src/adapters/weather/weather-adapter.test.ts` : run replay (entrée + résolution),
-  meta persisté, limite positions, résolution fallback, metric non supporté, hors plage.
+  meta persisté, limite positions, one-thesis-per-city replay, résolution fallback,
+  metric non supporté, hors plage.
 - `packages/core/src/services/backtest-run.service.test.ts` : verrou singleton.
 
 Lancement : `npm run test -w @polywatch/backtest`.
 
 ---
 
-## 10. Hors scope v1
+## 10. Dépannage
+
+| Erreur / symptôme | Cause probable | Action |
+|-------------------|----------------|--------|
+| `virtual_clock_regression` | Flux non monotone : pagination `ORDER BY id`, ou heap merge non initialisé | Vérifier `data-loader.ts` (`ORDER BY fetchedAt/recordedAt`) et `merge-event-streams.ts` (`bubbleUp` à l'init) ; rebuild `@polywatch/backtest` + redémarrer le backend |
+| Run bloqué `running` après crash backend | Run orphelin | Redémarrer le backend (`recoverOrphanedBacktestRuns`) ou marquer manuellement |
+| `run_already_active` (409) | Un run weather est déjà `running`/`queued` | Attendre la fin, cancel, ou corriger le run orphelin |
+| Progression à 0 % longtemps | `countWeatherEvents` retourne 0 ou run très volumineux | Vérifier couverture `/api/backtest/data-coverage` et plage `from`/`to` |
+| Positions ouvertes avec `exitPrice = null` | Comportement normal en fin de run | Positions encore ouvertes à la fin de la plage ; persistées avec PnL null |
+
+---
+
+## 11. Hors scope v1
 
 - Adaptateurs **crypto** et **copy trading** (plan d'origine).
 - Prometheus (`polywatch_backtest_*`), Socket.IO (`backtest:*`).

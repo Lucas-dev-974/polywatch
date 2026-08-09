@@ -3,7 +3,7 @@
 **Date** : 2026-08-08  
 **Statut** : **Appliqué** (Phases 0–4 du plan + UI onglet Données / purge)  
 **Plan source** : [`../2026-08-08_PLAN-weather-market-data-persistence.md`](../2026-08-08_PLAN-weather-market-data-persistence.md)  
-**Hors scope** : Phase 5 (`WeatherDataLoader` / `packages/backtest`) — voir [`../2026-08-05_PLAN-backtest-engine-universel.md`](../2026-08-05_PLAN-backtest-engine-universel.md)
+**Hors scope initial** : Phase 5 (`WeatherDataLoader` / `packages/backtest`) — **implémentée depuis 2026-08-09** ; voir [`../backtest.md`](../backtest.md) et [`../2026-08-05_PLAN-backtest-engine-universel.md`](../2026-08-05_PLAN-backtest-engine-universel.md)
 
 ---
 
@@ -88,7 +88,7 @@ Exposition UI : onglet **Données** (cards + drill-down + purge) ; toggles / ré
 | Mini panneau couverture dans Paramètres | Remplacé par onglet **Données** |
 | API lecture seule (4 routes) | + `/tables`, `DELETE /tables`, `/bucket-ticks`, `/forecast-cache`, `/position-forecasts` ; `includeTicks` sur snapshots |
 | Pas d’UI pour les listes | Drill-down frontend sur les 6 tables |
-| Phase 5 backtest | Toujours hors scope |
+| Phase 5 backtest | **Implémentée** (2026-08-09) — [`../backtest.md`](../backtest.md) |
 
 ---
 

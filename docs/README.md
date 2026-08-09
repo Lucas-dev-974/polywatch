@@ -75,11 +75,9 @@ kill switch, limites d'exposition).
 > [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md) ·
 > [`plans/2026-08-08_PLAN-weather-market-data-persistence.md`](./plans/2026-08-08_PLAN-weather-market-data-persistence.md)
 >
-> Backtest événementiel weather (moteur `@polywatch/backtest` + onglet Backtest) — **appliqué** :
-> [`backtest.md`](./backtest.md)
->
-> Moteur de backtest événementiel (domaine weather) + onglet Backtest (2026-08-08) — **appliqué** :
+> Backtest événementiel weather (moteur `@polywatch/backtest` + onglet Backtest) — **appliqué** (2026-08-09) :
 > [`backtest.md`](./backtest.md) ·
+> [`code/09-backtest.md`](./code/09-backtest.md) ·
 > [`plans/2026-08-05_PLAN-backtest-engine-universel.md`](./plans/2026-08-05_PLAN-backtest-engine-universel.md)
 >
 > Sim-reset Redis hygiene (2026-07-12 + fixes 4.5) — **appliqué** (abort worker in-flight inclus, 2026-08-07) :

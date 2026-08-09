@@ -403,18 +403,22 @@ Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./pla
 Routes JWT sous `/api/backtest`. Service : `BacktestRunService` + moteur `@polywatch/backtest`.  
 Doc : [`backtest.md`](./backtest.md).
 
+**Variables d'environnement** : `BACKTEST_TIMEOUT_MS` (défaut `1800000` = 30 min).
+
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/backtest/data-coverage` | Couverture des données de ticks (`from`, `to`, `totalTicks`, `cities`) |
 | POST | `/api/backtest/runs` | Lance un run — **202** `{ id, status }` ; **409** `run_already_active` si un run weather est déjà `running`/`queued` ; **400** `invalid_params` si params Zod invalides |
 | GET | `/api/backtest/runs` | Liste paginée (`domain`, `status`, `limit`≤100, `offset`) → `{ items, total }` |
-| GET | `/api/backtest/runs/:id` | Détail d'un run (params, stats, warnings, plage) |
-| POST | `/api/backtest/runs/:id/cancel` | Cancel coopératif (si `running`/`queued`) |
-| DELETE | `/api/backtest/runs/:id` | Supprime le run + ses positions + son equity |
+| GET | `/api/backtest/runs/:id` | Détail d'un run (params, stats, warnings, plage, `error` si failed) |
+| POST | `/api/backtest/runs/:id/cancel` | Cancel coopératif (si `running`/`queued`) → **200** `{ id, status: 'cancelling' }` ; le runner flush ensuite equity + positions et passe en `cancelled` (stats partielles). **400** `not_cancellable` sinon |
+| DELETE | `/api/backtest/runs/:id` | Supprime le run + ses positions + son equity ; si un run in-process est actif, pose aussi le flag cancel |
 | GET | `/api/backtest/runs/:id/positions` | Positions paginées (`limit`≤500, `offset`, filtre `exitReason`) |
-| GET | `/api/backtest/runs/:id/equity` | Courbe d'equity `{ points: [{ t, equity, cash, openPositions }] }` |
+| GET | `/api/backtest/runs/:id/equity` | Courbe d'equity `{ points: [{ t, equity, cash, openPositions }] }` (`t` = ISO timestamp) |
 
-Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId`, `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs`, `label`.
+Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId`, `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs` (accepté mais non appliqué → warning `detection_delay_unused` si > 0), `label`.
+
+Timeout : si `BACKTEST_TIMEOUT_MS` est dépassé, flush equity + positions puis `status=failed` / `error=timeout` (sans `statsJson`).
 
 ## Système — audit & monitor
 

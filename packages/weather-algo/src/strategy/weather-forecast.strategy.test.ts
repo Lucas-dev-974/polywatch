@@ -117,4 +117,36 @@ describe('WeatherForecastStrategy city-first', () => {
       expect(result.reason).not.toBe('forecast_probability_below_min');
     }
   });
+
+  it('evaluateGroup picks highest-edge bucket among active markets', async () => {
+    const strategy = new WeatherForecastStrategy();
+    strategy.setMinEdge(0.05);
+
+    const lowEdge = market({
+      conditionId: 'low-edge',
+      question: 'Will the highest temperature in Paris be 22°C on July 30?',
+      outcomePrices: [
+        { outcome: 'Yes', price: 0.5 },
+        { outcome: 'No', price: 0.5 },
+      ],
+    });
+    const highEdge = market({
+      conditionId: 'high-edge',
+      question: 'Will the highest temperature in Paris be 24°C on July 30?',
+      outcomePrices: [
+        { outcome: 'Yes', price: 0.2 },
+        { outcome: 'No', price: 0.8 },
+      ],
+    });
+
+    const result = await strategy.evaluateGroup([lowEdge, highEdge], {
+      forecastMean: 24,
+      forecastStdDev: 0.5,
+    });
+
+    expect(result.kind).toBe('signal');
+    if (result.kind === 'signal') {
+      expect(result.signal.conditionId).toBe('high-edge');
+    }
+  });
 });

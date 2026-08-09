@@ -1,8 +1,8 @@
 # Package `@polywatch/weather-algo` — Trading algorithmique météo
 
 Module d'automatisation pour les marchés **température** Polymarket : sélection
-par **ville**, prévisions Open-Meteo multi-modèles, BUY YES sur le palier aligné
-au forecast, sorties drift / bucket / pre-close.
+par **ville**, prévisions Open-Meteo multi-modèles, BUY YES sur le palier choisi
+par la stratégie active (best-edge ou aligned), sorties drift / bucket / pre-close.
 
 ---
 
@@ -15,7 +15,8 @@ Villes surveillées (WeatherAutoTrackRule)
 StrategyRunner (poll weatherAlgoPollMs)
         │  1. ExitEvaluator (sorties d'abord)
         │  2. discoverWeatherMarkets + forecast
-        │  3. selectForecastAlignedBucket → BUY YES si edge OK
+        │  3. evaluateGroup par stratégie active (catalogue, first-wins)
+        │  4. dedupSignalsByCity + applySelectionMode
         ▼
 runWeatherEntryPipeline → weather-order-signals
         │
@@ -48,10 +49,22 @@ Les sorties tournent **même si `weatherAlgoEnabled = false`** (positions ouvert
 
 ## 3. Stratégie & sorties
 
-**Entrée** : pour chaque ville surveillée (métrique v1 = `highest_temp`), sélection
-du bucket aligné (`selectForecastAlignedBucket`), puis **BUY YES uniquement** si
-l'edge YES dépasse le seuil dynamique. Modes `single` / `multi` entre **villes**
-(`spread` ignoré → traité comme `single`).
+**Entrée** : pour chaque ville surveillée (métrique v1 = `highest_temp`), la
+stratégie active choisit son bucket via `evaluateGroup` :
+- **`weather-forecast`** (défaut live) : `pickBestEdgeBucket` — palier à plus
+  grand edge YES parmi les buckets actifs ;
+- **`weather-forecast-aligned`** : `selectForecastAlignedBucket` — palier dont
+  la fourchette contient le forecast mean.
+
+Puis **BUY YES uniquement** si l'edge dépasse le seuil dynamique. Plusieurs
+stratégies peuvent être activées (ordre catalogue = priorité first-wins). Modes
+`single` / `multi` entre **villes** (`spread` ignoré → traité comme `single`).
+
+**UI** : onglet **Stratégies** (checkboxes d'activation ; priorité first-wins =
+ordre du catalogue, pas l'ordre de cochage). Params JSON
+`weatherAlgoStrategies` / `weatherAlgoStrategyParams` — catalogue partagé dans
+`@polywatch/core` (`strategy-catalog.ts`). Les seuils d'entrée (minEdge, minProb,
+maxStd) restent des knobs globaux (onglet Paramètres).
 
 **Sorties** :
 - `WEATHER_PRE_CLOSE` (pré-clôture) si `hoursToEnd <= weatherAlgoCloseBeforeResolutionHours` (prioritaire)
@@ -82,6 +95,7 @@ Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept 
 | Persistance snapshots / ticks / eval / forecast history | Actif (toggles ON par défaut) |
 | Onglet UI Données (cards, drill-down, purge) | Actif |
 | Onglet UI **Backtest** (lancer runs, métriques, equity, positions) | Actif (domaine weather) |
+| Onglet UI **Stratégies** (catalogue, activation, params) | Actif |
 
 ---
 
@@ -101,10 +115,12 @@ Purge horaire selon rétention (`weatherAlgo*RetentionDays`), indépendante des 
 
 Doc d’implémentation : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
 
-Le **backtest** de la stratégie (rejouer les données persistées ci-dessus) est
-décrit dans [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.2.0` pour une
-fidélité alignée live : SL/TP via `resolveWeatherEntryExitParams`, filtre
-`isMarketActiveForWeather`, throttle bucket/drift, kill-switch).
+Le **backtest** supporte deux modes d'exécution (`backtestExecutionMode`) :
+- **`strategy`** : ré-évalue bucket par bucket (rapide, non équivalent live) ;
+- **`runner-sim`** : regroupe les buckets par ville/date, `evaluateGroup`, dedup
+  et selectionMode comme le runner live.
+
+Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.2.0` …).
 
 ---
 

@@ -5,7 +5,8 @@ Couche de trading algorithmique sur marchés **température** Polymarket. Sélec
 Open-Meteo → edge YES → pipeline d'entrée (`weather-order-signals`) et sorties
 dédiées (`close-signals`).
 
-> État : MVP — **une seule stratégie** (`weather-forecast`). Config runtime =
+> État : **multi-stratégies** (`weather-forecast` + `weather-forecast-aligned`).
+> Catalogue + filtres JSON dans `WeatherConfig.weatherAlgoStrategies`. Config runtime =
 > entité **`WeatherConfig`** (`weather_config`), **pas** `RiskConfig` (purgé).
 > Doc produit synthétique : [`../weather-algo.md`](../weather-algo.md).
 
@@ -22,8 +23,12 @@ dédiées (`close-signals`).
 | `metrics-publisher.ts` | Flush parse rate + alertes backend |
 | `real-cash.ts` | Wrapper cash réel (namespace log weather) |
 | `strategy/strategy.ts` | Contrats `WeatherSignal` / `WeatherStrategy` |
-| `strategy/registry.ts` | Registre simple (pas de filtre JSON strategies) |
-| `strategy/weather-forecast.strategy.ts` | Stratégie edge BUY YES |
+| `strategy/registry.ts` | Registre ; `getOrdered(enabledIds)` selon catalogue core |
+| `strategy/weather-forecast.strategy.ts` | Best-edge BUY YES (`evaluateGroup` + `pickBestEdgeBucket`) |
+| `strategy/weather-forecast-aligned.strategy.ts` | Bucket aligné forecast (`selectForecastAlignedBucket`) |
+| `strategy/evaluate-bucket-gate.ts` | Gates edge/probabilité partagés |
+| `strategy/bucket-selection.ts` | `pickBestEdgeBucket`, `bucketCentre` |
+| `strategy/strategy-runner-selection.ts` | `dedupSignalsByCity`, `applySelectionMode` |
 | `strategy/strategy-runner.ts` | Boucle poll : exits puis entrées city-follow ; filtre `isMarketActiveForWeather` (core, partagé backtest) ; recorders data |
 | `strategy/runner-bucket-helpers.ts` | Prix YES/NO buckets via `binaryPricesFromParsed` / `binaryPricesToUpDown` |
 | `processors/weather-entry-pipeline.ts` | Sizing / MOS / reserve / enqueue |
@@ -39,7 +44,7 @@ dédiées (`close-signals`).
    `WeatherAutoTrackService`, `MarketService`, `ReservationService`,
    `SimulationService`.
 4. **3 connexions Redis** (cmd, pub heartbeat, sub `config-changed`).
-5. `WeatherStrategyRegistry` + `WeatherForecastStrategy`.
+5. `WeatherStrategyRegistry` + enregistrement des stratégies catalogue au boot.
 6. `PolymarketConnectionManager` (WS + CLOB) — échec WS → continue en REST.
 7. Files Redis : `WORKER_QUEUES.WEATHER_ORDER_SIGNALS` (`weather-order-signals`)
    + `WORKER_QUEUES.CLOSE_SIGNALS` (`close-signals`).
@@ -93,9 +98,14 @@ dédiées (`close-signals`).
 | Heartbeat | 30 s | Pub + Redis TTL 60 s |
 | WS Polymarket | boot | Prix exécutables ; **ne déclenche pas** l'eval (poll-driven) |
 
-## Stratégie `weather-forecast`
+## Stratégies weather (catalogue `@polywatch/core`)
 
-Interface (`strategy/strategy.ts`) : `evaluate(market, ctx) → WeatherEvaluationResult`.
+Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
+
+| ID | Sélection bucket | Live défaut |
+|---|---|---|
+| `weather-forecast` | `pickBestEdgeBucket` (max edge YES) | oui |
+| `weather-forecast-aligned` | `selectForecastAlignedBucket` | non |
 
 - **BUY YES uniquement** (même si le type autorise NO).
 - Edge = `forecastYesProb − marketYesPrice` (`core` `weather-edge.ts`).
@@ -105,11 +115,18 @@ Interface (`strategy/strategy.ts`) : `evaluate(market, ctx) → WeatherEvaluatio
 - Abstentions typiques : `no_question`, `unrecognized_question`,
   `zero_forecast_probability`, `forecast_probability_below_min`,
   `forecast_too_uncertain`, `no_market_prices`, `insufficient_edge`,
-  `missing_token`.
+  `missing_token`, `no_aligned_bucket`.
 
 Modes `single` / `multi` : appliqués dans le **runner**
-(`applySelectionMode` / `dedupSignalsByCity` / `pickBestEdgeBucket`), pas dans
-la stratégie. `spread` / inconnu → traité comme `single`.
+(`applySelectionMode` / `dedupSignalsByCity`), pas dans la stratégie.
+`spread` / inconnu → traité comme `single`.
+
+**Safe reload** : `weatherAlgoStrategies` snapshot au début de chaque cycle ;
+`activeStrategies` publié dans runtime-status.
+
+Catalogue servi par `GET /api/weather-algo/strategy-catalog`. Params déclaratifs
+(`weatherAlgoStrategyParams`) : schéma prêt, catalogue v1 = `params: []` (seuils
+d'entrée = knobs globaux `weatherAlgoMinEdge` / minProb / maxStd).
 
 ## Pipeline entry (`weather-entry-pipeline.ts`)
 
@@ -151,7 +168,7 @@ Forecast indisponible → skip drift/bucket (pas de close forcée).
 |---|---|
 | Watchlist sentinelle + seed | Adresse `'weather-algo'` |
 | Redis ×3, heartbeat, runtime-status | TTL status 300 s ; pas de `wsConnected` |
-| Registry + 1 stratégie MVP | `weather-forecast` (pas momentum) |
+| Registry + stratégies catalogue | `weather-forecast` + `weather-forecast-aligned` |
 | Entry pipeline sizing/MOS/reserve | File `weather-order-signals`, reason `WEATHER_OPEN` |
 | Auto-track janitor | Villes / `WeatherAutoTrackService` |
 | `config-changed` reload | Ignore kinds copy/crypto ; `WeatherConfig` |

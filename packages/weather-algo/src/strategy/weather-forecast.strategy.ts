@@ -1,28 +1,20 @@
 import pino from 'pino';
 import type { MarketListItemDto, WeatherConfig } from '@polywatch/core';
-import {
-  parseWeatherQuestion,
-  calculateEdge,
-  resolveDynamicMinEdge,
-  computeMarketImpliedProbabilities,
-  binaryPricesFromParsed,
-  binaryPricesToUpDown,
-} from '@polywatch/core';
+import { parseWeatherQuestion } from '@polywatch/core';
 import type {
   WeatherStrategy,
-  WeatherSignal,
   WeatherEvaluationContext,
   WeatherEvaluationResult,
 } from './strategy.js';
-import { DEFAULT_MIN_EDGE, DEFAULT_HOURS_TO_RESOLUTION_FALLBACK } from '../constants.js';
+import { DEFAULT_MIN_EDGE } from '../constants.js';
+import { evaluateBucketGate } from './evaluate-bucket-gate.js';
+import { pickBestEdgeBucket } from './bucket-selection.js';
 
 const log = pino({ name: 'weather-algo:forecast-strategy' });
 
 /**
- * Weather forecast strategy: compares the forecast-implied probability
- * of a temperature outcome with the market price.
- *
- * City-first: BUY YES only on the forecast-aligned bucket (directional thesis).
+ * Value-bet strategy: evaluates all active buckets and picks the one with
+ * the highest YES edge (pickBestEdgeBucket). This is the live default.
  */
 export class WeatherForecastStrategy implements WeatherStrategy {
   readonly id = 'weather-forecast';
@@ -48,160 +40,56 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     this.setMinForecastProbability(risk.weatherAlgoMinForecastProbability);
   }
 
+  private gateOptions() {
+    return {
+      strategyId: this.id,
+      minEdge: this.minEdge,
+      maxForecastStd: this.maxForecastStd,
+      minForecastProbability: this.minForecastProbability,
+    };
+  }
+
   async evaluate(
     market: MarketListItemDto,
     ctx: WeatherEvaluationContext,
     now?: Date,
   ): Promise<WeatherEvaluationResult> {
-    const nowMs = now?.getTime() ?? Date.now();
-    if (!market.question) {
-      return { kind: 'abstain', reason: 'no_question' };
-    }
-
-    const parsed = parseWeatherQuestion(market.question);
-    if (!parsed) {
-      return { kind: 'abstain', reason: 'unrecognized_question' };
-    }
-
-    const { yesProb: forecastYesProb } =
-      computeMarketImpliedProbabilities(
-        parsed.targetValue,
-        parsed.comparison,
-        ctx.forecastMean,
-        ctx.forecastStdDev,
-        parsed.targetValueLow,
-        parsed.targetValueHigh,
+    const result = await evaluateBucketGate(market, ctx, this.gateOptions(), now);
+    if (result.kind === 'signal') {
+      log.debug(
+        {
+          conditionId: market.conditionId,
+          edge: result.signal.edge,
+          threshold: result.signal.dynamicMinEdge,
+        },
+        'weather forecast strategy emitted signal',
       );
+    }
+    return result;
+  }
 
-    if (forecastYesProb <= 0) {
-      return {
-        kind: 'abstain',
-        reason: 'zero_forecast_probability',
-        detail: `target=${parsed.targetValue ?? `${parsed.targetValueLow}-${parsed.targetValueHigh}`} comparison=${parsed.comparison}`,
-        forecastProb: 0,
-      };
+  async evaluateGroup(
+    markets: MarketListItemDto[],
+    ctx: WeatherEvaluationContext,
+    now?: Date,
+  ): Promise<WeatherEvaluationResult> {
+    const candidates: Extract<WeatherEvaluationResult, { kind: 'signal' }>['signal'][] = [];
+    let lastAbstain: WeatherEvaluationResult = { kind: 'abstain', reason: 'no_buckets' };
+
+    for (const market of markets) {
+      const result = await this.evaluate(market, ctx, now);
+      if (result.kind === 'signal') {
+        candidates.push(result.signal);
+      } else {
+        lastAbstain = result;
+      }
     }
 
-    if (
-      this.minForecastProbability != null &&
-      forecastYesProb < this.minForecastProbability
-    ) {
-      return {
-        kind: 'abstain',
-        reason: 'forecast_probability_below_min',
-        detail: `forecastProb=${forecastYesProb.toFixed(4)} < min=${this.minForecastProbability.toFixed(4)}`,
-        forecastProb: forecastYesProb,
-      };
+    if (candidates.length === 0) {
+      return lastAbstain;
     }
 
-    if (this.maxForecastStd != null && ctx.forecastStdDev > this.maxForecastStd) {
-      return {
-        kind: 'abstain',
-        reason: 'forecast_too_uncertain',
-        detail: `stdDev=${ctx.forecastStdDev.toFixed(2)} > max=${this.maxForecastStd}`,
-        forecastProb: forecastYesProb,
-      };
-    }
-
-    const sidePrices = binaryPricesFromParsed(market.outcomePrices ?? []);
-    const { upPrice: yesPrice } = binaryPricesToUpDown(sidePrices);
-
-    if (yesPrice == null) {
-      return {
-        kind: 'abstain',
-        reason: 'no_market_prices',
-        forecastProb: forecastYesProb,
-      };
-    }
-
-    if (yesPrice <= 0) {
-      return {
-        kind: 'abstain',
-        reason: 'zero_prices',
-        forecastProb: forecastYesProb,
-      };
-    }
-
-    const yesEdge = calculateEdge(forecastYesProb, yesPrice);
-
-    const hoursToResolution = market.endDate
-      ? Math.max(0, (new Date(market.endDate).getTime() - nowMs) / 3_600_000)
-      : DEFAULT_HOURS_TO_RESOLUTION_FALLBACK;
-    const dynamicThreshold = resolveDynamicMinEdge(
-      ctx.forecastStdDev,
-      hoursToResolution,
-      this.minEdge,
-    );
-
-    if (yesEdge <= dynamicThreshold) {
-      return {
-        kind: 'abstain',
-        reason: 'insufficient_edge',
-        detail: `yesEdge=${yesEdge.toFixed(4)} threshold=${dynamicThreshold.toFixed(4)}`,
-        forecastProb: forecastYesProb,
-        edge: yesEdge,
-        dynamicMinEdge: dynamicThreshold,
-      };
-    }
-
-    const assetId = market.tokenIdYes;
-    if (!assetId) {
-      return {
-        kind: 'abstain',
-        reason: 'missing_token',
-        forecastProb: forecastYesProb,
-        edge: yesEdge,
-        dynamicMinEdge: dynamicThreshold,
-      };
-    }
-
-    const targetDate = market.endDate ? new Date(market.endDate) : new Date(nowMs);
-
-    const signal: WeatherSignal = {
-      conditionId: market.conditionId,
-      assetId,
-      outcome: 'YES',
-      side: 'BUY',
-      confidence: Math.min(1, Math.abs(yesEdge) * 2),
-      reasons: [
-        `forecast=${parsed.metric}:${parsed.targetValue ?? `${parsed.targetValueLow}-${parsed.targetValueHigh}`}°C`,
-        `comparison=${parsed.comparison}`,
-        `forecastProb=${forecastYesProb.toFixed(4)}`,
-        `marketPrice=${yesPrice.toFixed(4)}`,
-        `edge=${yesEdge.toFixed(4)}`,
-        `threshold=${dynamicThreshold.toFixed(4)}`,
-        `stdDev=${ctx.forecastStdDev.toFixed(2)}`,
-        `hoursToResolution=${hoursToResolution.toFixed(1)}`,
-      ],
-      strategyId: this.id,
-      eventSlug: market.eventSlug ?? market.conditionId,
-      city: parsed.city,
-      metric: parsed.metric,
-      targetDate,
-      forecastMean: ctx.forecastMean,
-      forecastStdDev: ctx.forecastStdDev,
-      forecastProbability: forecastYesProb,
-      marketPrice: yesPrice,
-      edge: yesEdge,
-      dynamicMinEdge: dynamicThreshold,
-      entryBucketComparison: parsed.comparison,
-      entryBucketBounds: {
-        low: parsed.targetValueLow,
-        high: parsed.targetValueHigh,
-        target: parsed.targetValue,
-      },
-    };
-
-    log.debug(
-      {
-        conditionId: market.conditionId,
-        outcome: 'YES',
-        edge: yesEdge,
-        threshold: dynamicThreshold,
-      },
-      'weather forecast strategy emitted signal',
-    );
-
-    return { kind: 'signal', signal };
+    const best = pickBestEdgeBucket(candidates, ctx.forecastMean);
+    return { kind: 'signal', signal: best };
   }
 }

@@ -8,6 +8,7 @@ export interface WeatherAlgoRuntimeStatus {
   lastEvaluatedAt: number | null;
   lastSkipReason: string | null;
   lastSkipAt: number | null;
+  activeStrategies: string[];
 }
 
 export class WeatherAlgoRuntimeStatusPublisher {

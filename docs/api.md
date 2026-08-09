@@ -380,6 +380,7 @@ sous-marché) renvoie **410 Gone**.
 |---------|-------|------|-------------|
 | GET | `/api/weather-algo/capital` | JWT | Capital sim (`SimulationService.getSnapshot('weather')`) + cash réel on-chain pUSD (wallet partagé) |
 | GET | `/api/weather-algo/executions` | JWT | Exécutions `WEATHER_*` (pagination `limit`/`offset`, filtres `conditionId`, `mode`, `status`/`statusGroup=pending`, `from`/`to`) — enrichi marchés + `WeatherPositionForecast` |
+| GET | `/api/weather-algo/strategy-catalog` | JWT | Catalogue stratégies (`WEATHER_STRATEGY_CATALOG` : id, label, description, `supportsGroup`, `params[]`) |
 
 ### Weather Algo data (persistance / audit)
 
@@ -416,7 +417,9 @@ Doc : [`backtest.md`](./backtest.md).
 | GET | `/api/backtest/runs/:id/positions` | Positions paginées (`limit`≤500, `offset`, filtre `exitReason`) |
 | GET | `/api/backtest/runs/:id/equity` | Courbe d'equity `{ points: [{ t, equity, cash, openPositions }] }` (`t` = ISO timestamp) |
 
-Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId` (défaut `weather-forecast` — **filtré en SQL** en mode `replay`), `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs` (accepté mais non appliqué → warning `detection_delay_unused` si > 0), `label`.
+Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId` (défaut `weather-forecast` — **filtré en SQL** en mode `replay` ; instancie la stratégie en `reevaluate`), `backtestExecutionMode` (`strategy` | `runner-sim`, défaut `strategy` — voir [`backtest.md`](./backtest.md)), `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs` (accepté mais non appliqué → warning `detection_delay_unused` si > 0), `label`.
+
+Config weather (`PUT /api/config/weather`) accepte aussi `weatherAlgoStrategies` (array d'IDs catalogue, min 1) et `weatherAlgoStrategyParams` (objet par strategyId, validé contre le schéma catalogue).
 
 `engine_version` du run = `BACKTEST_ENGINE_VERSION` du package (`0.2.0`+). `stats.profitFactor` peut être `null` (= +∞, aucun trade perdant).
 

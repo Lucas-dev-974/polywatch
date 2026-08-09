@@ -16,6 +16,9 @@ import {
   toCryptoConfigEntityUpdate,
   presentWeatherConfigForApi,
   toWeatherConfigEntityUpdate,
+  WEATHER_STRATEGY_IDS,
+  sanitizeWeatherStrategyParams,
+  validateWeatherStrategyParamsUpdate,
   type GlobalConfig,
   type CopyConfig,
   type CryptoConfig,
@@ -233,6 +236,8 @@ const cryptoConfigUpdateSchema = z.object({
 
 const weatherSelectionMode = z.enum(['single', 'multi']);
 
+const weatherStrategyId = z.enum(WEATHER_STRATEGY_IDS);
+
 const weatherConfigUpdateSchema = z.object({
   weatherAlgoMaxOpenPositions: nonNegInt,
   weatherAlgoMaxExposureUsdc: nonNegNumber,
@@ -278,6 +283,11 @@ const weatherConfigUpdateSchema = z.object({
   weatherAlgoForecastHistoryRetentionDays: z.number().int().min(1).max(365),
   weatherAlgoMarketSnapshotRetentionDays: z.number().int().min(1).max(365),
   weatherAlgoEvaluationLogRetentionDays: z.number().int().min(1).max(365),
+  weatherAlgoStrategies: z.array(weatherStrategyId).min(1).max(10),
+  weatherAlgoStrategyParams: z.record(
+    weatherStrategyId,
+    z.record(z.string().min(1).max(64), z.union([z.number(), z.boolean(), z.string()])),
+  ),
 }).partial().strict();
 
 // ─── Router factory ──────────────────────────────────────────────────
@@ -443,6 +453,26 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
         message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
       });
       return;
+    }
+    if (parsed.data.weatherAlgoStrategies || parsed.data.weatherAlgoStrategyParams) {
+      const current = await weatherService.getConfig();
+      const presented = presentWeatherConfigForApi(current);
+      const nextStrategies = parsed.data.weatherAlgoStrategies ?? presented.weatherAlgoStrategies;
+      const nextParams = sanitizeWeatherStrategyParams(
+        parsed.data.weatherAlgoStrategyParams ?? presented.weatherAlgoStrategyParams,
+      );
+      const paramErrors = validateWeatherStrategyParamsUpdate(nextStrategies, nextParams);
+      if (paramErrors.length > 0) {
+        res.status(400).json({
+          error: 'invalid_strategy_params',
+          message: paramErrors
+            .map((e) => `${e.strategyId}.${e.key}: ${e.message}`)
+            .join('; '),
+        });
+        return;
+      }
+      // Persist sanitized map so retired catalogue keys (e.g. useGlobalMinEdge) are dropped.
+      parsed.data.weatherAlgoStrategyParams = nextParams;
     }
     const before = await loadAllConfigs();
     const updated = await weatherService.updateConfig(

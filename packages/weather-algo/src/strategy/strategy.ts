@@ -48,6 +48,15 @@ export interface WeatherStrategy {
     ctx: WeatherEvaluationContext,
     now?: Date,
   ): Promise<WeatherEvaluationResult>;
+  /**
+   * Optional group evaluation: receives all active buckets for a city/date.
+   * When implemented, the runner calls this instead of per-bucket evaluate loops.
+   */
+  evaluateGroup?(
+    markets: MarketListItemDto[],
+    ctx: WeatherEvaluationContext,
+    now?: Date,
+  ): Promise<WeatherEvaluationResult>;
   /** Push runtime risk tunables into the strategy. Optional; default no-op. */
   setRiskConfig?(risk: WeatherConfig): void;
 }

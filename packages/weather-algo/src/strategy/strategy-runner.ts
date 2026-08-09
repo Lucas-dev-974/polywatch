@@ -23,14 +23,16 @@ import {
   resolveMarketTargetDateIso,
   isMarketActiveForWeather,
   type BucketCandidate,
+  resolveEnabledWeatherStrategies,
+  type WeatherStrategyId,
 } from '@polywatch/core';
 import type { WeatherStrategyRegistry } from './registry.js';
-import type { WeatherSignal, WeatherStrategy } from './strategy.js';
+import type { WeatherSignal, WeatherStrategy, WeatherEvaluationResult } from './strategy.js';
 import { resolveBucketPrices } from './runner-bucket-helpers.js';
+import { dedupSignalsByCity, applySelectionMode } from './strategy-runner-selection.js';
 import { WeatherAlgoRuntimeStatusPublisher } from '../runtime-status.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import { WEATHER_FORECAST_CACHE_TTL_MS_DEFAULT } from '../config.js';
-import { DEFAULT_MAX_SIGNALS_PER_EVENT } from '../constants.js';
 
 const log = pino({ name: 'weather-algo:strategy-runner' });
 
@@ -186,10 +188,19 @@ export class WeatherStrategyRunner {
       lastEvaluatedAt: null as number | null,
       lastSkipReason: null as string | null,
       lastSkipAt: null as number | null,
+      activeStrategies: [] as string[],
     };
 
+    // Snapshot config at cycle start — safe reload: mid-cycle config changes apply next cycle.
+    const risk = this.risk;
+    const enabledStrategyIds: WeatherStrategyId[] = risk
+      ? resolveEnabledWeatherStrategies(risk)
+      : [];
+    status.activeStrategies = [...enabledStrategyIds];
+    const strategies = this.registry.getOrdered(enabledStrategyIds);
+
     try {
-      if (!this.risk) {
+      if (!risk) {
         status.lastSkipReason = 'no_risk_config';
         status.lastSkipAt = Date.now();
         return;
@@ -204,10 +215,17 @@ export class WeatherStrategyRunner {
         }
       }
 
-      if (!this.risk.weatherAlgoEnabled) {
+      if (!risk.weatherAlgoEnabled) {
         status.lastSkipReason = 'disabled';
         status.lastSkipAt = Date.now();
         log.debug('weather-algo disabled — skipping entry evaluation');
+        return;
+      }
+
+      if (strategies.length === 0) {
+        status.lastSkipReason = 'no_strategies';
+        status.lastSkipAt = Date.now();
+        log.warn({ enabledStrategyIds }, 'no registered strategies for enabled ids');
         return;
       }
 
@@ -230,7 +248,7 @@ export class WeatherStrategyRunner {
         limit: 100,
         targetDates: discoveryTargetDates,
       });
-      const minHoursToClose = this.risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+      const minHoursToClose = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
       const openCities = await this.loadOpenWeatherCities();
 
       log.info(
@@ -238,6 +256,7 @@ export class WeatherStrategyRunner {
           ruleCount: cityFollowRules.length,
           openCities: [...openCities],
           maxLookAhead,
+          activeStrategies: enabledStrategyIds,
           targetDates: discoveryTargetDates.map((d) => d.toISOString().slice(0, 10)),
         },
         'evaluating city-follow rules',
@@ -248,15 +267,11 @@ export class WeatherStrategyRunner {
         discovery.temperatureMarkets,
         minHoursToClose,
         openCities,
+        strategies,
       );
 
-      // Deduplicate signals by city before selection: when several rules target
-      // the same city (e.g. highest_temp + lowest_temp), keep only the best-edge
-      // signal per city so applySelectionMode's slice doesn't waste a slot on a
-      // same-city duplicate that seenCities would filter out afterwards.
       const dedupedSignals = dedupSignalsByCity(allSignals);
-
-      const selectedSignals = this.applySelectionMode(dedupedSignals);
+      const selectedSignals = applySelectionMode(dedupedSignals, risk);
 
       // Safety guard: enforce one open position per city across the emitted
       // batch. dedupedSignals already carries at most one signal per city, but
@@ -362,9 +377,9 @@ export class WeatherStrategyRunner {
     temperatureMarkets: MarketListItemDto[],
     minHoursToClose: number,
     openCities: Set<string>,
+    strategies: WeatherStrategy[],
   ): Promise<WeatherSignal[]> {
     const signals: WeatherSignal[] = [];
-    const strategies = this.registry.getAll();
 
     for (const rule of rules) {
       const cityKey = normalizeWeatherCity(rule.city);
@@ -562,45 +577,101 @@ export class WeatherStrategyRunner {
     };
 
     const evaluationInputs: EvaluationLogInput[] = [];
-    const candidates: WeatherSignal[] = [];
     const abstainReasons: string[] = [];
+    const activeMarkets = activeBuckets.map((b) => b.market);
 
-    for (const bucket of activeBuckets) {
-      for (const strategy of strategies) {
-        const result = await strategy.evaluate(bucket.market, ctx);
-
+    for (const strategy of strategies) {
+      let result: WeatherEvaluationResult = { kind: 'abstain', reason: 'no_signal' };
+      if (strategy.evaluateGroup) {
+        result = await strategy.evaluateGroup(activeMarkets, ctx);
         if (evalLogEnabled && this.evaluationRecorder) {
-          const prices = resolveBucketPrices(bucket.market);
-          evaluationInputs.push({
-            snapshotId,
-            conditionId: bucket.conditionId,
-            bucketComparison: bucket.parsed.comparison,
-            bucketTarget: bucket.parsed.targetValue,
-            bucketLow: bucket.parsed.targetValueLow,
-            bucketHigh: bucket.parsed.targetValueHigh,
-            strategyId: strategy.id,
-            yesPrice: prices.yesPrice,
-            forecastProb:
-              result.kind === 'signal'
-                ? result.signal.forecastProbability
-                : (result.forecastProb ?? null),
-            edge:
-              result.kind === 'signal' ? result.signal.edge : (result.edge ?? null),
-            dynamicMinEdge:
-              result.kind === 'signal'
-                ? result.signal.dynamicMinEdge
-                : (result.dynamicMinEdge ?? null),
-            decision: result.kind === 'signal' ? 'signal' : 'abstain',
-            reason: result.kind === 'abstain' ? result.reason : null,
-          });
+          for (const bucket of activeBuckets) {
+            const perBucket =
+              result.kind === 'signal' &&
+              result.signal.conditionId === bucket.conditionId
+                ? result
+                : await strategy.evaluate(bucket.market, ctx);
+            const prices = resolveBucketPrices(bucket.market);
+            evaluationInputs.push({
+              snapshotId,
+              conditionId: bucket.conditionId,
+              bucketComparison: bucket.parsed.comparison,
+              bucketTarget: bucket.parsed.targetValue,
+              bucketLow: bucket.parsed.targetValueLow,
+              bucketHigh: bucket.parsed.targetValueHigh,
+              strategyId: strategy.id,
+              yesPrice: prices.yesPrice,
+              forecastProb:
+                perBucket.kind === 'signal'
+                  ? perBucket.signal.forecastProbability
+                  : (perBucket.forecastProb ?? null),
+              edge:
+                perBucket.kind === 'signal' ? perBucket.signal.edge : (perBucket.edge ?? null),
+              dynamicMinEdge:
+                perBucket.kind === 'signal'
+                  ? perBucket.signal.dynamicMinEdge
+                  : (perBucket.dynamicMinEdge ?? null),
+              decision: perBucket.kind === 'signal' ? 'signal' : 'abstain',
+              reason: perBucket.kind === 'abstain' ? perBucket.reason : null,
+            });
+          }
         }
-
-        if (result.kind === 'signal') {
-          candidates.push(result.signal);
-          break;
+      } else {
+        for (const bucket of activeBuckets) {
+          result = await strategy.evaluate(bucket.market, ctx);
+          if (evalLogEnabled && this.evaluationRecorder) {
+            const prices = resolveBucketPrices(bucket.market);
+            evaluationInputs.push({
+              snapshotId,
+              conditionId: bucket.conditionId,
+              bucketComparison: bucket.parsed.comparison,
+              bucketTarget: bucket.parsed.targetValue,
+              bucketLow: bucket.parsed.targetValueLow,
+              bucketHigh: bucket.parsed.targetValueHigh,
+              strategyId: strategy.id,
+              yesPrice: prices.yesPrice,
+              forecastProb:
+                result.kind === 'signal'
+                  ? result.signal.forecastProbability
+                  : (result.forecastProb ?? null),
+              edge:
+                result.kind === 'signal' ? result.signal.edge : (result.edge ?? null),
+              dynamicMinEdge:
+                result.kind === 'signal'
+                  ? result.signal.dynamicMinEdge
+                  : (result.dynamicMinEdge ?? null),
+              decision: result.kind === 'signal' ? 'signal' : 'abstain',
+              reason: result.kind === 'abstain' ? result.reason : null,
+            });
+          }
+          if (result.kind === 'signal') break;
+          abstainReasons.push(`${bucket.parsed.comparison}:${result.reason}`);
         }
-        abstainReasons.push(`${bucket.parsed.comparison}:${result.reason}`);
       }
+
+      if (result.kind === 'signal') {
+        if (evalLogEnabled && this.evaluationRecorder && evaluationInputs.length > 0) {
+          try {
+            await this.evaluationRecorder.recordBatch(evaluationInputs);
+          } catch (err) {
+            log.warn({ err, city, dateKey }, 'evaluation log batch failed — continuing');
+          }
+        }
+        log.info(
+          {
+            city,
+            dateKey,
+            strategyId: strategy.id,
+            forecastMean: forecast.forecastMean,
+            conditionId: result.signal.conditionId,
+            edge: result.signal.edge,
+          },
+          'city-follow: strategy emitted signal',
+        );
+        return result.signal;
+      }
+
+      abstainReasons.push(`${strategy.id}:${result.reason}`);
     }
 
     if (evalLogEnabled && this.evaluationRecorder && evaluationInputs.length > 0) {
@@ -611,31 +682,11 @@ export class WeatherStrategyRunner {
       }
     }
 
-    if (candidates.length === 0) {
-      log.debug(
-        { city, dateKey, bucketCount: activeBuckets.length, abstainReasons },
-        'city-follow: no bucket with sufficient edge',
-      );
-      return null;
-    }
-
-    const best = pickBestEdgeBucket(candidates, forecast.forecastMean);
-    log.info(
-      {
-        city,
-        dateKey,
-        forecastMean: forecast.forecastMean,
-        conditionId: best.conditionId,
-        comparison: best.entryBucketComparison,
-        target: best.entryBucketBounds?.target ??
-          `${best.entryBucketBounds?.low ?? ''}-${best.entryBucketBounds?.high ?? ''}`,
-        edge: best.edge,
-        nCandidates: candidates.length,
-      },
-      'city-follow: best-edge bucket selected',
+    log.debug(
+      { city, dateKey, bucketCount: activeBuckets.length, abstainReasons },
+      'city-follow: no strategy signal',
     );
-
-    return best;
+    return null;
   }
 
   private async publishStatus(status: {
@@ -643,6 +694,7 @@ export class WeatherStrategyRunner {
     lastEvaluatedAt: number | null;
     lastSkipReason: string | null;
     lastSkipAt: number | null;
+    activeStrategies: string[];
   }): Promise<void> {
     if (!this.runtimeStatus) return;
     try {
@@ -651,82 +703,4 @@ export class WeatherStrategyRunner {
       log.warn({ err }, 'failed to publish runtime status');
     }
   }
-
-  private applySelectionMode(signals: WeatherSignal[]): WeatherSignal[] {
-    if (signals.length === 0) return [];
-    if (!this.risk) return signals;
-
-    const mode = this.risk.weatherAlgoSelectionMode ?? 'single';
-
-    if (mode === 'multi') {
-      // The 1-per-city guarantee is enforced upstream by `dedupSignalsByCity`
-      // (called in runEvaluationCycle before selection) which keeps only the
-      // best-edge signal per city. No city dedup is needed here.
-      const maxN = this.risk.weatherAlgoMaxSignalsPerEvent ?? DEFAULT_MAX_SIGNALS_PER_EVENT;
-      const sorted = [...signals].sort((a, b) => b.edge - a.edge);
-      return sorted.slice(0, maxN);
-    }
-
-    if (mode !== 'single') {
-      log.warn(
-        { weatherAlgoSelectionMode: mode },
-        'weather selection mode unknown — falling back to single',
-      );
-    }
-    const best = signals.reduce((a, b) => (b.edge > a.edge ? b : a));
-    return [best];
-  }
-}
-
-/**
- * Deduplicate weather signals by city, keeping only the highest-edge signal per
- * normalized city. This runs in `runEvaluationCycle` before `applySelectionMode`
- * so that several rules targeting the same city (e.g. highest_temp + lowest_temp)
- * cannot consume more than one selection slot.
- */
-export function dedupSignalsByCity(signals: WeatherSignal[]): WeatherSignal[] {
-  const bestPerCity = new Map<string, WeatherSignal>();
-  for (const signal of signals) {
-    const cityKey = normalizeWeatherCity(signal.city);
-    const prev = bestPerCity.get(cityKey);
-    if (!prev || signal.edge > prev.edge) {
-      bestPerCity.set(cityKey, signal);
-    }
-  }
-  return [...bestPerCity.values()];
-}
-
-/**
- * Pick the bucket with the highest YES edge.
- * Callers must only pass non-empty candidate lists (all edges are assumed positive).
- * On exact edge ties, pick the bucket whose centre is closest to the forecast mean.
- *   - For exact / or_below / or_above buckets, the centre is the target value.
- *   - For between buckets, the centre is the midpoint of the bounds.
- */
-export function pickBestEdgeBucket(
-  candidates: WeatherSignal[],
-  forecastMean: number,
-): WeatherSignal {
-  if (candidates.length === 0) {
-    throw new Error('pickBestEdgeBucket called with empty candidates');
-  }
-  return candidates.reduce((best, current) => {
-    if (current.edge > best.edge) return current;
-    if (current.edge < best.edge) return best;
-    // Tie on edge: pick the bucket closest to the forecast mean.
-    const currentCentre = bucketCentre(current.entryBucketBounds, forecastMean);
-    const bestCentre = bucketCentre(best.entryBucketBounds, forecastMean);
-    const currentDist = Math.abs(forecastMean - currentCentre);
-    const bestDist = Math.abs(forecastMean - bestCentre);
-    return currentDist < bestDist ? current : best;
-  });
-}
-
-export function bucketCentre(
-  bounds: WeatherSignal['entryBucketBounds'],
-  fallback: number,
-): number {
-  if (bounds?.target != null) return bounds.target;
-  if (bounds?.low != null && bounds?.high != null) return (bounds.low + bounds.high) / 2;
-  return fallback;
 }

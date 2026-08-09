@@ -320,6 +320,26 @@ export {
   type BucketCandidate,
   type SelectedBucket,
 } from './weather/forecast-bucket-selector.js';
+export {
+  WEATHER_STRATEGY_CATALOG,
+  WEATHER_STRATEGY_IDS,
+  WEATHER_FORECAST_STRATEGY_ID,
+  WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+  parseWeatherAlgoStrategies,
+  parseWeatherAlgoStrategyParams,
+  serializeWeatherAlgoStrategies,
+  serializeWeatherAlgoStrategyParams,
+  getStrategyParams,
+  resolveEnabledWeatherStrategies,
+  sanitizeWeatherStrategyParams,
+  validateWeatherStrategyParamsUpdate,
+  isKnownWeatherStrategyId,
+  getWeatherStrategyMeta,
+  type WeatherStrategyId,
+  type WeatherStrategyMeta,
+  type WeatherStrategyParamsMap,
+  type StrategyParamSchema,
+} from './weather/strategy-catalog.js';
 export { seedDefaults } from './seed/defaults.js';
 export { SYSTEM_CONFIG_DEFAULTS } from './seed/system-config-defaults.js';
 export * from './polymarket/index.js';

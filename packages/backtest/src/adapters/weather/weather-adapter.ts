@@ -13,12 +13,24 @@ import {
   BACKTEST_PLATFORM_FEE,
 } from '../../engine/fill-engine.js';
 import { WeatherExitManager } from '../../engine/exit-manager.js';
-import { ClockedWeatherForecastStrategy } from './clocked-weather-forecast.strategy.js';
+import { ClockedWeatherStrategy, createWeatherStrategy } from './clocked-weather-strategy.js';
+import {
+  WEATHER_FORECAST_STRATEGY_ID,
+  type WeatherStrategyId,
+} from '@polywatch/core';
+import type { WeatherSignal } from '@polywatch/weather-algo';
 import {
   buildMarketListItem,
   ForecastRevisionStore,
 } from './context-builder.js';
 import { resolveWeatherBucket } from './resolution.js';
+import {
+  BucketGroupStore,
+  buildActiveMarketsForGroup,
+  createRunnerSimStrategies,
+  evaluateRunnerSimGroup,
+  selectRunnerSimSignals,
+} from './runner-sim.js';
 
 function resolvedExitMeta(risk: WeatherConfig): Record<string, number | null> {
   const p = resolveWeatherEntryExitParams(risk, 'sim', null);
@@ -42,7 +54,11 @@ function resolvedExitMeta(risk: WeatherConfig): Record<string, number | null> {
  * are evaluated purely in-memory on each book tick.
  */
 export class WeatherBacktestAdapter implements BacktestDomainAdapter {
-  private strategy: ClockedWeatherForecastStrategy;
+  private strategy: ClockedWeatherStrategy;
+  private runnerSimStrategies: ClockedWeatherStrategy[] = [];
+  private readonly bucketGroupStore = new BucketGroupStore();
+  private pendingRunnerSimSignals: WeatherSignal[] = [];
+  private lastRunnerSimBatchAt: number | null = null;
   private exitManager: WeatherExitManager;
   private forecastStore = new ForecastRevisionStore();
   private warningFired = new Set<string>();
@@ -56,9 +72,23 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   >();
 
   constructor(ctx: RunContext) {
-    this.strategy = new ClockedWeatherForecastStrategy();
-    this.strategy.setRiskConfig(ctx.configSnapshot);
+    const strategyId = (ctx.params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID) as WeatherStrategyId;
+    if (ctx.params.backtestExecutionMode === 'runner-sim') {
+      this.runnerSimStrategies = createRunnerSimStrategies(ctx.configSnapshot, strategyId);
+      this.strategy = this.runnerSimStrategies[0] ?? createWeatherStrategy(strategyId);
+    } else {
+      this.strategy = createWeatherStrategy(strategyId);
+    }
+    for (const s of this.runnerSimStrategies.length > 0 ? this.runnerSimStrategies : [this.strategy]) {
+      s.setRiskConfig(ctx.configSnapshot);
+    }
     this.exitManager = new WeatherExitManager(ctx.configSnapshot);
+  }
+
+  async finish(ctx: RunContext): Promise<void> {
+    if (ctx.params.backtestExecutionMode === 'runner-sim') {
+      await this.flushPendingRunnerSimSignals(ctx);
+    }
   }
 
   private warnOnce(ctx: RunContext, code: string, message: string): void {
@@ -243,6 +273,103 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     return null;
   }
 
+  private async flushPendingRunnerSimSignals(ctx: RunContext): Promise<void> {
+    if (this.pendingRunnerSimSignals.length === 0) return;
+
+    const risk = ctx.configSnapshot;
+    const selected = selectRunnerSimSignals(this.pendingRunnerSimSignals, risk);
+    this.pendingRunnerSimSignals = [];
+
+    const seenCities = new Set<string>();
+    for (const pos of ctx.ledger.openPositions()) {
+      if (pos.city) seenCities.add(pos.city.toLowerCase());
+    }
+
+    for (const signal of selected) {
+      const cityKey = (signal.city ?? '').toLowerCase();
+      if (cityKey && seenCities.has(cityKey)) continue;
+      if (ctx.ledger.isDuplicateOpen(signal.conditionId)) continue;
+      if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) break;
+      if (signal.city && this.exitManager.isReentryBlocked(signal.city, ctx.clock.now())) continue;
+
+      const cached = this.lastTickByCondition.get(signal.conditionId);
+      const yesPrice = cached?.tick.yesPrice;
+      if (yesPrice == null) continue;
+      if (!this.canEnter(ctx, ctx.params.entryUsdc, yesPrice)) continue;
+
+      const fill = simulateWeatherEntryFill({
+        conditionId: signal.conditionId,
+        yesPrice,
+        entryUsdc: ctx.params.entryUsdc,
+        slippageBps: ctx.params.slippageBps,
+        maxPositionSizeUsdc: risk.weatherAlgoMaxPositionSizeUsdc,
+      });
+
+      ctx.ledger.openPosition({
+        conditionId: signal.conditionId,
+        city: signal.city,
+        qty: fill.qty,
+        entryPrice: fill.entryPrice,
+        entryAt: ctx.clock.now(),
+        fees: fill.fees,
+        entryReason: 'signal',
+        meta: {
+          strategyId: signal.strategyId,
+          edge: signal.edge,
+          dynamicMinEdge: signal.dynamicMinEdge,
+          entryMean: signal.forecastMean,
+          entryBucketComparison: signal.entryBucketComparison ?? null,
+          entryBucketBounds: signal.entryBucketBounds ?? null,
+          detailReasons: signal.reasons.join(' | '),
+          ...resolvedExitMeta(risk),
+        },
+      });
+
+      if (cityKey) seenCities.add(cityKey);
+    }
+  }
+
+  private async onBookTickRunnerSim(
+    data: BookTickEventData,
+    at: Date,
+    ctx: RunContext,
+  ): Promise<void> {
+    const batchAt = at.getTime();
+    if (this.lastRunnerSimBatchAt != null && batchAt !== this.lastRunnerSimBatchAt) {
+      await this.flushPendingRunnerSimSignals(ctx);
+    }
+    this.lastRunnerSimBatchAt = batchAt;
+
+    const groupKey = this.bucketGroupStore.upsert(data);
+    const risk = ctx.configSnapshot;
+    const minHours = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+
+    const forecast = this.getCurrentForecast(
+      ctx,
+      data.snapshotCity,
+      data.snapshotTargetDateIso,
+      data.snapshotMetric,
+    );
+    const ctxWeather = {
+      forecastMean: forecast?.forecastMean ?? data.snapshotForecastMean ?? 0,
+      forecastStdDev: forecast?.forecastStdDev ?? 0,
+    };
+
+    const ticks = this.bucketGroupStore.ticksForGroup(groupKey);
+    const activeMarkets = buildActiveMarketsForGroup(ticks, minHours, ctx.clock.now().getTime());
+    if (activeMarkets.length === 0) return;
+
+    const signal = await evaluateRunnerSimGroup(
+      this.runnerSimStrategies,
+      activeMarkets,
+      ctxWeather,
+      ctx.clock.now(),
+    );
+    if (signal) {
+      this.pendingRunnerSimSignals.push(signal);
+    }
+  }
+
   private async onBookTick(
     data: BookTickEventData,
     at: Date,
@@ -263,6 +390,11 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     if (this.exitManager.isReentryBlocked(data.snapshotCity, ctx.clock.now())) return;
 
     if (ctx.params.mode === 'replay') {
+      return;
+    }
+
+    if (ctx.params.backtestExecutionMode === 'runner-sim') {
+      await this.onBookTickRunnerSim(data, at, ctx);
       return;
     }
 

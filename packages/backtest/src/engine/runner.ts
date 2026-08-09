@@ -26,6 +26,8 @@ export interface RunContext {
     detectionDelayMs: number;
     capital: number;
     mode: 'reevaluate' | 'replay';
+    strategyId: string;
+    backtestExecutionMode: 'strategy' | 'runner-sim';
   };
   /** Current event being processed (read-only, set by the runner). */
   currentEvent: BacktestEvent | null;
@@ -56,6 +58,8 @@ export interface RunSpec {
   entryUsdc: number;
   detectionDelayMs: number;
   mode: 'reevaluate' | 'replay';
+  strategyId: string;
+  backtestExecutionMode: 'strategy' | 'runner-sim';
   service: BacktestRunService;
   /** Cooperative abort: 'cancelled' (user) or 'timeout'. */
   getAbortReason?: () => 'cancelled' | 'timeout' | null;
@@ -130,6 +134,8 @@ export class BacktestRunner {
         detectionDelayMs: spec.detectionDelayMs,
         capital: spec.initialCapital,
         mode: spec.mode,
+        strategyId: spec.strategyId,
+        backtestExecutionMode: spec.backtestExecutionMode,
       },
       currentEvent: null,
       cancelRequested: () => (spec.getAbortReason ? spec.getAbortReason() != null : false),
@@ -256,6 +262,8 @@ export class BacktestRunner {
         await new Promise((resolve) => setImmediate(resolve));
       }
     }
+
+    await adapter.finish?.(ctx);
 
     return finishRun('completed');
   }

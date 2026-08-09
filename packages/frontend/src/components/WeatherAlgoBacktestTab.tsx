@@ -7,11 +7,13 @@ import {
   fetchBacktestPositions,
   fetchBacktestRun,
   fetchBacktestRuns,
+  fetchWeatherStrategyCatalog,
   launchBacktestRun,
   type BacktestDataCoverage,
   type BacktestEquityPointDto,
   type BacktestPositionDto,
   type BacktestRunDto,
+  type WeatherStrategyMeta,
 } from '../api';
 import { UI_KEYS, usePersistedSignal } from '../lib/ui-persistence';
 import { BacktestEquityChart } from './BacktestEquityChart';
@@ -88,6 +90,17 @@ export function WeatherAlgoBacktestTab() {
   const [slippageBps, setSlippageBps] = createSignal('50');
   const [maxPos, setMaxPos] = createSignal('10');
   const [label, setLabel] = createSignal('');
+  const [strategyId, setStrategyId] = usePersistedSignal(
+    'polywatch_weather_algo_backtest_strategy_id',
+    'weather-forecast',
+    (v): v is string => typeof v === 'string' && v.length > 0,
+  );
+  const [executionMode, setExecutionMode] = usePersistedSignal(
+    'polywatch_weather_algo_backtest_execution_mode',
+    'strategy' as 'strategy' | 'runner-sim',
+    (v): v is 'strategy' | 'runner-sim' => v === 'strategy' || v === 'runner-sim',
+  );
+  const [catalog, setCatalog] = createSignal<WeatherStrategyMeta[]>([]);
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
 
@@ -185,6 +198,9 @@ export function WeatherAlgoBacktestTab() {
   onMount(() => {
     void refreshCoverage();
     void refreshList();
+    void fetchWeatherStrategyCatalog()
+      .then((res) => setCatalog(res.strategies))
+      .catch(() => setCatalog([]));
     const restoredId = selectedId();
     if (restoredId != null) {
       openRun(restoredId);
@@ -209,6 +225,8 @@ export function WeatherAlgoBacktestTab() {
         from: new Date(`${from()}T00:00:00.000Z`).toISOString(),
         to: new Date(`${to()}T23:59:59.999Z`).toISOString(),
         cities: cities().trim() ? cities().split(',').map((c) => c.trim()).filter(Boolean) : undefined,
+        strategyId: strategyId(),
+        backtestExecutionMode: executionMode(),
         capital: Number(capital()) || 1000,
         entryUsdc: Number(entryUsdc()) || 10,
         slippageBps: Number(slippageBps()) || 0,
@@ -326,6 +344,33 @@ export function WeatherAlgoBacktestTab() {
                 onInput={(e) => setCities(e.currentTarget.value)}
                 placeholder="ex. london, paris"
               />
+            </label>
+            <label class="backtest-field">
+              <span>Stratégie</span>
+              <select
+                value={strategyId()}
+                onChange={(e) => setStrategyId(e.currentTarget.value)}
+              >
+                <For each={catalog()}>
+                  {(s) => <option value={s.id}>{s.label}</option>}
+                </For>
+                <Show when={catalog().length === 0}>
+                  <option value="weather-forecast">Forecast (best edge)</option>
+                  <option value="weather-forecast-aligned">Forecast (aligned)</option>
+                </Show>
+              </select>
+            </label>
+            <label class="backtest-field">
+              <span>Exécution backtest</span>
+              <select
+                value={executionMode()}
+                onChange={(e) =>
+                  setExecutionMode(e.currentTarget.value as 'strategy' | 'runner-sim')
+                }
+              >
+                <option value="strategy">Strategy (tick par bucket, rapide)</option>
+                <option value="runner-sim">Runner-sim (groupe + dedup, proche live)</option>
+              </select>
             </label>
             <label class="backtest-field">
               <span>Capital initial (USDC)</span>

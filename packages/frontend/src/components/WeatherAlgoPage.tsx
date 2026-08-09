@@ -17,6 +17,7 @@ import { WeatherAlgoAutoTrackTab } from './WeatherAlgoAutoTrackTab';
 import { WeatherAlgoSettingsTab } from './WeatherAlgoSettingsTab';
 import { WeatherAlgoDataTab } from './WeatherAlgoDataTab';
 import { WeatherAlgoBacktestTab } from './WeatherAlgoBacktestTab';
+import { WeatherAlgoStrategiesTab } from './WeatherAlgoStrategiesTab';
 import { NewSessionResetDialog } from './NewSessionResetDialog';
 
 export function WeatherAlgoPage() {
@@ -49,6 +50,7 @@ export function WeatherAlgoPage() {
           { id: 'cities' as const, label: 'Villes' },
           { id: 'data' as const, label: 'Données' },
           { id: 'backtest' as const, label: 'Backtest' },
+          { id: 'strategies' as const, label: 'Stratégies' },
           { id: 'settings' as const, label: 'Paramètres' },
         ]}>
           {(item) => (
@@ -110,6 +112,10 @@ export function WeatherAlgoPage() {
 
       <Show when={tab() === 'backtest'}>
         <WeatherAlgoBacktestTab />
+      </Show>
+
+      <Show when={tab() === 'strategies'}>
+        <WeatherAlgoStrategiesTab />
       </Show>
 
       <Show when={tab() === 'settings'}>

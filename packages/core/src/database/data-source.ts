@@ -132,6 +132,7 @@ import { AddCryptoAlgoStrategyParams1700000000094 } from '../migrations/AddCrypt
 import { CreatePostEntryMidSamples1700000000095 } from '../migrations/CreatePostEntryMidSamples1700000000095.js';
 import { AddWeatherMarketDataPersistence1700000000100 } from '../migrations/AddWeatherMarketDataPersistence1700000000100.js';
 import { AddBacktestTables1700000000101 } from '../migrations/AddBacktestTables1700000000101.js';
+import { AddWeatherAlgoStrategies1700000000102 } from '../migrations/AddWeatherAlgoStrategies1700000000102.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -226,6 +227,7 @@ export const migrations = [
   CreatePostEntryMidSamples1700000000095,
   AddWeatherMarketDataPersistence1700000000100,
   AddBacktestTables1700000000101,
+  AddWeatherAlgoStrategies1700000000102,
 ];
 
 export const entities = [

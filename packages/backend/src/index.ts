@@ -60,6 +60,7 @@ import { createWeatherAlgoForecastsRouter } from './routes/weather-algo-forecast
 import { createWeatherAlgoAutoTrackRouter } from './routes/weather-algo-auto-track.js';
 import { createWeatherAlgoExecutionsRouter } from './routes/weather-algo-executions.js';
 import { createWeatherAlgoDataRouter } from './routes/weather-algo-data.js';
+import { createWeatherAlgoStrategyCatalogRouter } from './routes/weather-algo-strategy-catalog.js';
 import {
   createBacktestRouter,
   recoverOrphanedBacktestRuns,
@@ -210,6 +211,7 @@ async function main() {
   app.use('/api/weather-algo-auto-track', jwtLimiter, createWeatherAlgoAutoTrackRouter(ds));
   app.use('/api/weather-algo/executions', jwtLimiter, createWeatherAlgoExecutionsRouter(ds));
   app.use('/api/weather-algo/capital', jwtLimiter, createWeatherAlgoCapitalRouter(ds));
+  app.use('/api/weather-algo', jwtLimiter, createWeatherAlgoStrategyCatalogRouter());
   app.use('/api/weather-algo-data', jwtLimiter, createWeatherAlgoDataRouter(ds));
   app.use('/api/backtest', jwtLimiter, createBacktestRouter(ds));
   app.use('/api/internal', createInternalRouter(ds));

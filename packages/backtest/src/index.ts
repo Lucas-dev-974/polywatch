@@ -59,6 +59,8 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     entryUsdc,
     detectionDelayMs: params.detectionDelayMs,
     mode: params.mode,
+    strategyId: params.strategyId,
+    backtestExecutionMode: params.backtestExecutionMode,
     service: input.service,
     getAbortReason: input.getAbortReason,
   });

@@ -7,4 +7,6 @@ import type { RunContext } from '../engine/runner.js';
  */
 export interface BacktestDomainAdapter {
   handle(event: BacktestEvent, ctx: RunContext): Promise<void>;
+  /** Called after the event stream ends (optional cleanup / flush). */
+  finish?(ctx: RunContext): Promise<void>;
 }

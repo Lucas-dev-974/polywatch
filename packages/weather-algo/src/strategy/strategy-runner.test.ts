@@ -4,7 +4,8 @@ import { WeatherStrategyRunner } from './strategy-runner.js';
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import type { WeatherSignal, WeatherStrategy } from './strategy.js';
-import { pickBestEdgeBucket, bucketCentre, dedupSignalsByCity } from './strategy-runner.js';
+import { pickBestEdgeBucket, bucketCentre } from './bucket-selection.js';
+import { dedupSignalsByCity, applySelectionMode } from './strategy-runner-selection.js';
 
 function minimalRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
   return {
@@ -19,6 +20,7 @@ function minimalRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
 function buildRunner(exitEvaluator: WeatherExitEvaluator) {
   const registry = {
     getAll: () => [],
+    getOrdered: () => [],
   } as unknown as WeatherStrategyRegistry;
 
   return new WeatherStrategyRunner({
@@ -248,8 +250,6 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       evaluate: vi.fn(async (m: MarketListItemDto, ctx) => {
         const parsed = /(\d+)°C/.exec(m.question ?? '');
         const target = parsed ? Number(parsed[1]) : 0;
-        const forecastMean = ctx.forecastMean;
-        // Manufacture a signal whose edge decreases as we move away from 34°C
         const edge = 0.30 - Math.abs(target - 34) * 0.10;
         if (edge <= 0.05) return { kind: 'abstain' as const, reason: 'insufficient_edge' };
         return {
@@ -275,6 +275,17 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
             entryBucketBounds: { target },
           },
         };
+      }),
+      evaluateGroup: vi.fn(async (markets: MarketListItemDto[], ctx) => {
+        const candidates: WeatherSignal[] = [];
+        for (const m of markets) {
+          const r = await strategy.evaluate(m, ctx);
+          if (r.kind === 'signal') candidates.push(r.signal);
+        }
+        if (candidates.length === 0) {
+          return { kind: 'abstain' as const, reason: 'insufficient_edge' };
+        }
+        return { kind: 'signal' as const, signal: pickBestEdgeBucket(candidates, ctx.forecastMean) };
       }),
     } as unknown as WeatherStrategy;
 
@@ -394,86 +405,70 @@ describe('applySelectionMode', () => {
   }
 
   it('single mode returns the highest-edge signal only', () => {
-    const runner = buildRunnerForSelection(
-      minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'single' }),
+    const risk = minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'single' });
+    const result = applySelectionMode(
+      [
+        signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
+        signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
+        signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
+      ],
+      risk,
     );
-    const apply = runner as unknown as {
-      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
-    };
-    const result = apply.applySelectionMode([
-      signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
-      signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
-      signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
-    ]);
     expect(result).toHaveLength(1);
     expect(result[0].conditionId).toBe('high');
   });
 
   it('multi mode returns top N by edge across distinct cities', () => {
-    const runner = buildRunnerForSelection(
-      minimalRisk({
-        weatherAlgoEnabled: true,
-        weatherAlgoSelectionMode: 'multi',
-        weatherAlgoMaxSignalsPerEvent: 2,
-      }),
+    const risk = minimalRisk({
+      weatherAlgoEnabled: true,
+      weatherAlgoSelectionMode: 'multi',
+      weatherAlgoMaxSignalsPerEvent: 2,
+    });
+    const result = applySelectionMode(
+      [
+        signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
+        signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
+        signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
+      ],
+      risk,
     );
-    const apply = runner as unknown as {
-      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
-    };
-    const result = apply.applySelectionMode([
-      signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
-      signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
-      signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
-    ]);
     expect(result).toHaveLength(2);
     expect(result.map((s) => s.conditionId)).toEqual(['high', 'mid']);
   });
 
   it('multi mode keeps only top N even if same city appears multiple times (defensive guard)', () => {
-    // Today evaluateCityFollowRules guarantees 1 signal per city, so this case
-    // cannot happen in production. The test locks the behavior against a future
-    // upstream regression: multi mode must still cap at maxN.
-    const runner = buildRunnerForSelection(
-      minimalRisk({
-        weatherAlgoEnabled: true,
-        weatherAlgoSelectionMode: 'multi',
-        weatherAlgoMaxSignalsPerEvent: 2,
-      }),
+    const risk = minimalRisk({
+      weatherAlgoEnabled: true,
+      weatherAlgoSelectionMode: 'multi',
+      weatherAlgoMaxSignalsPerEvent: 2,
+    });
+    const result = applySelectionMode(
+      [
+        signal({ edge: 0.30, conditionId: 'a', city: 'Paris' }),
+        signal({ edge: 0.20, conditionId: 'b', city: 'Paris' }),
+        signal({ edge: 0.10, conditionId: 'c', city: 'Paris' }),
+      ],
+      risk,
     );
-    const apply = runner as unknown as {
-      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
-    };
-    const result = apply.applySelectionMode([
-      signal({ edge: 0.30, conditionId: 'a', city: 'Paris' }),
-      signal({ edge: 0.20, conditionId: 'b', city: 'Paris' }),
-      signal({ edge: 0.10, conditionId: 'c', city: 'Paris' }),
-    ]);
     expect(result).toHaveLength(2);
     expect(result.map((s) => s.conditionId)).toEqual(['a', 'b']);
   });
 
   it('returns empty array for empty input regardless of mode', () => {
-    const runner = buildRunnerForSelection(
-      minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'multi' }),
-    );
-    const apply = runner as unknown as {
-      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
-    };
-    expect(apply.applySelectionMode([])).toEqual([]);
+    const risk = minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'multi' });
+    expect(applySelectionMode([], risk)).toEqual([]);
   });
 
   it('falls back to single for unknown selection mode (spread)', () => {
-    const runner = buildRunnerForSelection(
-      minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'spread' }),
+    const risk = minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'spread' });
+    const result = applySelectionMode(
+      [
+        signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
+        signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
+        signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
+      ],
+      risk,
     );
-    const apply = runner as unknown as {
-      applySelectionMode: (s: WeatherSignal[]) => WeatherSignal[];
-    };
-    const result = apply.applySelectionMode([
-      signal({ edge: 0.10, conditionId: 'low', city: 'Lyon' }),
-      signal({ edge: 0.25, conditionId: 'high', city: 'Paris' }),
-      signal({ edge: 0.15, conditionId: 'mid', city: 'Marseille' }),
-    ]);
     expect(result).toHaveLength(1);
     expect(result[0].conditionId).toBe('high');
   });

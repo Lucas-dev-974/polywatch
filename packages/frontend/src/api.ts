@@ -618,6 +618,25 @@ export interface WeatherConfig {
   weatherAlgoForecastHistoryRetentionDays: number;
   weatherAlgoMarketSnapshotRetentionDays: number;
   weatherAlgoEvaluationLogRetentionDays: number;
+  weatherAlgoStrategies: string[];
+  weatherAlgoStrategyParams: Record<string, Record<string, number | boolean | string>>;
+}
+
+export interface WeatherStrategyMeta {
+  id: string;
+  label: string;
+  description: string;
+  supportsGroup: boolean;
+  params: Array<{
+    key: string;
+    label: string;
+    kind: 'number' | 'boolean' | 'select';
+    min?: number;
+    max?: number;
+    step?: number;
+    default: number | boolean | string;
+    hint?: string;
+  }>;
 }
 
 export interface WeatherAlgoDataCoverage {
@@ -763,6 +782,10 @@ export async function updateCryptoConfig(data: Partial<CryptoConfig>): Promise<C
 
 export async function fetchWeatherConfig(): Promise<WeatherConfig> {
   return api<WeatherConfig>('/config/weather');
+}
+
+export async function fetchWeatherStrategyCatalog(): Promise<{ strategies: WeatherStrategyMeta[] }> {
+  return api<{ strategies: WeatherStrategyMeta[] }>('/weather-algo/strategy-catalog');
 }
 
 export async function updateWeatherConfig(data: Partial<WeatherConfig>): Promise<WeatherConfig> {
@@ -1028,6 +1051,7 @@ export interface BacktestRunParamsInput {
   to: string;
   cities?: string[];
   strategyId?: string;
+  backtestExecutionMode?: 'strategy' | 'runner-sim';
   configOverrides?: Record<string, unknown>;
   capital?: number;
   entryUsdc?: number;

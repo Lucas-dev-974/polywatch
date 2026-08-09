@@ -55,6 +55,7 @@ export type WeatherAlgoPageTab =
   | 'cities'
   | 'data'
   | 'backtest'
+  | 'strategies'
   | 'settings';
 export const WEATHER_ALGO_PAGE_TABS = [
   'markets',
@@ -62,6 +63,7 @@ export const WEATHER_ALGO_PAGE_TABS = [
   'cities',
   'data',
   'backtest',
+  'strategies',
   'settings',
 ] as const;
 

@@ -1,18 +1,27 @@
 # Spécification — Multi-stratégies Weather Algo
 
 **Date** : 2026-08-08
-**Statut** : Spécification (pas d'implémentation)
-**Scope** : Ajouter 3 stratégies au weather algo + sélection configurable via l'UI
+**Statut** : **Partiellement implémenté** (2026-08-09) — étape 1 livrée ; stratégies avancées = futur
+**Scope** : Ajouter des stratégies au weather algo + sélection configurable via l'UI
 **Référence audit** : [`2026-08-08_audit-weather-forecast-strategy.md`](./2026-08-08_audit-weather-forecast-strategy.md)
+**Référence plan livré** : [`plans/2026-08-09_PLAN-weather-multi-strategy-extensible.md`](./plans/2026-08-09_PLAN-weather-multi-strategy-extensible.md)
 **Référence canvas** : [`weather-algo-audit.canvas.tsx`](../../.cursor/projects/c-Users-lcsystem-Desktop-TradeInterface-Polytwatch-versioning-Polywatch-v1-1/canvases/weather-algo-audit.canvas.tsx)
+
+### État d'avancement (2026-08-09)
+
+| Élément | État |
+|---|---|
+| Mécanisme multi-stratégies (catalogue, `weatherAlgoStrategies`, onglet UI, `evaluateGroup`, first-wins) | ✅ livré |
+| `weather-forecast` (best-edge) + `weather-forecast-aligned` | ✅ livré |
+| `weather-spread` / `weather-convergence` / `weather-arbitrage` | ❌ futur — sections ci-dessous restent la spec cible |
 
 ---
 
 ## 1. Contexte
 
-Le weather algo possède actuellement une seule stratégie (`weather-forecast`) avec un win rate de 11.96% et un PnL net de -18.45 USDC. L'audit a identifié que la stratégie forecast est valide conceptuellement mais souffre de défauts structurels : bucket-exits répétitifs, sensibilité à l'incertitude du forecast, et pas de couverture.
+Au moment de la rédaction, le weather algo n'avait qu'une stratégie (`weather-forecast`) avec un win rate de 11.96% et un PnL net de -18.45 USDC. L'audit a identifié que la stratégie forecast est valide conceptuellement mais souffre de défauts structurels : bucket-exits répétitifs, sensibilité à l'incertitude du forecast, et pas de couverture.
 
-Cette spec décrit l'ajout de 3 nouvelles stratégies (`weather-spread`, `weather-convergence`, `weather-arbitrage`) et le mécanisme de sélection configurable via l'UI, en suivant le pattern déjà utilisé par le crypto-algo (`cryptoAlgoStrategies`).
+Cette spec décrit l'ajout de stratégies avancées (`weather-spread`, `weather-convergence`, `weather-arbitrage`) et le mécanisme de sélection configurable via l'UI. Le mécanisme + les deux variantes forecast sont livrés (voir plan 2026-08-09) ; le reste de ce document reste la cible produit.
 
 ---
 

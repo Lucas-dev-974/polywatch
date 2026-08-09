@@ -220,4 +220,14 @@ export class WeatherConfig {
     default: 90,
   })
   weatherAlgoEvaluationLogRetentionDays!: number;
+
+  // ── Multi-strategy ─────────────────────────────────────────────────
+
+  /** JSON array of active strategy IDs, e.g. `["weather-forecast"]`. */
+  @Column({ type: 'text', name: 'weather_algo_strategies', default: '["weather-forecast"]' })
+  weatherAlgoStrategies!: string;
+
+  /** JSON object of per-strategy params, e.g. `{ "weather-forecast": { ... } }`. */
+  @Column({ type: 'text', name: 'weather_algo_strategy_params', default: '{}' })
+  weatherAlgoStrategyParams!: string;
 }

@@ -40,10 +40,12 @@ AsyncIterable<BacktestEvent>  ──►  mergeEventStreams (k-way, heap borné)
 - **Déterminisme** : les décisions de trading utilisent uniquement `VirtualClock`
   (avancée par le runner à chaque événement). `Date.now()` n'intervient que pour
   le throttle de persistance de progression (~2 s wall-clock).
-- **Réutilisation métier** : le mode `reevaluate` réutilise
-  `WeatherForecastStrategy.evaluate` (via `ClockedWeatherForecastStrategy` qui injecte
-  `now`) **à chaque `book_tick`**. Les seuils SL/TP/trailing sont résolus via
-  `resolveWeatherEntryExitParams` (mêmes défauts que le live). Le mode `replay`
+- **Réutilisation métier** : le mode `reevaluate` réutilise la stratégie choisie
+  (`createWeatherStrategy(strategyId)` + wrapper `ClockedWeatherStrategy` qui injecte
+  `now`). Avec `backtestExecutionMode=strategy` (défaut) : évaluation **par tick /
+  bucket**. Avec `runner-sim` : regroupement ville/date + `evaluateGroup` + dedup /
+  selectionMode (proche live ; l'UI passe un seul `strategyId`). Les seuils
+  SL/TP/trailing sont résolus via `resolveWeatherEntryExitParams`. Le mode `replay`
   rejoue les décisions `signal` déjà enregistrées.
 - **Fidélité explicite** : chaque approximation est consignée dans
   `fidelity_warnings` et affichée dans l'UI du run.
@@ -135,7 +137,8 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 | `data-loader.ts` | Chargement SQL (keyset) ; replay filtre `decision=signal` + `strategyId` |
 | `context-builder.ts` | Reconstruction de `MarketListItemDto` + `ForecastRevisionStore` |
 | `question-builder.ts` | Synthèse question Polymarket (targets arrondis entiers) pour la stratégie |
-| `clocked-weather-forecast.strategy.ts` | Wrapper injectant `clock.now()` dans `evaluate` |
+| `clocked-weather-strategy.ts` | Factory `createWeatherStrategy(strategyId)` + wrapper clock |
+| `runner-sim.ts` | Simulation runner live (groupes buckets, dedup, selectionMode) |
 | `resolution.ts` | Résolution par proxy forecast (moyenne dans le bucket → YES/NO) |
 | `weather-adapter.ts` | Entrées/sorties, filtre lifecycle, kill-switch, résolution |
 

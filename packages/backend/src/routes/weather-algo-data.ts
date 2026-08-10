@@ -148,6 +148,11 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
     const from = parseOptionalDate(req.query.from);
     const to = parseOptionalDate(req.query.to);
     const maxTicks = Number(req.query.maxTicks);
+    const fidelityMinutesRaw = Number(req.query.fidelityMinutes);
+    const fidelityMinutes =
+      Number.isFinite(fidelityMinutesRaw) && fidelityMinutesRaw > 0
+        ? Math.floor(fidelityMinutesRaw)
+        : undefined;
     res.json(
       await service.getClobPriceHistoryTimeline({
         targetDate,
@@ -155,6 +160,7 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
         from,
         to,
         maxTicks: Number.isFinite(maxTicks) ? maxTicks : undefined,
+        fidelityMinutes,
       }),
     );
   });

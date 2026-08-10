@@ -217,7 +217,9 @@ Lecture / purge manuelle : `WeatherAlgoDataService` + routes
   `closed`/`open`, `end_date_min/max`).
 - Fetch CLOB `/prices-history` (`startTs`/`endTs` + `fidelity`) pour YES et NO,
   throttlé ; upsert idempotent dans `weather_clob_price_history` (index unique
-  `condition_id, side, recorded_at`).
+  `condition_id, side, recorded_at, fidelity_minutes` — plusieurs intervalles
+  possibles par ville/date). Suppression ciblée par intervalle via
+  `deleteCityInterval(city, fidelityMinutes)`.
 - Jobs suivis dans `weather_history_ingest_jobs` (statut, progression,
   `points_upserted`, `markets_empty`).
 - `startDate` dérivé du champ Gamma `startDate` (l'API ne renvoie plus

@@ -978,12 +978,13 @@ export async function fetchClobPriceHistoryDates(): Promise<{
 
 export async function fetchClobPriceHistoryTimeline(
   targetDate: string,
-  params?: { city?: string; maxTicks?: number },
+  params?: { city?: string; maxTicks?: number; fidelityMinutes?: number },
 ): Promise<{ dates: ClobTimelineDate[] }> {
   const qs = weatherAlgoDataQuery({
     targetDate,
     city: params?.city,
     maxTicks: params?.maxTicks,
+    fidelityMinutes: params?.fidelityMinutes,
   });
   return api(`/weather-algo-data/clob-price-history/timeline${qs}`);
 }
@@ -1244,6 +1245,7 @@ export interface WeatherHistoryCoverage {
   fromRecordedAt: string | null;
   toRecordedAt: string | null;
   targetDates: string[];
+  intervals: { fidelityMinutes: number; pointCount: number }[];
 }
 
 export async function fetchWeatherHistoryCities(): Promise<string[]> {
@@ -1271,5 +1273,16 @@ export async function startWeatherHistoryIngest(input: {
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export async function deleteWeatherHistoryInterval(
+  city: string,
+  fidelityMinutes: number,
+): Promise<{ city: string; fidelityMinutes: number; deleted: number }> {
+  const qs = new URLSearchParams({ city, fidelityMinutes: String(fidelityMinutes) });
+  return api<{ city: string; fidelityMinutes: number; deleted: number }>(
+    `/weather-algo-history/interval?${qs}`,
+    { method: 'DELETE' },
+  );
 }
 

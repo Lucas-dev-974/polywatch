@@ -487,4 +487,110 @@ describe('WeatherHistoryIngestService', () => {
     const freshAfter = await repo.findOne({ where: { id: fresh.id } });
     expect(freshAfter?.status).toBe('running');
   });
+
+  it('stores a second interval as a distinct series (no overwrite)', async () => {
+    const repo = ds.getRepository(WeatherClobPriceHistory);
+    const base = {
+      city: 'Paris',
+      targetDate: '2026-08-08',
+      metric: 'highest_temp',
+      conditionId: 'cond-1',
+      eventSlug: 'paris-aug-8',
+      question: 'Will the highest temperature in Paris be 25°C on August 8?',
+      bucketComparison: 'exact',
+      bucketTarget: 25,
+      bucketLow: null,
+      bucketHigh: null,
+      side: 'YES' as const,
+      tokenId: 'yes-token',
+      price: 0.5,
+      recordedAt: new Date('2026-08-08T12:00:00.000Z'),
+      ingestJobId: null,
+    };
+
+    await repo.save(repo.create({ ...base, fidelityMinutes: 15 }));
+    await repo.save(repo.create({ ...base, fidelityMinutes: 60 }));
+
+    const rows = await repo.find({ where: { city: 'Paris' } });
+    expect(rows).toHaveLength(2);
+    const fids = rows.map((r) => r.fidelityMinutes).sort((a, b) => a - b);
+    expect(fids).toEqual([15, 60]);
+  });
+
+  it('deleteCityInterval removes only the rows of that interval', async () => {
+    const repo = ds.getRepository(WeatherClobPriceHistory);
+    const base = {
+      city: 'Paris',
+      targetDate: '2026-08-08',
+      metric: 'highest_temp',
+      conditionId: 'cond-1',
+      eventSlug: 'paris-aug-8',
+      question: 'Will the highest temperature in Paris be 25°C on August 8?',
+      bucketComparison: 'exact',
+      bucketTarget: 25,
+      bucketLow: null,
+      bucketHigh: null,
+      side: 'YES' as const,
+      tokenId: 'yes-token',
+      price: 0.5,
+      recordedAt: new Date('2026-08-08T12:00:00.000Z'),
+      ingestJobId: null,
+    };
+
+    await repo.save(repo.create({ ...base, fidelityMinutes: 15 }));
+    await repo.save(repo.create({ ...base, fidelityMinutes: 60 }));
+
+    const deleted = await service.deleteCityInterval('Paris', 15);
+    expect(deleted).toBe(1);
+
+    const remaining = await repo.find({ where: { city: 'Paris' } });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.fidelityMinutes).toBe(60);
+  });
+
+  it('deleteCityInterval throws on invalid fidelity', async () => {
+    await expect(service.deleteCityInterval('Paris', 0)).rejects.toThrow('invalid_fidelity');
+    await expect(service.deleteCityInterval('Paris', -5)).rejects.toThrow('invalid_fidelity');
+    await expect(service.deleteCityInterval('Paris', Number.NaN)).rejects.toThrow(
+      'invalid_fidelity',
+    );
+  });
+
+  it('getCoverage reports intervals with their point counts', async () => {
+    const repo = ds.getRepository(WeatherClobPriceHistory);
+    const base = {
+      city: 'Paris',
+      targetDate: '2026-08-08',
+      metric: 'highest_temp',
+      conditionId: 'cond-1',
+      eventSlug: 'paris-aug-8',
+      question: 'Will the highest temperature in Paris be 25°C on August 8?',
+      bucketComparison: 'exact',
+      bucketTarget: 25,
+      bucketLow: null,
+      bucketHigh: null,
+      side: 'YES' as const,
+      tokenId: 'yes-token',
+      price: 0.5,
+      recordedAt: new Date('2026-08-08T12:00:00.000Z'),
+      ingestJobId: null,
+    };
+
+    await repo.save(repo.create({ ...base, fidelityMinutes: 15 }));
+    await repo.save(
+      repo.create({
+        ...base,
+        fidelityMinutes: 15,
+        recordedAt: new Date('2026-08-08T13:00:00.000Z'),
+      }),
+    );
+    await repo.save(repo.create({ ...base, fidelityMinutes: 60 }));
+
+    const coverage = await service.getCoverage('Paris');
+    expect(coverage.pointCount).toBe(3);
+    expect(coverage.intervals).toEqual([
+      { fidelityMinutes: 15, pointCount: 2 },
+      { fidelityMinutes: 60, pointCount: 1 },
+    ]);
+  });
 });

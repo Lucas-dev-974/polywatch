@@ -1,5 +1,6 @@
 import { createSignal, createEffect, For, Show } from 'solid-js';
 import {
+  deleteWeatherHistoryInterval,
   fetchWeatherHistoryCities,
   fetchWeatherHistoryCoverage,
   fetchWeatherHistoryJob,
@@ -68,6 +69,7 @@ interface CityRowState {
   customTo: string;
   fidelityMinutes: number;
   loading: boolean;
+  deleting: boolean;
   error: string | null;
   job: WeatherHistoryIngestJob | null;
   coverage: WeatherHistoryCoverage | null;
@@ -115,6 +117,7 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
               customTo: defaultCustomTo(),
               fidelityMinutes: 60,
               loading: false,
+              deleting: false,
               error: null,
               job: null,
               coverage: null,
@@ -159,6 +162,7 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
       customTo: defaultCustomTo(),
       fidelityMinutes: 60,
       loading: false,
+      deleting: false,
       error: null,
       job: null,
       coverage: null,
@@ -232,6 +236,45 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
         ? coverage.targetDates.join(', ')
         : '—';
     return `${coverage.pointCount.toLocaleString()} points · dates: ${dates}`;
+  }
+
+  function formatFidelityLabel(minutes: number): string {
+    if (minutes >= 1440) return `${minutes / 1440} j`;
+    if (minutes >= 60) return minutes === 60 ? '1 h' : `${minutes / 60} h`;
+    return `${minutes} min`;
+  }
+
+  async function handleDeleteInterval(city: string, fidelityMinutes: number) {
+    const key = city.toLowerCase();
+    const row = rowState()[key] ?? emptyRow();
+    if (
+      !confirm(
+        `Supprimer toutes les données de ${city} à l'intervalle ${formatFidelityLabel(fidelityMinutes)} ?\n\n` +
+          'Cette action est irréversible.',
+      )
+    ) {
+      return;
+    }
+    patchRow(city, { deleting: true, error: null });
+    try {
+      await deleteWeatherHistoryInterval(city, fidelityMinutes);
+    } catch (err) {
+      patchRow(city, {
+        deleting: false,
+        error: err instanceof Error ? err.message : 'Échec de la suppression',
+      });
+      return;
+    }
+    try {
+      await loadCoverage(city);
+    } catch {
+      patchRow(city, {
+        deleting: false,
+        error: 'Supprimé — refresh coverage échoué',
+      });
+      return;
+    }
+    patchRow(city, { deleting: false });
   }
 
   function jobStatusLabel(job: WeatherHistoryIngestJob | null): string | null {
@@ -346,7 +389,63 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
                         </select>
                       </td>
                       <td class="weather-watched-td weather-history-ingest-coverage" data-label="En base">
-                        <span>{formatCoverage(row().coverage)}</span>
+                        <Show
+                          when={row().coverage && row().coverage!.pointCount > 0}
+                          fallback={<span>{formatCoverage(row().coverage)}</span>}
+                        >
+                          <div class="weather-history-ingest-coverage-card">
+                            <div class="weather-history-ingest-coverage-head">
+                              <span class="weather-history-ingest-coverage-total">
+                                {row().coverage!.pointCount.toLocaleString()} points
+                              </span>
+                              <Show when={row().coverage!.fromRecordedAt || row().coverage!.toRecordedAt}>
+                                <span class="weather-history-ingest-coverage-range">
+                                  {row().coverage!.fromRecordedAt
+                                    ? new Date(row().coverage!.fromRecordedAt).toLocaleDateString()
+                                    : '—'}
+                                  {' → '}
+                                  {row().coverage!.toRecordedAt
+                                    ? new Date(row().coverage!.toRecordedAt).toLocaleDateString()
+                                    : '—'}
+                                </span>
+                              </Show>
+                            </div>
+                            <Show when={row().coverage!.intervals.length > 0}>
+                              <div class="weather-history-ingest-intervals">
+                                <For each={row().coverage!.intervals}>
+                                  {(iv) => (
+                                    <span class="weather-history-ingest-interval-badge">
+                                      <span class="weather-history-ingest-interval-label">
+                                        {formatFidelityLabel(iv.fidelityMinutes)}
+                                      </span>
+                                      <span class="weather-history-ingest-interval-count">
+                                        {iv.pointCount.toLocaleString()}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        class="weather-history-ingest-interval-remove"
+                                        title={`Supprimer l'intervalle ${formatFidelityLabel(iv.fidelityMinutes)}`}
+                                        disabled={row().deleting || row().loading}
+                                        onClick={() =>
+                                          void handleDeleteInterval(city, iv.fidelityMinutes)
+                                        }
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  )}
+                                </For>
+                              </div>
+                            </Show>
+                            <Show when={row().coverage!.targetDates.length > 0}>
+                              <div class="weather-history-ingest-dates">
+                                <For each={row().coverage!.targetDates}>
+                                  {(d) => <span class="weather-history-ingest-date-chip">{d}</span>}
+                                </For>
+                              </div>
+                            </Show>
+                          </div>
+                        </Show>
                         <Show when={row().job}>
                           {(job) => (
                             <span class="weather-history-ingest-status">{jobStatusLabel(job())}</span>

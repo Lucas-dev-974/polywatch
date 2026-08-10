@@ -63,6 +63,8 @@ export interface WeatherHistoryCoverageDto {
   fromRecordedAt: string | null;
   toRecordedAt: string | null;
   targetDates: string[];
+  /** Intervalles (fidelity_minutes) présents en base pour la ville, avec leur volume. */
+  intervals: { fidelityMinutes: number; pointCount: number }[];
 }
 
 function sleep(ms: number): Promise<void> {
@@ -322,6 +324,7 @@ export class WeatherHistoryIngestService {
         fromRecordedAt: null,
         toRecordedAt: null,
         targetDates: [],
+        intervals: [],
       };
     }
 
@@ -338,13 +341,45 @@ export class WeatherHistoryIngestService {
       .orderBy('h.target_date', 'ASC')
       .getRawMany<{ targetDate: string }>();
 
+    const intervalRows = await this.historyRepo()
+      .createQueryBuilder('h')
+      .select('h.fidelity_minutes', 'fidelityMinutes')
+      .addSelect('COUNT(h.id)', 'pointCount')
+      .where('LOWER(h.city) = :city', { city: cityNormalized })
+      .groupBy('h.fidelity_minutes')
+      .orderBy('h.fidelity_minutes', 'ASC')
+      .getRawMany<{ fidelityMinutes: number; pointCount: string | number }>();
+
+    const intervals = intervalRows.map((r) => ({
+      fidelityMinutes: Number(r.fidelityMinutes),
+      pointCount: Number(r.pointCount ?? 0),
+    }));
+
     return {
       city: normalizeCity(city),
       pointCount: count,
       fromRecordedAt: bounds?.minAt ? new Date(bounds.minAt).toISOString() : null,
       toRecordedAt: bounds?.maxAt ? new Date(bounds.maxAt).toISOString() : null,
       targetDates: targetDates.map((r) => formatTargetDateIso(r.targetDate)),
+      intervals,
     };
+  }
+
+  /**
+   * Supprime toutes les lignes d'une ville pour un intervalle donné.
+   * Ne touche pas aux autres intervalles de la même ville.
+   */
+  async deleteCityInterval(city: string, fidelityMinutes: number): Promise<number> {
+    if (!Number.isFinite(fidelityMinutes) || fidelityMinutes <= 0) {
+      throw new Error('invalid_fidelity');
+    }
+    const result = await this.historyRepo()
+      .createQueryBuilder()
+      .delete()
+      .where('LOWER(city) = :city', { city: city.trim().toLowerCase() })
+      .andWhere('fidelity_minutes = :fidelityMinutes', { fidelityMinutes })
+      .execute();
+    return result.affected ?? 0;
   }
 
   async listJobs(limit = 20): Promise<WeatherHistoryIngestJobDto[]> {
@@ -621,8 +656,12 @@ export class WeatherHistoryIngestService {
           .insert()
           .values(rows)
           .orUpdate(
-            ['price', 'fidelity_minutes', 'ingest_job_id'],
-            ['condition_id', 'side', 'recorded_at'],
+            ['price', 'ingest_job_id'],
+            // L'intervalle fait partie de l'identité d'une ligne : on peut stocker
+            // plusieurs séries (15 min, 1 h, …) pour la même ville/date. `metric`
+            // reste hors de la clé — sans risque car un condition_id correspond à
+            // un marché à métrique fixe.
+            ['condition_id', 'side', 'recorded_at', 'fidelity_minutes'],
           )
           .execute();
         attempted += chunk.length;

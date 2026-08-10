@@ -149,6 +149,7 @@ export const UI_KEYS = {
   weatherAlgoClobTimelineMaxTicks: 'polywatch_weather_algo_clob_timeline_max_ticks',
   weatherAlgoClobTimelineSide: 'polywatch_weather_algo_clob_timeline_side',
   weatherAlgoClobTimelineMinPrice: 'polywatch_weather_algo_clob_timeline_min_price',
+  weatherAlgoClobTimelineFidelity: 'polywatch_weather_algo_clob_timeline_fidelity',
   weatherAlgoBacktestSelectedId: 'polywatch_weather_algo_backtest_selected_id',
   weatherAlgoBacktestPage: 'polywatch_weather_algo_backtest_page',
   positionsTab: (mode: UiMode) => `polywatch_positions_tab_${mode}`,

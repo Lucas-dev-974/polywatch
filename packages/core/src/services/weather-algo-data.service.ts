@@ -564,6 +564,7 @@ export class WeatherAlgoDataService {
     from?: Date;
     to?: Date;
     maxTicks?: number;
+    fidelityMinutes?: number;
   }): Promise<ClobTimelineResponse> {
     const target = options.targetDate.trim();
     if (!target) return { dates: [] };
@@ -577,6 +578,9 @@ export class WeatherAlgoDataService {
 
     if (options.city) {
       qb.andWhere('LOWER(h.city) = LOWER(:city)', { city: options.city.trim() });
+    }
+    if (options.fidelityMinutes != null) {
+      qb.andWhere('h.fidelity_minutes = :fid', { fid: options.fidelityMinutes });
     }
     if (options.from) {
       qb.andWhere('h.recordedAt >= :from', { from: options.from });

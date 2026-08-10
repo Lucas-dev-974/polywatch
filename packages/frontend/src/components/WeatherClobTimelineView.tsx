@@ -13,6 +13,14 @@ import {
 
 const SIDES = ['YES', 'NO'];
 
+const FIDELITY_OPTIONS = [
+  { value: '1', label: '1 min' },
+  { value: '5', label: '5 min' },
+  { value: '15', label: '15 min' },
+  { value: '60', label: '1 h' },
+  { value: '1440', label: '1 j' },
+];
+
 function toChartPoints(
   series: Array<{ recordedAt: string; price: number }>,
 ): WeatherTimelineSeriesPoint[] {
@@ -62,6 +70,8 @@ const source: WeatherTimelineSource<ClobTimelineCity> = {
   sideOptions: SIDES.map((s) => ({ value: s, label: s })),
   minPriceKey: UI_KEYS.weatherAlgoClobTimelineMinPrice,
   minPriceDefault: 0.1,
+  fidelityKey: UI_KEYS.weatherAlgoClobTimelineFidelity,
+  fidelityOptions: FIDELITY_OPTIONS,
   unitLabel: 'point',
   dialogTitleId: 'weather-clob-city-dialog',
 
@@ -73,8 +83,11 @@ const source: WeatherTimelineSource<ClobTimelineCity> = {
     }));
   },
 
-  fetchTimeline: async (targetDate, maxTicks) => {
-    const res = await fetchClobPriceHistoryTimeline(targetDate, { maxTicks });
+  fetchTimeline: async (targetDate, maxTicks, fidelity) => {
+    const res = await fetchClobPriceHistoryTimeline(targetDate, {
+      maxTicks,
+      fidelityMinutes: fidelity ? Number(fidelity) : undefined,
+    });
     return res.dates[0]?.cities ?? [];
   },
 

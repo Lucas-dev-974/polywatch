@@ -397,6 +397,7 @@ Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./pla
 | GET | `/api/weather-algo-data/evaluation-log` | Liste (`from`, `to`, `strategyId`, `decision`, `limit`≤500) |
 | GET | `/api/weather-algo-data/forecast-cache` | Liste cache Open-Meteo opérationnel |
 | GET | `/api/weather-algo-data/position-forecasts` | Liste snapshots d’entrée (+ `openedAt` joint) |
+| GET | `/api/weather-algo-data/clob-price-history/timeline` | Timeline prix CLOB (`targetDate`, `city?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle |
 | GET | `/api/weather-algo-data/coverage` | Agrégat legacy (période snapshots + totaux) — UI Paramètres retirée |
 
 ### Weather Algo history (ingestion historique CLOB)
@@ -407,9 +408,10 @@ Récupère l'historique des prix YES/NO des buckets météo d'une ville sur une 
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/weather-algo-history/cities` | Villes connues (auto-track + snapshots + historique déjà ingéré) |
-| GET | `/api/weather-algo-history/coverage?city=` | Statistiques d'ingestion d'une ville (`pointCount`, bornes `recordedAt`, `targetDates`) |
+| GET | `/api/weather-algo-history/coverage?city=` | Statistiques d'ingestion d'une ville (`pointCount`, bornes `recordedAt`, `targetDates`, `intervals: [{ fidelityMinutes, pointCount }]`) |
 | GET | `/api/weather-algo-history/jobs/:id` | Statut d'un job d'ingestion (polling) |
 | POST | `/api/weather-algo-history/ingest` | Lance un job : `{ city, from, to, fidelityMinutes, metric? }` → `{ jobId, job }` |
+| DELETE | `/api/weather-algo-history/interval?city=&fidelityMinutes=` | Supprime toutes les données d'une ville à un intervalle donné → `{ city, fidelityMinutes, deleted }` |
 
 **Contraintes CLOB** : `startTs` + `endTs` obligatoires (sans `startTs` → HTTP 400). `startDate` est dérivé du champ Gamma `startDate` (l'API ne renvoie plus `eventStartTime`) ; en dernier recours, fenêtre de 7 jours avant `endTs`. Granularité `fidelity` en minutes (testé jusqu'à 1 min). L'historique des marchés météo quotidiens (depuis ~mars 2026) reste disponible.
 

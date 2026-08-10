@@ -413,4 +413,22 @@ describe('WeatherAlgoDataService — deleteTableData', () => {
     expect(snapCount).toBe(0);
     expect(tickCount).toBe(0);
   });
+
+  it('filtre la timeline clob par intervalle (fidelityMinutes)', async () => {
+    await seedClob({ fidelityMinutes: 15, price: 0.3 });
+    await seedClob({ fidelityMinutes: 60, price: 0.6, side: 'NO' });
+
+    const all = await service.getClobPriceHistoryTimeline({
+      targetDate: '2026-01-01',
+    });
+    expect(all.dates[0]!.cities[0]!.buckets[0]!.series).toHaveLength(2);
+
+    const filtered = await service.getClobPriceHistoryTimeline({
+      targetDate: '2026-01-01',
+      fidelityMinutes: 15,
+    });
+    const series = filtered.dates[0]!.cities[0]!.buckets[0]!.series;
+    expect(series).toHaveLength(1);
+    expect(series[0]!.price).toBeCloseTo(0.3);
+  });
 });

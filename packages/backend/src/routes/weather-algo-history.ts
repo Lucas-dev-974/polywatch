@@ -94,6 +94,24 @@ export function createWeatherAlgoHistoryRouter(ds: DataSource): Router {
     }
   });
 
+  router.delete('/interval', requireJwt, async (req, res) => {
+    const city = typeof req.query.city === 'string' ? req.query.city.trim() : '';
+    const fidelityMinutes = Number(req.query.fidelityMinutes);
+    if (!city || !Number.isFinite(fidelityMinutes) || fidelityMinutes <= 0) {
+      res.status(400).json({ error: 'invalid_params' });
+      return;
+    }
+    try {
+      const deleted = await service.deleteCityInterval(city, fidelityMinutes);
+      res.json({ city, fidelityMinutes, deleted });
+    } catch (err) {
+      res.status(500).json({
+        error: 'delete_interval_failed',
+        message: err instanceof Error ? err.message : 'unknown error',
+      });
+    }
+  });
+
   router.post('/ingest', requireJwt, async (req, res) => {
     const parsed = ingestBodySchema.safeParse(req.body);
     if (!parsed.success) {

@@ -70,11 +70,17 @@ export interface WeatherTimelineSource<TCity extends object> {
   minPriceKey?: string;
   /** Seuil de prix minimum par défaut (en dollars, ex. 0.1 = 10¢). */
   minPriceDefault?: number;
+  /** Clé de persistance du filtre d'intervalle (optionnel — absent si non configurable). */
+  fidelityKey?: string;
+  /** Options d'intervalle (ex. 15 min, 1 h). */
+  fidelityOptions?: WeatherTimelineSideOption[];
+  /** Intervalle par défaut (vide = tous). */
+  fidelityDefault?: string;
   /** Unité singulière pour les libellés de stats (ex. `tick`, `point`). */
   unitLabel: string;
   dialogTitleId: string;
   fetchDates: () => Promise<WeatherTimelineDateEntry[]>;
-  fetchTimeline: (dateKey: string, maxTicks: number) => Promise<TCity[]>;
+  fetchTimeline: (dateKey: string, maxTicks: number, fidelity?: string) => Promise<TCity[]>;
   toCityData: (city: TCity, side: string | null) => WeatherTimelineCityData<TCity>;
   renderCityCardExtra?: (city: TCity) => JSX.Element;
   renderChartHeader: (
@@ -230,7 +236,7 @@ function SeriesChart(props: {
   const xPos = (t: number) => CHART_MARGIN.left + ((t - minT()) / spanT()) * plotW();
   const yPos = (p: number) => CHART_MARGIN.top + (1 - p) * plotH();
 
-  const xTicks = () => buildChartXTicks(minT(), maxT());
+  const xTicks = () => buildChartXTicks(minT(), maxT(), undefined, plotW());
   const yTicks = () => Y_TICKS;
 
   const onMouseMove = (e: MouseEvent) => {
@@ -467,6 +473,7 @@ export function WeatherTimelineView<TCity extends object>(
   props: { source: WeatherTimelineSource<TCity> },
 ): JSX.Element {
   const source = () => props.source;
+  let loadToken = 0;
   const [dates, setDates] = createSignal<WeatherTimelineDateEntry[]>([]);
   const [selectedDate, setSelectedDate] = usePersistedSignal(
     source().dateKey,
@@ -494,6 +501,11 @@ export function WeatherTimelineView<TCity extends object>(
     source().minPriceDefault ?? 0,
     (value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0,
   );
+  const [fidelity, setFidelity] = usePersistedSignal<string>(
+    source().fidelityKey ?? '__unused__',
+    source().fidelityDefault ?? '',
+    (value): value is string => typeof value === 'string',
+  );
 
   async function loadDates() {
     try {
@@ -514,16 +526,20 @@ export function WeatherTimelineView<TCity extends object>(
   }
 
   async function loadTimeline(dateKey: string) {
+    const token = ++loadToken;
     setLoading(true);
     setError(null);
     setCities([]);
     setOpenCity(null);
     try {
-      const res = await source().fetchTimeline(dateKey, maxTicks());
+      const res = await source().fetchTimeline(dateKey, maxTicks(), fidelity());
+      if (token !== loadToken) return;
       setCities(res as unknown as object[]);
     } catch (err) {
+      if (token !== loadToken) return;
       setError(err instanceof Error ? err.message : 'Timeline indisponible');
     }
+    if (token !== loadToken) return;
     setLoading(false);
   }
 
@@ -566,6 +582,24 @@ export function WeatherTimelineView<TCity extends object>(
               disabled={loading()}
             >
               <For each={source().sideOptions!}>
+                {(o) => <option value={o.value}>{o.label}</option>}
+              </For>
+            </select>
+          </label>
+        </Show>
+        <Show when={source().fidelityOptions}>
+          <label class="weather-data-filter">
+            <span>Intervalle</span>
+            <select
+              value={fidelity()}
+              onChange={(e) => {
+                setFidelity(e.currentTarget.value);
+                if (selectedDate()) void loadTimeline(selectedDate());
+              }}
+              disabled={loading()}
+            >
+              <option value="">Tous</option>
+              <For each={source().fidelityOptions!}>
                 {(o) => <option value={o.value}>{o.label}</option>}
               </For>
             </select>

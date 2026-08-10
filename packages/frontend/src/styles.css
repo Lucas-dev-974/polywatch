@@ -9356,6 +9356,101 @@ body.is-resizing-columns .position-market-split-handle::after {
   color: var(--danger, #c0392b);
 }
 
+.weather-history-ingest-coverage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.weather-history-ingest-coverage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.weather-history-ingest-coverage-total {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-history-ingest-coverage-range {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-history-ingest-intervals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.weather-history-ingest-interval-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
+.weather-history-ingest-interval-label {
+  font-weight: 600;
+}
+
+.weather-history-ingest-interval-count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-history-ingest-interval-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.weather-history-ingest-interval-remove:hover {
+  color: var(--danger, #c0392b);
+  background: rgba(192, 57, 43, 0.12);
+}
+
+.weather-history-ingest-interval-remove:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.weather-history-ingest-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.weather-history-ingest-date-chip {
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-hover);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 640px) {
   .weather-watched-table,
   .weather-watched-table thead,

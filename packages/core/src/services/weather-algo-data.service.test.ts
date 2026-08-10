@@ -3,6 +3,7 @@ import { initializeDataSource } from '../database/data-source.js';
 import { createTestDataSource } from '../database/test-data-source.js';
 import { WeatherBucketTick } from '../entities/WeatherBucketTick.js';
 import { WeatherMarketSnapshot } from '../entities/WeatherMarketSnapshot.js';
+import { WeatherClobPriceHistory } from '../entities/WeatherClobPriceHistory.js';
 import { WeatherAlgoDataService } from './weather-algo-data.service.js';
 
 describe('WeatherAlgoDataService — bucket ticks timeline', () => {
@@ -167,6 +168,120 @@ describe('WeatherAlgoDataService — bucket ticks timeline', () => {
     expect(res.dates).toHaveLength(1);
     const entry = res.dates[0]!;
     expect(entry.targetDateIso).toBe('2026-01-02');
+    expect(entry.cityCount).toBe(1);
+    expect(entry.tickCount).toBe(2);
+  });
+});
+
+describe('WeatherAlgoDataService — clob price history timeline', () => {
+  let ds: Awaited<ReturnType<typeof initializeDataSource>>;
+  let service: WeatherAlgoDataService;
+
+  beforeEach(async () => {
+    ds = await initializeDataSource(createTestDataSource());
+    service = new WeatherAlgoDataService(ds);
+  });
+
+  afterEach(async () => {
+    await ds.destroy();
+  });
+
+  async function seedClob(overrides: Partial<WeatherClobPriceHistory> = {}) {
+    const repo = ds.getRepository(WeatherClobPriceHistory);
+    return repo.save(
+      repo.create({
+        city: 'london',
+        targetDate: '2026-01-01',
+        metric: 'temp',
+        conditionId: 'cond-1',
+        eventSlug: 'evt',
+        question: 'q?',
+        bucketComparison: 'or_above',
+        bucketTarget: 10,
+        bucketLow: null,
+        bucketHigh: null,
+        side: 'YES',
+        tokenId: 'yes-token',
+        price: 0.5,
+        recordedAt: new Date('2026-01-01T00:00:00.000Z'),
+        fidelityMinutes: 60,
+        ingestJobId: null,
+        ...overrides,
+      }),
+    );
+  }
+
+  it('TC1 — 1 enregistrement → 1 ville, 1 bucket, 1 point (avec side)', async () => {
+    await seedClob({ price: 0.42, side: 'YES' });
+
+    const res = await service.getClobPriceHistoryTimeline({ targetDate: '2026-01-01' });
+
+    expect(res.dates).toHaveLength(1);
+    const date = res.dates[0]!;
+    expect(date.targetDate).toBe('2026-01-01');
+    expect(date.cities).toHaveLength(1);
+    const city = date.cities[0]!;
+    expect(city.cityNormalized).toBe('london');
+    expect(city.buckets).toHaveLength(1);
+    expect(city.bucketCount).toBe(1);
+    const bucket = city.buckets[0]!;
+    expect(bucket.conditionId).toBe('cond-1');
+    expect(bucket.bucketComparison).toBe('or_above');
+    expect(bucket.bucketTarget).toBe(10);
+    expect(bucket.series).toHaveLength(1);
+    expect(bucket.series[0]!.price).toBeCloseTo(0.42, 5);
+    expect(bucket.series[0]!.side).toBe('YES');
+  });
+
+  it('TC2 — 2 enregistrements même bucket → 2 points dans la même série', async () => {
+    await seedClob({
+      recordedAt: new Date('2026-01-01T00:00:00.000Z'),
+      price: 0.3,
+      side: 'YES',
+    });
+    await seedClob({
+      recordedAt: new Date('2026-01-01T01:00:00.000Z'),
+      price: 0.6,
+      side: 'YES',
+    });
+
+    const res = await service.getClobPriceHistoryTimeline({ targetDate: '2026-01-01' });
+
+    const city = res.dates[0]!.cities[0]!;
+    expect(city.buckets).toHaveLength(1);
+    expect(city.bucketCount).toBe(1);
+    expect(city.buckets[0]!.series).toHaveLength(2);
+    expect(city.buckets[0]!.series[0]!.price).toBeCloseTo(0.3, 5);
+    expect(city.buckets[0]!.series[1]!.price).toBeCloseTo(0.6, 5);
+  });
+
+  it('TC3 — maxTicks clamp limite le nombre de points retournés', async () => {
+    await seedClob({ price: 0.1, recordedAt: new Date('2026-01-01T00:00:01.000Z') });
+    await seedClob({ price: 0.2, recordedAt: new Date('2026-01-01T00:00:02.000Z') });
+    await seedClob({ price: 0.3, recordedAt: new Date('2026-01-01T00:00:03.000Z') });
+
+    const res = await service.getClobPriceHistoryTimeline({
+      targetDate: '2026-01-01',
+      maxTicks: 1,
+    });
+
+    const city = res.dates[0]!.cities[0]!;
+    expect(city.buckets[0]!.series).toHaveLength(1);
+  });
+
+  it('TC4 — targetDate vide → dates: []', async () => {
+    const res = await service.getClobPriceHistoryTimeline({ targetDate: '' });
+    expect(res.dates).toEqual([]);
+  });
+
+  it('TC5 — listClobPriceHistoryDates agrège par date cible', async () => {
+    await seedClob({ targetDate: '2026-01-02' });
+    await seedClob({ targetDate: '2026-01-02', conditionId: 'cond-2' });
+
+    const res = await service.listClobPriceHistoryDates();
+    expect(res.dates).toHaveLength(1);
+    const entry = res.dates[0]!;
+    expect(entry.targetDate).toBe('2026-01-02');
     expect(entry.cityCount).toBe(1);
     expect(entry.tickCount).toBe(2);
   });

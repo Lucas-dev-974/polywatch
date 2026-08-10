@@ -23,6 +23,7 @@ import {
   type WeatherAlgoDataView,
 } from '../lib/ui-persistence';
 import { WeatherBucketTimelineView } from './WeatherBucketTimelineView';
+import { WeatherClobTimelineView } from './WeatherClobTimelineView';
 
 const PAGE_SIZE = 50;
 const DEFAULT_POLL_MS = 1_800_000;
@@ -348,7 +349,7 @@ export function WeatherAlgoDataTab() {
     setRows([]);
     setTotal(0);
     setDetailError(null);
-    setDetailMode('list');
+    setDetailMode(id === 'clob_price_history' ? 'timeline' : 'list');
     setView('detail');
     void loadDetail(0, id);
   }
@@ -465,7 +466,7 @@ export function WeatherAlgoDataTab() {
                 <button type="button" class="btn btn-sm btn-ghost" onClick={backToGrid}>
                   ← Retour
                 </button>
-                <div>
+                <div class="weather-data-detail-title-row">
                   <h3 class="settings-subheading">{meta().title}</h3>
                   <div class="weather-data-card-table">
                     {selectedSummary()?.tableName ?? selectedId()}
@@ -475,7 +476,7 @@ export function WeatherAlgoDataTab() {
               <span class="algo-panel-count">{total().toLocaleString()} lignes</span>
             </div>
 
-            <Show when={selectedId() === 'bucket_ticks'}>
+            <Show when={selectedId() === 'bucket_ticks' || selectedId() === 'clob_price_history'}>
               <div class="weather-data-mode-toggle" role="tablist">
                 {(['list', 'timeline'] as const).map((mode) => (
                   <button
@@ -491,7 +492,12 @@ export function WeatherAlgoDataTab() {
               </div>
             </Show>
 
-            <Show when={selectedId() !== 'bucket_ticks' || detailMode() === 'list'}>
+            <Show
+              when={
+                (selectedId() !== 'bucket_ticks' && selectedId() !== 'clob_price_history') ||
+                detailMode() === 'list'
+              }
+            >
             <form
               class="weather-data-filters"
               onSubmit={(e) => {
@@ -622,6 +628,10 @@ export function WeatherAlgoDataTab() {
 
             <Show when={selectedId() === 'bucket_ticks' && detailMode() === 'timeline'}>
               <WeatherBucketTimelineView />
+            </Show>
+
+            <Show when={selectedId() === 'clob_price_history' && detailMode() === 'timeline'}>
+              <WeatherClobTimelineView />
             </Show>
           </div>
         )}

@@ -123,6 +123,28 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
     );
   });
 
+  router.get('/clob-price-history/dates', requireJwt, async (_req, res) => {
+    res.json(await service.listClobPriceHistoryDates());
+  });
+
+  router.get('/clob-price-history/timeline', requireJwt, async (req, res) => {
+    const targetDate =
+      typeof req.query.targetDate === 'string' ? req.query.targetDate : '';
+    const city = typeof req.query.city === 'string' ? req.query.city : undefined;
+    const from = parseOptionalDate(req.query.from);
+    const to = parseOptionalDate(req.query.to);
+    const maxTicks = Number(req.query.maxTicks);
+    res.json(
+      await service.getClobPriceHistoryTimeline({
+        targetDate,
+        city,
+        from,
+        to,
+        maxTicks: Number.isFinite(maxTicks) ? maxTicks : undefined,
+      }),
+    );
+  });
+
   router.delete('/tables', requireJwt, async (_req, res) => {
     res.json(await service.deleteAllRecordedData());
   });

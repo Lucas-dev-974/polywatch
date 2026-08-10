@@ -189,6 +189,12 @@ export {
   type BucketTimelineCity,
   type BucketTimelineBucket,
   type BucketTimelineSeriesPoint,
+  type ClobPriceHistoryDateEntry,
+  type ClobTimelineResponse,
+  type ClobTimelineDate,
+  type ClobTimelineCity,
+  type ClobTimelineBucket,
+  type ClobTimelineSeriesPoint,
 } from './weather-algo-data.service.js';
 export {
   BacktestRunService,

@@ -107,10 +107,56 @@ export interface BucketTimelineResponse {
   dates: BucketTimelineDate[];
 }
 
+export interface ClobPriceHistoryDateEntry {
+  targetDate: string;
+  cityCount: number;
+  tickCount: number;
+}
+
+export interface ClobTimelineSeriesPoint {
+  recordedAt: string;
+  price: number;
+  side: 'YES' | 'NO';
+}
+
+export interface ClobTimelineBucket {
+  conditionId: string;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  series: ClobTimelineSeriesPoint[];
+}
+
+export interface ClobTimelineCity {
+  cityNormalized: string;
+  bucketCount: number;
+  firstRecordedAt: string;
+  lastRecordedAt: string;
+  buckets: ClobTimelineBucket[];
+}
+
+export interface ClobTimelineDate {
+  targetDate: string;
+  cities: ClobTimelineCity[];
+}
+
+export interface ClobTimelineResponse {
+  dates: ClobTimelineDate[];
+}
+
 function toIso(value: Date | string | null | undefined): string | null {
   if (value == null) return null;
   const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Convertit une valeur date (Date ou string) en `YYYY-MM-DD`, ou null si invalide. */
+function toDateOnly(value: Date | string | null | undefined): string | null {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
 }
 
 async function countMinMax(
@@ -449,6 +495,133 @@ export class WeatherAlgoDataService {
       .sort((a, b) => a.cityNormalized.localeCompare(b.cityNormalized));
 
     return { dates: [{ targetDateIso: target, cities }] };
+  }
+
+  async listClobPriceHistoryDates(): Promise<{ dates: ClobPriceHistoryDateEntry[] }> {
+    const rows = await this.ds
+      .getRepository(WeatherClobPriceHistory)
+      .createQueryBuilder('h')
+      .select('h.targetDate', 'targetDate')
+      .addSelect('COUNT(DISTINCT h.city)', 'cityCount')
+      .addSelect('COUNT(h.id)', 'tickCount')
+      .groupBy('h.targetDate')
+      .orderBy('h.targetDate', 'DESC')
+      .getRawMany<{
+        targetDate: Date | string;
+        cityCount: string | number;
+        tickCount: string | number;
+      }>();
+
+    const dates: ClobPriceHistoryDateEntry[] = rows
+      .map((r) => {
+        const targetDate = toDateOnly(r.targetDate);
+        if (!targetDate) return null;
+        return {
+          targetDate,
+          cityCount: Number(r.cityCount ?? 0),
+          tickCount: Number(r.tickCount ?? 0),
+        };
+      })
+      .filter((d): d is ClobPriceHistoryDateEntry => d !== null);
+
+    return { dates };
+  }
+
+  async getClobPriceHistoryTimeline(options: {
+    targetDate: string;
+    city?: string;
+    from?: Date;
+    to?: Date;
+    maxTicks?: number;
+  }): Promise<ClobTimelineResponse> {
+    const target = options.targetDate.trim();
+    if (!target) return { dates: [] };
+
+    const maxTicks = Math.max(1, Math.min(options.maxTicks ?? 2000, 5000));
+
+    const qb = this.ds
+      .getRepository(WeatherClobPriceHistory)
+      .createQueryBuilder('h')
+      .where('h.targetDate = :target', { target });
+
+    if (options.city) {
+      qb.andWhere('LOWER(h.city) = LOWER(:city)', { city: options.city.trim() });
+    }
+    if (options.from) {
+      qb.andWhere('h.recordedAt >= :from', { from: options.from });
+    }
+    if (options.to) {
+      qb.andWhere('h.recordedAt <= :to', { to: options.to });
+    }
+
+    const rows = await qb
+      .orderBy('h.recordedAt', 'ASC')
+      .addOrderBy('h.id', 'ASC')
+      .limit(maxTicks)
+      .getMany();
+
+    if (rows.length === 0) {
+      return { dates: [] };
+    }
+
+    interface CityAccumulator {
+      city: ClobTimelineCity;
+      bucketMap: Map<string, ClobTimelineBucket>;
+    }
+    const cityMap = new Map<string, CityAccumulator>();
+
+    for (const row of rows) {
+      const cityKey = row.city;
+
+      let acc = cityMap.get(cityKey);
+      if (!acc) {
+        acc = {
+          city: {
+            cityNormalized: cityKey,
+            bucketCount: 0,
+            firstRecordedAt: toIso(row.recordedAt) ?? '',
+            lastRecordedAt: toIso(row.recordedAt) ?? '',
+            buckets: [],
+          },
+          bucketMap: new Map(),
+        };
+        cityMap.set(cityKey, acc);
+      }
+
+      // Rows triées par recordedAt ASC : chaque ligne est plus récente ou égale
+      // à la précédente, donc on écrase lastRecordedAt à chaque itération.
+      acc.city.lastRecordedAt = toIso(row.recordedAt) ?? acc.city.lastRecordedAt;
+
+      const point: ClobTimelineSeriesPoint = {
+        recordedAt: toIso(row.recordedAt) ?? '',
+        price: row.price,
+        side: row.side,
+      };
+
+      let bucket = acc.bucketMap.get(row.conditionId);
+      if (!bucket) {
+        bucket = {
+          conditionId: row.conditionId,
+          bucketComparison: row.bucketComparison,
+          bucketTarget: row.bucketTarget,
+          bucketLow: row.bucketLow,
+          bucketHigh: row.bucketHigh,
+          series: [],
+        };
+        acc.bucketMap.set(row.conditionId, bucket);
+      }
+      bucket.series.push(point);
+    }
+
+    const cities = [...cityMap.values()]
+      .map((acc) => {
+        acc.city.buckets = [...acc.bucketMap.values()];
+        acc.city.bucketCount = acc.bucketMap.size;
+        return acc.city;
+      })
+      .sort((a, b) => a.cityNormalized.localeCompare(b.cityNormalized));
+
+    return { dates: [{ targetDate: target, cities }] };
   }
 
   async listEvaluationLog(options: {

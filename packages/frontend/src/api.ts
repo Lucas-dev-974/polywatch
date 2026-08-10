@@ -656,7 +656,8 @@ export type WeatherAlgoDataTableId =
   | 'bucket_ticks'
   | 'evaluation_log'
   | 'forecast_cache'
-  | 'position_forecasts';
+  | 'position_forecasts'
+  | 'clob_price_history';
 
 export interface WeatherAlgoDataTableSummary {
   id: WeatherAlgoDataTableId;
@@ -919,6 +920,58 @@ export async function fetchBucketTickTimeline(
     maxTicks: params?.maxTicks,
   });
   return api(`/weather-algo-data/bucket-ticks/timeline${qs}`);
+}
+
+export interface ClobPriceHistoryDateEntry {
+  targetDate: string;
+  cityCount: number;
+  tickCount: number;
+}
+
+export interface ClobTimelineSeriesPoint {
+  recordedAt: string;
+  price: number;
+  side: 'YES' | 'NO';
+}
+
+export interface ClobTimelineBucket {
+  conditionId: string;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  series: ClobTimelineSeriesPoint[];
+}
+
+export interface ClobTimelineCity {
+  cityNormalized: string;
+  bucketCount: number;
+  firstRecordedAt: string;
+  lastRecordedAt: string;
+  buckets: ClobTimelineBucket[];
+}
+
+export interface ClobTimelineDate {
+  targetDate: string;
+  cities: ClobTimelineCity[];
+}
+
+export async function fetchClobPriceHistoryDates(): Promise<{
+  dates: ClobPriceHistoryDateEntry[];
+}> {
+  return api('/weather-algo-data/clob-price-history/dates');
+}
+
+export async function fetchClobPriceHistoryTimeline(
+  targetDate: string,
+  params?: { city?: string; maxTicks?: number },
+): Promise<{ dates: ClobTimelineDate[] }> {
+  const qs = weatherAlgoDataQuery({
+    targetDate,
+    city: params?.city,
+    maxTicks: params?.maxTicks,
+  });
+  return api(`/weather-algo-data/clob-price-history/timeline${qs}`);
 }
 
 export async function fetchWeatherAlgoEvaluationLog(params: {

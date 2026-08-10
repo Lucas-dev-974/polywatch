@@ -1,4 +1,4 @@
-import { createMemo, For, Show } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import type { useWeatherAlgoPositions, WeatherPosition } from '../hooks/useWeatherAlgoPositions';
 import { formatShortDateTime } from '../lib/date';
 import {
@@ -7,6 +7,7 @@ import {
   usePersistedEnum,
 } from '../lib/ui-persistence';
 import { CollapsibleSection } from './CollapsibleSection';
+import { Icon } from './Icon';
 import {
   formatPnlAmount,
   formatPnlPercent,
@@ -122,6 +123,136 @@ function WeatherPositionCard(props: { pos: WeatherPosition; onClose: (id: number
   );
 }
 
+interface WeatherHistoryDateGroup {
+  targetDate: string;
+  positions: WeatherPosition[];
+}
+
+interface WeatherHistoryCityGroup {
+  city: string;
+  dates: WeatherHistoryDateGroup[];
+}
+
+function WeatherHistoryPositionItem(props: { pos: WeatherPosition }) {
+  const pos = props.pos;
+  const wf = pos.weatherForecast;
+  const invested =
+    pos.status === 'closed' &&
+    pos.entryInvestedAmount != null &&
+    pos.entryInvestedAmount > 0
+      ? pos.entryInvestedAmount
+      : pos.quantity * pos.entryPrice;
+  const pct = pnlPercent(pos.realizedPnl, invested);
+  const qty =
+    pos.status === 'closed' &&
+    pos.quantity <= 0 &&
+    pos.entryQuantityFilled != null &&
+    pos.entryQuantityFilled > 0
+      ? pos.entryQuantityFilled
+      : pos.quantity;
+  return (
+    <div class="weather-history-pos-item">
+      <div class="weather-history-pos-item__row">
+        <span class="algo-badge">{pos.outcome}</span>
+        <span class={`algo-mode-badge ${pos.mode}`}>
+          {pos.mode === 'real' ? 'Réel' : pos.mode === 'sim' ? 'Sim' : pos.mode}
+        </span>
+        <span class={`text-mono ${genericPnlClass(pos.realizedPnl)}`}>
+          {formatPnlAmount(pos.realizedPnl, true)}
+          <Show when={pct != null}>
+            <span class="algo-pnl-pct"> ({formatPnlPercent(pct)})</span>
+          </Show>
+        </span>
+      </div>
+      <div class="weather-history-pos-item__row">
+        <span class="weather-history-pos-item__metric">
+          <span class="weather-history-pos-item__label">Bucket</span>
+          {bucketLabel(
+            wf?.entryBucketComparison ?? null,
+            (wf?.entryBucketBounds as WeatherBucketBounds) ?? null,
+          )}
+        </span>
+        <span class="weather-history-pos-item__metric">
+          <span class="weather-history-pos-item__label">Qté</span>
+          <span class="text-mono">{qty.toFixed(4)}</span>
+        </span>
+        <span class="weather-history-pos-item__metric">
+          <span class="weather-history-pos-item__label">Prix entrée</span>
+          <span class="text-mono">{pos.entryPrice.toFixed(3)}</span>
+        </span>
+        <span class="weather-history-pos-item__metric">
+          <span class="weather-history-pos-item__label">Clôturé le</span>
+          <span class="text-mono text-sm">
+            {pos.closedAt ? formatShortDateTime(pos.closedAt) : '—'}
+          </span>
+        </span>
+      </div>
+      <Show when={pos.marketUrl}>
+        <a
+          class="btn btn-sm btn-ghost weather-position-card__link"
+          href={pos.marketUrl!}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Voir le marché
+        </a>
+      </Show>
+    </div>
+  );
+}
+
+function WeatherHistoryDateDropdown(props: { group: WeatherHistoryDateGroup; defaultOpen: boolean }) {
+  const [open, setOpen] = createSignal(props.defaultOpen);
+  return (
+    <div class="weather-history-date-dropdown">
+      <button
+        type="button"
+        class="weather-history-date-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open()}
+      >
+        <span class="weather-history-date-btn__label">
+          {formatWeatherDate(props.group.targetDate)}
+        </span>
+        <span class="weather-history-date-btn__count">
+          {props.group.positions.length} position{props.group.positions.length > 1 ? 's' : ''}
+        </span>
+        <Icon name={open() ? 'chevron-up' : 'chevron-down'} size={16} />
+      </button>
+      <Show when={open()}>
+        <div class="weather-history-pos-list">
+          <For each={props.group.positions}>
+            {(pos) => <WeatherHistoryPositionItem pos={pos} />}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+function WeatherHistoryCityCard(props: { group: WeatherHistoryCityGroup }) {
+  const totalPositions = () =>
+    props.group.dates.reduce((sum, d) => sum + d.positions.length, 0);
+  return (
+    <div class="weather-history-city-card">
+      <div class="weather-history-city-card__header">
+        <span class="weather-history-city-card__city">{props.group.city}</span>
+        <span class="weather-history-city-card__count">
+          {totalPositions()} position{totalPositions() > 1 ? 's' : ''} ·{' '}
+          {props.group.dates.length} date{props.group.dates.length > 1 ? 's' : ''}
+        </span>
+      </div>
+      <div class="weather-history-city-card__dates">
+        <For each={props.group.dates}>
+          {(date, i) => (
+            <WeatherHistoryDateDropdown group={date} defaultOpen={i() === 0} />
+          )}
+        </For>
+      </div>
+    </div>
+  );
+}
+
 export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps) {
   const p = () => props.positions;
   const [activeTab, setActiveTab] = usePersistedEnum(
@@ -148,6 +279,36 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
     p().closedPositions().filter((pos) => matchesMode(pos, p().posModeFilter())),
   );
 
+  const historyGroups = createMemo<WeatherHistoryCityGroup[]>(() => {
+    const byCity = new Map<string, Map<string, WeatherPosition[]>>();
+    for (const pos of closedList()) {
+      const city = pos.weatherForecast?.city ?? '—';
+      const targetDate = pos.weatherForecast?.targetDate ?? '';
+      let cityMap = byCity.get(city);
+      if (!cityMap) {
+        cityMap = new Map();
+        byCity.set(city, cityMap);
+      }
+      let list = cityMap.get(targetDate);
+      if (!list) {
+        list = [];
+        cityMap.set(targetDate, list);
+      }
+      list.push(pos);
+    }
+    const groups: WeatherHistoryCityGroup[] = [];
+    for (const [city, cityMap] of byCity) {
+      const dates: WeatherHistoryDateGroup[] = [];
+      for (const [targetDate, positions] of cityMap) {
+        dates.push({ targetDate, positions });
+      }
+      dates.sort((a, b) => b.targetDate.localeCompare(a.targetDate));
+      groups.push({ city, dates });
+    }
+    groups.sort((a, b) => a.city.localeCompare(b.city));
+    return groups;
+  });
+
   return (
     <CollapsibleSection
       title="Positions weather-algo"
@@ -166,7 +327,7 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
               class={`weather-position-tab ${p().posTab() === 'history' ? 'weather-position-tab--active' : ''}`}
               onClick={() => p().selectPosTab('history')}
             >
-              Historique ({p().closedPositions().length})
+              Historique ({p().historyTotal()})
             </button>
           </div>
           <div class="weather-position-mode-tabs">
@@ -242,89 +403,38 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
               </div>
             }
           >
-            <div class="algo-table-wrap">
-              <table class="algo-table">
-                <thead>
-                  <tr>
-                    <th>Ville</th>
-                    <th>Date cible</th>
-                    <th>Bucket</th>
-                    <th>Outcome</th>
-                    <th>Qté</th>
-                    <th>Prix entrée</th>
-                    <th>PnL réalisé</th>
-                    <th>Mode</th>
-                    <th>Clôturé le</th>
-                    <th>Marché</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={closedList()}>
-                    {(pos) => {
-                      const wf = pos.weatherForecast;
-                      const invested =
-                        pos.status === 'closed' &&
-                        pos.entryInvestedAmount != null &&
-                        pos.entryInvestedAmount > 0
-                          ? pos.entryInvestedAmount
-                          : pos.quantity * pos.entryPrice;
-                      const pct = pnlPercent(pos.realizedPnl, invested);
-                      const qty =
-                        pos.status === 'closed' &&
-                        pos.quantity <= 0 &&
-                        pos.entryQuantityFilled != null &&
-                        pos.entryQuantityFilled > 0
-                          ? pos.entryQuantityFilled
-                          : pos.quantity;
-                      return (
-                        <tr>
-                          <td class="weather-history-city">{wf?.city ?? '—'}</td>
-                          <td class="text-mono text-sm">
-                            {wf ? formatWeatherDate(wf.targetDate) : '—'}
-                          </td>
-                          <td class="text-sm">
-                            {bucketLabel(
-                              wf?.entryBucketComparison ?? null,
-                              (wf?.entryBucketBounds as WeatherBucketBounds) ?? null,
-                            )}
-                          </td>
-                          <td>
-                            <span class="algo-badge">{pos.outcome}</span>
-                          </td>
-                          <td class="text-mono">{qty.toFixed(4)}</td>
-                          <td class="text-mono">{pos.entryPrice.toFixed(3)}</td>
-                          <td class={`text-mono ${genericPnlClass(pos.realizedPnl)}`}>
-                            {formatPnlAmount(pos.realizedPnl, true)}
-                            <Show when={pct != null}>
-                              <span class="algo-pnl-pct"> ({formatPnlPercent(pct)})</span>
-                            </Show>
-                          </td>
-                          <td>
-                            <span class={`algo-mode-badge ${pos.mode}`}>
-                              {pos.mode === 'real' ? 'Réel' : pos.mode === 'sim' ? 'Sim' : pos.mode}
-                            </span>
-                          </td>
-                          <td class="text-mono text-sm">
-                            {pos.closedAt ? formatShortDateTime(pos.closedAt) : '—'}
-                          </td>
-                          <td>
-                            <Show when={pos.marketUrl}>
-                              <a
-                                class="btn btn-sm btn-ghost weather-position-card__link"
-                                href={pos.marketUrl!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Voir
-                              </a>
-                            </Show>
-                          </td>
-                        </tr>
-                      );
-                    }}
-                  </For>
-                </tbody>
-              </table>
+            <div class="weather-history-grid">
+              <For each={historyGroups()}>
+                {(group) => <WeatherHistoryCityCard group={group} />}
+              </For>
+            </div>
+            <div class="algo-pagination-row">
+              <Show when={p().historyTotal() > 0}>
+                <div class="algo-pagination">
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    disabled={p().historyPage() === 0}
+                    onClick={() => p().goToHistoryPage(p().historyPage() - 1)}
+                    aria-label="Page précédente"
+                  >
+                    <Icon name="chevron-left" size={16} />
+                  </button>
+                  <span class="algo-pagination-info">
+                    {p().historyPage() + 1} / {p().historyPageCount()}
+                  </span>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    disabled={p().historyPage() >= p().historyPageCount() - 1}
+                    onClick={() => p().goToHistoryPage(p().historyPage() + 1)}
+                    aria-label="Page suivante"
+                  >
+                    <Icon name="chevron-right" size={16} />
+                  </button>
+                </div>
+              </Show>
+              <span class="algo-panel-count">{p().historyTotal()} positions</span>
             </div>
           </Show>
         </Show>

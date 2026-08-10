@@ -5,6 +5,7 @@ import {
   WEATHER_ALGO_POS_MODE_FILTERS,
   WEATHER_ALGO_POS_TABS,
   usePersistedEnum,
+  usePersistedSignal,
   type WeatherAlgoPosModeFilter,
   type WeatherAlgoPosTab,
 } from '../lib/ui-persistence';
@@ -50,6 +51,12 @@ export type WeatherPosTab = WeatherAlgoPosTab;
 export type WeatherPosModeFilter = WeatherAlgoPosModeFilter;
 
 const POLL_MS = 10_000;
+export const WEATHER_ALGO_POS_HISTORY_PAGE_SIZE = 20;
+
+interface ClosedPositionsResponse {
+  items: WeatherPosition[];
+  total: number;
+}
 
 function isWeatherReason(reason: string | null | undefined): boolean {
   return reason != null && reason.startsWith('WEATHER_');
@@ -61,6 +68,12 @@ export function useWeatherAlgoPositions() {
   const [closedPositions, setClosedPositions] = createSignal<WeatherPosition[]>([]);
   const [loadingHistory, setLoadingHistory] = createSignal(false);
   const [historyLoaded, setHistoryLoaded] = createSignal(false);
+  const [historyTotal, setHistoryTotal] = createSignal(0);
+  const [historyPage, setHistoryPage] = usePersistedSignal(
+    UI_KEYS.weatherAlgoPosHistoryPage,
+    0,
+    (value): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0,
+  );
   const [posTab, setPosTab] = usePersistedEnum(
     UI_KEYS.weatherAlgoPosTab,
     'open',
@@ -71,6 +84,9 @@ export function useWeatherAlgoPositions() {
     'all',
     WEATHER_ALGO_POS_MODE_FILTERS,
   );
+
+  const historyPageCount = () =>
+    Math.max(1, Math.ceil(historyTotal() / WEATHER_ALGO_POS_HISTORY_PAGE_SIZE));
 
   async function refresh() {
     try {
@@ -83,14 +99,31 @@ export function useWeatherAlgoPositions() {
   async function refreshHistory() {
     setLoadingHistory(true);
     try {
-      const data = await api<WeatherPosition[]>('/copied-positions?status=closed&reason=weather');
-      setClosedPositions(data.filter((p) => isWeatherReason(p.reason)));
+      const params = new URLSearchParams();
+      params.set('limit', String(WEATHER_ALGO_POS_HISTORY_PAGE_SIZE));
+      params.set('offset', String(historyPage() * WEATHER_ALGO_POS_HISTORY_PAGE_SIZE));
+      const data = await api<ClosedPositionsResponse>(
+        `/copied-positions?status=closed&reason=weather&${params.toString()}`,
+      );
+      setClosedPositions(data.items.filter((p) => isWeatherReason(p.reason)));
+      setHistoryTotal(data.total);
       setHistoryLoaded(true);
     } catch {
       setClosedPositions([]);
+      setHistoryTotal(0);
     } finally {
       setLoadingHistory(false);
     }
+  }
+
+  function goToHistoryPage(nextPage: number) {
+    const maxPage = Math.max(
+      0,
+      Math.ceil(historyTotal() / WEATHER_ALGO_POS_HISTORY_PAGE_SIZE) - 1,
+    );
+    const clamped = Math.max(0, Math.min(nextPage, maxPage));
+    setHistoryPage(clamped);
+    void refreshHistory();
   }
 
   async function closePosition(id: number) {
@@ -138,6 +171,10 @@ export function useWeatherAlgoPositions() {
     closedPositions,
     loadingHistory,
     historyLoaded,
+    historyTotal,
+    historyPage,
+    historyPageCount,
+    goToHistoryPage,
     refreshHistory,
     posTab,
     selectPosTab,

@@ -5909,6 +5909,15 @@ body.is-resizing-columns .position-market-split-handle::after {
   text-align: center;
 }
 
+.algo-pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
 /* Auto-track form */
 .autotrack-add-form-v2 {
   display: flex;
@@ -10336,6 +10345,123 @@ body.is-resizing-columns .position-market-split-handle::after {
 .weather-position-card__date {
   font-size: .75rem;
   color: var(--text-secondary);
+}
+
+/* Weather history cards (grouped by city, dropdown by target date) */
+.weather-history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  padding: .75rem;
+}
+
+.weather-history-city-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: .75rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-history-city-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.weather-history-city-card__city {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.weather-history-city-card__count {
+  font-size: .75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.weather-history-city-card__dates {
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-history-date-dropdown {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.weather-history-date-dropdown:last-child {
+  border-bottom: none;
+}
+
+.weather-history-date-btn {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .625rem .75rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: .875rem;
+  text-align: left;
+}
+
+.weather-history-date-btn:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, .03));
+}
+
+.weather-history-date-btn__label {
+  font-weight: 600;
+}
+
+.weather-history-date-btn__count {
+  font-size: .75rem;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.weather-history-pos-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .5rem .75rem .75rem;
+}
+
+.weather-history-pos-item {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .625rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: .5rem;
+  background: var(--bg-base, #16161a);
+}
+
+.weather-history-pos-item__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.weather-history-pos-item__metric {
+  display: flex;
+  flex-direction: column;
+  gap: .125rem;
+  font-size: .8125rem;
+}
+
+.weather-history-pos-item__label {
+  font-size: .625rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
 }
 
 .weather-position-card__badges {

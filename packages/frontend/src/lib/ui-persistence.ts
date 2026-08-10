@@ -129,6 +129,7 @@ export const UI_KEYS = {
   weatherAlgoPosTab: 'polywatch_weather_algo_pos_tab',
   weatherAlgoPosModeFilter: 'polywatch_weather_algo_pos_mode_filter',
   weatherAlgoPosOpenSubTab: 'polywatch_weather_algo_pos_open_sub_tab',
+  weatherAlgoPosHistoryPage: 'polywatch_weather_algo_pos_history_page',
   weatherAlgoExecModeFilter: 'polywatch_weather_algo_exec_mode_filter',
   weatherAlgoExecStatusFilter: 'polywatch_weather_algo_exec_status_filter',
   weatherAlgoExecPage: 'polywatch_weather_algo_exec_page',

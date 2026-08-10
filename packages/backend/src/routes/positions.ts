@@ -9,6 +9,7 @@ import {
   ExitAttemptEventService,
   EXIT_ATTEMPT_LIST_MAX_LIMIT,
   MarketPositionTickService,
+  SimulationSessionService,
   algoKindLikePattern,
 } from '@polywatch/core';
 import { requireJwt, type AuthRequest } from '../middleware/auth.js';
@@ -86,9 +87,27 @@ export function createPositionsRouter(ds: DataSource): Router {
       if (req.query.status === 'closed') {
         qb.orderBy('p.closed_at', 'DESC');
       }
-      const positions = await qb.getMany();
+      const isClosed = req.query.status === 'closed';
+      const isWeatherClosed = isClosed && req.query.reason === 'weather';
 
-      if (req.query.status === 'closed') {
+      if (isWeatherClosed) {
+        const session = await new SimulationSessionService(ds).getActiveSession('weather');
+        if (!session) {
+          res.json({ items: [], total: 0 });
+          return;
+        }
+        qb.andWhere('p.closedAt >= :sessionStart', { sessionStart: session.startedAt });
+      }
+
+      if (isClosed) {
+        const limit = Math.max(1, Math.min(Number(req.query.limit ?? 20), 200));
+        const offset = Math.max(0, Number(req.query.offset ?? 0));
+        qb.take(limit).skip(offset);
+      }
+
+      const [positions, total] = await qb.getManyAndCount();
+
+      if (isClosed) {
         const withCloseReason = await Promise.all(
           positions.map(async (pos) => {
             if (pos.closeReason) return pos;
@@ -96,7 +115,7 @@ export function createPositionsRouter(ds: DataSource): Router {
             return { ...pos, closeReason };
           }),
         );
-        res.json(await presenter.enrich(withCloseReason));
+        res.json({ items: await presenter.enrich(withCloseReason), total });
         return;
       }
 

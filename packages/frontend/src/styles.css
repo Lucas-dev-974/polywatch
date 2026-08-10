@@ -9802,8 +9802,26 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 .weather-data-detail-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: .75rem;
+}
+
+.weather-data-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.weather-data-detail-title-row .settings-subheading {
+  margin: 0;
+  line-height: 1.25;
+}
+
+.weather-data-detail-title-row .weather-data-card-table {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  white-space: nowrap;
 }
 
 .weather-data-filters {

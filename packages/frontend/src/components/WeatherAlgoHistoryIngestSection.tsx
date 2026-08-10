@@ -319,160 +319,172 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
       </Show>
 
       <Show when={!citiesLoading() && cities().length > 0}>
-        <div class="weather-watched-table-wrap" role="region" aria-label="Données télécharger">
-          <table class="weather-watched-table weather-history-ingest-table">
-            <thead>
-              <tr>
-                <th class="weather-watched-th">Ville</th>
-                <th class="weather-watched-th">Période</th>
-                <th class="weather-watched-th">Intervalle</th>
-                <th class="weather-watched-th">En base</th>
-                <th class="weather-watched-th weather-watched-th-actions">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={cities()}>
-                {(city) => {
-                  const row = () => rowState()[city.toLowerCase()] ?? emptyRow();
-                  return (
-                    <tr class="weather-watched-tr">
-                      <td class="weather-watched-td weather-watched-td-city" data-label="Ville">
-                        {city}
-                      </td>
-                      <td class="weather-watched-td" data-label="Période">
-                        <div class="weather-history-ingest-period">
-                          <select
-                            value={row().period}
-                            onChange={(e) =>
-                              patchRow(city, {
-                                period: e.currentTarget.value as PeriodPreset,
-                              })
-                            }
-                          >
-                            <For each={PERIOD_OPTIONS}>
-                              {(opt) => <option value={opt.value}>{opt.label}</option>}
-                            </For>
-                          </select>
-                          <Show when={row().period === 'custom'}>
-                            <input
-                              type="date"
-                              value={row().customFrom}
-                              onInput={(e) =>
-                                patchRow(city, { customFrom: e.currentTarget.value })
-                              }
-                            />
-                            <span>→</span>
-                            <input
-                              type="date"
-                              value={row().customTo}
-                              onInput={(e) =>
-                                patchRow(city, { customTo: e.currentTarget.value })
-                              }
-                            />
-                          </Show>
-                        </div>
-                      </td>
-                      <td class="weather-watched-td" data-label="Intervalle">
+        <div class="weather-history-ingest-cards" role="region" aria-label="Données télécharger">
+          <For each={cities()}>
+            {(city) => {
+              const row = () => rowState()[city.toLowerCase()] ?? emptyRow();
+              const hasCoverage = () =>
+                row().coverage != null && row().coverage!.pointCount > 0;
+              return (
+                <article
+                  class="weather-history-ingest-card"
+                  classList={{ 'weather-history-ingest-card--empty': !hasCoverage() }}
+                >
+                  <div class="weather-history-ingest-card__header">
+                    <div class="weather-history-ingest-card__heading">
+                      <span class="weather-history-ingest-card__city">{city}</span>
+                      <Show
+                        when={hasCoverage()}
+                        fallback={
+                          <span class="weather-history-ingest-card__points weather-history-ingest-card__points--empty">
+                            Aucune donnée
+                          </span>
+                        }
+                      >
+                        <span class="weather-history-ingest-card__points">
+                          {row().coverage!.pointCount.toLocaleString()}
+                          <span class="weather-history-ingest-card__points-unit">points</span>
+                        </span>
+                      </Show>
+                    </div>
+                    <Show when={hasCoverage() && (row().coverage!.fromRecordedAt || row().coverage!.toRecordedAt)}>
+                      <span class="weather-history-ingest-card__range">
+                        {(() => {
+                          const cov = row().coverage!;
+                          const from = cov.fromRecordedAt
+                            ? new Date(cov.fromRecordedAt).toLocaleDateString()
+                            : '—';
+                          const to = cov.toRecordedAt
+                            ? new Date(cov.toRecordedAt).toLocaleDateString()
+                            : '—';
+                          return `${from} → ${to}`;
+                        })()}
+                      </span>
+                    </Show>
+                  </div>
+
+                  <div class="weather-history-ingest-card__body">
+                    <div class="weather-history-ingest-card__field">
+                      <span class="weather-history-ingest-card__label">Période</span>
+                      <div class="weather-history-ingest-period">
                         <select
-                          value={String(row().fidelityMinutes)}
+                          value={row().period}
                           onChange={(e) =>
                             patchRow(city, {
-                              fidelityMinutes: Number(e.currentTarget.value),
+                              period: e.currentTarget.value as PeriodPreset,
                             })
                           }
                         >
-                          <For each={FIDELITY_OPTIONS}>
-                            {(opt) => (
-                              <option value={opt.value}>{opt.label}</option>
-                            )}
+                          <For each={PERIOD_OPTIONS}>
+                            {(opt) => <option value={opt.value}>{opt.label}</option>}
                           </For>
                         </select>
-                      </td>
-                      <td class="weather-watched-td weather-history-ingest-coverage" data-label="En base">
-                        <Show
-                          when={row().coverage && row().coverage!.pointCount > 0}
-                          fallback={<span>{formatCoverage(row().coverage)}</span>}
-                        >
-                          <div class="weather-history-ingest-coverage-card">
-                            <div class="weather-history-ingest-coverage-head">
-                              <span class="weather-history-ingest-coverage-total">
-                                {row().coverage!.pointCount.toLocaleString()} points
-                              </span>
-                              <Show when={row().coverage!.fromRecordedAt || row().coverage!.toRecordedAt}>
-                                <span class="weather-history-ingest-coverage-range">
-                                  {row().coverage!.fromRecordedAt
-                                    ? new Date(row().coverage!.fromRecordedAt).toLocaleDateString()
-                                    : '—'}
-                                  {' → '}
-                                  {row().coverage!.toRecordedAt
-                                    ? new Date(row().coverage!.toRecordedAt).toLocaleDateString()
-                                    : '—'}
-                                </span>
-                              </Show>
-                            </div>
-                            <Show when={row().coverage!.intervals.length > 0}>
-                              <div class="weather-history-ingest-intervals">
-                                <For each={row().coverage!.intervals}>
-                                  {(iv) => (
-                                    <span class="weather-history-ingest-interval-badge">
-                                      <span class="weather-history-ingest-interval-label">
-                                        {formatFidelityLabel(iv.fidelityMinutes)}
-                                      </span>
-                                      <span class="weather-history-ingest-interval-count">
-                                        {iv.pointCount.toLocaleString()}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        class="weather-history-ingest-interval-remove"
-                                        title={`Supprimer l'intervalle ${formatFidelityLabel(iv.fidelityMinutes)}`}
-                                        disabled={row().deleting || row().loading}
-                                        onClick={() =>
-                                          void handleDeleteInterval(city, iv.fidelityMinutes)
-                                        }
-                                      >
-                                        ×
-                                      </button>
-                                    </span>
-                                  )}
-                                </For>
-                              </div>
-                            </Show>
-                            <Show when={row().coverage!.targetDates.length > 0}>
-                              <div class="weather-history-ingest-dates">
-                                <For each={row().coverage!.targetDates}>
-                                  {(d) => <span class="weather-history-ingest-date-chip">{d}</span>}
-                                </For>
-                              </div>
-                            </Show>
-                          </div>
+                        <Show when={row().period === 'custom'}>
+                          <input
+                            type="date"
+                            value={row().customFrom}
+                            onInput={(e) =>
+                              patchRow(city, { customFrom: e.currentTarget.value })
+                            }
+                          />
+                          <span>→</span>
+                          <input
+                            type="date"
+                            value={row().customTo}
+                            onInput={(e) =>
+                              patchRow(city, { customTo: e.currentTarget.value })
+                            }
+                          />
                         </Show>
-                        <Show when={row().job}>
-                          {(job) => (
-                            <span class="weather-history-ingest-status">{jobStatusLabel(job())}</span>
-                          )}
-                        </Show>
-                        <Show when={row().error}>
-                          <span class="weather-history-ingest-error">{row().error}</span>
-                        </Show>
-                      </td>
-                      <td
-                        class="weather-watched-td weather-watched-td-actions"
-                        data-label="Actions"
+                      </div>
+                    </div>
+
+                    <div class="weather-history-ingest-card__field">
+                      <span class="weather-history-ingest-card__label">Intervalle</span>
+                      <select
+                        value={String(row().fidelityMinutes)}
+                        onChange={(e) =>
+                          patchRow(city, {
+                            fidelityMinutes: Number(e.currentTarget.value),
+                          })
+                        }
                       >
-                        <button
-                          class="btn btn-sm btn-primary"
-                          disabled={row().loading}
-                          onClick={() => void handleLoad(city)}
-                        >
-                          {row().loading ? 'Chargement…' : 'Charger'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                }}
-              </For>
-            </tbody>
-          </table>
+                        <For each={FIDELITY_OPTIONS}>
+                          {(opt) => (
+                            <option value={opt.value}>{opt.label}</option>
+                          )}
+                        </For>
+                      </select>
+                    </div>
+
+                    <div class="weather-history-ingest-card__field">
+                      <span class="weather-history-ingest-card__label">En base</span>
+                      <Show
+                        when={hasCoverage()}
+                        fallback={<span class="weather-history-ingest-card__no-data">{formatCoverage(row().coverage)}</span>}
+                      >
+                        <div class="weather-history-ingest-coverage-card">
+                          <Show when={row().coverage!.intervals.length > 0}>
+                            <div class="weather-history-ingest-intervals">
+                              <For each={row().coverage!.intervals}>
+                                {(iv) => (
+                                  <span class="weather-history-ingest-interval-badge">
+                                    <span class="weather-history-ingest-interval-label">
+                                      {formatFidelityLabel(iv.fidelityMinutes)}
+                                    </span>
+                                    <span class="weather-history-ingest-interval-count">
+                                      {iv.pointCount.toLocaleString()}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      class="weather-history-ingest-interval-remove"
+                                      title={`Supprimer l'intervalle ${formatFidelityLabel(iv.fidelityMinutes)}`}
+                                      disabled={row().deleting || row().loading}
+                                      onClick={() =>
+                                        void handleDeleteInterval(city, iv.fidelityMinutes)
+                                      }
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                )}
+                              </For>
+                            </div>
+                          </Show>
+                          <Show when={row().coverage!.targetDates.length > 0}>
+                            <div class="weather-history-ingest-dates">
+                              <For each={row().coverage!.targetDates}>
+                                {(d) => <span class="weather-history-ingest-date-chip">{d}</span>}
+                              </For>
+                            </div>
+                          </Show>
+                        </div>
+                      </Show>
+                      <Show when={row().job}>
+                        {(job) => (
+                          <span class="weather-history-ingest-status">{jobStatusLabel(job())}</span>
+                        )}
+                      </Show>
+                      <Show when={row().error}>
+                        <span class="weather-history-ingest-error">{row().error}</span>
+                      </Show>
+                    </div>
+                  </div>
+
+                  <div class="weather-history-ingest-card__footer">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-primary weather-history-ingest-card__load"
+                      disabled={row().loading}
+                      onClick={() => void handleLoad(city)}
+                    >
+                      {row().loading ? 'Chargement…' : 'Charger'}
+                    </button>
+                  </div>
+                </article>
+              );
+            }}
+          </For>
         </div>
       </Show>
     </CollapsibleSection>

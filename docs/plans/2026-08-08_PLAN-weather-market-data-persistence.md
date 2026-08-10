@@ -326,6 +326,11 @@ CREATE INDEX idx_wms_recorded_at ON weather_market_snapshots (recorded_at);
 CREATE TABLE weather_bucket_ticks (
   id                SERIAL PRIMARY KEY,
   snapshot_id       INTEGER NOT NULL REFERENCES weather_market_snapshots(id) ON DELETE CASCADE,
+  city              TEXT,                  -- dénormalisé depuis le snapshot parent
+  city_normalized   TEXT,                  -- dénormalisé depuis le snapshot parent
+  target_date_iso   TEXT,                  -- dénormalisé depuis le snapshot parent
+  metric            TEXT,                  -- dénormalisé depuis le snapshot parent
+  fidelity_minutes  INTEGER,               -- dérivé de weatherAlgoPollMs (cadence de snapshot)
   condition_id      TEXT NOT NULL,
   event_slug        TEXT,
   question          TEXT,
@@ -349,6 +354,7 @@ CREATE TABLE weather_bucket_ticks (
 CREATE INDEX idx_wbt_snapshot_id ON weather_bucket_ticks (snapshot_id);
 CREATE INDEX idx_wbt_condition_id_recorded ON weather_bucket_ticks (condition_id, recorded_at);
 CREATE INDEX idx_wbt_recorded_at ON weather_bucket_ticks (recorded_at);
+CREATE INDEX idx_wbt_city_date_recorded ON weather_bucket_ticks (city_normalized, target_date_iso, recorded_at);
 ```
 
 **Fix vs v1** :

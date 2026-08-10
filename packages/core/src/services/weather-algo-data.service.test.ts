@@ -42,6 +42,11 @@ describe('WeatherAlgoDataService — bucket ticks timeline', () => {
     return repo.save(
       repo.create({
         snapshotId,
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-01',
+        metric: 'temp',
+        fidelityMinutes: 30,
         conditionId: 'cond-1',
         eventSlug: 'evt',
         question: 'q?',
@@ -161,8 +166,8 @@ describe('WeatherAlgoDataService — bucket ticks timeline', () => {
 
   it('listBucketTickDates — agrège par date cible', async () => {
     const snap = await seedSnapshot({ targetDateIso: '2026-01-02' });
-    await seedTick(snap.id);
-    await seedTick(snap.id, { conditionId: 'cond-2' });
+    await seedTick(snap.id, { targetDateIso: '2026-01-02' });
+    await seedTick(snap.id, { conditionId: 'cond-2', targetDateIso: '2026-01-02' });
 
     const res = await service.listBucketTickDates();
     expect(res.dates).toHaveLength(1);
@@ -323,6 +328,11 @@ describe('WeatherAlgoDataService — deleteTableData', () => {
     return repo.save(
       repo.create({
         snapshotId,
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-01',
+        metric: 'temp',
+        fidelityMinutes: 30,
         conditionId: 'cond-1',
         eventSlug: 'evt',
         question: 'q?',

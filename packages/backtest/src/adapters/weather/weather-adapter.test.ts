@@ -123,6 +123,10 @@ describe('runBacktest (weather replay)', () => {
         closed: false,
         endDate: new Date('2026-01-02T23:59:00Z'),
         recordedAt: now,
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-02',
+        metric: 'highest_temp',
       }),
     );
 
@@ -148,6 +152,10 @@ describe('runBacktest (weather replay)', () => {
         closed: true,
         endDate: new Date('2026-01-02T23:59:00Z'),
         recordedAt: new Date('2026-01-03T00:01:00.000Z'),
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-02',
+        metric: 'highest_temp',
       }),
     );
 
@@ -321,6 +329,7 @@ describe('runBacktest (weather replay)', () => {
       volume: 1, volume24hr: 1, liquidityClob: 1,
       acceptingOrders: true, closed: false, endDate: null,
       recordedAt: now,
+      city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02', metric: 'highest_temp',
     }));
     // A tick after the fallback resolution time (targetDateIso+24h = 2026-01-03)
     // so the resolution check fires for the open position.
@@ -332,6 +341,7 @@ describe('runBacktest (weather replay)', () => {
       volume: 1, volume24hr: 1, liquidityClob: 1,
       acceptingOrders: false, closed: true, endDate: null,
       recordedAt: new Date('2026-01-04T00:00:00.000Z'),
+      city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02', metric: 'highest_temp',
     }));
     await evalRepo.save(evalRepo.create({
       snapshotId: snap.id, conditionId: 'cond-p1', bucketComparison: 'or_above',
@@ -378,6 +388,7 @@ describe('runBacktest (weather replay)', () => {
       bucketLow: null, bucketHigh: null, yesPrice: 0.4, noPrice: 0.6,
       yesTokenId: 'y', noTokenId: 'n', volume: 1, volume24hr: 1, liquidityClob: 1,
       acceptingOrders: true, closed: false, endDate: null, recordedAt: now,
+      city: 'lyon', cityNormalized: 'lyon', targetDateIso: '2026-01-02', metric: 'precip',
     }));
 
     const service = new BacktestRunService(ds);
@@ -445,6 +456,10 @@ describe('runBacktest (weather replay)', () => {
           closed: false,
           endDate: new Date('2026-01-02T23:59:00Z'),
           recordedAt: now,
+          city: 'london',
+          cityNormalized: 'london',
+          targetDateIso: '2026-01-02',
+          metric: 'highest_temp',
         }),
       );
       await evalRepo.save(

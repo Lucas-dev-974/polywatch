@@ -81,7 +81,7 @@ Charge trois sources en streams async :
 | Source | Table | Colonne `event.at` |
 |--------|-------|-------------------|
 | Forecasts | `weather_forecast_history` | `fetchedAt` |
-| Ticks | `weather_bucket_ticks` (+ join snapshot) | `recordedAt` |
+| Ticks | `weather_bucket_ticks` (colonnes dénormalisées `city`/`target_date_iso`/`metric` ; join snapshot uniquement pour `forecastMean`) | `recordedAt` |
 | Signals (mode replay) | `weather_evaluation_log` | `evaluatedAt` |
 
 Pagination : chunks de 5000, `ORDER BY <timestamp> ASC, id ASC`, curseur

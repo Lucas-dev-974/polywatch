@@ -76,11 +76,10 @@ async function countTickEvents(
   const qb = ds
     .getRepository(WeatherBucketTick)
     .createQueryBuilder('t')
-    .innerJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
     .where('t.recordedAt >= :from', { from })
     .andWhere('t.recordedAt <= :to', { to });
   if (cities) {
-    qb.andWhere('LOWER(s.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
+    qb.andWhere('LOWER(t.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
   }
   return qb.getCount();
 }
@@ -204,7 +203,7 @@ async function* loadTickEvents(
     const qb = ds
       .getRepository(WeatherBucketTick)
       .createQueryBuilder('t')
-      .innerJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
+      .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
       .select([
         't.id',
         't.conditionId',
@@ -224,9 +223,9 @@ async function* loadTickEvents(
         't.endDate',
         't.yesTokenId',
         't.recordedAt',
-        's.city',
-        's.targetDateIso',
-        's.metric',
+        't.city',
+        't.targetDateIso',
+        't.metric',
         's.forecastMean',
       ])
       .where('t.recordedAt >= :from', { from })
@@ -236,7 +235,7 @@ async function* loadTickEvents(
       .limit(CHUNK);
     applyTimeIdCursor(qb, 't', 'recordedAt', cursor);
     if (cities) {
-      qb.andWhere('LOWER(s.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
+      qb.andWhere('LOWER(t.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
     }
     const rows = await qb.getRawMany();
     if (rows.length === 0) break;
@@ -262,9 +261,9 @@ async function* loadTickEvents(
           closed: row.t_closed,
           endDate,
           tokenIdYes: row.t_yes_token_id,
-          snapshotCity: row.s_city,
-          snapshotTargetDateIso: row.s_target_date_iso,
-          snapshotMetric: row.s_metric,
+          snapshotCity: row.t_city,
+          snapshotTargetDateIso: row.t_target_date_iso,
+          snapshotMetric: row.t_metric,
           snapshotForecastMean: row.s_forecast_mean,
         },
       };

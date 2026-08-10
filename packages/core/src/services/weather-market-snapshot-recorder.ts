@@ -35,6 +35,7 @@ export class WeatherMarketSnapshotRecorder {
     buckets: BucketTickInput[];
     totalBucketCount: number;
     ruleId: number | null;
+    fidelityMinutes: number | null;
   }): Promise<{ snapshotId: number }> {
     const recordedAt = new Date();
     return await this.ds.transaction(async (em) => {
@@ -55,6 +56,11 @@ export class WeatherMarketSnapshotRecorder {
         await em.getRepository(WeatherBucketTick).insert(
           input.buckets.map((b) => ({
             snapshotId: snapshot.id,
+            city: input.city,
+            cityNormalized: input.cityNormalized,
+            targetDateIso: input.targetDateIso,
+            metric: input.metric,
+            fidelityMinutes: input.fidelityMinutes,
             conditionId: b.conditionId,
             eventSlug: b.eventSlug,
             question: b.question,

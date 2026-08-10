@@ -135,6 +135,7 @@ import { AddBacktestTables1700000000101 } from '../migrations/AddBacktestTables1
 import { AddWeatherAlgoStrategies1700000000102 } from '../migrations/AddWeatherAlgoStrategies1700000000102.js';
 import { AddWeatherClobPriceHistory1700000000103 } from '../migrations/AddWeatherClobPriceHistory1700000000103.js';
 import { AddClobHistoryIntervalToUniqueKey1700000000104 } from '../migrations/AddClobHistoryIntervalToUniqueKey1700000000104.js';
+import { AddBucketTickDenormalizedColumns1700000000105 } from '../migrations/AddBucketTickDenormalizedColumns1700000000105.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -234,6 +235,7 @@ export const migrations = [
   AddWeatherAlgoStrategies1700000000102,
   AddWeatherClobPriceHistory1700000000103,
   AddClobHistoryIntervalToUniqueKey1700000000104,
+  AddBucketTickDenormalizedColumns1700000000105,
 ];
 
 export const entities = [

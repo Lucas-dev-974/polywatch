@@ -688,7 +688,20 @@ function DetailHeaders(props: { id: WeatherAlgoDataTableId }) {
   const headers: Record<WeatherAlgoDataTableId, string[]> = {
     forecast_history: ['Ville', 'Date forecast', 'Mean', 'Std', 'Fetched'],
     market_snapshots: ['Ville', 'Date cible', 'Mean', 'Buckets', 'Recorded'],
-    bucket_ticks: ['Ville', 'conditionId', 'YES', 'NO', 'Bucket', 'Recorded'],
+    bucket_ticks: [
+      'Ville',
+      'Date cible',
+      'conditionId',
+      'Métrique',
+      'YES',
+      'NO',
+      'Bucket',
+      'Volume',
+      'Liq.',
+      'État',
+      'Fidélité',
+      'Recorded',
+    ],
     evaluation_log: ['Stratégie', 'Décision', 'Edge', 'Prob', 'Evaluated'],
     forecast_cache: ['Ville', 'Date forecast', 'Mean', 'Expires', 'Fetched'],
     position_forecasts: [
@@ -751,17 +764,32 @@ function DetailRow(props: { id: WeatherAlgoDataTableId; row: Record<string, unkn
       );
     case 'bucket_ticks': {
       const bounds = [r.bucketLow, r.bucketTarget, r.bucketHigh].filter((x) => x != null);
+      const acceptingOrders = r.acceptingOrders;
+      const closed = r.closed;
+      let state: string;
+      if (closed === true) state = 'fermé';
+      else if (acceptingOrders === true) state = 'ouvert';
+      else if (acceptingOrders === false) state = 'pas d’ordres';
+      else state = '—';
       return (
         <tr>
           <td>{str('cityNormalized')}</td>
+          <td>{str('targetDateIso')}</td>
           <td class="text-mono" title={str('conditionId')}>
             {truncate(str('conditionId'))}
           </td>
+          <td class="text-mono">{str('metric')}</td>
           <td>{num('yesPrice')}</td>
           <td>{num('noPrice')}</td>
           <td>
             {str('bucketComparison')}
             {bounds.length > 0 ? ` (${bounds.join('/')})` : ''}
+          </td>
+          <td>{r.volume != null ? Number(r.volume).toLocaleString() : '—'}</td>
+          <td>{r.liquidityClob != null ? Number(r.liquidityClob).toLocaleString() : '—'}</td>
+          <td>{state}</td>
+          <td>
+            {r.fidelityMinutes != null ? `${r.fidelityMinutes} min` : '—'}
           </td>
           <td>{ts('recordedAt')}</td>
         </tr>

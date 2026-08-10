@@ -707,6 +707,11 @@ export interface WeatherAlgoMarketSnapshotRow {
 export interface WeatherAlgoBucketTickRow {
   id: number;
   snapshotId: number;
+  city: string | null;
+  cityNormalized: string | null;
+  targetDateIso: string | null;
+  metric: string | null;
+  fidelityMinutes: number | null;
   conditionId: string;
   eventSlug: string | null;
   question: string | null;
@@ -716,8 +721,15 @@ export interface WeatherAlgoBucketTickRow {
   bucketHigh: number | null;
   yesPrice: number | null;
   noPrice: number | null;
+  yesTokenId: string | null;
+  noTokenId: string | null;
+  volume: number | null;
+  volume24hr: number | null;
+  liquidityClob: number | null;
+  acceptingOrders: boolean | null;
+  closed: boolean | null;
+  endDate: string | null;
   recordedAt: string;
-  cityNormalized: string | null;
 }
 
 export interface WeatherAlgoEvaluationLogRow {

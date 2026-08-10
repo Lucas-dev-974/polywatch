@@ -4,12 +4,28 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 @Index(['snapshotId'])
 @Index(['conditionId', 'recordedAt'])
 @Index(['recordedAt'])
+@Index(['cityNormalized', 'targetDateIso', 'recordedAt'])
 export class WeatherBucketTick {
   @PrimaryGeneratedColumn()
   id!: number;
 
   @Column({ type: 'integer', name: 'snapshot_id' })
   snapshotId!: number;
+
+  @Column({ type: 'text', nullable: true })
+  city!: string | null;
+
+  @Column({ type: 'text', name: 'city_normalized', nullable: true })
+  cityNormalized!: string | null;
+
+  @Column({ type: 'text', name: 'target_date_iso', nullable: true })
+  targetDateIso!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  metric!: string | null;
+
+  @Column({ type: 'integer', name: 'fidelity_minutes', nullable: true })
+  fidelityMinutes!: number | null;
 
   @Column({ type: 'text', name: 'condition_id' })
   conditionId!: string;

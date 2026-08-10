@@ -329,11 +329,10 @@ export class WeatherAlgoDataService {
   }): Promise<{ items: WeatherBucketTickRow[]; total: number }> {
     const qb = this.ds
       .getRepository(WeatherBucketTick)
-      .createQueryBuilder('t')
-      .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId');
+      .createQueryBuilder('t');
 
     if (options.city) {
-      qb.andWhere('s.cityNormalized = :city', {
+      qb.andWhere('t.cityNormalized = :city', {
         city: options.city.trim().toLowerCase(),
       });
     }
@@ -347,20 +346,16 @@ export class WeatherAlgoDataService {
       qb.andWhere('t.recordedAt <= :to', { to: options.to });
     }
 
-    const total = await qb.clone().getCount();
-
-    const { entities, raw } = await qb
-      .addSelect('s.cityNormalized', 'city_normalized')
+    const [entities, total] = await qb
       .orderBy('t.recordedAt', 'DESC')
       .addOrderBy('t.id', 'DESC')
       .skip(options.offset)
       .take(options.limit)
-      .getRawAndEntities();
+      .getManyAndCount();
 
-    const items: WeatherBucketTickRow[] = entities.map((entity, i) => ({
+    const items: WeatherBucketTickRow[] = entities.map((entity) => ({
       ...entity,
-      cityNormalized:
-        typeof raw[i]?.city_normalized === 'string' ? raw[i].city_normalized : null,
+      cityNormalized: entity.cityNormalized,
     }));
 
     return { items, total };
@@ -368,14 +363,14 @@ export class WeatherAlgoDataService {
 
   async listBucketTickDates(): Promise<{ dates: BucketTickDateEntry[] }> {
     const rows = await this.ds
-      .getRepository(WeatherMarketSnapshot)
-      .createQueryBuilder('s')
-      .innerJoin(WeatherBucketTick, 't', 't.snapshotId = s.id')
-      .select('s.targetDateIso', 'targetDateIso')
-      .addSelect('COUNT(DISTINCT s.cityNormalized)', 'cityCount')
+      .getRepository(WeatherBucketTick)
+      .createQueryBuilder('t')
+      .select('t.targetDateIso', 'targetDateIso')
+      .addSelect('COUNT(DISTINCT t.cityNormalized)', 'cityCount')
       .addSelect('COUNT(t.id)', 'tickCount')
-      .groupBy('s.targetDateIso')
-      .orderBy('s.targetDateIso', 'DESC')
+      .where('t.targetDateIso IS NOT NULL')
+      .groupBy('t.targetDateIso')
+      .orderBy('t.targetDateIso', 'DESC')
       .getRawMany<{
         targetDateIso: string;
         cityCount: string | number;
@@ -405,25 +400,23 @@ export class WeatherAlgoDataService {
 
     const maxTicks = Math.max(1, Math.min(options.maxTicks ?? 2000, 5000));
 
-    // D.1 — Une seule requête bornée via innerJoin snapshot↔tick.
-    // Évite de charger tous les snapshots puis un IN (:...ids) non borné
-    // (risque d'explosion PostgreSQL >65k paramètres sur une date très active).
+    // D.1 — Requête bornée mono-table sur les colonnes dénormalisées du tick.
+    // (city_normalized / target_date_iso sont backfillées depuis le snapshot parent.)
     const tickQb = this.ds
       .getRepository(WeatherBucketTick)
       .createQueryBuilder('t')
-      .innerJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
-      .where('s.targetDateIso = :target', { target });
+      .where('t.targetDateIso = :target', { target });
 
     if (options.city) {
-      tickQb.andWhere('s.cityNormalized = :city', {
+      tickQb.andWhere('t.cityNormalized = :city', {
         city: options.city.trim().toLowerCase(),
       });
     }
     if (options.from) {
-      tickQb.andWhere('s.recordedAt >= :from', { from: options.from });
+      tickQb.andWhere('t.recordedAt >= :from', { from: options.from });
     }
     if (options.to) {
-      tickQb.andWhere('s.recordedAt <= :to', { to: options.to });
+      tickQb.andWhere('t.recordedAt <= :to', { to: options.to });
     }
 
     // D.2 — Fetch the most recent `maxTicks` ticks (DESC) so the resolution
@@ -441,8 +434,9 @@ export class WeatherAlgoDataService {
       return { dates: [] };
     }
 
-    // Snapshots distincts requis pour résoudre city/forecast : on ne charge
-    // que ceux effectivement référencés par les ticks retournés (borne ≤ maxTicks).
+    // Snapshots distincts requis pour résoudre forecastMean/forecastStdDev
+    // (non dénormalisés sur le tick) : on ne charge que ceux effectivement
+    // référencés par les ticks retournés (borne ≤ maxTicks).
     const snapshotIds = [...new Set(ticks.map((t) => t.snapshotId))];
     const snapshots = await this.ds
       .getRepository(WeatherMarketSnapshot)
@@ -468,16 +462,16 @@ export class WeatherAlgoDataService {
 
     for (const tick of ticks) {
       const snap = snapshotById.get(tick.snapshotId);
-      if (!snap) continue;
-      const cityKey = snap.cityNormalized || snap.city;
+      const cityKey = tick.cityNormalized || tick.city || snap?.cityNormalized || snap?.city;
+      if (!cityKey) continue;
 
       let acc = cityMap.get(cityKey);
       if (!acc) {
         acc = {
           city: {
             cityNormalized: cityKey,
-            forecastMean: snap.forecastMean,
-            forecastStdDev: snap.forecastStdDev,
+            forecastMean: snap?.forecastMean ?? null,
+            forecastStdDev: snap?.forecastStdDev ?? null,
             bucketCount: 0,
             firstRecordedAt: toIso(tick.recordedAt) ?? '',
             lastRecordedAt: toIso(tick.recordedAt) ?? '',
@@ -492,8 +486,8 @@ export class WeatherAlgoDataService {
       // au précédent, donc on écrase lastRecordedAt et forecastMean à chaque
       // tick (le dernier tick de la boucle = le plus récent).
       acc.city.lastRecordedAt = toIso(tick.recordedAt) ?? acc.city.lastRecordedAt;
-      acc.city.forecastMean = snap.forecastMean;
-      acc.city.forecastStdDev = snap.forecastStdDev;
+      acc.city.forecastMean = snap?.forecastMean ?? acc.city.forecastMean;
+      acc.city.forecastStdDev = snap?.forecastStdDev ?? acc.city.forecastStdDev;
 
       const ts = toIso(tick.recordedAt);
       const point: BucketTimelineSeriesPoint = {

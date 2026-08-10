@@ -630,6 +630,7 @@ export class WeatherStrategyRunner {
           buckets: bucketInputs,
           totalBucketCount,
           ruleId,
+          fidelityMinutes: this.pollMs > 0 ? Math.round(this.pollMs / 60_000) : null,
         });
         snapshotId = result.snapshotId;
       } catch (err) {

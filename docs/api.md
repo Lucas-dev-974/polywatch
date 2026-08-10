@@ -399,6 +399,20 @@ Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./pla
 | GET | `/api/weather-algo-data/position-forecasts` | Liste snapshots d’entrée (+ `openedAt` joint) |
 | GET | `/api/weather-algo-data/coverage` | Agrégat legacy (période snapshots + totaux) — UI Paramètres retirée |
 
+### Weather Algo history (ingestion historique CLOB)
+
+Routes JWT sous `/api/weather-algo-history`. Service : `WeatherHistoryIngestService`.  
+Récupère l'historique des prix YES/NO des buckets météo d'une ville sur une période, via l'API CLOB Polymarket `/prices-history` (`startTs`/`endTs` + `fidelity`), et le persiste dans `weather_clob_price_history` (upsert idempotent). Les jobs sont suivis dans `weather_history_ingest_jobs`.
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/weather-algo-history/cities` | Villes connues (auto-track + snapshots + historique déjà ingéré) |
+| GET | `/api/weather-algo-history/coverage?city=` | Statistiques d'ingestion d'une ville (`pointCount`, bornes `recordedAt`, `targetDates`) |
+| GET | `/api/weather-algo-history/jobs/:id` | Statut d'un job d'ingestion (polling) |
+| POST | `/api/weather-algo-history/ingest` | Lance un job : `{ city, from, to, fidelityMinutes, metric? }` → `{ jobId, job }` |
+
+**Contraintes CLOB** : `startTs` + `endTs` obligatoires (sans `startTs` → HTTP 400). `startDate` est dérivé du champ Gamma `startDate` (l'API ne renvoie plus `eventStartTime`) ; en dernier recours, fenêtre de 7 jours avant `endTs`. Granularité `fidelity` en minutes (testé jusqu'à 1 min). L'historique des marchés météo quotidiens (depuis ~mars 2026) reste disponible.
+
 ### Backtest (`/api/backtest`)
 
 Routes JWT sous `/api/backtest`. Service : `BacktestRunService` + moteur `@polywatch/backtest`.  

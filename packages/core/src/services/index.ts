@@ -198,3 +198,10 @@ export {
   type BacktestEquityPointInput,
   type ListBacktestRunsOptions,
 } from './backtest-run.service.js';
+export {
+  WeatherHistoryIngestService,
+  WeatherHistoryIngestConflictError,
+  type StartWeatherHistoryIngestInput,
+  type WeatherHistoryIngestJobDto,
+  type WeatherHistoryCoverageDto,
+} from './weather-history-ingest.service.js';

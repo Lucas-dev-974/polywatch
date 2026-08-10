@@ -51,16 +51,7 @@ export async function discoverWeatherMarkets(
   const onParseResult = options?.onParseResult;
 
   function matchesTargetDate(m: MarketListItemDto): boolean {
-    if (m.question) {
-      const parsed = parseWeatherQuestion(m.question);
-      onParseResult?.(parsed != null);
-      if (parsed && targetMonthDays.has(parsed.dateString)) return true;
-    }
-    if (m.endDate) {
-      const endStr = new Date(m.endDate).toISOString().slice(0, 10);
-      if (targetStrs.has(endStr)) return true;
-    }
-    return false;
+    return matchMarketToTargetDates(m, targetStrs, targetMonthDays, onParseResult);
   }
 
   // Paginate through ALL Gamma events to find markets matching the target dates.
@@ -133,6 +124,239 @@ export async function discoverWeatherMarkets(
     allWeatherMarkets,
     byCity,
   };
+}
+
+/**
+ * Default number of past days to scan for resolved weather markets.
+ * Resolved markets only concern dates that already passed.
+ */
+export const DEFAULT_RESOLVED_LOOKBACK_DAYS = 2;
+
+/**
+ * Check whether a weather market matches any of the target dates.
+ *
+ * Matches by the parsed question date string (e.g. "August 8") and by the
+ * market endDate. Shared by the live discovery (open markets) and the resolved
+ * discovery (closed markets).
+ */
+export function matchMarketToTargetDates(
+  m: MarketListItemDto,
+  targetStrs: Set<string>,
+  targetMonthDays: Set<string>,
+  onParseResult?: (parsed: boolean) => void,
+): boolean {
+  if (m.question) {
+    const parsed = parseWeatherQuestion(m.question);
+    onParseResult?.(parsed != null);
+    if (parsed && targetMonthDays.has(parsed.dateString)) return true;
+  }
+  if (m.endDate) {
+    const endStr = new Date(m.endDate).toISOString().slice(0, 10);
+    if (targetStrs.has(endStr)) return true;
+  }
+  return false;
+}
+
+/**
+ * Fetch resolved (closed) weather markets over a rolling past-day window and
+ * return the ones matching a temperature question. Used solely for snapshot
+ * recording so the winning bucket's YES price at resolution (1.00) is captured —
+ * it never feeds the live trading path.
+ */
+export interface ResolvedWeatherMarketsResult {
+  /** Resolved weather temperature markets matching the past target window. */
+  resolvedTemperatureMarkets: MarketListItemDto[];
+}
+
+export async function discoverResolvedWeatherMarkets(
+  options: {
+    lookbackDays?: number;
+    onParseResult?: (parsed: boolean) => void;
+  } = {},
+): Promise<ResolvedWeatherMarketsResult> {
+  const lookback = Math.max(1, options.lookbackDays ?? DEFAULT_RESOLVED_LOOKBACK_DAYS);
+  const targetDates = buildPastDates(lookback);
+  const targetStrs = new Set(targetDates.map((d) => d.toISOString().slice(0, 10)));
+  const targetMonthDays = new Set(
+    targetDates.map((d) =>
+      d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
+    ),
+  );
+  const onParseResult = options.onParseResult;
+
+  const allItems: MarketListItemDto[] = [];
+  let currentOffset = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { items, nextCursor } = await fetchGammaMarketsByTagSlug({
+      tagSlug: WEATHER_TAG_SLUG,
+      closed: true,
+      limit: 100,
+      offset: currentOffset,
+      includeAllMarkets: true,
+    });
+    allItems.push(...items);
+
+    if (!nextCursor) break;
+    currentOffset = Number(nextCursor);
+  }
+
+  const resolvedTemperatureMarkets = allItems.filter((m) => {
+    if (!m.question) return false;
+    const parsed = parseWeatherQuestion(m.question);
+    if (!parsed) return false;
+    return matchMarketToTargetDates(m, targetStrs, targetMonthDays, onParseResult);
+  });
+
+  log.info(
+    {
+      totalFetched: allItems.length,
+      resolvedTemperatureMarkets: resolvedTemperatureMarkets.length,
+      lookbackDays: lookback,
+      targetStrs: Array.from(targetStrs),
+    },
+    'resolved weather markets discovery summary',
+  );
+
+  return { resolvedTemperatureMarkets };
+}
+
+/** Max pages when scanning Gamma for a bounded date range (100 events/page). */
+const MAX_RANGE_PAGES = 50;
+
+export interface DiscoverWeatherMarketsInRangeOptions {
+  city: string;
+  from: Date;
+  to: Date;
+  metric?: 'highest_temp' | 'lowest_temp';
+}
+
+export interface WeatherMarketsInRangeResult {
+  markets: MarketListItemDto[];
+  byCity: DiscoverCityGroup[];
+}
+
+function toUtcDateIso(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function addUtcDays(d: Date, days: number): Date {
+  const out = new Date(d);
+  out.setUTCDate(out.getUTCDate() + days);
+  return out;
+}
+
+/** Inclusive UTC date-range check on a market's resolved target date. */
+export function matchMarketToDateRange(
+  m: MarketListItemDto,
+  fromIso: string,
+  toIso: string,
+): boolean {
+  const targetIso = resolveMarketTargetDateIso(m);
+  if (!targetIso || targetIso === 'unknown') return false;
+  return targetIso >= fromIso && targetIso <= toIso;
+}
+
+function matchesCityAndMetric(
+  m: MarketListItemDto,
+  cityNormalized: string,
+  metric: 'highest_temp' | 'lowest_temp',
+): boolean {
+  if (!m.question) return false;
+  const parsed = parseWeatherQuestion(m.question);
+  if (!parsed) return false;
+  if (parsed.metric !== metric) return false;
+  return parsed.city.trim().toLowerCase() === cityNormalized;
+}
+
+async function fetchWeatherMarketsByClosedFlag(
+  closed: boolean,
+  endDateMin: string,
+  endDateMax: string,
+): Promise<MarketListItemDto[]> {
+  const allItems: MarketListItemDto[] = [];
+  let currentOffset = 0;
+
+  for (let page = 0; page < MAX_RANGE_PAGES; page++) {
+    const { items, nextCursor } = await fetchGammaMarketsByTagSlug({
+      tagSlug: WEATHER_TAG_SLUG,
+      closed,
+      active: closed ? undefined : true,
+      limit: 100,
+      offset: currentOffset,
+      endDateMin,
+      endDateMax,
+      includeAllMarkets: true,
+    });
+    allItems.push(...items);
+    if (!nextCursor) break;
+    currentOffset = Number(nextCursor);
+  }
+
+  return allItems;
+}
+
+/**
+ * Discover weather temperature markets for one city over an inclusive UTC date
+ * range. Scans both closed and open Gamma events bounded by end_date_min/max.
+ */
+export async function discoverWeatherMarketsInRange(
+  options: DiscoverWeatherMarketsInRangeOptions,
+): Promise<WeatherMarketsInRangeResult> {
+  const metric = options.metric ?? 'highest_temp';
+  const cityNormalized = options.city.trim().toLowerCase();
+  const fromIso = toUtcDateIso(options.from);
+  const toIso = toUtcDateIso(options.to);
+
+  const endDateMin = addUtcDays(options.from, -1).toISOString();
+  const endDateMax = addUtcDays(options.to, 1).toISOString();
+
+  const [closedItems, openItems] = await Promise.all([
+    fetchWeatherMarketsByClosedFlag(true, endDateMin, endDateMax),
+    fetchWeatherMarketsByClosedFlag(false, endDateMin, endDateMax),
+  ]);
+
+  const byCondition = new Map<string, MarketListItemDto>();
+  for (const m of [...closedItems, ...openItems]) {
+    byCondition.set(m.conditionId, m);
+  }
+
+  const markets = Array.from(byCondition.values()).filter(
+    (m) =>
+      matchesCityAndMetric(m, cityNormalized, metric) &&
+      matchMarketToDateRange(m, fromIso, toIso),
+  );
+
+  log.info(
+    {
+      city: options.city,
+      fromIso,
+      toIso,
+      metric,
+      closedFetched: closedItems.length,
+      openFetched: openItems.length,
+      matched: markets.length,
+    },
+    'weather markets in range discovery summary',
+  );
+
+  const byCity = groupMarketsByCityAndDate(markets, metric).filter(
+    (g) => g.city.trim().toLowerCase() === cityNormalized,
+  );
+
+  return { markets, byCity };
+}
+
+/** Builds [today - lookback, ..., yesterday] at midnight UTC. */
+function buildPastDates(days: number): Date[] {
+  const out: Date[] = [];
+  const base = new Date();
+  base.setUTCHours(0, 0, 0, 0);
+  for (let i = days; i >= 1; i--) {
+    const d = new Date(base);
+    d.setUTCDate(d.getUTCDate() - i);
+    out.push(d);
+  }
+  return out;
 }
 
 /** Returns today at midnight UTC. */

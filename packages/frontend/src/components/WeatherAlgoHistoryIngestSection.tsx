@@ -1,0 +1,381 @@
+import { createSignal, createEffect, For, Show } from 'solid-js';
+import {
+  fetchWeatherHistoryCities,
+  fetchWeatherHistoryCoverage,
+  fetchWeatherHistoryJob,
+  startWeatherHistoryIngest,
+  type WeatherHistoryCoverage,
+  type WeatherHistoryIngestJob,
+} from '../api';
+import { CollapsibleSection } from './CollapsibleSection';
+
+export interface WeatherAlgoHistoryIngestSectionProps {
+  /** Extra city names from live discovery (merged with API list). */
+  discoverCities?: string[];
+}
+
+type PeriodPreset = 'yesterday' | '7d' | '30d' | 'custom';
+
+const FIDELITY_OPTIONS = [
+  { value: 1, label: '1 min' },
+  { value: 5, label: '5 min' },
+  { value: 15, label: '15 min' },
+  { value: 60, label: '1 h' },
+  { value: 1440, label: '1 j' },
+] as const;
+
+const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
+  { value: 'yesterday', label: 'Hier' },
+  { value: '7d', label: '7 derniers jours' },
+  { value: '30d', label: '30 derniers jours' },
+  { value: 'custom', label: 'Personnalisé' },
+];
+
+function utcDateIso(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function resolvePeriod(
+  preset: PeriodPreset,
+  customFrom: string,
+  customTo: string,
+): { from: string; to: string } {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  if (preset === 'yesterday') {
+    const y = new Date(today);
+    y.setUTCDate(y.getUTCDate() - 1);
+    const iso = utcDateIso(y);
+    return { from: iso, to: iso };
+  }
+  if (preset === '7d') {
+    const from = new Date(today);
+    from.setUTCDate(from.getUTCDate() - 6);
+    return { from: utcDateIso(from), to: utcDateIso(today) };
+  }
+  if (preset === '30d') {
+    const from = new Date(today);
+    from.setUTCDate(from.getUTCDate() - 29);
+    return { from: utcDateIso(from), to: utcDateIso(today) };
+  }
+  return { from: customFrom, to: customTo };
+}
+
+interface CityRowState {
+  period: PeriodPreset;
+  customFrom: string;
+  customTo: string;
+  fidelityMinutes: number;
+  loading: boolean;
+  error: string | null;
+  job: WeatherHistoryIngestJob | null;
+  coverage: WeatherHistoryCoverage | null;
+}
+
+function defaultCustomFrom(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 7);
+  return utcDateIso(d);
+}
+
+function defaultCustomTo(): string {
+  return utcDateIso(new Date());
+}
+
+export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestSectionProps) {
+  const [cities, setCities] = createSignal<string[]>([]);
+  const [citiesLoading, setCitiesLoading] = createSignal(true);
+  const [rowState, setRowState] = createSignal<Record<string, CityRowState>>({});
+
+  async function loadCities() {
+    setCitiesLoading(true);
+    try {
+      const apiCities = await fetchWeatherHistoryCities();
+      const merged = new Map<string, string>();
+      for (const c of apiCities) {
+        const key = c.trim().toLowerCase();
+        if (key) merged.set(key, c.trim());
+      }
+      for (const c of props.discoverCities ?? []) {
+        const trimmed = c.trim();
+        const key = trimmed.toLowerCase();
+        if (key && !merged.has(key)) merged.set(key, trimmed);
+      }
+      const list = Array.from(merged.values()).sort((a, b) => a.localeCompare(b));
+      setCities(list);
+      setRowState((prev) => {
+        const next = { ...prev };
+        for (const city of list) {
+          const key = city.toLowerCase();
+          if (!next[key]) {
+            next[key] = {
+              period: '7d',
+              customFrom: defaultCustomFrom(),
+              customTo: defaultCustomTo(),
+              fidelityMinutes: 60,
+              loading: false,
+              error: null,
+              job: null,
+              coverage: null,
+            };
+          }
+        }
+        return next;
+      });
+    } finally {
+      setCitiesLoading(false);
+    }
+  }
+
+  createEffect(() => {
+    void loadCities();
+  });
+
+  createEffect(() => {
+    const list = cities();
+    for (const city of list) {
+      void loadCoverage(city);
+    }
+  });
+
+  async function loadCoverage(city: string) {
+    const key = city.toLowerCase();
+    try {
+      const coverage = await fetchWeatherHistoryCoverage(city);
+      setRowState((prev) => ({
+        ...prev,
+        [key]: { ...(prev[key] ?? emptyRow()), coverage },
+      }));
+    } catch {
+      /* ignore coverage errors */
+    }
+  }
+
+  function emptyRow(): CityRowState {
+    return {
+      period: '7d',
+      customFrom: defaultCustomFrom(),
+      customTo: defaultCustomTo(),
+      fidelityMinutes: 60,
+      loading: false,
+      error: null,
+      job: null,
+      coverage: null,
+    };
+  }
+
+  function patchRow(city: string, patch: Partial<CityRowState>) {
+    const key = city.toLowerCase();
+    setRowState((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? emptyRow()), ...patch },
+    }));
+  }
+
+  async function pollJob(city: string, jobId: number) {
+    const startedAt = Date.now();
+    const MAX_POLL_MS = 30 * 60 * 1000; // 30 min
+    while (true) {
+      const job = await fetchWeatherHistoryJob(jobId);
+      patchRow(city, { job });
+      if (job.status === 'done' || job.status === 'error' || job.status === 'cancelled') {
+        patchRow(city, {
+          loading: false,
+          error: job.status === 'error' ? (job.errorMessage ?? 'Erreur inconnue') : null,
+        });
+        void loadCoverage(city);
+        break;
+      }
+      if (Date.now() - startedAt > MAX_POLL_MS) {
+        patchRow(city, {
+          loading: false,
+          error: 'Délai d’attente dépassé (30 min) — vérifiez l’état du job côté serveur',
+        });
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
+  async function handleLoad(city: string) {
+    const key = city.toLowerCase();
+    const row = rowState()[key] ?? emptyRow();
+    const { from, to } = resolvePeriod(row.period, row.customFrom, row.customTo);
+    if (!from || !to) {
+      patchRow(city, { error: 'Période invalide' });
+      return;
+    }
+
+    patchRow(city, { loading: true, error: null, job: null });
+    try {
+      const { jobId, job } = await startWeatherHistoryIngest({
+        city,
+        from,
+        to,
+        fidelityMinutes: row.fidelityMinutes,
+      });
+      patchRow(city, { job });
+      void pollJob(city, jobId);
+    } catch (err) {
+      patchRow(city, {
+        loading: false,
+        error: err instanceof Error ? err.message : 'Échec du chargement',
+      });
+    }
+  }
+
+  function formatCoverage(coverage: WeatherHistoryCoverage | null): string {
+    if (!coverage || coverage.pointCount === 0) return 'Aucune donnée en base';
+    const dates =
+      coverage.targetDates.length > 0
+        ? coverage.targetDates.join(', ')
+        : '—';
+    return `${coverage.pointCount.toLocaleString()} points · dates: ${dates}`;
+  }
+
+  function jobStatusLabel(job: WeatherHistoryIngestJob | null): string | null {
+    if (!job) return null;
+    if (job.status === 'pending' || job.status === 'running') {
+      return `${job.marketsDone}/${job.marketsTotal} marchés · ${job.pointsUpserted.toLocaleString()} points`;
+    }
+    if (job.status === 'done') {
+      const empty =
+        job.marketsEmpty > 0 ? ` · ${job.marketsEmpty} sans données` : '';
+      return `Terminé · ${job.pointsUpserted.toLocaleString()} points${empty}`;
+    }
+    if (job.status === 'error') {
+      return job.errorMessage ?? 'Erreur';
+    }
+    return job.status;
+  }
+
+  return (
+    <CollapsibleSection
+      title="Données télécharger"
+      persistKey="polywatch_weather_history_ingest_collapsed"
+      class="weather-history-ingest"
+    >
+      <p class="form-hint weather-autotrack-note">
+        Télécharge l&apos;historique CLOB Polymarket (série de prix YES/NO par bucket) via
+        /prices-history (startTs/endTs) et l&apos;enregistre en base pour une ville et une période.
+        Température max uniquement. Les données déjà présentes sont mises à jour sans doublon.
+      </p>
+
+      <Show when={citiesLoading()}>
+        <p class="form-hint">Chargement des villes…</p>
+      </Show>
+
+      <Show when={!citiesLoading() && cities().length === 0}>
+        <div class="weather-watched-empty">
+          <p class="weather-watched-empty-title">Aucune ville connue</p>
+          <p class="weather-watched-empty-text">
+            Surveillez une ville ou explorez l&apos;onglet Marchés pour découvrir des villes.
+          </p>
+        </div>
+      </Show>
+
+      <Show when={!citiesLoading() && cities().length > 0}>
+        <div class="weather-watched-table-wrap" role="region" aria-label="Données télécharger">
+          <table class="weather-watched-table weather-history-ingest-table">
+            <thead>
+              <tr>
+                <th class="weather-watched-th">Ville</th>
+                <th class="weather-watched-th">Période</th>
+                <th class="weather-watched-th">Intervalle</th>
+                <th class="weather-watched-th">En base</th>
+                <th class="weather-watched-th weather-watched-th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={cities()}>
+                {(city) => {
+                  const row = () => rowState()[city.toLowerCase()] ?? emptyRow();
+                  return (
+                    <tr class="weather-watched-tr">
+                      <td class="weather-watched-td weather-watched-td-city" data-label="Ville">
+                        {city}
+                      </td>
+                      <td class="weather-watched-td" data-label="Période">
+                        <div class="weather-history-ingest-period">
+                          <select
+                            value={row().period}
+                            onChange={(e) =>
+                              patchRow(city, {
+                                period: e.currentTarget.value as PeriodPreset,
+                              })
+                            }
+                          >
+                            <For each={PERIOD_OPTIONS}>
+                              {(opt) => <option value={opt.value}>{opt.label}</option>}
+                            </For>
+                          </select>
+                          <Show when={row().period === 'custom'}>
+                            <input
+                              type="date"
+                              value={row().customFrom}
+                              onInput={(e) =>
+                                patchRow(city, { customFrom: e.currentTarget.value })
+                              }
+                            />
+                            <span>→</span>
+                            <input
+                              type="date"
+                              value={row().customTo}
+                              onInput={(e) =>
+                                patchRow(city, { customTo: e.currentTarget.value })
+                              }
+                            />
+                          </Show>
+                        </div>
+                      </td>
+                      <td class="weather-watched-td" data-label="Intervalle">
+                        <select
+                          value={String(row().fidelityMinutes)}
+                          onChange={(e) =>
+                            patchRow(city, {
+                              fidelityMinutes: Number(e.currentTarget.value),
+                            })
+                          }
+                        >
+                          <For each={FIDELITY_OPTIONS}>
+                            {(opt) => (
+                              <option value={opt.value}>{opt.label}</option>
+                            )}
+                          </For>
+                        </select>
+                      </td>
+                      <td class="weather-watched-td weather-history-ingest-coverage" data-label="En base">
+                        <span>{formatCoverage(row().coverage)}</span>
+                        <Show when={row().job}>
+                          {(job) => (
+                            <span class="weather-history-ingest-status">{jobStatusLabel(job())}</span>
+                          )}
+                        </Show>
+                        <Show when={row().error}>
+                          <span class="weather-history-ingest-error">{row().error}</span>
+                        </Show>
+                      </td>
+                      <td
+                        class="weather-watched-td weather-watched-td-actions"
+                        data-label="Actions"
+                      >
+                        <button
+                          class="btn btn-sm btn-primary"
+                          disabled={row().loading}
+                          onClick={() => void handleLoad(city)}
+                        >
+                          {row().loading ? 'Chargement…' : 'Charger'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }}
+              </For>
+            </tbody>
+          </table>
+        </div>
+      </Show>
+    </CollapsibleSection>
+  );
+}

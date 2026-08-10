@@ -81,6 +81,10 @@ export interface FetchGammaMarketsByTagSlugOptions {
   closed?: boolean;
   /** Filter by active (live) status. When true, only currently active markets are returned. */
   active?: boolean;
+  /** ISO 8601 lower bound on market end date (Gamma `end_date_min`). */
+  endDateMin?: string;
+  /** ISO 8601 upper bound on market end date (Gamma `end_date_max`). */
+  endDateMax?: string;
   /**
    * When true, return all markets from the fetched events instead of capping
    * to `limit`. Useful for discovery algorithms that need every market under a tag.
@@ -219,11 +223,14 @@ export function extractStartDateFromQuestion(question: string | null): string | 
 
 /**
  * Resolve the trading-window start from Gamma metadata.
- * Prefers `eventStartTime` (canonical UTC); falls back to question parsing.
+ * Priority: `eventStartTime` (canonical UTC), then question parsing (crypto
+ * windows like "June 25, 4:50AM-4:55AM" are more precise), then the Gamma
+ * market `startDate` (current API no longer returns `eventStartTime`).
  */
 export function resolveMarketStartDate(
   eventStartTime: string | null | undefined,
   question: string | null,
+  gammaStartDate?: string | null,
 ): string | null {
   if (typeof eventStartTime === 'string' && eventStartTime.trim()) {
     const parsed = Date.parse(eventStartTime);
@@ -231,7 +238,15 @@ export function resolveMarketStartDate(
       return new Date(parsed).toISOString();
     }
   }
-  return extractStartDateFromQuestion(question);
+  const fromQuestion = extractStartDateFromQuestion(question);
+  if (fromQuestion) return fromQuestion;
+  if (typeof gammaStartDate === 'string' && gammaStartDate.trim()) {
+    const parsed = Date.parse(gammaStartDate);
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toISOString();
+    }
+  }
+  return null;
 }
 
 function extractIntervalFromTimeWindow(question: string): number | null {
@@ -376,7 +391,11 @@ function mapRawToListItem(raw: Record<string, unknown>): MarketListItemDto | nul
 
   const market = parseGammaMarketRecord(raw);
   const crypto = extractMarketCryptoSymbol(market.question);
-  const startDate = resolveMarketStartDate(market.eventStartTime, market.question);
+  const startDate = resolveMarketStartDate(
+    market.eventStartTime,
+    market.question,
+    typeof raw.startDate === 'string' ? raw.startDate : null,
+  );
   const cryptoCategory = crypto?.cryptoSymbol
     ? classifyCryptoCategory(market.question)
     : null;
@@ -469,6 +488,12 @@ export async function fetchGammaMarketsByTagSlug(
   }
   if (options.ascending !== undefined) {
     params.set('ascending', String(options.ascending));
+  }
+  if (options.endDateMin) {
+    params.set('end_date_min', options.endDateMin);
+  }
+  if (options.endDateMax) {
+    params.set('end_date_max', options.endDateMax);
   }
 
   const res = await fetch(`${getGammaApiUrl()}/events?${params}`);

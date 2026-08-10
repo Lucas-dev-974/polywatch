@@ -2,6 +2,7 @@ import { createSignal, For, onMount, Show } from 'solid-js';
 import {
   deleteWeatherAlgoDataTables,
   fetchWeatherAlgoBucketTicks,
+  fetchWeatherAlgoClobPriceHistory,
   fetchWeatherAlgoDataTables,
   fetchWeatherAlgoEvaluationLog,
   fetchWeatherAlgoForecastCache,
@@ -108,6 +109,15 @@ const TABLE_META: Record<WeatherAlgoDataTableId, TableMeta> = {
     hasCity: true,
     hasDateRange: true,
     cadence: () => 'Événementiel — 1 ligne à l’ouverture d’une position (pas de poll)',
+  },
+  clob_price_history: {
+    title: 'Historique prix Polymarket',
+    description:
+      'Séries de prix YES/NO par bucket chargées depuis l’API Polymarket (section Villes → Données enregistrées).',
+    dateLabel: 'Enregistrement',
+    hasCity: true,
+    hasDateRange: true,
+    cadence: () => 'À la demande — ingestion historique par ville et période',
   },
 };
 
@@ -263,6 +273,9 @@ export function WeatherAlgoDataTab() {
         case 'position_forecasts':
           result = await fetchWeatherAlgoPositionForecasts(base);
           break;
+        case 'clob_price_history':
+          result = await fetchWeatherAlgoClobPriceHistory(base);
+          break;
       }
       setRows(result.items as Record<string, unknown>[]);
       setTotal(result.total);
@@ -303,8 +316,8 @@ export function WeatherAlgoDataTab() {
     const total = totalRows();
     if (
       !confirm(
-        'Supprimer toutes les données des 6 tables weather ?\n\n' +
-          `${total.toLocaleString()} ligne(s) seront effacées (history, snapshots, ticks, eval log, cache, position forecasts).\n` +
+        'Supprimer toutes les données des 7 tables weather ?\n\n' +
+          `${total.toLocaleString()} ligne(s) seront effacées (history, snapshots, ticks, eval log, cache, position forecasts, historique prix Polymarket).\n` +
           'Cette action est irréversible. Les prochains cycles du weather-algo pourront réenregistrer des données.',
       )
     ) {
@@ -386,7 +399,7 @@ export function WeatherAlgoDataTab() {
               class="btn btn-sm btn-danger"
               onClick={() => void deleteAllData()}
               disabled={deleting() || summaryLoading() || totalRows() === 0}
-              title="Supprimer toutes les lignes des 6 tables"
+              title="Supprimer toutes les lignes des 7 tables"
             >
               {deleting() ? 'Suppression…' : 'Tout supprimer'}
             </button>
@@ -632,6 +645,14 @@ function DetailHeaders(props: { id: WeatherAlgoDataTableId }) {
       'Ouverture',
       'Bucket',
     ],
+    clob_price_history: [
+      'Ville',
+      'Date cible',
+      'Côté',
+      'Prix',
+      'Bucket',
+      'Recorded',
+    ],
   };
   return (
     <tr>
@@ -723,5 +744,21 @@ function DetailRow(props: { id: WeatherAlgoDataTableId; row: Record<string, unkn
           <td>{str('entryBucketComparison')}</td>
         </tr>
       );
+    case 'clob_price_history': {
+      const bounds = [r.bucketLow, r.bucketTarget, r.bucketHigh].filter((x) => x != null);
+      return (
+        <tr>
+          <td>{str('city')}</td>
+          <td>{str('targetDate')}</td>
+          <td>{str('side')}</td>
+          <td>{num('price')}</td>
+          <td>
+            {str('bucketComparison')}
+            {bounds.length > 0 ? ` (${bounds.join('/')})` : ''}
+          </td>
+          <td>{ts('recordedAt')}</td>
+        </tr>
+      );
+    }
   }
 }

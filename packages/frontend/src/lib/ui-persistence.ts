@@ -99,7 +99,8 @@ export type WeatherAlgoDataTableId =
   | 'bucket_ticks'
   | 'evaluation_log'
   | 'forecast_cache'
-  | 'position_forecasts';
+  | 'position_forecasts'
+  | 'clob_price_history';
 export const WEATHER_ALGO_DATA_TABLE_IDS = [
   'forecast_history',
   'market_snapshots',
@@ -107,6 +108,7 @@ export const WEATHER_ALGO_DATA_TABLE_IDS = [
   'evaluation_log',
   'forecast_cache',
   'position_forecasts',
+  'clob_price_history',
 ] as const;
 
 export const WEATHER_ALGO_TIMELINE_MAX_TICKS = [500, 2000, 5000] as const;

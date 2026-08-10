@@ -1,4 +1,7 @@
 import { getClobApiUrl } from './apis.js';
+import pino from 'pino';
+
+const log = pino({ name: 'price-history-client' });
 
 /** Default Polymarket /prices-history fidelity in minutes (1 point per hour). */
 export const DEFAULT_PRICE_HISTORY_FIDELITY = 60;
@@ -48,12 +51,22 @@ export async function fetchPriceHistory(
 
   try {
     const res = await fetch(url);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      log.warn(
+        { status: res.status, assetId, startTs, endTs, fidelity, interval },
+        'clob prices-history request failed',
+      );
+      return [];
+    }
     const data = (await res.json()) as {
       history?: { t: number; p: number }[];
     };
     return Array.isArray(data.history) ? data.history : [];
-  } catch {
+  } catch (err) {
+    log.warn(
+      { err, assetId, startTs, endTs, fidelity, interval },
+      'clob prices-history fetch error',
+    );
     return [];
   }
 }

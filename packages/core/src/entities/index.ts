@@ -75,3 +75,8 @@ export { PostEntryMidSample } from './PostEntryMidSample.js';
 export { BacktestRun, type BacktestRunStatus, type BacktestDomain, type BacktestMode } from './BacktestRun.js';
 export { BacktestPosition, type BacktestExitReason } from './BacktestPosition.js';
 export { BacktestEquityPoint } from './BacktestEquityPoint.js';
+export { WeatherClobPriceHistory } from './WeatherClobPriceHistory.js';
+export {
+  WeatherHistoryIngestJob,
+  type WeatherHistoryIngestJobStatus,
+} from './WeatherHistoryIngestJob.js';

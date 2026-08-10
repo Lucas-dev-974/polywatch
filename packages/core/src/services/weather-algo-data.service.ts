@@ -6,6 +6,7 @@ import { WeatherBucketTick } from '../entities/WeatherBucketTick.js';
 import { WeatherEvaluationLog } from '../entities/WeatherEvaluationLog.js';
 import { WeatherForecastCache } from '../entities/WeatherForecastCache.js';
 import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
+import { WeatherClobPriceHistory } from '../entities/WeatherClobPriceHistory.js';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
 
 const log = pino({ name: 'core:weather-algo-data' });
@@ -16,7 +17,8 @@ export type WeatherAlgoDataTableId =
   | 'bucket_ticks'
   | 'evaluation_log'
   | 'forecast_cache'
-  | 'position_forecasts';
+  | 'position_forecasts'
+  | 'clob_price_history';
 
 export interface WeatherAlgoDataTableSummary {
   id: WeatherAlgoDataTableId;
@@ -214,6 +216,32 @@ export class WeatherAlgoDataService {
       bucketTicks: ticksBySnapshot.get(s.id) ?? [],
     }));
 
+    return { items, total };
+  }
+
+  async listClobPriceHistory(options: {
+    city?: string;
+    from?: Date;
+    to?: Date;
+    limit: number;
+    offset: number;
+  }): Promise<{ items: WeatherClobPriceHistory[]; total: number }> {
+    const qb = this.ds
+      .getRepository(WeatherClobPriceHistory)
+      .createQueryBuilder('h')
+      .orderBy('h.recordedAt', 'DESC');
+
+    if (options.city) {
+      qb.andWhere('LOWER(h.city) = LOWER(:city)', { city: options.city.trim() });
+    }
+    if (options.from) {
+      qb.andWhere('h.recordedAt >= :from', { from: options.from });
+    }
+    if (options.to) {
+      qb.andWhere('h.recordedAt <= :to', { to: options.to });
+    }
+
+    const [items, total] = await qb.skip(options.offset).take(options.limit).getManyAndCount();
     return { items, total };
   }
 
@@ -530,6 +558,7 @@ export class WeatherAlgoDataService {
     const forecast_history = await deleteAllRows(this.ds, WeatherForecastHistory);
     const forecast_cache = await deleteAllRows(this.ds, WeatherForecastCache);
     const position_forecasts = await deleteAllRows(this.ds, WeatherPositionForecast);
+    const clob_price_history = await deleteAllRows(this.ds, WeatherClobPriceHistory);
 
     const deleted: Record<WeatherAlgoDataTableId, number> = {
       bucket_ticks,
@@ -538,6 +567,7 @@ export class WeatherAlgoDataService {
       forecast_history,
       forecast_cache,
       position_forecasts,
+      clob_price_history,
     };
     const totalDeleted = Object.values(deleted).reduce((a, b) => a + b, 0);
     log.info({ deleted, totalDeleted }, 'deleted all weather algo recorded data');
@@ -552,6 +582,7 @@ export class WeatherAlgoDataService {
       evaluationLog,
       forecastCache,
       positionForecasts,
+      clobPriceHistory,
     ] = await Promise.all([
       countMinMax(this.ds, WeatherForecastHistory, 'h', 'fetchedAt'),
       countMinMax(this.ds, WeatherMarketSnapshot, 's', 'recordedAt'),
@@ -575,6 +606,7 @@ export class WeatherAlgoDataService {
           oldestAt: toIso(row?.minAt ?? null),
           newestAt: toIso(row?.maxAt ?? null),
         })),
+      countMinMax(this.ds, WeatherClobPriceHistory, 'h', 'recordedAt'),
     ]);
 
     const tables: WeatherAlgoDataTableSummary[] = [
@@ -607,6 +639,11 @@ export class WeatherAlgoDataService {
         id: 'position_forecasts',
         tableName: 'weather_position_forecasts',
         ...positionForecasts,
+      },
+      {
+        id: 'clob_price_history',
+        tableName: 'weather_clob_price_history',
+        ...clobPriceHistory,
       },
     ];
 

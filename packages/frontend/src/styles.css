@@ -9324,6 +9324,38 @@ body.is-resizing-columns .position-market-split-handle::after {
   font-weight: 600;
 }
 
+.weather-history-ingest-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.weather-history-ingest-period select,
+.weather-history-ingest-period input[type="date"] {
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.weather-history-ingest-coverage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.weather-history-ingest-status {
+  color: var(--text-muted);
+}
+
+.weather-history-ingest-error {
+  color: var(--danger, #c0392b);
+}
+
 @media (max-width: 640px) {
   .weather-watched-table,
   .weather-watched-table thead,

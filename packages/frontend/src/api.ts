@@ -24,7 +24,8 @@ function shouldUseGetCache(path: string): boolean {
     !path.startsWith('/algo/worker-queue-status') &&
     !path.startsWith('/system/overview') &&
     !path.startsWith('/system/crypto-algo-monitor') &&
-    !path.startsWith('/weather-algo-discover')
+    !path.startsWith('/weather-algo-discover') &&
+    !path.startsWith('/weather-algo-history/jobs')
   );
 }
 
@@ -800,6 +801,18 @@ export async function fetchWeatherAlgoDataTables(): Promise<WeatherAlgoDataTable
   return api<WeatherAlgoDataTablesResponse>('/weather-algo-data/tables');
 }
 
+export async function fetchWeatherAlgoClobPriceHistory(params: {
+  city?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: Record<string, unknown>[]; total: number }> {
+  return api(
+    `/weather-algo-data/clob-price-history${weatherAlgoDataQuery(params)}`,
+  );
+}
+
 export interface WeatherAlgoDataDeleteAllResponse {
   deleted: Record<WeatherAlgoDataTableId, number>;
   totalDeleted: number;
@@ -1138,5 +1151,58 @@ export async function fetchBacktestPositions(
 
 export async function fetchBacktestEquity(id: number): Promise<{ points: BacktestEquityPointDto[] }> {
   return api(`/backtest/runs/${id}/equity`);
+}
+
+export interface WeatherHistoryIngestJob {
+  id: number;
+  city: string;
+  metric: string;
+  fromDate: string;
+  toDate: string;
+  fidelityMinutes: number;
+  status: 'pending' | 'running' | 'done' | 'error' | 'cancelled';
+  marketsTotal: number;
+  marketsDone: number;
+  marketsEmpty: number;
+  pointsUpserted: number;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export interface WeatherHistoryCoverage {
+  city: string;
+  pointCount: number;
+  fromRecordedAt: string | null;
+  toRecordedAt: string | null;
+  targetDates: string[];
+}
+
+export async function fetchWeatherHistoryCities(): Promise<string[]> {
+  const res = await api<{ cities: string[] }>('/weather-algo-history/cities');
+  return res.cities;
+}
+
+export async function fetchWeatherHistoryCoverage(city: string): Promise<WeatherHistoryCoverage> {
+  const qs = new URLSearchParams({ city });
+  return api<WeatherHistoryCoverage>(`/weather-algo-history/coverage?${qs}`);
+}
+
+export async function fetchWeatherHistoryJob(jobId: number): Promise<WeatherHistoryIngestJob> {
+  return api<WeatherHistoryIngestJob>(`/weather-algo-history/jobs/${jobId}`);
+}
+
+export async function startWeatherHistoryIngest(input: {
+  city: string;
+  from: string;
+  to: string;
+  fidelityMinutes: number;
+  metric?: 'highest_temp' | 'lowest_temp';
+}): Promise<{ jobId: number; job: WeatherHistoryIngestJob }> {
+  return api<{ jobId: number; job: WeatherHistoryIngestJob }>('/weather-algo-history/ingest', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 

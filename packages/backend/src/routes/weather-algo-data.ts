@@ -88,6 +88,15 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
     res.json(await service.listPositionForecasts({ city, from, to, limit, offset }));
   });
 
+  router.get('/clob-price-history', requireJwt, async (req, res) => {
+    const limit = parseLimit(req.query.limit, 50, 500);
+    const offset = parseOffset(req.query.offset);
+    const city = typeof req.query.city === 'string' ? req.query.city : undefined;
+    const from = parseOptionalDate(req.query.from);
+    const to = parseOptionalDate(req.query.to);
+    res.json(await service.listClobPriceHistory({ city, from, to, limit, offset }));
+  });
+
   router.get('/tables', requireJwt, async (_req, res) => {
     res.json(await service.getTablesSummary());
   });

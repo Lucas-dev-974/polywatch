@@ -1,11 +1,27 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   formatDiscoverCityLabel,
   formatDiscoverDateLabel,
   groupMarketsByCity,
   groupMarketsByCityAndDate,
+  discoverResolvedWeatherMarkets,
+  discoverWeatherMarketsInRange,
+  matchMarketToTargetDates,
+  matchMarketToDateRange,
 } from './weather-market-discovery.js';
 import type { MarketListItemDto } from '../polymarket/market-list.js';
+
+const fetchGammaMarketsByTagSlugMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../polymarket/market-list.js', async () => {
+  const actual = await vi.importActual<typeof import('../polymarket/market-list.js')>(
+    '../polymarket/market-list.js',
+  );
+  return {
+    ...actual,
+    fetchGammaMarketsByTagSlug: fetchGammaMarketsByTagSlugMock,
+  };
+});
 
 function makeMarket(overrides: Partial<MarketListItemDto>): MarketListItemDto {
   return {
@@ -175,5 +191,171 @@ describe('groupMarketsByCityAndDate', () => {
     ];
     const groups = groupMarketsByCityAndDate(markets, 'highest_temp');
     expect(groups.map((g) => g.city)).toEqual(['Paris', 'Seattle']);
+  });
+});
+
+describe('matchMarketToTargetDates', () => {
+  it('matches by parsed question dateString', () => {
+    const m = makeMarket({
+      conditionId: '1',
+      question: 'Will the highest temperature in Paris be 28°C on August 7?',
+    });
+    const targetStrs = new Set(['2026-08-07', '2026-08-08']);
+    const targetMonthDays = new Set(['August 7', 'August 8']);
+    expect(matchMarketToTargetDates(m, targetStrs, targetMonthDays)).toBe(true);
+  });
+
+  it('matches by endDate when question dateString differs', () => {
+    const m = makeMarket({
+      conditionId: '1',
+      question: 'Will the highest temperature in Paris be 28°C on August 7?',
+      endDate: '2026-08-08T00:00:00Z',
+    });
+    const targetStrs = new Set(['2026-08-08']);
+    const targetMonthDays = new Set(['August 8']);
+    expect(matchMarketToTargetDates(m, targetStrs, targetMonthDays)).toBe(true);
+  });
+
+  it('rejects markets outside the target window', () => {
+    const m = makeMarket({
+      conditionId: '1',
+      question: 'Will the highest temperature in Paris be 28°C on August 10?',
+      endDate: '2026-08-11T00:00:00Z',
+    });
+    const targetStrs = new Set(['2026-08-07', '2026-08-08']);
+    const targetMonthDays = new Set(['August 7', 'August 8']);
+    expect(matchMarketToTargetDates(m, targetStrs, targetMonthDays)).toBe(false);
+  });
+});
+
+describe('discoverResolvedWeatherMarkets', () => {
+  beforeEach(() => {
+    fetchGammaMarketsByTagSlugMock.mockReset();
+  });
+
+  function pastMonthDay(daysAgo: number): string {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - daysAgo);
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  }
+
+  it('fetches with closed:true and returns only past-date temperature markets', async () => {
+    fetchGammaMarketsByTagSlugMock.mockResolvedValue({
+      items: [
+        makeMarket({
+          conditionId: 'win',
+          question: `Will the highest temperature in Amsterdam be 28°C on ${pastMonthDay(1)}?`,
+          closed: true,
+        }),
+        makeMarket({
+          conditionId: 'future',
+          question: `Will the highest temperature in Amsterdam be 28°C on ${pastMonthDay(-3)}?`,
+          closed: true,
+        }),
+        // Not a temperature question — filtered out.
+        makeMarket({ conditionId: 'rain', question: 'Will it rain tomorrow?', closed: true }),
+      ],
+      nextCursor: null,
+    });
+
+    const { resolvedTemperatureMarkets } = await discoverResolvedWeatherMarkets({ lookbackDays: 2 });
+    expect(fetchGammaMarketsByTagSlugMock).toHaveBeenCalledWith(
+      expect.objectContaining({ tagSlug: 'weather', closed: true }),
+    );
+    expect(resolvedTemperatureMarkets.map((m) => m.conditionId)).toEqual(['win']);
+  });
+
+  it('handles pagination across multiple pages', async () => {
+    fetchGammaMarketsByTagSlugMock
+      .mockResolvedValueOnce({
+        items: [
+          makeMarket({
+            conditionId: 'page1',
+            question: `Will the highest temperature in Paris be 33°C on ${pastMonthDay(1)}?`,
+            closed: true,
+          }),
+        ],
+        nextCursor: '100',
+      })
+      .mockResolvedValueOnce({
+        items: [],
+        nextCursor: null,
+      });
+
+    const result = await discoverResolvedWeatherMarkets({ lookbackDays: 2 });
+    expect(fetchGammaMarketsByTagSlugMock).toHaveBeenCalledTimes(2);
+    expect(result.resolvedTemperatureMarkets.map((m) => m.conditionId)).toEqual(['page1']);
+  });
+
+  it('returns empty list when no markets match', async () => {
+    fetchGammaMarketsByTagSlugMock.mockResolvedValueOnce({ items: [], nextCursor: null });
+    const result = await discoverResolvedWeatherMarkets({ lookbackDays: 2 });
+    expect(result.resolvedTemperatureMarkets).toEqual([]);
+  });
+});
+
+describe('matchMarketToDateRange', () => {
+  it('matches when target date is inside inclusive range', () => {
+    const market = makeMarket({
+      question: 'Will the highest temperature in Paris be 25°C on August 8?',
+      endDate: '2026-08-09T00:00:00.000Z',
+    });
+    expect(matchMarketToDateRange(market, '2026-08-08', '2026-08-09')).toBe(true);
+  });
+
+  it('rejects when target date is outside range', () => {
+    const market = makeMarket({
+      question: 'Will the highest temperature in Paris be 25°C on August 8?',
+      endDate: '2026-08-09T00:00:00.000Z',
+    });
+    expect(matchMarketToDateRange(market, '2026-08-01', '2026-08-07')).toBe(false);
+  });
+});
+
+describe('discoverWeatherMarketsInRange', () => {
+  beforeEach(() => {
+    fetchGammaMarketsByTagSlugMock.mockReset();
+  });
+
+  it('filters by city, metric and date range across closed and open scans', async () => {
+    const parisAug8 = makeMarket({
+      conditionId: 'paris-8',
+      question: 'Will the highest temperature in Paris be 25°C on August 8?',
+      endDate: '2026-08-09T00:00:00.000Z',
+      tokenIdYes: 'yes-8',
+      tokenIdNo: 'no-8',
+    });
+    const parisAug9 = makeMarket({
+      conditionId: 'paris-9',
+      question: 'Will the highest temperature in Paris be 26°C on August 9?',
+      endDate: '2026-08-10T00:00:00.000Z',
+      tokenIdYes: 'yes-9',
+      tokenIdNo: 'no-9',
+    });
+    const londonAug8 = makeMarket({
+      conditionId: 'london-8',
+      question: 'Will the highest temperature in London be 20°C on August 8?',
+      endDate: '2026-08-09T00:00:00.000Z',
+    });
+
+    fetchGammaMarketsByTagSlugMock.mockImplementation(async (opts: { closed?: boolean }) => {
+      if (opts.closed) {
+        return { items: [parisAug8, londonAug8], nextCursor: null };
+      }
+      return { items: [parisAug9], nextCursor: null };
+    });
+
+    const result = await discoverWeatherMarketsInRange({
+      city: 'Paris',
+      from: new Date('2026-08-08T00:00:00.000Z'),
+      to: new Date('2026-08-09T00:00:00.000Z'),
+      metric: 'highest_temp',
+    });
+
+    expect(fetchGammaMarketsByTagSlugMock).toHaveBeenCalledTimes(2);
+    expect(result.markets.map((m) => m.conditionId).sort()).toEqual(['paris-8', 'paris-9']);
+    expect(result.byCity).toHaveLength(1);
+    expect(result.byCity[0]!.city).toBe('Paris');
+    expect(result.byCity[0]!.dates).toHaveLength(2);
   });
 });

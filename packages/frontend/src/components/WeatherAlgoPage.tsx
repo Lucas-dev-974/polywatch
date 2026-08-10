@@ -14,6 +14,7 @@ import { WeatherAlgoActiveMarketsPanel } from './WeatherAlgoActiveMarketsPanel';
 import { WeatherAlgoPositionsPanel } from './WeatherAlgoPositionsPanel';
 import { WeatherAlgoExecutionsPanel } from './WeatherAlgoExecutionsPanel';
 import { WeatherAlgoAutoTrackTab } from './WeatherAlgoAutoTrackTab';
+import { WeatherAlgoHistoryIngestSection } from './WeatherAlgoHistoryIngestSection';
 import { WeatherAlgoSettingsTab } from './WeatherAlgoSettingsTab';
 import { WeatherAlgoDataTab } from './WeatherAlgoDataTab';
 import { WeatherAlgoBacktestTab } from './WeatherAlgoBacktestTab';
@@ -92,18 +93,23 @@ export function WeatherAlgoPage() {
       </Show>
 
       <Show when={tab() === 'cities'}>
-        <WeatherAlgoAutoTrackTab
-          rules={dashboard.autoTrackRules()}
-          onAdd={(city, lookAheadDays) => void dashboard.watchCity(city, lookAheadDays)}
-          onRemove={dashboard.removeAutoTrackRule}
-          onToggle={dashboard.toggleAutoTrackRule}
-          onUpdateLookAhead={(id, lookAheadDays) =>
-            void dashboard.updateAutoTrackLookAhead(id, lookAheadDays)
-          }
-          onUpdateAllLookAhead={(lookAheadDays) =>
-            void dashboard.updateAllAutoTrackLookAhead(lookAheadDays)
-          }
-        />
+        <div class="weather-algo-stack">
+          <WeatherAlgoAutoTrackTab
+            rules={dashboard.autoTrackRules()}
+            onAdd={(city, lookAheadDays) => void dashboard.watchCity(city, lookAheadDays)}
+            onRemove={dashboard.removeAutoTrackRule}
+            onToggle={dashboard.toggleAutoTrackRule}
+            onUpdateLookAhead={(id, lookAheadDays) =>
+              void dashboard.updateAutoTrackLookAhead(id, lookAheadDays)
+            }
+            onUpdateAllLookAhead={(lookAheadDays) =>
+              void dashboard.updateAllAutoTrackLookAhead(lookAheadDays)
+            }
+          />
+          <WeatherAlgoHistoryIngestSection
+            discoverCities={dashboard.discoverGroups().map((g) => g.city)}
+          />
+        </div>
       </Show>
 
       <Show when={tab() === 'data'}>

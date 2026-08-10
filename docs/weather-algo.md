@@ -96,6 +96,7 @@ Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept 
 | Onglet UI Données (cards, drill-down, purge) | Actif |
 | Onglet UI **Backtest** (lancer runs, métriques, equity, positions) | Actif (domaine weather) |
 | Onglet UI **Stratégies** (catalogue, activation, params) | Actif |
+| Onglet UI **Villes → Données télécharger** (ingestion historique CLOB) | Actif |
 
 ---
 
@@ -115,6 +116,18 @@ Purge horaire selon rétention (`weatherAlgo*RetentionDays`), indépendante des 
 
 Doc d’implémentation : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
 
+### Ingestion historique CLOB (onglet Villes → Données télécharger)
+
+Depuis l'onglet **Villes**, la section **Données télécharger** permet de charger en base l'historique des prix YES/NO des buckets météo d'une ville sur une période, via l'API CLOB Polymarket `/prices-history` (`startTs`/`endTs` + `fidelity`). Service : `WeatherHistoryIngestService` ; routes `/api/weather-algo-history/*` ; tables `weather_clob_price_history` + `weather_history_ingest_jobs`.
+
+- **Découverte** : buckets de la ville sur la période via Gamma (`tag_slug=weather`, `closed`/`open`, `end_date_min/max`).
+- **Fetch** : pour chaque bucket, YES et NO, `fetchPriceHistory({ assetId, startTs, endTs, fidelity })` (throttlé).
+- **Persistance** : upsert idempotent (index unique `condition_id, side, recorded_at`) — relancer ne crée pas de doublons.
+- **Contraintes CLOB** : `startTs` + `endTs` obligatoires (sans `startTs` → HTTP 400). `startDate` dérivé du champ Gamma `startDate` (l'API ne renvoie plus `eventStartTime`) ; en dernier recours, fenêtre de 7 jours avant `endTs`. Granularité `fidelity` en minutes (testé jusqu'à 1 min). L'historique des marchés météo quotidiens (depuis ~mars 2026) reste disponible.
+- **Limites** : série de prix `(t, p)` uniquement — pas d'order book, pas de volume/trades, pas d'OHLCV natif. Fenêtre de vie d'un bucket météo = quelques jours.
+
+Doc API : [`api.md`](./api.md) § Weather Algo history. Modèle : [`modele-donnees.md`](./modele-donnees.md).
+
 Le **backtest** supporte deux modes d'exécution (`backtestExecutionMode`) :
 - **`strategy`** : ré-évalue bucket par bucket (rapide, non équivalent live) ;
 - **`runner-sim`** : regroupe les buckets par ville/date, `evaluateGroup`, dedup
@@ -127,7 +140,7 @@ Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.2.0` …).
 ## 6. API & config
 
 - Routes trading : [`api.md`](./api.md) § Weather Algo
-- Routes données : [`api.md`](./api.md) § Weather Algo data (`/api/weather-algo-data/*`)
+- Routes données : [`api.md`](./api.md) § Weather Algo data (`/api/weather-algo-data/*`) et § Weather Algo history (`/api/weather-algo-history/*`)
 - Routes backtest : [`api.md`](./api.md) § Backtest (`/api/backtest/*`) ; moteur : [`backtest.md`](./backtest.md)
 - Config : [`configuration.md`](./configuration.md) § Weather Algo ; entité `WeatherConfig` ; présentation API `packages/core/src/risk/weather-config-api.ts`
 - Sorties / defaults intervalle : `packages/core/src/risk/weather-exit-params.ts` (`resolveWeatherEntryExitParams`)

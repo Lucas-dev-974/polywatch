@@ -16,6 +16,8 @@ import {
   WeatherPositionForecast,
   PositionReservation,
   discoverWeatherMarkets,
+  discoverResolvedWeatherMarkets,
+  DEFAULT_RESOLVED_LOOKBACK_DAYS,
   safeInterval,
   parseWeatherQuestion,
   normalizeWeatherCity,
@@ -251,6 +253,24 @@ export class WeatherStrategyRunner {
       const minHoursToClose = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
       const openCities = await this.loadOpenWeatherCities();
 
+      // Fix B: fetch resolved (closed) weather markets for snapshot recording only.
+      // Targets a rolling past-day window since resolved markets only concern past dates.
+      let resolvedMarkets: MarketListItemDto[] = [];
+      if (risk.weatherAlgoMarketSnapshotRecordingEnabled) {
+        try {
+          const resolved = await discoverResolvedWeatherMarkets({
+            lookbackDays: DEFAULT_RESOLVED_LOOKBACK_DAYS,
+          });
+          resolvedMarkets = resolved.resolvedTemperatureMarkets;
+          log.info(
+            { resolvedCount: resolvedMarkets.length },
+            'resolved weather markets discovery complete',
+          );
+        } catch (err) {
+          log.warn({ err }, 'resolved weather discovery failed — continuing without resolved buckets');
+        }
+      }
+
       log.info(
         {
           ruleCount: cityFollowRules.length,
@@ -258,6 +278,7 @@ export class WeatherStrategyRunner {
           maxLookAhead,
           activeStrategies: enabledStrategyIds,
           targetDates: discoveryTargetDates.map((d) => d.toISOString().slice(0, 10)),
+          resolvedMarkets: resolvedMarkets.length,
         },
         'evaluating city-follow rules',
       );
@@ -265,6 +286,7 @@ export class WeatherStrategyRunner {
       const allSignals = await this.evaluateCityFollowRules(
         cityFollowRules,
         discovery.temperatureMarkets,
+        resolvedMarkets,
         minHoursToClose,
         openCities,
         strategies,
@@ -375,18 +397,31 @@ export class WeatherStrategyRunner {
   private async evaluateCityFollowRules(
     rules: WeatherAutoTrackRule[],
     temperatureMarkets: MarketListItemDto[],
+    resolvedMarkets: MarketListItemDto[],
     minHoursToClose: number,
     openCities: Set<string>,
     strategies: WeatherStrategy[],
   ): Promise<WeatherSignal[]> {
     const signals: WeatherSignal[] = [];
 
+    // Index resolved markets per city + date so we can inject them into the
+    // snapshot for the matching city/date group (resolved-only, never traded).
+    const resolvedByCityDate = new Map<string, MarketListItemDto[]>();
+    for (const market of resolvedMarkets) {
+      if (!market.question) continue;
+      const parsed = parseWeatherQuestion(market.question);
+      if (!parsed) continue;
+      const dateKey = resolveMarketTargetDateIso(market);
+      if (!dateKey) continue;
+      const key = `${normalizeWeatherCity(parsed.city)}|${parsed.metric}|${dateKey}`;
+      const arr = resolvedByCityDate.get(key);
+      if (arr) arr.push(market);
+      else resolvedByCityDate.set(key, [market]);
+    }
+
     for (const rule of rules) {
       const cityKey = normalizeWeatherCity(rule.city);
-      if (openCities.has(cityKey)) {
-        log.debug({ city: rule.city }, 'city-follow: skip — open position already exists for city');
-        continue;
-      }
+      const cityHasOpenPosition = openCities.has(cityKey);
 
       const targetDates = buildLookAheadTargetDates(rule.lookAheadDays ?? 1);
       const targetDateStrs = new Set(
@@ -409,7 +444,12 @@ export class WeatherStrategyRunner {
         matching.push({ market, dateKey });
       }
 
-      if (matching.length === 0) {
+      // Even when no active markets are found for the look-ahead dates, still
+      // record snapshots for the resolved past buckets of this city (if any).
+      const hasResolvedForCity =
+        Array.from(resolvedByCityDate.keys()).some((k) => k.startsWith(`${cityKey}|${metric}|`));
+
+      if (matching.length === 0 && !hasResolvedForCity) {
         log.info({ city: rule.city, metric, targetDates: [...targetDateStrs] }, 'city-follow: no matching markets found');
         continue;
       }
@@ -422,8 +462,22 @@ export class WeatherStrategyRunner {
         else byDate.set(dateKey, [market]);
       }
 
+      // Collect the resolved bucket dates for this city so we still record a
+      // snapshot for a city whose active markets are all gone but which has
+      // resolved buckets to persist.
+      for (const [key, markets] of resolvedByCityDate) {
+        const prefix = `${cityKey}|${metric}|`;
+        if (!key.startsWith(prefix)) continue;
+        const dateKey = key.slice(prefix.length);
+        if (!byDate.has(dateKey)) {
+          byDate.set(dateKey, []);
+        }
+      }
+
       const citySignals: WeatherSignal[] = [];
       for (const [dateKey, markets] of byDate) {
+        const resolvedForDate =
+          resolvedByCityDate.get(`${cityKey}|${metric}|${dateKey}`) ?? [];
         try {
           const signal = await this.evaluateCityFollowDateGroup(
             rule.id,
@@ -431,13 +485,22 @@ export class WeatherStrategyRunner {
             metric,
             dateKey,
             markets,
+            resolvedForDate,
             strategies,
             minHoursToClose,
+            cityHasOpenPosition,
           );
           if (signal) citySignals.push(signal);
         } catch (err) {
           log.error({ err, city: rule.city, dateKey }, 'city-follow date group evaluation failed');
         }
+      }
+
+      // Snapshot has already been recorded above regardless of open position.
+      // Only the signal emission is skipped when the city has an open position.
+      if (cityHasOpenPosition) {
+        log.debug({ city: rule.city }, 'city-follow: skip signal — open position exists for city (snapshot still recorded)');
+        continue;
       }
 
       // At most one candidate per city (best YES edge among look-ahead dates)
@@ -456,8 +519,10 @@ export class WeatherStrategyRunner {
     metric: 'highest_temp' | 'lowest_temp',
     dateKey: string,
     markets: MarketListItemDto[],
+    resolvedMarkets: MarketListItemDto[],
     strategies: WeatherStrategy[],
     minHoursToClose: number,
+    cityHasOpenPosition: boolean,
   ): Promise<WeatherSignal | null> {
     const targetDate = new Date(`${dateKey}T12:00:00Z`);
     if (Number.isNaN(targetDate.getTime())) {
@@ -473,10 +538,19 @@ export class WeatherStrategyRunner {
       if (!parsed) continue;
       allBuckets.push({ conditionId: market.conditionId, market, parsed });
     }
-    const totalBucketCount = allBuckets.length;
     const activeBuckets = allBuckets.filter((b) =>
       isMarketActiveForWeather(b.market, minHoursToClose),
     );
+
+    // Resolved buckets are injected into the snapshot only; they never enter
+    // activeBuckets or the strategy evaluation / trading path.
+    const resolvedBuckets: BucketCandidate[] = [];
+    for (const market of resolvedMarkets) {
+      if (!market.question) continue;
+      const parsed = parseWeatherQuestion(market.question);
+      if (!parsed) continue;
+      resolvedBuckets.push({ conditionId: market.conditionId, market, parsed });
+    }
 
     const forecast = await this.forecastService.getOrFetch(
       city,
@@ -520,7 +594,9 @@ export class WeatherStrategyRunner {
     }
 
     if (snapshotEnabled && this.marketSnapshotRecorder) {
-      const bucketInputs: BucketTickInput[] = activeBuckets.map((b) => {
+      const snapshotBuckets = mergeBucketsForSnapshot(allBuckets, resolvedBuckets);
+      const totalBucketCount = snapshotBuckets.length;
+      const bucketInputs: BucketTickInput[] = snapshotBuckets.map((b) => {
         const prices = resolveBucketPrices(b.market);
         return {
           conditionId: b.market.conditionId,
@@ -560,6 +636,13 @@ export class WeatherStrategyRunner {
         log.warn({ err, city, dateKey }, 'market snapshot record failed — continuing without snapshot');
         snapshotId = null;
       }
+    }
+
+    if (cityHasOpenPosition) {
+      // Snapshot already recorded above. Skip strategy evaluation entirely so we
+      // never open a second thesis for the same city, but keep recording ticks.
+      log.debug({ city, dateKey }, 'city-follow: skip strategy evaluation — open position exists for city');
+      return null;
     }
 
     if (!forecast) {
@@ -704,3 +787,26 @@ export class WeatherStrategyRunner {
     }
   }
 }
+
+/**
+ * Merge active and resolved buckets into the set to persist in a market snapshot.
+ * Deduplicates by conditionId, keeping the active version when a bucket appears in
+ * both (e.g. Gamma lag where a bucket is still closed:false in the live discovery
+ * and closed:true in the resolved discovery). The resolved version only contributes
+ * when it is no longer present in the active set.
+ */
+export function mergeBucketsForSnapshot(
+  active: BucketCandidate[],
+  resolved: BucketCandidate[],
+): BucketCandidate[] {
+  const seen = new Set(active.map((b) => b.market.conditionId));
+  const merged = [...active];
+  for (const r of resolved) {
+    if (!seen.has(r.market.conditionId)) {
+      merged.push(r);
+      seen.add(r.market.conditionId);
+    }
+  }
+  return merged;
+}
+

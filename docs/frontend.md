@@ -128,6 +128,7 @@ src/
 │   │   ├── WeatherAlgoActiveMarketsPanel.tsx / WeatherAlgoDiscoverPanel.tsx
 │   │   ├── WeatherAlgoPositionsPanel.tsx / WeatherAlgoExecutionsPanel.tsx
 │   │   ├── WeatherAlgoAutoTrackTab.tsx
+│   │   ├── WeatherAlgoHistoryIngestSection.tsx  Villes → Données télécharger : ingestion historique CLOB (période, intervalle, Charger, statut job, couverture)
 │   │   ├── WeatherAlgoDataTab.tsx      Données : cards tables, drill-down, purge
 │   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire, liste, détail (poll `onCleanup` ; capital chart = `run.params` ; equity/positions si `completed` ; métriques byExit/byCity)
 │   │   │   └── BacktestEquityChart.tsx courbe d'equity (SVG, axe X = champ `t`)

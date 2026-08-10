@@ -207,6 +207,25 @@ Lecture / purge manuelle : `WeatherAlgoDataService` + routes
 `/api/weather-algo-data/*` (backend). UI : onglet **Données**
 (`WeatherAlgoDataTab`).
 
+### Ingestion historique CLOB (Villes → Données télécharger)
+
+`WeatherHistoryIngestService` (core) + routes `/api/weather-algo-history/*`
+(backend). UI : onglet **Villes** → section **Données télécharger**
+(`WeatherAlgoHistoryIngestSection`).
+
+- Découverte des buckets ville/période via Gamma (`tag_slug=weather`,
+  `closed`/`open`, `end_date_min/max`).
+- Fetch CLOB `/prices-history` (`startTs`/`endTs` + `fidelity`) pour YES et NO,
+  throttlé ; upsert idempotent dans `weather_clob_price_history` (index unique
+  `condition_id, side, recorded_at`).
+- Jobs suivis dans `weather_history_ingest_jobs` (statut, progression,
+  `points_upserted`, `markets_empty`).
+- `startDate` dérivé du champ Gamma `startDate` (l'API ne renvoie plus
+  `eventStartTime`) ; en dernier recours, fenêtre de 7 jours avant `endTs`
+  (le CLOB rejette une requête sans `startTs` → HTTP 400).
+
+Détail : [`../api.md`](../api.md) § Weather Algo history ; [`../modele-donnees.md`](../modele-donnees.md).
+
 Détail : [`../plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](../plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 ## Raccordements

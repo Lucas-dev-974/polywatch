@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { WeatherConfig, MarketListItemDto } from '@polywatch/core';
-import { WeatherStrategyRunner } from './strategy-runner.js';
+import { WeatherStrategyRunner, mergeBucketsForSnapshot } from './strategy-runner.js';
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import type { WeatherSignal, WeatherStrategy } from './strategy.js';
@@ -320,8 +320,10 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       'highest_temp',
       '2026-08-02',
       markets,
+      [],
       [strategy],
       1,
+      false,
     );
 
     expect(result).not.toBeNull();
@@ -355,11 +357,120 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       'highest_temp',
       '2026-08-02',
       [market()],
+      [],
       [strategy],
       1,
+      false,
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe('mergeBucketsForSnapshot', () => {
+  function bucket(
+    conditionId: string,
+    closed = false,
+  ): { market: { conditionId: string; closed: boolean }; parsed: { comparison: string } } {
+    return {
+      market: { conditionId, closed },
+      parsed: { comparison: 'exact' },
+    } as never;
+  }
+
+  it('combines active and resolved buckets', () => {
+    const merged = mergeBucketsForSnapshot(
+      [bucket('a1'), bucket('a2')] as never,
+      [bucket('r1'), bucket('r2')] as never,
+    );
+    expect(merged.map((b) => b.market.conditionId)).toEqual(['a1', 'a2', 'r1', 'r2']);
+  });
+
+  it('deduplicates by conditionId, keeping the active version first', () => {
+    const merged = mergeBucketsForSnapshot(
+      [bucket('shared')] as never,
+      [bucket('shared'), bucket('only-resolved')] as never,
+    );
+    const ids = merged.map((b) => b.market.conditionId);
+    expect(ids).toEqual(['shared', 'only-resolved']);
+    expect(merged[0].market.closed).toBe(false);
+  });
+
+  it('keeps active-only and resolved-only distinct', () => {
+    const merged = mergeBucketsForSnapshot(
+      [bucket('active-only')] as never,
+      [bucket('resolved-only')] as never,
+    );
+    expect(merged.map((b) => b.market.conditionId)).toEqual(['active-only', 'resolved-only']);
+  });
+
+  it('returns empty array when both inputs are empty', () => {
+    expect(mergeBucketsForSnapshot([], [])).toEqual([]);
+  });
+});
+
+describe('evaluateCityFollowDateGroup with open position', () => {
+  function market(overrides: Partial<MarketListItemDto> = {}): MarketListItemDto {
+    return {
+      conditionId: 'cond-1',
+      question: 'Will the highest temperature in Paris be 33°C on August 2?',
+      eventSlug: 'paris-aug-2',
+      tokenIdYes: 'yes-1',
+      tokenIdNo: 'no-1',
+      outcomePrices: [
+        { outcome: 'Yes', price: 0.05 },
+        { outcome: 'No', price: 0.95 },
+      ],
+      endDate: new Date(Date.now() + 48 * 3_600_000).toISOString(),
+      closed: false,
+      acceptingOrders: true,
+      ...overrides,
+    } as MarketListItemDto;
+  }
+
+  it('records snapshot but skips signal emission when the city has an open position', async () => {
+    const strategy = {
+      id: 'weather-forecast',
+      evaluate: vi.fn(async () => ({ kind: 'signal' as const, reason: undefined })),
+    } as unknown as WeatherStrategy;
+    const recordSnapshot = vi.fn(async () => ({ snapshotId: 1 }));
+    const registry = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
+
+    const runner = new WeatherStrategyRunner({
+      ds: { getRepository: () => ({ find: async () => [] }) } as never,
+      autoTrackService: { listEnabled: async () => [] } as never,
+      forecastService: {
+        getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
+      } as never,
+      registry,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+      marketSnapshotRecorder: { recordSnapshot } as never,
+      exitEvaluator: undefined,
+    });
+    runner.setRiskConfig(
+      minimalRisk({
+        weatherAlgoMarketSnapshotRecordingEnabled: true,
+        weatherAlgoCloseBeforeResolutionHours: 1,
+      }),
+    );
+
+    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+      1,
+      'Paris',
+      'highest_temp',
+      '2026-08-02',
+      [market()],
+      [],
+      [strategy],
+      1,
+      true,
+    );
+
+    expect(recordSnapshot).toHaveBeenCalledTimes(1);
+    expect(result).toBeNull();
+    expect(strategy.evaluate).not.toHaveBeenCalled();
   });
 });
 

@@ -267,6 +267,11 @@ export * from './worker/move-detector-settings.js';
 export * from './services/index.js';
 export {
   discoverWeatherMarkets,
+  discoverResolvedWeatherMarkets,
+  discoverWeatherMarketsInRange,
+  matchMarketToTargetDates,
+  matchMarketToDateRange,
+  DEFAULT_RESOLVED_LOOKBACK_DAYS,
   groupMarketsByEvent,
   groupMarketsByCity,
   groupMarketsByCityAndDate,
@@ -276,6 +281,9 @@ export {
   resolveGroupTargetDate,
   WEATHER_TAG_SLUG,
   type WeatherMarketDiscoveryResult,
+  type ResolvedWeatherMarketsResult,
+  type WeatherMarketsInRangeResult,
+  type DiscoverWeatherMarketsInRangeOptions,
   type CityMarketGroup,
   type DiscoverCityGroup,
   type DiscoverDateBucket,

@@ -133,6 +133,7 @@ import { CreatePostEntryMidSamples1700000000095 } from '../migrations/CreatePost
 import { AddWeatherMarketDataPersistence1700000000100 } from '../migrations/AddWeatherMarketDataPersistence1700000000100.js';
 import { AddBacktestTables1700000000101 } from '../migrations/AddBacktestTables1700000000101.js';
 import { AddWeatherAlgoStrategies1700000000102 } from '../migrations/AddWeatherAlgoStrategies1700000000102.js';
+import { AddWeatherClobPriceHistory1700000000103 } from '../migrations/AddWeatherClobPriceHistory1700000000103.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -144,6 +145,8 @@ import { WeatherEvaluationLog } from '../entities/WeatherEvaluationLog.js';
 import { BacktestRun } from '../entities/BacktestRun.js';
 import { BacktestPosition } from '../entities/BacktestPosition.js';
 import { BacktestEquityPoint } from '../entities/BacktestEquityPoint.js';
+import { WeatherClobPriceHistory } from '../entities/WeatherClobPriceHistory.js';
+import { WeatherHistoryIngestJob } from '../entities/WeatherHistoryIngestJob.js';
 
 export const migrations = [
   Baseline1700000000000,
@@ -228,6 +231,7 @@ export const migrations = [
   AddWeatherMarketDataPersistence1700000000100,
   AddBacktestTables1700000000101,
   AddWeatherAlgoStrategies1700000000102,
+  AddWeatherClobPriceHistory1700000000103,
 ];
 
 export const entities = [
@@ -288,6 +292,8 @@ export const entities = [
   BacktestRun,
   BacktestPosition,
   BacktestEquityPoint,
+  WeatherClobPriceHistory,
+  WeatherHistoryIngestJob,
 ];
 
 /**

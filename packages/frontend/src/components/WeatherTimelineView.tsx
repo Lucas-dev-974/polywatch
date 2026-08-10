@@ -552,27 +552,66 @@ export function WeatherTimelineView<TCity extends object>(
     if (value) void loadTimeline(value);
   }
 
+  function dateIndex(): number {
+    return dates().findIndex((d) => d.key === selectedDate());
+  }
+
+  function canStep(dir: number): boolean {
+    const i = dateIndex();
+    if (i < 0) return false;
+    const next = i + dir;
+    return next >= 0 && next < dates().length;
+  }
+
+  function stepDate(dir: number) {
+    const i = dateIndex();
+    if (i < 0) return;
+    const next = dates()[i + dir];
+    if (next) onDateChange(next.key);
+  }
+
   const openCityData = () =>
     openCity() ? source().toCityData(openCity() as TCity, side()) : null;
 
   return (
     <div class="weather-bucket-timeline-view">
       <div class="weather-bucket-timeline-bar">
-        <label class="weather-data-filter">
-          <span>Date cible</span>
-          <select
-            value={selectedDate()}
-            onChange={(e) => onDateChange(e.currentTarget.value)}
-            disabled={loading()}
-          >
-            <Show when={dates().length === 0}>
-              <option value="">Aucune date</option>
-            </Show>
-            <For each={dates()}>
-              {(d) => <option value={d.key}>{d.label}</option>}
-            </For>
-          </select>
-        </label>
+        <div class="weather-bucket-timeline-date">
+          <span class="weather-data-filter-label">Date cible</span>
+          <div class="weather-bucket-timeline-date-control">
+            <button
+              type="button"
+              class="weather-bucket-timeline-step"
+              aria-label="Date précédente"
+              onClick={() => stepDate(-1)}
+              disabled={loading() || !canStep(-1)}
+            >
+              ‹
+            </button>
+            <select
+              class="weather-bucket-timeline-date-select"
+              value={selectedDate()}
+              onChange={(e) => onDateChange(e.currentTarget.value)}
+              disabled={loading()}
+            >
+              <Show when={dates().length === 0}>
+                <option value="">Aucune date</option>
+              </Show>
+              <For each={dates()}>
+                {(d) => <option value={d.key}>{d.label}</option>}
+              </For>
+            </select>
+            <button
+              type="button"
+              class="weather-bucket-timeline-step"
+              aria-label="Date suivante"
+              onClick={() => stepDate(1)}
+              disabled={loading() || !canStep(1)}
+            >
+              ›
+            </button>
+          </div>
+        </div>
         <Show when={source().sideOptions}>
           <label class="weather-data-filter">
             <span>Côté</span>
@@ -605,24 +644,26 @@ export function WeatherTimelineView<TCity extends object>(
             </select>
           </label>
         </Show>
-        <label class="weather-data-filter">
-          <span>Points max</span>
-          <select
-            value={String(maxTicks())}
-            onChange={(e) => {
-              const v = Number(e.currentTarget.value);
-              if (Number.isFinite(v)) {
-                setMaxTicks(v);
-                if (selectedDate()) void loadTimeline(selectedDate());
-              }
-            }}
-            disabled={loading()}
-          >
-            <option value="500">500</option>
-            <option value="2000">2000</option>
-            <option value="5000">5000</option>
-          </select>
-        </label>
+        <div class="weather-bucket-timeline-maxticks">
+          <span class="weather-data-filter-label">Points max</span>
+          <div class="weather-bucket-timeline-segmented" role="group" aria-label="Points max">
+            <For each={WEATHER_ALGO_TIMELINE_MAX_TICKS}>
+              {(v) => (
+                <button
+                  type="button"
+                  class={`weather-bucket-timeline-seg-btn${maxTicks() === v ? ' active' : ''}`}
+                  onClick={() => {
+                    setMaxTicks(v);
+                    if (selectedDate()) void loadTimeline(selectedDate());
+                  }}
+                  disabled={loading()}
+                >
+                  {v.toLocaleString()}
+                </button>
+              )}
+            </For>
+          </div>
+        </div>
         <button type="button" class="btn btn-sm btn-secondary" onClick={() => void loadDates()}>
           Actualiser
         </button>

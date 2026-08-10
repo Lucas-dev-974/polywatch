@@ -111,19 +111,74 @@ export function buildPriceLinePath(
     .join(' ');
 }
 
+/**
+ * Pas de temps « ronds » candidats pour l'axe X, du plus fin au plus large.
+ * Chaque pas divise une journée entière (ou en est un multiple), ce qui permet
+ * d'aligner les ticks sur des bornes propres (ex. :00, :15, :30, :45, heures
+ * pleines, jours) plutôt que sur des fractions arbitraires du span.
+ */
+const X_TICK_STEPS_MS = [
+  1_000, // 1 s
+  5_000, // 5 s
+  15_000, // 15 s
+  30_000, // 30 s
+  60_000, // 1 min
+  5 * 60_000, // 5 min
+  15 * 60_000, // 15 min
+  30 * 60_000, // 30 min
+  60 * 60_000, // 1 h
+  2 * 60 * 60_000, // 2 h
+  3 * 60 * 60_000, // 3 h
+  6 * 60 * 60_000, // 6 h
+  12 * 60 * 60_000, // 12 h
+  DAY_MS, // 1 j
+  2 * DAY_MS, // 2 j
+  7 * DAY_MS, // 7 j
+  14 * DAY_MS, // 14 j
+  30 * DAY_MS, // 30 j
+];
+
+/** Largeur estimée (px) d'un label d'axe X, pour éviter le chevauchement. */
+const X_TICK_LABEL_WIDTH_PX = 60;
+
+/**
+ * Construit les ticks de l'axe X alignés sur des pas de temps ronds.
+ *
+ * - Le nombre de ticks cible s'adapte à la largeur du plot (`plotWidth`) pour
+ *   éviter le chevauchement des labels, plafonné par `tickCount`.
+ * - Le pas est choisi parmi des valeurs « rondes » (15 min, 1 h, 3 h, 1 j…)
+ *   de sorte que `span / step <= targetCount`.
+ * - Les ticks sont alignés sur des bornes propres (début de pas rond ≥ minT).
+ */
 export function buildChartXTicks(
   minT: number,
   maxT: number,
   tickCount = UPDOWN_CHART_CONFIG.xTickCount,
+  plotWidth?: number,
 ): Array<{ t: number; label: string }> {
   if (maxT <= minT) return [];
 
   const spanMs = maxT - minT;
+
+  const widthBasedCount =
+    plotWidth && plotWidth > 0
+      ? Math.max(2, Math.floor(plotWidth / X_TICK_LABEL_WIDTH_PX))
+      : tickCount;
+  const targetCount = Math.max(2, Math.min(widthBasedCount, tickCount));
+
+  let stepMs = spanMs / targetCount;
+  for (const candidate of X_TICK_STEPS_MS) {
+    if (spanMs / candidate <= targetCount) {
+      stepMs = candidate;
+      break;
+    }
+  }
+
+  const firstTick = Math.ceil(minT / stepMs) * stepMs;
+
   const ticks: Array<{ t: number; label: string }> = [];
   const seenLabels = new Set<string>();
-
-  for (let i = 0; i <= tickCount; i++) {
-    const t = minT + (spanMs * i) / tickCount;
+  for (let t = firstTick; t <= maxT; t += stepMs) {
     const label = formatUpDownChartTime(t, spanMs);
     if (seenLabels.has(label)) continue;
     seenLabels.add(label);

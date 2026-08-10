@@ -78,6 +78,42 @@ describe('updown-price-chart', () => {
     expect(labels.every((label) => /\d{2}\/\d{2}/.test(label))).toBe(true);
   });
 
+  it('aligns x-axis ticks on round time steps', () => {
+    // Données 15 min : premier point à 10:07:30, span de 24 h.
+    const start = Date.UTC(2026, 6, 13, 10, 7, 30);
+    const end = start + 24 * 3_600_000;
+    const ticks = buildChartXTicks(start, end);
+    expect(ticks.length).toBeGreaterThan(2);
+    for (const tick of ticks) {
+      const d = new Date(tick.t);
+      // Ticks alignés sur des heures pleines (pas de minutes parasites).
+      expect(d.getUTCMinutes()).toBe(0);
+      expect(d.getUTCSeconds()).toBe(0);
+    }
+  });
+
+  it('aligns x-axis ticks on 15-minute boundaries for short spans', () => {
+    // Span de 2 h : pas de 15 min attendu, ticks sur :00/:15/:30/:45.
+    const start = Date.UTC(2026, 6, 13, 10, 7, 30);
+    const end = start + 2 * 3_600_000;
+    const ticks = buildChartXTicks(start, end);
+    expect(ticks.length).toBeGreaterThan(2);
+    for (const tick of ticks) {
+      const d = new Date(tick.t);
+      expect(d.getUTCMinutes() % 15).toBe(0);
+      expect(d.getUTCSeconds()).toBe(0);
+    }
+  });
+
+  it('reduces tick count when the plot is narrow', () => {
+    const start = Date.UTC(2026, 6, 13, 0, 0, 0);
+    const end = start + 24 * 3_600_000;
+    const wide = buildChartXTicks(start, end, 6, 600);
+    const narrow = buildChartXTicks(start, end, 6, 120);
+    expect(narrow.length).toBeLessThanOrEqual(wide.length);
+    expect(narrow.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('formats prices as cents', () => {
     expect(formatUpDownPriceCents(0.455)).toBe('45.5\u00A2');
     expect(formatUpDownPriceCents(null)).toBe('N/A');

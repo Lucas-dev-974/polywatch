@@ -37,6 +37,13 @@ export interface WeatherAlgoDataDeleteAllResponse {
   totalDeleted: number;
 }
 
+export interface WeatherAlgoDataDeleteTableResponse {
+  id: WeatherAlgoDataTableId;
+  deleted: number;
+  /** Lignes supprimées en cascade (ex: bucket_ticks quand on supprime market_snapshots). */
+  cascaded: number;
+}
+
 async function deleteAllRows(
   ds: DataSource,
   entity: new () => object,
@@ -49,6 +56,16 @@ async function deleteAllRows(
     .execute();
   return result.affected ?? 0;
 }
+
+const TABLE_ENTITY_MAP: Record<WeatherAlgoDataTableId, new () => object> = {
+  forecast_history: WeatherForecastHistory,
+  market_snapshots: WeatherMarketSnapshot,
+  bucket_ticks: WeatherBucketTick,
+  evaluation_log: WeatherEvaluationLog,
+  forecast_cache: WeatherForecastCache,
+  position_forecasts: WeatherPositionForecast,
+  clob_price_history: WeatherClobPriceHistory,
+};
 
 export interface WeatherAlgoDataCoverage {
   from: string | null;
@@ -143,6 +160,17 @@ export interface ClobTimelineDate {
 
 export interface ClobTimelineResponse {
   dates: ClobTimelineDate[];
+}
+
+/**
+ * Re-sort rows fetched DESC (most recent first, so the resolution tail is kept
+ * within the maxTicks limit) back into chronological ASC order for display.
+ */
+function sortByRecordedAtAsc<T extends { recordedAt: Date; id: number }>(rows: T[]): T[] {
+  return rows.sort((a, b) => {
+    const d = a.recordedAt.getTime() - b.recordedAt.getTime();
+    return d !== 0 ? d : a.id - b.id;
+  });
 }
 
 function toIso(value: Date | string | null | undefined): string | null {
@@ -398,13 +426,16 @@ export class WeatherAlgoDataService {
       tickQb.andWhere('s.recordedAt <= :to', { to: options.to });
     }
 
-    // D.2 — Tri par recordedAt (et non id) pour garantir l'ordre chronologique
-    // des séries et la cohérence de first/lastRecordedAt.
+    // D.2 — Fetch the most recent `maxTicks` ticks (DESC) so the resolution
+    // tail (winning bucket at 1.00) is never truncated, then re-sort ASC for
+    // chronological series and coherent first/lastRecordedAt.
     const ticks = await tickQb
-      .orderBy('t.recordedAt', 'ASC')
-      .addOrderBy('t.id', 'ASC')
+      .orderBy('t.recordedAt', 'DESC')
+      .addOrderBy('t.id', 'DESC')
       .limit(maxTicks)
       .getMany();
+
+    sortByRecordedAtAsc(ticks);
 
     if (ticks.length === 0) {
       return { dates: [] };
@@ -554,11 +585,17 @@ export class WeatherAlgoDataService {
       qb.andWhere('h.recordedAt <= :to', { to: options.to });
     }
 
+    // Fetch the most recent `maxTicks` points (DESC) so the settlement point
+    // (1.00, timestamped after the last trade) is never truncated, then re-sort
+    // ASC for chronological display. Sorting ASC before LIMIT would keep only
+    // the oldest points and drop the resolution tail.
     const rows = await qb
-      .orderBy('h.recordedAt', 'ASC')
-      .addOrderBy('h.id', 'ASC')
+      .orderBy('h.recordedAt', 'DESC')
+      .addOrderBy('h.id', 'DESC')
       .limit(maxTicks)
       .getMany();
+
+    sortByRecordedAtAsc(rows);
 
     if (rows.length === 0) {
       return { dates: [] };
@@ -745,6 +782,25 @@ export class WeatherAlgoDataService {
     const totalDeleted = Object.values(deleted).reduce((a, b) => a + b, 0);
     log.info({ deleted, totalDeleted }, 'deleted all weather algo recorded data');
     return { deleted, totalDeleted };
+  }
+
+  /**
+   * Wipe a single weather-algo recorded table identified by its Données-tab id.
+   * Deleting `market_snapshots` also deletes its dependent `bucket_ticks` (logical FK
+   * via snapshotId) to avoid orphan rows.
+   */
+  async deleteTableData(id: WeatherAlgoDataTableId): Promise<WeatherAlgoDataDeleteTableResponse> {
+    const entity = TABLE_ENTITY_MAP[id];
+    const deleted = await deleteAllRows(this.ds, entity);
+
+    // Cascade: bucket_ticks référence market_snapshots via snapshotId (FK logique).
+    let cascaded = 0;
+    if (id === 'market_snapshots') {
+      cascaded = await deleteAllRows(this.ds, WeatherBucketTick);
+    }
+
+    log.info({ id, deleted, cascaded }, 'deleted weather algo table data');
+    return { id, deleted, cascaded };
   }
 
   async getTablesSummary(): Promise<WeatherAlgoDataTablesResponse> {

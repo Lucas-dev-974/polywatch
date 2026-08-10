@@ -47,6 +47,7 @@ export const SNAPSHOT_SOURCE: Record<
   manual: { badgeClass: 'neutral', badgeLabel: 'Manuel', compareLabel: 'Manuel' },
   auto: { badgeClass: 'sim', badgeLabel: 'Auto', compareLabel: 'Automatique' },
   reset: { badgeClass: 'warn', badgeLabel: 'Reset', compareLabel: 'Réinitialisation' },
+  config_change: { badgeClass: 'warn', badgeLabel: 'Config', compareLabel: 'Changement config' },
 };
 
 export const COMPARE_ROWS: ReadonlyArray<CompareRow> = [

@@ -71,7 +71,7 @@ export function PositionMarketSplitView(props: Props) {
     () => displayedMarket()?.positions ?? [],
   );
 
-  const showNavPnl = () => props.pnlMap != null || props.realized;
+  const showNavPnl = () => props.pnlMap != null || props.realized === true;
 
   const groupNetPnl = (positions: Position[]) => {
     const map = props.pnlMap?.() ?? {};

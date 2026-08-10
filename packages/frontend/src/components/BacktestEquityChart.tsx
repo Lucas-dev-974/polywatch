@@ -60,7 +60,7 @@ export function BacktestEquityChart(props: { points: BacktestEquityPointDto[]; c
           const y = PAD_T + innerH * f;
           const val = max() - span() * f;
           return (
-            <g key={f}>
+            <g>
               <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="var(--border)" stroke-dasharray="3 3" />
               <text x={PAD_L - 8} y={y + 4} text-anchor="end" class="backtest-chart-axis">
                 {fmt(val)}

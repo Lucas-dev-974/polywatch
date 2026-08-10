@@ -6,7 +6,7 @@ import {
 } from '../lib/ui-persistence';
 import { Dialog } from './Dialog';
 import { useChartWidth } from '../hooks/useChartWidth';
-import { buildChartXTicks, formatUpDownChartTime } from '../lib/updown-price-chart';
+import { buildChartXTicks } from '../lib/updown-price-chart';
 import { WeatherSeriesLegend } from './WeatherSeriesLegend';
 
 export { UI_KEYS };
@@ -66,6 +66,10 @@ export interface WeatherTimelineSource<TCity extends object> {
   sideKey?: string;
   sideDefault?: string;
   sideOptions?: WeatherTimelineSideOption[];
+  /** Clé de persistance du seuil de prix minimum (optionnel — absente si non configurable). */
+  minPriceKey?: string;
+  /** Seuil de prix minimum par défaut (en dollars, ex. 0.1 = 10¢). */
+  minPriceDefault?: number;
   /** Unité singulière pour les libellés de stats (ex. `tick`, `point`). */
   unitLabel: string;
   dialogTitleId: string;
@@ -97,6 +101,24 @@ function formatChartTime(t: number, spanMs: number): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+/**
+ * Formate toujours la date ET l'heure pour le tooltip crosshair.
+ * Inclut les secondes uniquement pour les spans très courts (≤ 15min).
+ */
+function formatChartTooltipDateTime(t: number, spanMs: number): string {
+  const d = new Date(t);
+  const baseOptions: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  };
+  if (spanMs > 0 && spanMs <= 15 * 60_000) {
+    baseOptions.second = '2-digit';
+  }
+  return d.toLocaleString('fr-FR', baseOptions);
 }
 
 /** Convertit une série (avec éventuels trous y null) en segments continus de points. */
@@ -131,8 +153,37 @@ interface HoverState {
 function SeriesChart(props: {
   buckets: WeatherTimelineBucketData[];
   renderHeader: (totalPoints: number) => JSX.Element;
+  /** Seuil de prix minimum (en dollars) : les buckets dont le prix moyen est < seuil sont masqués. */
+  minPrice: number;
 }) {
-  const segments = props.buckets.map((b) => ({ bucket: b, segments: splitSegments(b.series) }));
+  /**
+   * Prix moyen d'un bucket, en excluant les zéros finaux (effondrement de
+   * résolution en fin de vie). Sans cette exclusion, un bucket perdant qui
+   * résout à 0 ferait chuter sa moyenne à 0 malgré une cotation significative
+   * pendant sa vie.
+   */
+  const averagePriceOf = (b: WeatherTimelineBucketData): number | null => {
+    const prices = b.series
+      .map((p) => p.y)
+      .filter((y): y is number => y != null);
+    if (prices.length === 0) return null;
+    let end = prices.length;
+    while (end > 0 && prices[end - 1] === 0) end--;
+    const meaningful = prices.slice(0, end);
+    if (meaningful.length === 0) return null;
+    return meaningful.reduce((a, c) => a + c, 0) / meaningful.length;
+  };
+
+  const filteredBuckets = () =>
+    props.minPrice > 0
+      ? props.buckets.filter((b) => {
+          const avg = averagePriceOf(b);
+          return avg != null && avg >= props.minPrice;
+        })
+      : props.buckets;
+
+  const segments = () =>
+    filteredBuckets().map((b) => ({ bucket: b, segments: splitSegments(b.series) }));
   const [wrapEl, setWrapEl] = createSignal<HTMLDivElement>();
   const width = useChartWidth(wrapEl);
 
@@ -149,7 +200,7 @@ function SeriesChart(props: {
     setHiddenSeries(next);
   };
 
-  const visibleSegments = () => segments.filter((_, i) => !hiddenSeries().has(i));
+  const visibleSegments = () => segments().filter((_, i) => !hiddenSeries().has(i));
   const visibleFlat = () => visibleSegments().flatMap((s) => s.segments).flat();
   const totalPoints = () => visibleFlat().length;
   const visibleCount = () => visibleSegments().length;
@@ -343,7 +394,7 @@ function SeriesChart(props: {
               top: `${CHART_MARGIN.top}px`,
             }}
           >
-            <strong>{formatUpDownChartTime(hovered()!.t, spanT())}</strong>
+            <strong>{formatChartTooltipDateTime(hovered()!.t, spanT())}</strong>
             <For each={hoveredBuckets()}>
               {(b) => (
                 <div class="weather-bucket-tooltip-row">
@@ -361,8 +412,8 @@ function SeriesChart(props: {
       </div>
       <WeatherSeriesLegend
         visibleCount={visibleCount()}
-        totalCount={segments.length}
-        items={segments.map((s, i) => ({
+        totalCount={segments().length}
+        items={segments().map((s, i) => ({
           key: i,
           label: s.bucket.label,
           price: lastPrice(s),
@@ -437,6 +488,11 @@ export function WeatherTimelineView<TCity extends object>(
     (value): value is number =>
       typeof value === 'number' &&
       (WEATHER_ALGO_TIMELINE_MAX_TICKS as readonly number[]).includes(value),
+  );
+  const [minPrice, setMinPrice] = usePersistedSignal(
+    source().minPriceKey ?? '__unused__',
+    source().minPriceDefault ?? 0,
+    (value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0,
   );
 
   async function loadDates() {
@@ -589,8 +645,28 @@ export function WeatherTimelineView<TCity extends object>(
           {(c) => (
             <>
               {source().renderDialogSummary(openCity() as TCity, side())}
+              <Show when={source().minPriceKey}>
+                <label class="weather-data-filter weather-bucket-min-price">
+                  <span>Prix min</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={minPrice()}
+                    onInput={(e) => {
+                      const v = Number(e.currentTarget.value);
+                      setMinPrice(
+                        Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0,
+                      );
+                    }}
+                    title="N’afficher que les buckets dont le prix moyen (hors zéros de fin de vie) dépasse ce seuil (0 à 1)"
+                  />
+                </label>
+              </Show>
               <SeriesChart
                 buckets={c().buckets}
+                minPrice={minPrice()}
                 renderHeader={(totalPoints) =>
                   source().renderChartHeader(openCity() as TCity, side(), totalPoints)
                 }

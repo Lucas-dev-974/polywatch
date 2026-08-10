@@ -46,9 +46,6 @@ export function EnvSettingsEntryTab(props: {
 
         <section class="settings-section">
           <h3 class="settings-section-title">Limites &amp; filtres</h3>
-          <Show when={props.mode === 'sim'}>
-            {/* Capital moved to Risk tab (per algoKind) */}
-          </Show>
           <NumberField
             label="Plafond max par position (pUSD)"
             value={props.config[maxPositionKey]}

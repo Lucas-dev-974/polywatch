@@ -60,6 +60,8 @@ const source: WeatherTimelineSource<ClobTimelineCity> = {
   sideKey: UI_KEYS.weatherAlgoClobTimelineSide,
   sideDefault: 'YES',
   sideOptions: SIDES.map((s) => ({ value: s, label: s })),
+  minPriceKey: UI_KEYS.weatherAlgoClobTimelineMinPrice,
+  minPriceDefault: 0.1,
   unitLabel: 'point',
   dialogTitleId: 'weather-clob-city-dialog',
 

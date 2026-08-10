@@ -1,5 +1,6 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
 import {
+  deleteWeatherAlgoDataTable,
   deleteWeatherAlgoDataTables,
   fetchWeatherAlgoBucketTicks,
   fetchWeatherAlgoClobPriceHistory,
@@ -183,6 +184,7 @@ export function WeatherAlgoDataTab() {
   const [summaryLoading, setSummaryLoading] = createSignal(false);
   const [summaryError, setSummaryError] = createSignal<string | null>(null);
   const [deleting, setDeleting] = createSignal(false);
+  const [tableDeleting, setTableDeleting] = createSignal(false);
   const [pollMs, setPollMs] = createSignal(DEFAULT_POLL_MS);
 
   const [city, setCity] = usePersistedSignal(UI_KEYS.weatherAlgoDataCity, '', isPersistedString);
@@ -337,6 +339,37 @@ export function WeatherAlgoDataTab() {
     setDeleting(false);
   }
 
+  async function deleteCurrentTable() {
+    const id = selectedId();
+    if (!id) return;
+    const meta = TABLE_META[id];
+    const rowCount = selectedSummary()?.rowCount ?? total();
+    if (
+      !confirm(
+        `Supprimer toutes les données de la table « ${meta.title} » ?\n\n` +
+          `${rowCount.toLocaleString()} ligne(s) seront effacées de ${selectedSummary()?.tableName ?? id}.\n` +
+          (id === 'market_snapshots'
+            ? 'Les bucket ticks liés seront aussi supprimés (cascade logique).\n'
+            : '') +
+          'Cette action est irréversible. Les prochains cycles du weather-algo pourront réenregistrer des données.',
+      )
+    ) {
+      return;
+    }
+    setTableDeleting(true);
+    setDetailError(null);
+    try {
+      await deleteWeatherAlgoDataTable(id);
+      await loadDetail(0);
+      await refreshSummary();
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Échec de la suppression',
+      );
+    }
+    setTableDeleting(false);
+  }
+
   function openDetail(id: WeatherAlgoDataTableId) {
     setSelectedId(id);
     setCity('');
@@ -473,7 +506,18 @@ export function WeatherAlgoDataTab() {
                   </div>
                 </div>
               </div>
-              <span class="algo-panel-count">{total().toLocaleString()} lignes</span>
+              <div class="weather-data-toolbar-actions">
+                <span class="algo-panel-count">{total().toLocaleString()} lignes</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-danger"
+                  onClick={() => void deleteCurrentTable()}
+                  disabled={tableDeleting() || detailLoading() || total() === 0}
+                  title={`Supprimer toutes les lignes de la table « ${meta().title} »`}
+                >
+                  {tableDeleting() ? 'Suppression…' : 'Supprimer les données'}
+                </button>
+              </div>
             </div>
 
             <Show when={selectedId() === 'bucket_ticks' || selectedId() === 'clob_price_history'}>

@@ -1,9 +1,9 @@
-import type { MarketMetricsDto, MarketTick } from '@polywatch/core/market-list';
+import type { MarketMetricsDto, MarketTick } from '@polywatch/core/types';
 
 import { api } from '../api';
 import { formatAdaptiveAmount } from './position';
 
-export type { MarketTick, MarketMetricsDto as MarketMetrics } from '@polywatch/core/market-list';
+export type { MarketTick, MarketMetricsDto as MarketMetrics } from '@polywatch/core/types';
 
 export function formatPrice(value: number | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { filterMarketItems, isBinaryUpDown, mergeOutcomePrices } from './markets-list';
+import { MarketType } from '@polywatch/core';
 import type { MarketListItemDto } from '@polywatch/core/market-list';
 
 describe('isBinaryUpDown', () => {
@@ -140,6 +141,7 @@ describe('filterMarketItems', () => {
     cryptoSymbol: null,
     interval: null,
     cryptoCategory: null,
+    marketType: MarketType.STANDARD,
   };
 
   it('filters out markets that have not started yet', () => {

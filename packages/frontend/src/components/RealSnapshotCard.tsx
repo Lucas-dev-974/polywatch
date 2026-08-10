@@ -13,6 +13,7 @@ const REAL_SNAPSHOT_SOURCE: Record<
   manual: { badgeClass: 'neutral', badgeLabel: 'Manuel' },
   auto: { badgeClass: 'real', badgeLabel: 'Auto' },
   rotate: { badgeClass: 'warn', badgeLabel: 'Clôture' },
+  config_change: { badgeClass: 'warn', badgeLabel: 'Config' },
 };
 
 interface Props {

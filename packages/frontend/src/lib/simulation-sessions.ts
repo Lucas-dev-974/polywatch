@@ -1,4 +1,3 @@
-import type { SimSessionSummary } from '@polywatch/core';
 import { api } from '../api';
 
 import type { SimAlgoKind } from './simulation';

@@ -56,6 +56,8 @@ function bucketTargetLabel(bucket: {
 const source: WeatherTimelineSource<BucketTimelineCity> = {
   dateKey: UI_KEYS.weatherAlgoTimelineDate,
   maxTicksKey: UI_KEYS.weatherAlgoTimelineMaxTicks,
+  minPriceKey: UI_KEYS.weatherAlgoTimelineMinPrice,
+  minPriceDefault: 0.1,
   unitLabel: 'tick',
   dialogTitleId: 'weather-bucket-city-dialog',
 

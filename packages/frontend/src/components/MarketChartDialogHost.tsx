@@ -12,7 +12,6 @@ export function MarketChartDialogHost() {
     <Show when={marketChartContext()}>
       {(ctx) => (
         <MarketChartDialog
-          key={ctx().conditionId}
           onClose={closeMarketChart}
           conditionId={ctx().conditionId}
           copiedPositionId={ctx().copiedPositionId}

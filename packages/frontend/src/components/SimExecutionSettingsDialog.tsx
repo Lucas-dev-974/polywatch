@@ -173,7 +173,7 @@ export function SimExecutionSettingsDialog(props: Props) {
                   hint="Vide = 150 ms. Utilisé en mode fixe ou si données insuffisantes en mode calibré."
                   onChange={(value) =>
                     patch({
-                      simExecLatencyMs: value >= 0 ? value : null,
+                      simExecLatencyMs: value != null && value >= 0 ? value : null,
                     })
                   }
                 />
@@ -197,7 +197,7 @@ export function SimExecutionSettingsDialog(props: Props) {
                   hint="Vide = 8 s"
                   onChange={(value) =>
                     patch({
-                      simSelfImpactTtlSeconds: value >= 1 ? value : null,
+                      simSelfImpactTtlSeconds: value != null && value >= 1 ? value : null,
                     })
                   }
                 />
@@ -233,7 +233,7 @@ export function SimExecutionSettingsDialog(props: Props) {
                   hint="Vide = 14 jours (latence + shadow)"
                   onChange={(value) =>
                     patch({
-                      shadowSampleRetentionDays: value >= 1 ? value : null,
+                      shadowSampleRetentionDays: value != null && value >= 1 ? value : null,
                     })
                   }
                 />

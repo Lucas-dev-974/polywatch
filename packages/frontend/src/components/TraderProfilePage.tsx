@@ -382,17 +382,13 @@ export function TraderProfilePage(props: Props) {
                         <div class="trader-profile-kpi">
                           <span class="trader-profile-kpi-label">Win rate</span>
                           <span class="trader-profile-kpi-value">
-                            {stats().winRatePercent != null
-                              ? `${stats().winRatePercent.toFixed(1)}%`
-                              : '—'}
+                            {stats().winRatePercent?.toFixed(1) ?? '—'}
                           </span>
                         </div>
                         <div class="trader-profile-kpi">
                           <span class="trader-profile-kpi-label">ROI sim</span>
                           <span class="trader-profile-kpi-value">
-                            {stats().roiPercent != null
-                              ? `${stats().roiPercent.toFixed(1)}%`
-                              : '—'}
+                            {stats().roiPercent?.toFixed(1) ?? '—'}
                           </span>
                         </div>
                       </div>

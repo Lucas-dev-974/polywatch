@@ -2,7 +2,9 @@ import pino from 'pino';
 import type { DataSource } from 'typeorm';
 import { In } from 'typeorm';
 import type { MarketListItemDto } from '../polymarket/market-list.js';
+import { binaryPricesFromParsed } from '../polymarket/outcome-tokens.js';
 import { fetchPriceHistory } from '../polymarket/price-history-client.js';
+import { fetchGammaMarket } from '../polymarket/market-metadata.js';
 import { parseWeatherQuestion } from '../weather/question-parser.js';
 import {
   discoverWeatherMarketsInRange,
@@ -104,10 +106,118 @@ function toUtcDateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Detect the resolved side of a weather market.
+ * Returns 'YES' or 'NO' when a winner is identifiable, else null.
+ *
+ * /prices-history only returns CLOB trade prices, never the post-settlement
+ * payoff (1.00 / 0.00 fixed by the oracle). For resolved markets we therefore
+ * synthesize a final point at the settlement price so the winning bucket's
+ * YES reaches 1.00 in the recorded history.
+ *
+ * Strategy:
+ *  1. Fast path — if the market is clearly settled (closed AND no longer
+ *     accepting orders) and carries outcomePrices (Gamma /events), use them.
+ *     We gate on closed/acceptingOrders here because a live market can trade
+ *     at 0.99 without being resolved; injecting a fake 1.00 would corrupt data.
+ *  2. Slow path — for closed markets, fetch the market from CLOB/Gamma via
+ *     fetchGammaMarket and resolve the winner from winningTokenId (price ≥
+ *     threshold), which is only populated by the settlement oracle. This is the
+ *     authoritative signal and does not need the flag gate.
+ */
+const SETTLEMENT_PRICE_THRESHOLD = 0.99;
+
+function resolveSideFromOutcomePrices(
+  market: Pick<MarketListItemDto, 'outcomePrices' | 'tokenIdYes' | 'tokenIdNo'>,
+): 'YES' | 'NO' | null {
+  if (market.outcomePrices.length === 0) return null;
+  const binary = binaryPricesFromParsed(market.outcomePrices);
+  const yes = binary.side0?.price ?? null;
+  const no = binary.side1?.price ?? null;
+  if (yes != null && yes >= SETTLEMENT_PRICE_THRESHOLD) return 'YES';
+  if (no != null && no >= SETTLEMENT_PRICE_THRESHOLD) return 'NO';
+  return null;
+}
+
+async function detectResolvedSide(
+  market: MarketListItemDto,
+): Promise<'YES' | 'NO' | null> {
+  // Fast path: only trust outcomePrices when the market is clearly settled.
+  // A live market can trade at 0.99 without being resolved.
+  if (market.closed && market.acceptingOrders !== true) {
+    const fromPrices = resolveSideFromOutcomePrices(market);
+    if (fromPrices) return fromPrices;
+  }
+
+  // Slow path: fetch the market record and resolve the winner from the
+  // settlement oracle. We do NOT gate on market.closed here — Gamma does not
+  // consistently flip `closed` for weather markets even after the outcome is
+  // known, and discoverWeatherMarketsInRange can hand us a resolved market
+  // with closed=false. The authoritative signal is gamma.resolved, which is
+  // only true once the oracle has settled the market.
+  try {
+    const gamma = await fetchGammaMarket(market.conditionId);
+    if (!gamma) return null;
+    // Guard against a live market trading at 0.99: winningTokenId is derived
+    // from a price threshold and would be populated even before settlement.
+    if (!gamma.resolved) return null;
+    const winner = gamma.winningTokenId;
+    if (winner) {
+      if (winner === market.tokenIdYes) return 'YES';
+      if (winner === market.tokenIdNo) return 'NO';
+    }
+    // Fallback: use outcomePrices from the freshly fetched record.
+    return resolveSideFromOutcomePrices({
+      tokenIdYes: market.tokenIdYes,
+      tokenIdNo: market.tokenIdNo,
+      outcomePrices: gamma.outcomePricesParsed,
+    });
+  } catch (err) {
+    log.warn(
+      { err, conditionId: market.conditionId },
+      'detectResolvedSide: fetchGammaMarket failed',
+    );
+    return null;
+  }
+}
+
+/**
+ * Append a synthetic settlement point to a /prices-history series.
+ *
+ * The CLOB /prices-history endpoint only returns trade prices, never the
+ * post-settlement payoff fixed by the oracle (1.00 for the winning side,
+ * 0.00 for the losing side). To make the recorded history complete — so the
+ * winning bucket's YES reaches 1.00 — we append one final point at the
+ * settlement price.
+ *
+ * The settlement point is timestamped AFTER the last trade in the series
+ * (never before it), so it is always the final point of the curve. Using the
+ * market's endDate alone is wrong: trades can continue past endDate, which
+ * would bury the 1.00 point in the middle of the series.
+ */
+function appendSettlementPoint(
+  points: { t: number; p: number }[],
+  settlementTs: number,
+  settlementPrice: number,
+): { t: number; p: number }[] {
+  if (!Number.isFinite(settlementTs)) return points;
+  const lastTradeTs = points.length > 0 ? points[points.length - 1]!.t : 0;
+  const finalTs = Math.max(settlementTs, lastTradeTs) + 1;
+  return [...points, { t: finalTs, p: settlementPrice }];
+}
+
+/**
+ * Extra window added past a weather market's endDate when fetching /prices-history.
+ * Weather markets only settle after the official weather result is published,
+ * so the winning bucket's YES jumps to 1.00 slightly after endDate. Without this
+ * margin the resolution point is cut off and no bucket ever reaches 1.00.
+ */
+const RESOLUTION_MARGIN_SEC = 48 * 3600;
+
 function resolveMarketEndTs(market: MarketListItemDto): number {
   if (market.endDate) {
     const end = Math.floor(new Date(market.endDate).getTime() / 1000);
-    if (Number.isFinite(end)) return end;
+    if (Number.isFinite(end)) return end + RESOLUTION_MARGIN_SEC;
   }
   return Math.floor(Date.now() / 1000);
 }
@@ -385,6 +495,27 @@ export class WeatherHistoryIngestService {
       { side: 'NO', tokenId: market.tokenIdNo },
     ];
 
+    const resolvedSide = await detectResolvedSide(market);
+    const settlementTs = market.endDate
+      ? Math.floor(new Date(market.endDate).getTime() / 1000)
+      : endTs;
+
+    log.debug(
+      {
+        conditionId: market.conditionId,
+        question: market.question,
+        closed: market.closed,
+        acceptingOrders: market.acceptingOrders,
+        outcomePrices: market.outcomePrices,
+        outcomePricesLen: market.outcomePrices.length,
+        tokenIdYes: market.tokenIdYes,
+        tokenIdNo: market.tokenIdNo,
+        resolvedSide,
+        endDate: market.endDate,
+      },
+      'ingestMarketHistory resolution diagnostic',
+    );
+
     let pointsUpserted = 0;
     let emptySides = 0;
 
@@ -394,12 +525,20 @@ export class WeatherHistoryIngestService {
         continue;
       }
 
-      const points = await fetchPriceHistory({
+      let points = await fetchPriceHistory({
         assetId: tokenId,
         startTs,
         endTs,
         fidelity: fidelityMinutes,
       });
+
+      // /prices-history never returns the post-settlement payoff (1.00/0.00).
+      // For a closed+resolved market, append a synthetic final point so the
+      // winning bucket's YES reaches 1.00 and the losing side reaches 0.00.
+      if (resolvedSide) {
+        const settlementPrice = side === resolvedSide ? 1 : 0;
+        points = appendSettlementPoint(points, settlementTs, settlementPrice);
+      }
 
       if (points.length === 0) {
         log.debug(

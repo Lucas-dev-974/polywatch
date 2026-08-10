@@ -155,9 +155,9 @@ export function useCryptoAlgoMonitor() {
       }
     });
 
-    const offSnapshot = onCryptoAlgoMonitorSnapshot((payload: CryptoAlgoMonitorSnapshotEvent) => {
+    const offSnapshot = onCryptoAlgoMonitorSnapshot((payload) => {
       if (runId() === payload.runId) {
-        const snapshot = payload.snapshot as CryptoAlgoMonitorSnapshot;
+        const snapshot = payload.snapshot as unknown as CryptoAlgoMonitorSnapshot;
         setLatestSnapshot(snapshot);
         setHistory((prev) => {
           const next = [...prev, snapshot];

@@ -181,6 +181,7 @@ export {
   type WeatherAlgoDataTableSummary,
   type WeatherAlgoDataTablesResponse,
   type WeatherAlgoDataDeleteAllResponse,
+  type WeatherAlgoDataDeleteTableResponse,
   type WeatherBucketTickRow,
   type WeatherPositionForecastRow,
   type BucketTickDateEntry,

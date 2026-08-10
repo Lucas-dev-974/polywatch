@@ -1174,8 +1174,6 @@ export function UpDownPriceChart(props: UpDownPriceChartProps) {
           ref={setWrapEl}
           onMouseLeave={() => {
             setHover(null);
-            setSignalHover(null);
-            setSlAttemptHover(null);
           }}
         >
           <UpDownChartLegend

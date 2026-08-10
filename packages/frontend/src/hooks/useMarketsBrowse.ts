@@ -164,6 +164,9 @@ export function useMarketsBrowse() {
 
     connectSocket();
 
+    const sock = socket;
+    if (!sock) return;
+
     const onPctUpdate = (updates: MarketPercentUpdate[]) => {
       setItems((current) => {
         const byConditionId = new Map(
@@ -179,9 +182,9 @@ export function useMarketsBrowse() {
       });
     };
 
-    socket.on('market_pct_update', onPctUpdate);
+    sock.on('market_pct_update', onPctUpdate);
     onCleanup(() => {
-      socket.off('market_pct_update', onPctUpdate);
+      sock.off('market_pct_update', onPctUpdate);
     });
   });
 

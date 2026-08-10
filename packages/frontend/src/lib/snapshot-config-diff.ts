@@ -220,7 +220,6 @@ function buildSimFieldSpecs(): ConfigDiffFieldSpec[] {
     simKellyFraction: { label: 'Fraction Kelly', group: 'entry' },
     simRiskBudgetUsdc: { label: 'Budget risque (pUSD)', group: 'entry' },
     simDefaultWinProbability: { label: 'Probabilité de gain par défaut', group: 'entry' },
-    simInitialCapital: { label: 'Capital initial', group: 'entry' },
     simMaxPositionSizeUsdc: { label: 'Taille max position', group: 'risk' },
     simMaxOpenPositions: { label: 'Max positions ouvertes', group: 'risk' },
     simMaxExposureUsdc: { label: 'Exposition max', group: 'risk' },

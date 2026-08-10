@@ -286,3 +286,131 @@ describe('WeatherAlgoDataService — clob price history timeline', () => {
     expect(entry.tickCount).toBe(2);
   });
 });
+
+describe('WeatherAlgoDataService — deleteTableData', () => {
+  let ds: Awaited<ReturnType<typeof initializeDataSource>>;
+  let service: WeatherAlgoDataService;
+
+  beforeEach(async () => {
+    ds = await initializeDataSource(createTestDataSource());
+    service = new WeatherAlgoDataService(ds);
+  });
+
+  afterEach(async () => {
+    await ds.destroy();
+  });
+
+  async function seedSnapshot(overrides: Partial<WeatherMarketSnapshot> = {}) {
+    const repo = ds.getRepository(WeatherMarketSnapshot);
+    return repo.save(
+      repo.create({
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-01',
+        metric: 'temp',
+        forecastMean: 10,
+        forecastStdDev: 1.5,
+        bucketCount: 3,
+        totalBucketCount: 5,
+        recordedAt: new Date('2026-01-01T00:00:00.000Z'),
+        ...overrides,
+      }),
+    );
+  }
+
+  async function seedTick(snapshotId: number, overrides: Partial<WeatherBucketTick> = {}) {
+    const repo = ds.getRepository(WeatherBucketTick);
+    return repo.save(
+      repo.create({
+        snapshotId,
+        conditionId: 'cond-1',
+        eventSlug: 'evt',
+        question: 'q?',
+        bucketComparison: 'or_above',
+        bucketTarget: 10,
+        bucketLow: null,
+        bucketHigh: null,
+        yesPrice: 0.5,
+        noPrice: 0.5,
+        yesTokenId: 'yes',
+        noTokenId: 'no',
+        volume: 100,
+        volume24hr: 50,
+        liquidityClob: 200,
+        acceptingOrders: true,
+        closed: false,
+        endDate: null,
+        recordedAt: new Date('2026-01-01T00:00:00.000Z'),
+        ...overrides,
+      }),
+    );
+  }
+
+  async function seedClob(overrides: Partial<WeatherClobPriceHistory> = {}) {
+    const repo = ds.getRepository(WeatherClobPriceHistory);
+    return repo.save(
+      repo.create({
+        city: 'london',
+        targetDate: '2026-01-01',
+        metric: 'temp',
+        conditionId: 'cond-1',
+        eventSlug: 'evt',
+        question: 'q?',
+        bucketComparison: 'or_above',
+        bucketTarget: 10,
+        bucketLow: null,
+        bucketHigh: null,
+        side: 'YES',
+        tokenId: 'yes-token',
+        price: 0.5,
+        recordedAt: new Date('2026-01-01T00:00:00.000Z'),
+        fidelityMinutes: 60,
+        ingestJobId: null,
+        ...overrides,
+      }),
+    );
+  }
+
+  it('supprime les lignes de clob_price_history et retourne le bon compte', async () => {
+    await seedClob({ price: 0.3 });
+    await seedClob({ price: 0.6, side: 'NO' });
+
+    const res = await service.deleteTableData('clob_price_history');
+    expect(res.id).toBe('clob_price_history');
+    expect(res.deleted).toBe(2);
+    expect(res.cascaded).toBe(0);
+
+    const remaining = await ds.getRepository(WeatherClobPriceHistory).count();
+    expect(remaining).toBe(0);
+  });
+
+  it('supprime les bucket_ticks seules sans toucher aux snapshots', async () => {
+    const snap = await seedSnapshot();
+    await seedTick(snap.id, { yesPrice: 0.4 });
+    await seedTick(snap.id, { yesPrice: 0.5, conditionId: 'cond-2' });
+
+    const res = await service.deleteTableData('bucket_ticks');
+    expect(res.id).toBe('bucket_ticks');
+    expect(res.deleted).toBe(2);
+    expect(res.cascaded).toBe(0);
+
+    const snapCount = await ds.getRepository(WeatherMarketSnapshot).count();
+    expect(snapCount).toBe(1);
+  });
+
+  it('supprime market_snapshots ET cascade bucket_ticks', async () => {
+    const snap = await seedSnapshot();
+    await seedTick(snap.id);
+    await seedTick(snap.id, { conditionId: 'cond-2' });
+
+    const res = await service.deleteTableData('market_snapshots');
+    expect(res.id).toBe('market_snapshots');
+    expect(res.deleted).toBe(1);
+    expect(res.cascaded).toBe(2);
+
+    const snapCount = await ds.getRepository(WeatherMarketSnapshot).count();
+    const tickCount = await ds.getRepository(WeatherBucketTick).count();
+    expect(snapCount).toBe(0);
+    expect(tickCount).toBe(0);
+  });
+});

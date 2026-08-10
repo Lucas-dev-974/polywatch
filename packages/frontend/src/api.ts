@@ -1,3 +1,5 @@
+import type { EnvSettings } from './components/env-settings-types';
+
 const API_BASE = '/api';
 
 /** Cache client pour réduire les doublons de requêtes GET rapprochées.
@@ -495,8 +497,6 @@ export interface CopyConfig {
   slConfirmationTicks: number;
   moveDetectorIntervalMs: number;
   simInitialCapitalCopy: number;
-  simCopyTradingEnabled: boolean;
-  realCopyTradingEnabled: boolean;
 }
 
 export interface CryptoConfig {
@@ -825,6 +825,20 @@ export async function deleteWeatherAlgoDataTables(): Promise<WeatherAlgoDataDele
   });
 }
 
+export interface WeatherAlgoDataDeleteTableResponse {
+  id: WeatherAlgoDataTableId;
+  deleted: number;
+  cascaded: number;
+}
+
+export async function deleteWeatherAlgoDataTable(
+  id: WeatherAlgoDataTableId,
+): Promise<WeatherAlgoDataDeleteTableResponse> {
+  return api<WeatherAlgoDataDeleteTableResponse>(`/weather-algo-data/tables/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 function weatherAlgoDataQuery(params: Record<string, string | number | boolean | undefined>): string {
   const qs = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -1021,7 +1035,7 @@ export async function fetchEnvSettings(): Promise<EnvSettings> {
     ...cryptoConfig,
     ...weatherConfig,
     simInitialCapital: cryptoConfig.simInitialCapitalCrypto,
-  } as EnvSettings;
+  } as unknown as EnvSettings;
 }
 
 /**

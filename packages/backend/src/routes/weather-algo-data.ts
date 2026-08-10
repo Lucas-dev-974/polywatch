@@ -1,7 +1,21 @@
 import { Router } from 'express';
 import type { DataSource } from 'typeorm';
-import { WeatherAlgoDataService } from '@polywatch/core';
+import { WeatherAlgoDataService, type WeatherAlgoDataTableId } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
+
+const VALID_TABLE_IDS: readonly string[] = [
+  'forecast_history',
+  'market_snapshots',
+  'bucket_ticks',
+  'evaluation_log',
+  'forecast_cache',
+  'position_forecasts',
+  'clob_price_history',
+];
+
+function isValidTableId(value: string): value is WeatherAlgoDataTableId {
+  return (VALID_TABLE_IDS as readonly string[]).includes(value);
+}
 
 function parseOptionalDate(value: unknown): Date | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined;
@@ -147,6 +161,15 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
 
   router.delete('/tables', requireJwt, async (_req, res) => {
     res.json(await service.deleteAllRecordedData());
+  });
+
+  router.delete('/tables/:id', requireJwt, async (req, res) => {
+    const id = req.params.id as string;
+    if (!isValidTableId(id)) {
+      res.status(400).json({ error: `Unknown table id: ${id}` });
+      return;
+    }
+    res.json(await service.deleteTableData(id));
   });
 
   router.get('/coverage', requireJwt, async (_req, res) => {

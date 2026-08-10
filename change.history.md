@@ -1,5 +1,18 @@
 # Change History
 
+## 2026-08-10 — Historique CLOB weather complet (point de settlement) + corrections types frontend
+
+### Added
+- Core: `detectResolvedSide()` — détecte le gagnant d'un marché météo résolu (fast path `outcomePrices` gate `closed`/`acceptingOrders` ; slow path `fetchGammaMarket` gate `gamma.resolved`)
+- Core: `appendSettlementPoint()` — ajoute un point final synthétique (1.00 gagnant / 0.00 perdant) horodaté **après** le dernier trade, pour que le bucket gagnant atteigne 1.00 dans l'historique CLOB
+- Core: `RESOLUTION_MARGIN_SEC = 48h` — fenêtre de fetch étendue au-delà de `endDate` (les marchés météo ne se règlent qu'après publication du résultat officiel)
+- Core: tri DESC + re-sort ASC dans `getClobPriceHistoryTimeline` / `getBucketTicksTimeline` — récupère les `maxTicks` points les plus récents pour ne jamais tronquer la queue de résolution
+- Frontend: correction de ~50 erreurs de type préexistantes (champs `EnvSettings` complétés, imports `market.ts` corrigés, clés JSX/SVG invalides retirées, source `config_change` ajoutée, null-guards socket/champs nullable)
+
+### Changed
+- Core: `resolveMarketEndTs()` ajoute `RESOLUTION_MARGIN_SEC` à `endDate`
+- Docs: `weather-algo.md`, `code/08-weather-algo.md`, `api.md`, `modele-donnees.md` — documentent le point de settlement synthétique, la marge 48h et le tri `maxTicks`
+
 ## 2026-07-24 — Température de prédiction dans les headers dropdown
 
 ### Added

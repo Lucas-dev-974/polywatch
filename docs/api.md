@@ -413,6 +413,8 @@ Récupère l'historique des prix YES/NO des buckets météo d'une ville sur une 
 
 **Contraintes CLOB** : `startTs` + `endTs` obligatoires (sans `startTs` → HTTP 400). `startDate` est dérivé du champ Gamma `startDate` (l'API ne renvoie plus `eventStartTime`) ; en dernier recours, fenêtre de 7 jours avant `endTs`. Granularité `fidelity` en minutes (testé jusqu'à 1 min). L'historique des marchés météo quotidiens (depuis ~mars 2026) reste disponible.
 
+**Point de settlement synthétique** : `/prices-history` ne renvoie jamais le payoff post-résolution (1.00/0.00). Pour un marché **résolu**, le service ajoute un point final synthétique (1.00 gagnant / 0.00 perdant) horodaté **après** le dernier trade, afin que le bucket gagnant atteigne 1.00. Le gagnant est détecté via `outcomePrices` (fast path, gate `closed`/`acceptingOrders`) ou via `fetchGammaMarket` (slow path, gate `gamma.resolved`). La fenêtre de fetch est étendue de `48 h` au-delà de `endDate` (`RESOLUTION_MARGIN_SEC`).
+
 ### Backtest (`/api/backtest`)
 
 Routes JWT sous `/api/backtest`. Service : `BacktestRunService` + moteur `@polywatch/backtest`.  

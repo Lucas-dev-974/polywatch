@@ -125,6 +125,9 @@ Depuis l'onglet **Villes**, la section **Données télécharger** permet de char
 - **Persistance** : upsert idempotent (index unique `condition_id, side, recorded_at`) — relancer ne crée pas de doublons.
 - **Contraintes CLOB** : `startTs` + `endTs` obligatoires (sans `startTs` → HTTP 400). `startDate` dérivé du champ Gamma `startDate` (l'API ne renvoie plus `eventStartTime`) ; en dernier recours, fenêtre de 7 jours avant `endTs`. Granularité `fidelity` en minutes (testé jusqu'à 1 min). L'historique des marchés météo quotidiens (depuis ~mars 2026) reste disponible.
 - **Limites** : série de prix `(t, p)` uniquement — pas d'order book, pas de volume/trades, pas d'OHLCV natif. Fenêtre de vie d'un bucket météo = quelques jours.
+- **Point de settlement synthétique** : `/prices-history` ne renvoie **jamais** le payoff post-résolution (1.00 gagnant / 0.00 perdant, fixé par l'oracle). Pour un marché **résolu**, le service ajoute un point final synthétique à la série afin que le bucket gagnant atteigne 1.00. Le gagnant est détecté via `outcomePrices` (fast path, gate `closed`/`acceptingOrders`) ou via `fetchGammaMarket` (slow path, gate `gamma.resolved`). Le point est horodaté **après** le dernier trade de la série (jamais avant), pour rester le dernier point de la courbe.
+- **Marge de résolution** : la fenêtre de fetch est étendue de `48 h` au-delà de `endDate` (`RESOLUTION_MARGIN_SEC`), car les marchés météo ne se règlent qu'après publication du résultat officiel — sans cette marge, le point de résolution serait coupé.
+- **Affichage timeline** : les vues timeline (`getClobPriceHistoryTimeline` / `getBucketTicksTimeline`) récupèrent les `maxTicks` points **les plus récents** (tri DESC) puis les re-trient chronologiquement, pour ne jamais tronquer la queue de résolution.
 
 Doc API : [`api.md`](./api.md) § Weather Algo history. Modèle : [`modele-donnees.md`](./modele-donnees.md).
 

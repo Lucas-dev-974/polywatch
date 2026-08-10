@@ -223,6 +223,13 @@ Lecture / purge manuelle : `WeatherAlgoDataService` + routes
 - `startDate` dérivé du champ Gamma `startDate` (l'API ne renvoie plus
   `eventStartTime`) ; en dernier recours, fenêtre de 7 jours avant `endTs`
   (le CLOB rejette une requête sans `startTs` → HTTP 400).
+- **Point de settlement synthétique** : `/prices-history` ne renvoie jamais le
+  payoff post-résolution (1.00/0.00). Pour un marché résolu, `detectResolvedSide`
+  (fast path `outcomePrices` gate `closed`/`acceptingOrders`, slow path
+  `fetchGammaMarket` gate `gamma.resolved`) détermine le gagnant et
+  `appendSettlementPoint` ajoute un point final (1.00 gagnant / 0.00 perdant)
+  horodaté **après** le dernier trade. Fenêtre de fetch étendue de `48 h`
+  au-delà de `endDate` (`RESOLUTION_MARGIN_SEC`).
 
 Détail : [`../api.md`](../api.md) § Weather Algo history ; [`../modele-donnees.md`](../modele-donnees.md).
 

@@ -128,7 +128,7 @@ describe('WeatherStrategyRunner requestEvaluationCycle', () => {
     await vi.waitFor(() => expect(calls).toBe(2));
   });
 
-  it('restarts the poll timer without an immediate second cycle on poll change', async () => {
+  it('runs a boot exit pass but defers the first full cycle to the next UTC-aligned slot', () => {
     const exitEvaluator = {
       evaluateOpenPositions: vi.fn(async () => undefined),
       updateRiskConfig: vi.fn(),
@@ -138,7 +138,55 @@ describe('WeatherStrategyRunner requestEvaluationCycle', () => {
     runner.setRiskConfig(minimalRisk({ weatherAlgoPollMs: 60_000 }));
     runner.start();
 
-    await vi.waitFor(() => expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(1));
+    // Boot exit pass runs immediately (recovery of open positions).
+    expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(1);
+    // But no full cycle is forced — the next one is grid-aligned.
+    expect((runner as unknown as { timer: NodeJS.Timeout | null }).timer).not.toBeNull();
+
+    runner.stop();
+  });
+
+  it('aligns the first full cycle to the next UTC multiple of pollMs', () => {
+    vi.useFakeTimers();
+    try {
+      const exitEvaluator = {
+        evaluateOpenPositions: vi.fn(async () => undefined),
+        updateRiskConfig: vi.fn(),
+      } as unknown as WeatherExitEvaluator;
+
+      const runner = buildRunner(exitEvaluator);
+      runner.setRiskConfig(minimalRisk({ weatherAlgoPollMs: 60_000 })); // 1 min
+      // Anchor "now" mid-slot: 10:00:30Z → next slot is 10:01:00Z.
+      vi.setSystemTime(new Date('2026-08-11T10:00:30Z'));
+      runner.start();
+
+      // Boot exit pass fires immediately.
+      expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(29_000); // still before the aligned slot
+      expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(1_000); // reaches 10:01:00Z — full cycle runs
+      expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(2);
+
+      runner.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('recreates the poll timer without an extra full cycle on poll change', async () => {
+    const exitEvaluator = {
+      evaluateOpenPositions: vi.fn(async () => undefined),
+      updateRiskConfig: vi.fn(),
+    } as unknown as WeatherExitEvaluator;
+
+    const runner = buildRunner(exitEvaluator);
+    runner.setRiskConfig(minimalRisk({ weatherAlgoPollMs: 60_000 }));
+    runner.start();
+
+    // Boot exit pass counts as the only immediate evaluation.
+    expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(1);
 
     const timerBefore = (runner as unknown as { timer: NodeJS.Timeout | null }).timer;
     expect(timerBefore).not.toBeNull();
@@ -149,7 +197,7 @@ describe('WeatherStrategyRunner requestEvaluationCycle', () => {
     expect(timerAfter).not.toBeNull();
     expect(timerAfter).not.toBe(timerBefore);
 
-    // Give microtasks a chance — setRiskConfig must not fire an extra cycle
+    // Give microtasks a chance — setRiskConfig must not fire an extra full cycle
     await Promise.resolve();
     await Promise.resolve();
     expect(exitEvaluator.evaluateOpenPositions).toHaveBeenCalledTimes(1);

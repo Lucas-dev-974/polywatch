@@ -18,7 +18,6 @@ import {
   discoverWeatherMarkets,
   discoverResolvedWeatherMarkets,
   DEFAULT_RESOLVED_LOOKBACK_DAYS,
-  safeInterval,
   parseWeatherQuestion,
   normalizeWeatherCity,
   buildLookAheadTargetDates,
@@ -111,37 +110,60 @@ export class WeatherStrategyRunner {
     }
   }
 
-  /** Start interval + run one evaluation cycle (boot). */
+  /**
+   * Start the aligned poll scheduler. A boot-only exit pass re-evaluates open
+   * positions immediately (recovery), then the first full cycle happens at the
+   * next UTC-aligned poll slot. Entries are never triggered at boot.
+   */
   start(): void {
     if (this.timer) return;
     this.stopped = false;
     this.pendingRerun = false;
     log.info({ pollMs: this.pollMs }, 'weather strategy runner started');
-    this.startTimer();
-    this.requestEvaluationCycle();
+    void this.runBootExitPass().catch((err) =>
+      log.error({ err }, 'weather boot exit pass failed'),
+    );
+    this.scheduleNextTick();
+  }
+
+  /**
+   * Boot-only exit re-evaluation. Reuses the same exit pass that runs at the
+   * start of each cycle so open positions (pre-close, bucket-exit, drift) are
+   * re-checked immediately after a restart instead of waiting up to `pollMs`
+   * for the first aligned slot. Does not emit entry signals.
+   */
+  private async runBootExitPass(): Promise<void> {
+    if (this.stopped) return;
+    if (!this.exitEvaluator) return;
+    try {
+      await this.exitEvaluator.evaluateOpenPositions();
+    } catch (err) {
+      log.error({ err }, 'weather boot exit evaluation failed');
+    }
   }
 
   stop(): void {
     this.stopped = true;
     this.pendingRerun = false;
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = null;
     }
   }
 
   /**
-   * Recreate the poll timer with the current pollMs. Does not trigger an
-   * evaluation cycle (caller is responsible for requestEvaluationCycle).
+   * Recreate the poll timer with the current pollMs, re-aligning on the next
+   * UTC slot. Does not trigger an evaluation cycle (caller is responsible for
+   * requestEvaluationCycle).
    */
   restartPolling(): void {
     if (this.stopped) return;
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = null;
     }
     log.info({ pollMs: this.pollMs }, 'weather strategy runner poll restarted');
-    this.startTimer();
+    this.scheduleNextTick();
   }
 
   /**
@@ -155,13 +177,25 @@ export class WeatherStrategyRunner {
     );
   }
 
-  private startTimer(): void {
-    if (this.timer || this.stopped) return;
-    this.timer = safeInterval(
-      () => this.runEvaluationCycleGuarded(),
-      this.pollMs,
-      'weather-algo:strategy-runner',
-    );
+  /**
+   * Schedule the next evaluation cycle on a fixed UTC-aligned grid: the poll
+   * fires at the next multiple of `pollMs` since Unix epoch (i.e. UTC midnight).
+   * This makes the cadence independent of process start time — a 15 min poll
+   * always lands on :00/:15/:30/:45 UTC, even across restarts. Each run
+   * re-schedules itself, so execution drift is absorbed.
+   */
+  private scheduleNextTick(): void {
+    if (this.stopped) return;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    const now = Date.now();
+    const delay = Math.max(0, Math.ceil(now / this.pollMs) * this.pollMs - now);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.runEvaluationCycleGuarded().finally(() => this.scheduleNextTick());
+    }, delay);
   }
 
   private async runEvaluationCycleGuarded(): Promise<void> {

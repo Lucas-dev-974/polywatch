@@ -37,11 +37,23 @@ sentinelle n'est pas pollée par le MoveDetector Data API.
 
 | Composant | Cadence | Rôle |
 |-----------|---------|------|
-| `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min) | Sorties puis entrées city-follow |
+| `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min), **aligné sur une grille UTC** | Sorties puis entrées city-follow. Chaque cycle est planifié sur le prochain multiple de `pollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de démarrage et stable d'un redémarrage à l'autre (ex. 15 min → :00/:15/:30/:45 UTC). Au boot, une passe d'exit **immédiate** réévalue les positions ouvertes (reprise) mais **aucun** cycle d'entrée n'est déclenché — le premier cycle complet se fait au prochain créneau aligné. Un cycle immédiat est en revanche forcé sur `config-changed` pour appliquer la config à chaud. |
 | `WeatherExitEvaluator` | début de chaque cycle | Drift + bucket-exit (hysteresis) + pre-close |
 | `WeatherAutoTrackJanitor` | `pollMs` | Cleanup legacy (no-op après suppression de `WeatherMarketSelection`) |
 | `runWeatherEntryPipeline` | sur signal | Gate throttle re-entry + enqueue `WEATHER_OPEN` |
 | Heartbeat / runtime-status | 30 s | Redis `weather-algo:heartbeat`, `weather-algo:runtime-status` |
+
+Le polling du `WeatherStrategyRunner` est **phasé sur une grille horaire fixe** :
+chaque cycle est planifié sur le prochain multiple de `weatherAlgoPollMs` depuis
+minuit UTC (`Math.ceil(now/pollMs)×pollMs`), et non sur un intervalle relatif au
+démarrage. Les polls tombent donc sur des créneaux stables et « propres » (ex.
+15 min → :00/:15/:30/:45 UTC), indépendamment de l'heure de lancement du
+process et sans dérive d'un redémarrage à l'autre. Au boot, une **passe d'exit
+immédiate** réévalue les positions ouvertes (reprise), mais le premier cycle
+complet s'exécute au prochain créneau aligné. Un changement de
+config (`config-changed`) recrée le timer, le ré-aligne sur le prochain
+créneau, **et** déclenche un cycle d'évaluation immédiat pour appliquer la
+nouvelle config sans attendre.
 
 Les sorties tournent **même si `weatherAlgoEnabled = false`** (positions ouvertes).
 

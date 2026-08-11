@@ -109,7 +109,7 @@ export function WeatherAlgoSettingsTab() {
               min={1}
               max={1440}
               step={1}
-              hint="Cadence d’évaluation des entrées/sorties, en minutes. Minimum 1 minute (60 000 ms). Les cycles longs peuvent être différés (anti-overlap). Le timer est recréé à chaud après sauvegarde."
+              hint="Cadence d’évaluation des entrées/sorties, en minutes. Minimum 1 minute (60 000 ms). Les polls sont alignés sur une grille horaire UTC (multiple de la période depuis minuit UTC), indépendante de l’heure de démarrage. Les cycles longs peuvent être différés (anti-overlap). Le timer est recréé à chaud après sauvegarde."
               onChange={(minutes) =>
                 update('weatherAlgoPollMs', Math.max(10_000, Math.round(minutes * 60_000)))
               }

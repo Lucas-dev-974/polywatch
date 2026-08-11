@@ -92,7 +92,7 @@ dédiées (`close-signals`).
 
 | Composant | Cadence | Rôle |
 |---|---|---|
-| `WeatherStrategyRunner` | `WEATHER_ALGO_POLL_MS` puis `weatherAlgoPollMs` | Exit puis entry city-follow |
+| `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min), **aligné grille UTC** | Exit puis entry city-follow. Polls sur multiples de `pollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de boot, stable d'un redémarrage à l'autre. Au boot : passe d'exit immédiate (reprise positions ouvertes) + premier cycle complet au prochain créneau aligné. `config-changed` force un cycle immédiat. |
 | Auto-track janitor | `config.pollMs` | Sync sélections ; pub `config-changed` si added |
 | Metrics publisher | 30 s | Parse rate questions + alertes |
 | Heartbeat | 30 s | Pub + Redis TTL 60 s |

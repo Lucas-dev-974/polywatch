@@ -5,6 +5,7 @@ import {
   getCopySlCloseMaxRetries,
   getCryptoSlCloseMaxRetries,
   getWeatherSlCloseMaxRetries,
+  getWeatherSlConfirmationTicks,
   getPositionPreCloseParams,
   isCriticalExitEmitBlock,
   isForcedExitCloseReason,
@@ -131,7 +132,7 @@ export class PositionExitEvaluator {
     } else if (algoKind === 'crypto') {
       maxRetries = getCryptoSlCloseMaxRetries(algoConfig as CryptoConfig, mode);
     } else {
-      maxRetries = getWeatherSlCloseMaxRetries(algoConfig as WeatherConfig, mode);
+      maxRetries = getWeatherSlCloseMaxRetries(algoConfig as WeatherConfig, mode, pos.strategyId);
     }
     const failedAttempts = pos.forcedExitFailedAttempts ?? 0;
     if (failedAttempts >= maxRetries) {
@@ -269,6 +270,7 @@ export class PositionExitEvaluator {
       mode,
       pos.reason,
       marketInterval,
+      pos.strategyId,
     );
     const now = Date.now();
     const timeToEndMs = market?.endDate
@@ -348,7 +350,7 @@ export class PositionExitEvaluator {
     } else if (algoKind === 'crypto') {
       slConfirmationTicks = (algoConfig as CryptoConfig).cryptoAlgoSlConfirmationTicks ?? 1;
     } else {
-      slConfirmationTicks = (algoConfig as WeatherConfig).weatherAlgoSlConfirmationTicks ?? 1;
+      slConfirmationTicks = getWeatherSlConfirmationTicks(algoConfig as WeatherConfig, pos.strategyId);
     }
     if (closeReason === 'SL' && slConfirmationTicks > 1) {
       const prev = this.slConfirmations.get(pos.id);

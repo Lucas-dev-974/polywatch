@@ -1,5 +1,9 @@
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import { isExitLegEnabled } from './policy.js';
+import {
+  getStrategyParams,
+  DEFAULT_WEATHER_STRATEGY_PARAMS,
+} from '../weather/strategy-catalog.js';
 
 /**
  * Fixed exit defaults for weather-algo positions.
@@ -56,33 +60,31 @@ export function resolveWeatherEntryExitParams(
   weatherConfig: WeatherConfig,
   _mode: 'sim' | 'real',
   _interval?: string | null,
+  strategyId?: string | null,
 ): WeatherEntryExitParams {
-  const slBidPoints = isExitLegEnabled(weatherConfig.weatherAlgoSlEnabled)
-    ? pickAlgoBidPointsThreshold(
-        weatherConfig.weatherAlgoSlBidPoints,
-        WEATHER_EXIT_DEFAULTS.slBidPoints,
-      )
+  const bag = strategyId
+    ? getStrategyParams(weatherConfig, strategyId)
+    : DEFAULT_WEATHER_STRATEGY_PARAMS;
+  const slBidPoints = isExitLegEnabled(bag.slEnabled)
+    ? pickAlgoBidPointsThreshold(bag.slBidPoints, WEATHER_EXIT_DEFAULTS.slBidPoints)
     : null;
 
-  const tpBidPoints = isExitLegEnabled(weatherConfig.weatherAlgoTpEnabled)
-    ? pickAlgoBidPointsThreshold(
-        weatherConfig.weatherAlgoTpBidPoints,
-        WEATHER_EXIT_DEFAULTS.tpBidPoints,
-      )
+  const tpBidPoints = isExitLegEnabled(bag.tpEnabled)
+    ? pickAlgoBidPointsThreshold(bag.tpBidPoints, WEATHER_EXIT_DEFAULTS.tpBidPoints)
     : null;
 
-  const trailingEnabled = isExitLegEnabled(weatherConfig.weatherAlgoTrailingEnabled);
+  const trailingEnabled = isExitLegEnabled(bag.trailingEnabled);
 
   return {
     trailingBidPoints: trailingEnabled
       ? pickAlgoBidPointsThreshold(
-          weatherConfig.weatherAlgoTrailingBidPoints,
+          bag.trailingBidPoints,
           WEATHER_EXIT_DEFAULTS.trailingBidPoints,
         )
       : null,
     trailingActivationBidPoints: trailingEnabled
       ? pickAlgoBidPointsThreshold(
-          weatherConfig.weatherAlgoTrailingActivationBidPoints,
+          bag.trailingActivationBidPoints,
           WEATHER_EXIT_DEFAULTS.trailingActivationBidPoints,
         )
       : null,

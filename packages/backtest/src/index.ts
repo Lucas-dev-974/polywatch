@@ -1,5 +1,9 @@
 import type { DataSource } from 'typeorm';
-import { BacktestRunService, type WeatherConfig } from '@polywatch/core';
+import {
+  BacktestRunService,
+  DEFAULT_WEATHER_STRATEGY_PARAMS,
+  type WeatherConfig,
+} from '@polywatch/core';
 import { loadWeatherEvents, countWeatherEvents } from './adapters/weather/data-loader.js';
 import { WeatherBacktestAdapter } from './adapters/weather/weather-adapter.js';
 import { BacktestRunner, type RunResult, type RunContext } from './engine/runner.js';
@@ -42,9 +46,9 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     params.configOverrides,
   );
 
-  const entryUsdc = params.entryUsdc ?? configSnapshot.weatherAlgoEntryUsdc ?? 10;
+  const entryUsdc = params.entryUsdc ?? DEFAULT_WEATHER_STRATEGY_PARAMS.entryUsdc;
   const maxConcurrentPositions =
-    params.maxConcurrentPositions ?? configSnapshot.weatherAlgoMaxOpenPositions ?? 10;
+    params.maxConcurrentPositions ?? DEFAULT_WEATHER_STRATEGY_PARAMS.maxOpenPositions;
 
   const runner = new BacktestRunner();
   return runner.run({

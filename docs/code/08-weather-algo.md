@@ -110,8 +110,15 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
 - **BUY YES uniquement** (même si le type autorise NO).
 - Edge = `forecastYesProb − marketYesPrice` (`core` `weather-edge.ts`).
 - Seuil dynamique : `resolveDynamicMinEdge(stdDev, hoursToResolution, minEdge)`.
-- Tunables `WeatherConfig` : `weatherAlgoMinEdge`, `weatherAlgoMaxForecastStd`,
-  `weatherAlgoMinForecastProbability`.
+- **Tunables per-strategy** : `bag.minEdge`, `bag.maxForecastStd`,
+  `bag.minForecastProbability` (lus via `getStrategyParams(weatherCfg,
+  strategyId)`). Les colonnes `weatherAlgoMinEdge` / `maxForecastStd` /
+  `minForecastProbability` ne sont plus lues au runtime — elles servent
+  uniquement de source au backfill (migrations `0107`/`0108`).
+- Knobs nullables (`maxForecastStd`, `minForecastProbability`,
+  `slBidPoints`, `tpBidPoints`, `trailingBidPoints`,
+  `trailingActivationBidPoints`) : `0` stocké → coercé à `null` au runtime
+  (désactive le filtre / la jambe).
 - Abstentions typiques : `no_question`, `unrecognized_question`,
   `zero_forecast_probability`, `forecast_probability_below_min`,
   `forecast_too_uncertain`, `no_market_prices`, `insufficient_edge`,
@@ -125,42 +132,66 @@ Modes `single` / `multi` : appliqués dans le **runner**
 `activeStrategies` publié dans runtime-status.
 
 Catalogue servi par `GET /api/weather-algo/strategy-catalog`. Params déclaratifs
-(`weatherAlgoStrategyParams`) : schéma prêt, catalogue v1 = `params: []` (seuils
-d'entrée = knobs globaux `weatherAlgoMinEdge` / minProb / maxStd).
+(`weatherAlgoStrategyParams`) : **chaque stratégie porte sa config complète**
+(entry gates, sizing, sorties, SL/TP/trailing, risk limits, kill-switch,
+pre-close). Le bag typé `WeatherStrategyParamsBag` est défini dans
+`strategy-catalog.ts` ; `getStrategyParams(cfg, strategyId)` résout le bag
+(catalogue defaults + stored overrides + coercition `0 → null` pour les
+nullables). `sanitizeWeatherStrategyParams` garde les clés de
+`DEFAULT_WEATHER_STRATEGY_PARAMS` (donc `allowedMarketTags` survit même sans
+champ UI). Les colonnes `weatherAlgo*` legacy ne sont plus modifiables via
+l'API (`weatherConfigUpdateSchema` rejette les champs per-strategy via
+`.strict()`).
 
 ## Pipeline entry (`weather-entry-pipeline.ts`)
 
 File : **`weather-order-signals`** (pas `order-signals` / `algo-order-signals`).
 Reason : `WEATHER_OPEN`. Interval hash logique : `'weather'`.
 
-Gates (ordre) : enabled → marché tradable → pre-close hours → liquidité ask →
+Gates (ordre) : enabled → marché tradable → pre-close hours (`bag.closeBeforeResolutionHours`) → liquidité ask →
 modes sim/real (`weatherAlgoSimEnabled` / `weatherAlgoRealEnabled` +
 `globalConfig.realTradingEnabled`) → cooldown post-exec → throttle re-entry
-ville → resume réservation → cash réel → sizing `fixed_usdc`
-(`weatherAlgoEntryUsdc`) + MOS / depth retry → reserve + enqueue → snapshot
-forecast ASAP (1 position max / ville).
+ville → **kill-switch gate** (`RiskService.checkKillSwitch('weather', mode,
+signal.strategyId)` ; si `blockEntries` → skip `'Kill-switch actif
+(block_entries)'`) → resume réservation → cash réel → sizing `fixed_usdc`
+(`bag.entryUsdc`) + MOS / depth retry (`bag.entryDepthRetryMax` /
+`bag.entryDepthRetryDelayMs`) → reserve (`strategyId` persisté sur
+`CopiedPosition`) + enqueue → snapshot
+forecast ASAP (1 position max / ville, `strategyId` persisté sur
+`WeatherPositionForecast`).
 
 ## Sorties (`weather-exit-evaluator.ts`)
 
+Paramètres lus depuis le bag de la stratégie d'origine :
+`bag = getStrategyParams(risk, snapshot.strategyId ?? pos.strategyId ??
+resolveEnabledWeatherStrategies(risk)[0] ?? 'weather-forecast')`.
+
 Priorité :
 
-1. `WEATHER_PRE_CLOSE` — `hoursToEnd ≤ weatherAlgoCloseBeforeResolutionHours`
+1. `WEATHER_PRE_CLOSE` — `hoursToEnd ≤ bag.closeBeforeResolutionHours`
 2. `WEATHER_FORECAST_CHANGE` — `|mean_now − mean_entry| >
-   weatherAlgoForecastChangeThreshold`
+   bag.forecastChangeThreshold`
 3. `WEATHER_BUCKET_EXIT` — forecast hors palier **et** hysteresis
-   (`weatherAlgoBucketHysteresisPolls`) **et** mode
-   `weatherAlgoCityFollowSwitchMode = close_and_reenter` (`hold` = pas de close
+   (`bag.bucketHysteresisPolls`) **et** mode
+   `bag.cityFollowSwitchMode = close_and_reenter` (`hold` = pas de close
    bucket ; `add_position` coercé → `close_and_reenter`)
 
 Redis :
 
 - Hysteresis : `weather-bucket-hysteresis:{copiedPositionId}`
 - Re-entry throttle (après bucket/drift) :
-  `weather-reentry:{cityNormalized}:{mode}` TTL `weatherAlgoReentryThrottleMs`
+  `weather-reentry:{cityNormalized}:{mode}` TTL `bag.reentryThrottleMs`
 - Dedupe close : `weather-close:{posId}:{reason}` (TTL 120 s)
 
 File close : `close-signals` (partagée worker). Bid ≤ 0 → exit **différé**.
 Forecast indisponible → skip drift/bucket (pas de close forcée).
+
+**SL/TP/trailing weather** (gérés par le worker `position-exit-evaluator.ts`,
+pas dans ce package) : `bag.slBidPoints` / `bag.tpBidPoints` /
+`bag.trailingBidPoints` / `bag.trailingActivationBidPoints` /
+`bag.slConfirmationTicks` / `bag.slCloseMaxRetries` — tous résolus via
+`getWeatherSl*` avec `pos.strategyId`. `bag.slEnabled` /
+`bag.tpEnabled` / `bag.trailingEnabled` par stratégie.
 
 ## Miroir crypto-algo (C8)
 
@@ -190,8 +221,15 @@ documenter le miroir et converger par copie consciente.
 | `SERVICE_TOKEN` | (dev default) |
 | `POLYMARKET_GAMMA_API` / `CLOB_API` / `WS_URL` | endpoints Polymarket publics |
 
-Knobs runtime : colonnes `weatherAlgo*` de `WeatherConfig` +
-`GlobalConfig.realTradingEnabled`. Voir [`../configuration.md`](../configuration.md).
+Knobs runtime : **per-strategy** via `weatherAlgoStrategyParams` (bag
+`WeatherStrategyParamsBag` dans `strategy-catalog.ts`, résolu par
+`getStrategyParams`). Les colonnes `weatherAlgo*` legacy ne servent qu'au
+backfill. Globaux structurels restants : `weatherAlgoEnabled` /
+`weatherAlgoSimEnabled` / `weatherAlgoRealEnabled` /
+`weatherAlgoSelectionMode` / `weatherAlgoMaxSignalsPerEvent` /
+`weatherAlgoPollMs` / `weatherAlgoStrategies` / recording toggles /
+retentionDays / `simInitialCapitalWeather`. Voir
+[`../configuration.md`](../configuration.md).
 
 ## Persistance données marché (Phases 0–4)
 

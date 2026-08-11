@@ -87,6 +87,7 @@ export function buildPositionExitContext(params: {
     pos.mode as TradingMode,
     pos.reason,
     marketInterval,
+    pos.strategyId,
   );
   const lifecycleFlags = resolveExitLifecycleFlags(lifecycle, now);
   const useConservativeMark = shouldUseConservativeExitMark({

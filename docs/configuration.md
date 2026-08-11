@@ -127,33 +127,107 @@ Migration : `AddCryptoAlgoSlQuotaConfig1700000000044` (colonnes sur `crypto_conf
 
 #### Weather Algo (`weatherAlgo*`)
 
-Parametres du trading algorithmique meteo, stockes dans `weather_config` et modifiables via `GET/PUT /api/config/weather` (UI : page Weather Algo → onglet Parametres). Voir aussi [`weather-algo.md`](./weather-algo.md).
+Parametres du trading algorithmique meteo, stockes dans `weather_config` et modifiables via `GET/PUT /api/config/weather` (UI : page Weather Algo). Voir aussi [`weather-algo.md`](./weather-algo.md).
+
+**Architecture config** : depuis la refonte per-strategy, les paramètres sont
+répartis en deux catégories :
+
+1. **Globaux structurels** (colonnnes `weather_config`, onglet **Paramètres**) :
+   toggles d'activation, polling, sélection, recording/retention, capital sim.
+   Modifiables via `PUT /api/config/weather` (`weatherConfigUpdateSchema`).
+
+2. **Per-strategy** (`weatherAlgoStrategyParams` JSON, onglet **Stratégies**) :
+   chaque stratégie activée porte sa config complète — gates d'entrée, sizing,
+   sorties, SL/TP/trailing, risk limits, kill-switch, pre-close. Bag typé
+   `WeatherStrategyParamsBag` (`packages/core/src/weather/strategy-catalog.ts`),
+   résolu au runtime par `getStrategyParams(cfg, strategyId)`. Catalogue des
+   params déclaratifs servi par `GET /api/weather-algo/strategy-catalog`.
+
+Les colonnes `weatherAlgo*` legacy (minEdge, entryUsdc, forecastChangeThreshold,
+…) ne sont plus lues au runtime — elles servent uniquement de **source au
+backfill** (migrations `AddWeatherStrategyId1700000000106` /
+`BackfillWeatherStrategyParams1700000000107` /
+`BackfillWeatherStrategyRepair1700000000108`). `weatherConfigUpdateSchema`
+rejette les champs per-strategy via `.strict()`.
+
+##### Globaux structurels (onglet Paramètres)
 
 | Parametre | Defaut | Effet |
 |-----------|--------|-------|
 | `weatherAlgoEnabled` | `false` | Active/desactive les **entrees** weather-algo (les sorties drift / bucket / pre-close restent evaluees pour les positions ouvertes) |
 | `weatherAlgoSimEnabled` | `true` | Autorise les entrees en mode simulation |
 | `weatherAlgoRealEnabled` | `false` | Autorise les entrees en mode reel (requiert aussi `realTradingEnabled`) |
-| `weatherAlgoMinEdge` | `0.10` | Edge de base (forecast prob - market price) ; le seuil effectif est dynamique (`resolveDynamicMinEdge`) |
-| `weatherAlgoMaxForecastStd` | `null` | Std dev max des modeles pour autoriser l'entree (°C, null = illimite) |
-| `weatherAlgoSizingMode` | `fixed_usdc` | Mode de sizing (actuellement `fixed_usdc` uniquement) |
-| `weatherAlgoEntryUsdc` | `10` | Montant fixe d'entree en USDC par position weather-algo |
 | `weatherAlgoSelectionMode` | `single` | Mode de selection entre **villes** : `single` (meilleure ville), `multi` (top N villes). Toute valeur non reconnue retombe sur `single`. |
 | `weatherAlgoMaxSignalsPerEvent` | `3` | Max villes en mode `multi` |
-| `weatherAlgoForecastChangeThreshold` | `2` | Drift du forecast mean (°C) → close `WEATHER_FORECAST_CHANGE` |
-| `weatherAlgoCloseBeforeResolutionHours` | `1` | Gate d'entrée + auto-close `WEATHER_PRE_CLOSE` dans cette fenêtre |
-| `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min, min 10_000). Hot-reload : le timer est recréé à chaud et un cycle d’évaluation est lancé immédiatement sur `config-changed` (`kind` weather/global/absent). Anti-overlap + pendingRerun si un cycle est déjà en cours. Surcharge aussi via env `WEATHER_ALGO_POLL_MS` au démarrage. |
-| `weatherAlgoCityFollowSwitchMode` | `close_and_reenter` | Si la prevision change de palier : `close_and_reenter` (fermer puis re-entrer) ou `hold` (garder ; drift/pre-close restent actifs). `add_position` est coerce vers `close_and_reenter`. |
-| `weatherAlgoBucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
-| `weatherAlgoReentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree sur la meme ville |
+| `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min, min 10_000). Hot-reload : le timer est recréé à chaud et un cycle d'évaluation est lancé immédiatement sur `config-changed` (`kind` weather/global/absent). Anti-overlap + pendingRerun si un cycle est déjà en cours. Surcharge aussi via env `WEATHER_ALGO_POLL_MS` au démarrage. |
+| `weatherAlgoStrategies` | `["weather-forecast"]` | Liste des stratégies activées (IDs catalogue). Ordre = priorité first-wins. |
 | `weatherAlgoForecastHistoryRecordingEnabled` | `true` | Enregistre `weather_forecast_history` a chaque fetch Open-Meteo reel |
 | `weatherAlgoMarketSnapshotRecordingEnabled` | `true` | Enregistre snapshots + bucket ticks a chaque cycle |
 | `weatherAlgoEvaluationLogRecordingEnabled` | `true` | Enregistre le journal d'evaluation (signal/abstain) |
 | `weatherAlgoForecastHistoryRetentionDays` | `90` | Retention purge horaire forecast history |
 | `weatherAlgoMarketSnapshotRetentionDays` | `30` | Retention snapshots (cascade ticks) |
 | `weatherAlgoEvaluationLogRetentionDays` | `90` | Retention evaluation log |
+| `simInitialCapitalWeather` | — | Capital initial sim weather (pUSD) |
 
-UI : Parametres (toggles/retention) + onglet **Donnees** (exploration/purge). Voir [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+##### Per-strategy (onglet Stratégies → section de chaque stratégie)
+
+Résolus via `getStrategyParams(cfg, strategyId)` → `WeatherStrategyParamsBag`.
+Knobs nullables (`*BidPoints`, `maxForecastStd`, `minForecastProbability`) :
+UI `NullableNumberField` — vide/`0` = `null` (désactivé).
+
+> **Pas de distinction sim/real** dans le bag weather : les getters
+> `getWeather*(cfg, mode, strategyId)` acceptent un paramètre `mode` pour
+> alignement d'API avec copy/crypto, mais l'ignorent — la valeur du bag est
+> utilisée telle quelle pour les deux modes.
+
+| Clé bag | Defaut | Effet |
+|---------|--------|-------|
+| `minEdge` | `0.10` | Edge de base (forecast prob - market price) ; seuil effectif dynamique (`resolveDynamicMinEdge`) |
+| `maxForecastStd` | `null` | Std dev max des modeles (°C, null = illimite) |
+| `minForecastProbability` | `null` | Probabilité forecast min (null = illimité) |
+| `sizingMode` | `fixed_usdc` | Mode de sizing (`fixed_usdc` uniquement) |
+| `entryUsdc` | `10` | Montant fixe d'entree USDC |
+| `entryDepthRetryMax` | `3` | Retries profondeur ask insuffisante |
+| `entryDepthRetryDelayMs` | `1000` | Délai entre retries (ms) |
+| `maxOpenPositions` | `10` | Max positions ouvertes (par stratégie) |
+| `maxPositionSizeUsdc` | `200` | Taille max par position (par stratégie) |
+| `maxExposureUsdc` | `1000` | Plafond exposition stratégie |
+| `maxDailyLossUsdc` | `100` | Perte journalière max (par stratégie) |
+| `killSwitchAction` | `block_entries` | `block_entries` \| `force_close_all` \| `block_and_notify` (par stratégie) |
+| `slEnabled` | `true` | Jambe SL (par stratégie) |
+| `tpEnabled` | `true` | Jambe TP (par stratégie) |
+| `trailingEnabled` | `true` | Jambe trailing (par stratégie) |
+| `slBidPoints` | `null` | Seuil SL en points de bid absolus (null = hérite default) |
+| `tpBidPoints` | `null` | Seuil TP en points de bid absolus (null = hérite default) |
+| `trailingBidPoints` | `null` | Trailing stop en points de bid (null = hérite) |
+| `trailingActivationBidPoints` | `null` | Seuil activation trailing en points de bid (null = hérite) |
+| `slConfirmationTicks` | `2` | Evaluations consecutives SL avant signal |
+| `slCloseMaxRetries` | `5` | Max tentatives cloture SL/TRAILING/PRE_CLOSE_LOSS/KILL_SWITCH |
+| `forecastChangeThreshold` | `2` | Drift du forecast mean (°C) → `WEATHER_FORECAST_CHANGE` |
+| `closeBeforeResolutionHours` | `1` | Gate d'entrée + auto-close `WEATHER_PRE_CLOSE` |
+| `preCloseEnabled` | `true` | Active la pre-close (par stratégie) |
+| `preCloseSeconds` | `60` | Fenêtre pre-close en secondes (par stratégie) |
+| `cityFollowSwitchMode` | `close_and_reenter` | `close_and_reenter` \| `hold` (`add_position` coercé) |
+| `bucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
+| `reentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree ville |
+| `minTimeToClose` | `0` | Secondes minimum avant cloture pour autoriser une entree |
+| `allowedMarketTags` | `[]` | Whitelist de slugs Gamma (vide = tous) |
+| `signalScoreSizingEnabled` | `true` | Ajuste la taille d'entree selon le score de qualité du signal |
+| `minBidToAskRatio` | `0.9` | Ratio bid/ask VWAP minimum pour autoriser une entree |
+
+UI : onglet **Paramètres** (globaux) + onglet **Stratégies** (activation +
+params per-strategy) + onglet **Donnees** (exploration/purge). Voir
+[`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+
+##### Colonnes legacy (source backfill, non modifiables API)
+
+Les colonnes `weatherAlgoMinEdge`, `weatherAlgoMaxForecastStd`,
+`weatherAlgoMinForecastProbability`, `weatherAlgoSizingMode`,
+`weatherAlgoEntryUsdc`, `weatherAlgoForecastChangeThreshold`,
+`weatherAlgoCloseBeforeResolutionHours`, `weatherAlgoCityFollowSwitchMode`,
+`weatherAlgoBucketHysteresisPolls`, `weatherAlgoReentryThrottleMs`, etc.
+restent présentes en DB pour le backfill initial (migrations `0107`/`0108`)
+mais ne sont plus lues au runtime ni acceptées par l'API.
 
 #### Bande d'entree crypto-algo (`cryptoAlgoEntryPrice*`)
 

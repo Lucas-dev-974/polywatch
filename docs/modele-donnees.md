@@ -57,9 +57,9 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `E2eRunPosition` | `e2e_run_positions` | Positions d'un run E2E (conditionId, cryptoSymbol, interval, prix d'entree, PnL, statut) |
 | `WeatherMarketSelection` | `weather_market_selections` | **Supprimé** — remplacé par `WeatherAutoTrackRule` (city-first) |
 | `WeatherAutoTrackRule` | `weather_auto_track_rules` | **Sélection active** : ville surveillée (`city`, `metric=highest_temp`, `lookAheadDays`, `mode=city_follow`) |
-| `WeatherConfig` | `weather_config` | Config weather-algo (edge, switch mode, hysteresis, throttle, capital sim, **toggles/rétention recording**…) — API `GET/PUT /api/config/weather` |
+| `WeatherConfig` | `weather_config` | Config weather-algo (globaux structurels : toggles, polling, sélection, recording/retention, capital sim ; **per-strategy** via `weatherAlgoStrategyParams` JSON) — API `GET/PUT /api/config/weather` |
 | `WeatherForecastCache` | `weather_forecast_cache` | Cache Open-Meteo upsert — **actif** |
-| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture — **actif** (index unique `copied_position_id`). Colonnes `entry_bucket_comparison` + `entry_bucket_bounds` pour bucket-exit. |
+| `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture — **actif** (index unique `copied_position_id`). Colonnes `entry_bucket_comparison` + `entry_bucket_bounds` pour bucket-exit ; `strategy_id` (per-strategy, migration `0106`). |
 | `WeatherForecastHistory` | `weather_forecast_history` | Historique append-only des fetchs Open-Meteo (backtest) — `fetchedAt` |
 | `WeatherMarketSnapshot` | `weather_market_snapshots` | Snapshot marché par cycle × ville × date — `recordedAt` |
 | `WeatherBucketTick` | `weather_bucket_ticks` | Prix YES/NO d’un bucket actif ; FK `snapshot_id` **ON DELETE CASCADE**. Colonnes dénormalisées `city`, `city_normalized`, `target_date_iso`, `metric` (backfillées depuis le snapshot parent) + `fidelity_minutes` (dérivé de la cadence de snapshot `weatherAlgoPollMs`) ; index `(city_normalized, target_date_iso, recorded_at)` |
@@ -103,7 +103,7 @@ Trader surveille. `traderAddress`, `nickname`, `active`, `simEnabled`,
 | `GlobalConfig` | `global_config` | Slippage, `realTradingEnabled`, realism sim, auto-snapshots sim/real | `/api/config/global` |
 | `CopyConfig` | `copy_config` | Limites/sizing/sorties/filtres copy-trading (paires sim/real), polling MoveDetector | `/api/config/copy` |
 | `CryptoConfig` | `crypto_config` | Enable/stratégies, sizing, SL/TP/trailing/pre-close, re-entry, SL quota, curve/band, tunables | `/api/config/crypto` |
-| `WeatherConfig` | `weather_config` | Edge, switch mode, hysteresis, throttle, capital sim weather | `/api/config/weather` |
+| `WeatherConfig` | `weather_config` | Globaux structurels + per-strategy (`weatherAlgoStrategyParams`) | `/api/config/weather` |
 
 Détail des champs et défauts : entités `packages/core/src/entities/*Config.ts`,
 seed `packages/core/src/seed/defaults.ts`, et [`configuration.md`](./configuration.md).
@@ -157,7 +157,9 @@ l'idempotence. `eventType` dans `OPENED|INCREASED|DECREASED|CLOSED`,
 
 ### `CopiedPosition` (`copied_positions`)
 Coeur du domaine. Champs notables :
-- Identite : `watchlistId`, `conditionId`, `assetId`, `outcome`, `side`, `mode`.
+- Identite : `watchlistId`, `conditionId`, `assetId`, `outcome`, `side`, `mode`,
+  `strategyId` (weather-algo uniquement, nullable — backfill `'weather-forecast'`
+  pour legacy ; index `IDX_copied_positions_strategy_id`).
 - Entree : `quantity`, `entryPrice`, `entryBidVwap`, `entryFees`,
   `entryQuantityRemaining`, `entryFeesRemaining`.
 - Valorisation : `executableBidVwap`, `unrealizedPnl`, `realizedPnl`,

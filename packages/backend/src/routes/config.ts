@@ -234,18 +234,9 @@ export const riskConfigUpdateSchema = z
     simShadowLoggingEnabled: z.boolean().nullable(),
     shadowSampleRetentionDays: z.union([z.number().int().min(1).max(365), z.null()]),
     weatherAlgoEnabled: z.boolean(),
-    weatherAlgoMinEdge: z.number().finite().min(0.01).max(0.50),
-    weatherAlgoMaxForecastStd: z.number().finite().min(0).max(20).nullable(),
-    weatherAlgoSizingMode: z.enum(['fixed_usdc']),
-    weatherAlgoEntryUsdc: z.number().finite().min(1).max(10000),
     weatherAlgoSelectionMode: z.enum(['single', 'multi']),
     weatherAlgoMaxSignalsPerEvent: z.number().int().min(1).max(20),
-    weatherAlgoForecastChangeThreshold: z.number().finite().min(0.5).max(20),
-    weatherAlgoCloseBeforeResolutionHours: z.number().finite().min(0.5).max(168),
     weatherAlgoPollMs: z.number().int().min(10_000).max(86_400_000),
-    weatherAlgoCityFollowSwitchMode: z.enum(['close_and_reenter', 'hold']),
-    weatherAlgoBucketHysteresisPolls: z.number().int().min(1).max(10),
-    weatherAlgoReentryThrottleMs: z.number().int().min(0).max(86_400_000),
   })
   .partial()
   .strict();

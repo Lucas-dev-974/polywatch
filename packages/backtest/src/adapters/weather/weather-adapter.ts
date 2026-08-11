@@ -3,6 +3,10 @@ import {
   computeTakerFee,
   isMarketActiveForWeather,
   resolveWeatherEntryExitParams,
+  getStrategyParams,
+  type WeatherStrategyParamsBag,
+  WEATHER_FORECAST_STRATEGY_ID,
+  type WeatherStrategyId,
 } from '@polywatch/core';
 import type { BacktestEvent, BookTickEventData, SignalEventData } from '../../engine/events.js';
 import type { RunContext } from '../../engine/runner.js';
@@ -14,10 +18,6 @@ import {
 } from '../../engine/fill-engine.js';
 import { WeatherExitManager } from '../../engine/exit-manager.js';
 import { ClockedWeatherStrategy, createWeatherStrategy } from './clocked-weather-strategy.js';
-import {
-  WEATHER_FORECAST_STRATEGY_ID,
-  type WeatherStrategyId,
-} from '@polywatch/core';
 import type { WeatherSignal } from '@polywatch/weather-algo';
 import {
   buildMarketListItem,
@@ -32,8 +32,8 @@ import {
   selectRunnerSimSignals,
 } from './runner-sim.js';
 
-function resolvedExitMeta(risk: WeatherConfig): Record<string, number | null> {
-  const p = resolveWeatherEntryExitParams(risk, 'sim', null);
+function resolvedExitMeta(risk: WeatherConfig, strategyId?: string | null): Record<string, number | null> {
+  const p = resolveWeatherEntryExitParams(risk, 'sim', null, strategyId);
   return {
     slBidPoints: p.slBidPoints,
     tpBidPoints: p.tpBidPoints,
@@ -61,6 +61,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   private lastRunnerSimBatchAt: number | null = null;
   private exitManager: WeatherExitManager;
   private forecastStore = new ForecastRevisionStore();
+  private readonly strategyId: WeatherStrategyId;
+  private readonly bag: WeatherStrategyParamsBag;
   private warningFired = new Set<string>();
   private staticWarningsEmitted = false;
   private lifecycleSkipped = 0;
@@ -73,6 +75,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
   constructor(ctx: RunContext) {
     const strategyId = (ctx.params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID) as WeatherStrategyId;
+    this.strategyId = strategyId;
+    this.bag = getStrategyParams(ctx.configSnapshot, strategyId);
     if (ctx.params.backtestExecutionMode === 'runner-sim') {
       this.runnerSimStrategies = createRunnerSimStrategies(ctx.configSnapshot, strategyId);
       this.strategy = this.runnerSimStrategies[0] ?? createWeatherStrategy(strategyId);
@@ -80,9 +84,9 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       this.strategy = createWeatherStrategy(strategyId);
     }
     for (const s of this.runnerSimStrategies.length > 0 ? this.runnerSimStrategies : [this.strategy]) {
-      s.setRiskConfig(ctx.configSnapshot);
+      s.setRiskConfig(getStrategyParams(ctx.configSnapshot, s.id));
     }
-    this.exitManager = new WeatherExitManager(ctx.configSnapshot);
+    this.exitManager = new WeatherExitManager(ctx.configSnapshot, strategyId);
   }
 
   async finish(ctx: RunContext): Promise<void> {
@@ -159,7 +163,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   }
 
   private isDailyLossBreached(ctx: RunContext): boolean {
-    const maxDailyLoss = ctx.configSnapshot.weatherAlgoMaxDailyLossUsdc;
+    const bag = this.bag;
+    const maxDailyLoss = bag.maxDailyLossUsdc;
     if (maxDailyLoss == null) return false;
     return ctx.ledger.dailyRealizedPnl(ctx.clock.now()) <= -maxDailyLoss;
   }
@@ -181,7 +186,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       return false;
     }
 
-    const maxExposure = risk.weatherAlgoMaxExposureUsdc;
+    const maxExposure = this.bag.maxExposureUsdc;
     if (maxExposure != null && ctx.ledger.openExposure() + entryUsdc > maxExposure) {
       return false;
     }
@@ -198,7 +203,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     if (this.killSwitchFired) return;
     if (!this.isDailyLossBreached(ctx)) return;
 
-    const action = ctx.configSnapshot.weatherAlgoKillSwitchAction ?? 'block_entries';
+    const action = this.bag.killSwitchAction;
     if (action !== 'force_close_all') {
       this.warnOnce(
         ctx,
@@ -302,7 +307,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         yesPrice,
         entryUsdc: ctx.params.entryUsdc,
         slippageBps: ctx.params.slippageBps,
-        maxPositionSizeUsdc: risk.weatherAlgoMaxPositionSizeUsdc,
+        maxPositionSizeUsdc: this.bag.maxPositionSizeUsdc,
       });
 
       ctx.ledger.openPosition({
@@ -321,7 +326,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           entryBucketComparison: signal.entryBucketComparison ?? null,
           entryBucketBounds: signal.entryBucketBounds ?? null,
           detailReasons: signal.reasons.join(' | '),
-          ...resolvedExitMeta(risk),
+          ...resolvedExitMeta(risk, this.strategyId),
         },
       });
 
@@ -341,8 +346,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     this.lastRunnerSimBatchAt = batchAt;
 
     const groupKey = this.bucketGroupStore.upsert(data);
-    const risk = ctx.configSnapshot;
-    const minHours = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+    const minHours = this.bag.closeBeforeResolutionHours;
 
     const forecast = this.getCurrentForecast(
       ctx,
@@ -422,7 +426,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       return;
     }
 
-    const minHours = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+    const minHours = this.bag.closeBeforeResolutionHours;
     if (!isMarketActiveForWeather(market, minHours, ctx.clock.now().getTime())) {
       this.noteLifecycleSkip(ctx);
       return;
@@ -447,7 +451,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       yesPrice: data.yesPrice,
       entryUsdc: ctx.params.entryUsdc,
       slippageBps: ctx.params.slippageBps,
-      maxPositionSizeUsdc: risk.weatherAlgoMaxPositionSizeUsdc,
+      maxPositionSizeUsdc: this.bag.maxPositionSizeUsdc,
     });
 
     ctx.ledger.openPosition({
@@ -466,7 +470,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         entryBucketComparison: result.signal.entryBucketComparison ?? null,
         entryBucketBounds: result.signal.entryBucketBounds ?? null,
         detailReasons: result.signal.reasons.join(' | '),
-        ...resolvedExitMeta(risk),
+        ...resolvedExitMeta(risk, this.strategyId),
       },
     });
   }
@@ -489,7 +493,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       yesPrice: data.yesPrice,
       entryUsdc: ctx.params.entryUsdc,
       slippageBps: ctx.params.slippageBps,
-      maxPositionSizeUsdc: ctx.configSnapshot.weatherAlgoMaxPositionSizeUsdc,
+      maxPositionSizeUsdc: this.bag.maxPositionSizeUsdc,
     });
 
     ctx.ledger.openPosition({
@@ -511,7 +515,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           high: data.bucketHigh,
           target: data.bucketTarget,
         },
-        ...resolvedExitMeta(ctx.configSnapshot),
+        ...resolvedExitMeta(ctx.configSnapshot, this.strategyId),
       },
     });
   }

@@ -1,4 +1,4 @@
-import type { CryptoConfig, GlobalConfig } from '@polywatch/core';
+import type { CryptoConfig, GlobalConfig, WeatherConfig } from '@polywatch/core';
 
 /** Minimal GlobalConfig for strategy/executor unit tests. */
 export function makeGlobalConfig(
@@ -32,4 +32,20 @@ export function makeCryptoConfig(
     cryptoAlgoPreCloseKeepBidThreshold: 0,
     ...overrides,
   } as CryptoConfig;
+}
+
+/**
+ * Minimal WeatherConfig for exit-eval tests. Per-strategy params are resolved
+ * from the bag (catalogue defaults + stored overrides), so the fixture only
+ * needs the strategy params column.
+ */
+export function makeWeatherConfig(
+  overrides: Partial<WeatherConfig> = {},
+): WeatherConfig {
+  return {
+    weatherAlgoStrategyParams: JSON.stringify({
+      'weather-forecast': { slConfirmationTicks: 2, slCloseMaxRetries: 5 },
+    }),
+    ...overrides,
+  } as WeatherConfig;
 }

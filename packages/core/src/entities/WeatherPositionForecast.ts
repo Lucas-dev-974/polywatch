@@ -15,6 +15,10 @@ export class WeatherPositionForecast {
   @Column({ type: 'integer', name: 'copied_position_id' })
   copiedPositionId!: number;
 
+  /** Strategy that opened the position (weather-algo). Null for manual/expand entries. */
+  @Column({ type: 'text', name: 'strategy_id', nullable: true })
+  strategyId!: string | null;
+
   @Column({ type: 'text' })
   city!: string;
 

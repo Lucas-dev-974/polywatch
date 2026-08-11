@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MarketListItemDto } from '@polywatch/core';
+import { DEFAULT_WEATHER_STRATEGY_PARAMS } from '@polywatch/core';
 import { WeatherForecastAlignedStrategy } from './weather-forecast-aligned.strategy.js';
 
 function market(
@@ -26,7 +27,7 @@ function market(
 describe('WeatherForecastAlignedStrategy', () => {
   it('evaluateGroup picks the bucket containing forecast mean', async () => {
     const strategy = new WeatherForecastAlignedStrategy();
-    strategy.setRiskConfig({ weatherAlgoMinEdge: 0.05 } as never);
+    strategy.setRiskConfig({ ...DEFAULT_WEATHER_STRATEGY_PARAMS, minEdge: 0.05 });
 
     const markets = [
       market('Will the highest temperature in Paris be 22°C on July 30?', 0.4, 'low'),
@@ -48,7 +49,7 @@ describe('WeatherForecastAlignedStrategy', () => {
 
   it('evaluateGroup abstains when forecast mean is outside all buckets', async () => {
     const strategy = new WeatherForecastAlignedStrategy();
-    strategy.setRiskConfig({ weatherAlgoMinEdge: 0.05 } as never);
+    strategy.setRiskConfig({ ...DEFAULT_WEATHER_STRATEGY_PARAMS, minEdge: 0.05 });
 
     const markets = [
       market('Will the highest temperature in Paris be 22°C on July 30?', 0.4, 'low'),

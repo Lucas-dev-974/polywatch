@@ -24,6 +24,24 @@ const mocks = vi.hoisted(() => {
     fetchEntryAskLiquidityWithRetries: vi.fn<any>(async () => ({ ok: true, attempts: 1 })),
     getWeatherEntryDepthRetryMax: vi.fn(() => 3),
     getWeatherEntryDepthRetryDelayMs: vi.fn(() => 100),
+    getStrategyParams: vi.fn(() => ({
+      minEdge: null,
+      maxForecastStd: null,
+      minForecastProbability: null,
+      closeBeforeResolutionHours: null,
+      entryUsdc: null,
+      maxPositionSizeUsdc: null,
+      entryDepthRetryMax: null,
+      entryDepthRetryDelayMs: null,
+      maxOpenPositions: null,
+      maxExposureUsdc: null,
+      maxDailyLossUsdc: null,
+      killSwitchAction: null,
+      forecastChangeThreshold: null,
+      cityFollowSwitchMode: null,
+      bucketHysteresisPolls: null,
+      reentryThrottleMs: null,
+    })),
     enqueueEntrySignal: vi.fn(async () => ({ enqueued: true })),
     resolveEntryEnqueueBlocked: vi.fn(async () => null),
     resumeEntryFromReservation: vi.fn(async () => null),
@@ -33,6 +51,13 @@ const mocks = vi.hoisted(() => {
     ExecutionService: vi.fn().mockImplementation(() => ({
       hasBuyForPosition: async () => false,
       hasInFlightBuy: async () => false,
+    })),
+    RiskService: vi.fn().mockImplementation(() => ({
+      checkKillSwitch: async () => ({
+        killSwitchTriggered: false,
+        blockEntries: false,
+        action: 'block_entries',
+      }),
     })),
   };
 });
@@ -52,6 +77,7 @@ vi.mock('@polywatch/core', () => ({
   fetchEntryAskLiquidityWithRetries: mocks.fetchEntryAskLiquidityWithRetries,
   getWeatherEntryDepthRetryMax: mocks.getWeatherEntryDepthRetryMax,
   getWeatherEntryDepthRetryDelayMs: mocks.getWeatherEntryDepthRetryDelayMs,
+  getStrategyParams: mocks.getStrategyParams,
   enqueueEntrySignal: mocks.enqueueEntrySignal,
   resolveEntryEnqueueBlocked: mocks.resolveEntryEnqueueBlocked,
   resumeEntryFromReservation: mocks.resumeEntryFromReservation,
@@ -59,6 +85,7 @@ vi.mock('@polywatch/core', () => ({
   effectiveEntryMos: mocks.effectiveEntryMos,
   MIN_ORDER_SHARES: 1,
   ExecutionService: mocks.ExecutionService,
+  RiskService: mocks.RiskService,
   // Stub forecast services used by persistEntryForecastSnapshot fallback.
   WeatherForecastService: vi.fn().mockImplementation(() => ({
     getCached: async () => null,
@@ -228,6 +255,13 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
       hasBuyForPosition: async () => false,
       hasInFlightBuy: async () => false,
     }));
+    mocks.RiskService.mockImplementation(() => ({
+      checkKillSwitch: async () => ({
+        killSwitchTriggered: false,
+        blockEntries: false,
+        action: 'block_entries',
+      }),
+    }));
   });
 
   it('returns "Weather-algo désactivé" when risk.weatherAlgoEnabled is false', async () => {
@@ -377,5 +411,20 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     const params = buildParams();
     const result = await runWeatherEntryPipeline(params);
     expect(result).toBeNull();
+  });
+
+  it('returns "Aucun mode exécutable" when weather kill-switch blocks entries', async () => {
+    mocks.hasAlgoEntryCooldown.mockResolvedValueOnce(false);
+    mocks.hasWeatherReentryThrottle.mockResolvedValueOnce(false);
+    mocks.RiskService.mockImplementationOnce(() => ({
+      checkKillSwitch: async () => ({
+        killSwitchTriggered: true,
+        blockEntries: true,
+        action: 'block_entries',
+      }),
+    }));
+    const params = buildParams();
+    const result = await runWeatherEntryPipeline(params);
+    expect(result).toBe('Aucun mode exécutable');
   });
 });

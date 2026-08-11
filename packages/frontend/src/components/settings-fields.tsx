@@ -1,4 +1,4 @@
-import { Show } from 'solid-js';
+import { For, Show } from 'solid-js';
 import type { EnvMode, EnvSettings } from './env-settings-types';
 import { modeSettingKey } from './env-settings-types';
 
@@ -54,9 +54,38 @@ export function NumberField(props: {
   );
 }
 
-/** Nullable percent/seconds field: empty = null (auto), 0 = explicit zero, >0 = override. */
-export function NullableNumberField(props: {
+export function SelectField(props: {
   label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  hint?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div class="form-field">
+      <label>{props.label}</label>
+      <select
+        class="input"
+        value={props.value}
+        onChange={(e) => props.onChange(e.currentTarget.value)}
+      >
+        <For each={props.options}>
+          {(opt) => (
+            <option value={opt.value} selected={opt.value === props.value}>
+              {opt.label}
+            </option>
+          )}
+        </For>
+      </select>
+      <Show when={props.hint}>
+        <p class="form-hint">{props.hint}</p>
+      </Show>
+    </div>
+  );
+}
+
+/** Nullable percent/seconds field: empty = null (auto), 0 = explicit zero, >0 = override. */
+export function NullableNumberField(props: {  label: string;
   value: number | null;
   min?: number;
   max?: number;

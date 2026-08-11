@@ -5,6 +5,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 @Index(['conditionId'])
 @Index(['status', 'closingStartedAt'])
 @Index(['watchlistId', 'conditionId', 'assetId', 'mode', 'status'])
+@Index(['strategyId'])
 export class CopiedPosition {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -109,6 +110,10 @@ export class CopiedPosition {
 
   @Column({ type: 'text', nullable: true })
   reason!: string | null;
+
+  /** Strategy that opened this position (weather-algo). Null for copy/crypto/manual. */
+  @Column({ type: 'text', name: 'strategy_id', nullable: true })
+  strategyId!: string | null;
 
   /** Stop-loss threshold in bid points (absolute) for binary markets. */
   @Column({ type: 'real', name: 'sl_bid_points', nullable: true })

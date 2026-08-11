@@ -238,44 +238,76 @@ const weatherSelectionMode = z.enum(['single', 'multi']);
 
 const weatherStrategyId = z.enum(WEATHER_STRATEGY_IDS);
 
+const weatherSizingMode = z.enum(['fixed_usdc']);
+const weatherCityFollowSwitchMode = z.enum(['close_and_reenter', 'hold']);
+const weatherKillSwitchAction = z.enum(['block_entries', 'force_close_all', 'block_and_notify']);
+
+const nullableNumber = z.number().finite().nullable();
+
+/**
+ * Per-strategy params bag schema. `.partial()` because only overrides are
+ * stored; catalogue defaults fill the rest at runtime. Values must match the
+ * catalogue `StrategyParamSchema` kinds (number / boolean / select).
+ */
+const weatherStrategyParamsBagSchema = z
+  .object({
+    // Entry gates
+    minEdge: z.number().finite().min(0.01).max(0.5),
+    maxForecastStd: nullableNumber,
+    minForecastProbability: nullableNumber,
+    // Sizing
+    entryUsdc: z.number().finite().min(1).max(10000),
+    sizingMode: weatherSizingMode,
+    // Exit
+    forecastChangeThreshold: z.number().finite().min(0.5).max(20),
+    closeBeforeResolutionHours: z.number().finite().min(0.5).max(168),
+    bucketHysteresisPolls: z.number().int().min(1).max(10),
+    reentryThrottleMs: z.number().int().min(0).max(86_400_000),
+    cityFollowSwitchMode: weatherCityFollowSwitchMode,
+    // SL / TP / trailing
+    slEnabled: z.boolean(),
+    tpEnabled: z.boolean(),
+    trailingEnabled: z.boolean(),
+    slBidPoints: nullableNumber,
+    tpBidPoints: nullableNumber,
+    trailingBidPoints: nullableNumber,
+    trailingActivationBidPoints: nullableNumber,
+    // Risk limits
+    maxOpenPositions: z.number().int().min(1).max(50),
+    maxExposureUsdc: z.number().finite().min(1),
+    maxDailyLossUsdc: z.number().finite().min(1),
+    maxPositionSizeUsdc: z.number().finite().min(1),
+    // Depth retry / confirmation
+    entryDepthRetryMax: z.number().int().min(0).max(10),
+    entryDepthRetryDelayMs: z.number().int().min(0).max(60_000),
+    slCloseMaxRetries: z.number().int().min(0).max(20),
+    slConfirmationTicks: z.number().int().min(1).max(10),
+    // Kill switch
+    killSwitchAction: weatherKillSwitchAction,
+    // Pre-close
+    preCloseEnabled: z.boolean(),
+    preCloseSeconds: z.number().int().min(0).max(86_400),
+    // Misc
+    allowedMarketTags: z.array(z.string().min(1).max(100)).max(200),
+    signalScoreSizingEnabled: z.boolean(),
+    minBidToAskRatio: z.number().finite().min(0).max(1),
+    minTimeToClose: z.number().int().min(0).max(86_400),
+  })
+  .partial()
+  .strict();
+
+const weatherStrategyParamsMapSchema = z.record(
+  weatherStrategyId,
+  weatherStrategyParamsBagSchema,
+);
+
 const weatherConfigUpdateSchema = z.object({
-  weatherAlgoMaxOpenPositions: nonNegInt,
-  weatherAlgoMaxExposureUsdc: nonNegNumber,
-  weatherAlgoMaxDailyLossUsdc: nonNegNumber,
-  weatherAlgoMaxPositionSizeUsdc: nonNegNumber,
-  weatherAlgoSlConfirmationTicks: z.number().int().min(1).max(10),
-  weatherAlgoKillSwitchAction: killSwitchAction,
-  weatherAlgoMinBidToAskRatio: bidToAskRatio,
-  weatherAlgoEntryDepthRetryMax: nonNegInt,
-  weatherAlgoEntryDepthRetryDelayMs: nonNegInt,
-  weatherAlgoSlCloseMaxRetries: nonNegInt,
-  weatherAlgoMinTimeToClose: nonNegInt,
-  weatherAlgoAllowedMarketTags: z.array(z.string().min(1).max(100)).max(200),
-  weatherAlgoSignalScoreSizingEnabled: z.boolean(),
-  weatherAlgoPreCloseEnabled: z.boolean(),
-  weatherAlgoPreCloseSeconds: nonNegInt,
-  weatherAlgoSlEnabled: z.boolean(),
-  weatherAlgoTpEnabled: z.boolean(),
-  weatherAlgoTrailingEnabled: z.boolean(),
-  weatherAlgoSlBidPoints: z.number().finite().min(0).max(1).nullable(),
-  weatherAlgoTpBidPoints: z.number().finite().min(0).max(1).nullable(),
-  weatherAlgoTrailingBidPoints: z.number().finite().min(0).max(1).nullable(),
-  weatherAlgoTrailingActivationBidPoints: z.number().finite().min(0).max(1).nullable(),
   weatherAlgoEnabled: z.boolean(),
   weatherAlgoSimEnabled: z.boolean(),
   weatherAlgoRealEnabled: z.boolean(),
-  weatherAlgoMinEdge: z.number().finite().min(0.01).max(0.50),
-  weatherAlgoMaxForecastStd: z.number().finite().min(0).max(20).nullable(),
-  weatherAlgoSizingMode: z.enum(['fixed_usdc']),
-  weatherAlgoEntryUsdc: z.number().finite().min(1).max(10000),
   weatherAlgoSelectionMode: weatherSelectionMode,
   weatherAlgoMaxSignalsPerEvent: z.number().int().min(1).max(20),
-  weatherAlgoForecastChangeThreshold: z.number().finite().min(0.5).max(20),
-  weatherAlgoCloseBeforeResolutionHours: z.number().finite().min(0.5).max(168),
   weatherAlgoPollMs: z.number().int().min(10_000).max(86_400_000),
-  weatherAlgoCityFollowSwitchMode: z.enum(['close_and_reenter', 'hold']),
-  weatherAlgoBucketHysteresisPolls: z.number().int().min(1).max(10),
-  weatherAlgoReentryThrottleMs: z.number().int().min(0).max(86_400_000),
   simInitialCapitalWeather: nonNegNumber,
   weatherAlgoForecastHistoryRecordingEnabled: z.boolean(),
   weatherAlgoMarketSnapshotRecordingEnabled: z.boolean(),
@@ -284,10 +316,7 @@ const weatherConfigUpdateSchema = z.object({
   weatherAlgoMarketSnapshotRetentionDays: z.number().int().min(1).max(365),
   weatherAlgoEvaluationLogRetentionDays: z.number().int().min(1).max(365),
   weatherAlgoStrategies: z.array(weatherStrategyId).min(1).max(10),
-  weatherAlgoStrategyParams: z.record(
-    weatherStrategyId,
-    z.record(z.string().min(1).max(64), z.union([z.number(), z.boolean(), z.string()])),
-  ),
+  weatherAlgoStrategyParams: weatherStrategyParamsMapSchema,
 }).partial().strict();
 
 // ─── Router factory ──────────────────────────────────────────────────

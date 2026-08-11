@@ -63,10 +63,14 @@ describe('WeatherExitManager SL/TP defaults (B1)', () => {
   });
 
   it('disables SL when flag is false even if bidPoints set', () => {
-    const cfg = risk({ weatherAlgoSlEnabled: false, weatherAlgoSlBidPoints: 0.05 });
-    const resolved = resolveWeatherEntryExitParams(cfg, 'sim', null);
+    const cfg = risk({
+      weatherAlgoStrategyParams: JSON.stringify({
+        'weather-forecast': { slEnabled: false, slBidPoints: 0.05 },
+      }),
+    });
+    const resolved = resolveWeatherEntryExitParams(cfg, 'sim', null, 'weather-forecast');
     expect(resolved.slBidPoints).toBeNull();
-    const mgr = new WeatherExitManager(cfg);
+    const mgr = new WeatherExitManager(cfg, 'weather-forecast');
     const p = pos({ slBidPoints: resolved.slBidPoints });
     const sl = mgr.evaluateSlTpTrailing(p, {
       yesPrice: 0.1,

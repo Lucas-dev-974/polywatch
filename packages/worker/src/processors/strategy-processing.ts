@@ -7,6 +7,7 @@ import {
   computeTopOfBook,
   getMaxPreCloseSeconds,
   isAnyPreCloseEnabled,
+  resolveWeatherPreCloseAggregate,
   isMarketTerminal,
   isPreCloseMonitoringScope,
   Market,
@@ -249,18 +250,19 @@ export class StrategyProcessing {
     weatherConfig: WeatherConfig,
   ): Promise<Map<string, Market>> {
     const markets = await this.marketService.loadByConditionIds(conditionIds);
+    const weatherAgg = resolveWeatherPreCloseAggregate(weatherConfig);
     const preCloseSource = {
-      simPreCloseEnabled: copyConfig.simPreCloseEnabled || cryptoConfig.cryptoAlgoPreCloseEnabled === true || weatherConfig.weatherAlgoPreCloseEnabled,
-      realPreCloseEnabled: copyConfig.realPreCloseEnabled || cryptoConfig.cryptoAlgoPreCloseEnabled === true || weatherConfig.weatherAlgoPreCloseEnabled,
+      simPreCloseEnabled: copyConfig.simPreCloseEnabled || cryptoConfig.cryptoAlgoPreCloseEnabled === true || weatherAgg.enabled,
+      realPreCloseEnabled: copyConfig.realPreCloseEnabled || cryptoConfig.cryptoAlgoPreCloseEnabled === true || weatherAgg.enabled,
       simPreCloseSeconds: Math.max(
         copyConfig.simPreCloseSeconds ?? 0,
         cryptoConfig.cryptoAlgoPreCloseSeconds ?? 0,
-        weatherConfig.weatherAlgoPreCloseSeconds ?? 0,
+        weatherAgg.enabled ? weatherAgg.seconds : 0,
       ),
       realPreCloseSeconds: Math.max(
         copyConfig.realPreCloseSeconds ?? 0,
         cryptoConfig.cryptoAlgoPreCloseSeconds ?? 0,
-        weatherConfig.weatherAlgoPreCloseSeconds ?? 0,
+        weatherAgg.enabled ? weatherAgg.seconds : 0,
       ),
       cryptoAlgoPreCloseEnabled: cryptoConfig.cryptoAlgoPreCloseEnabled,
       cryptoAlgoPreCloseSeconds: cryptoConfig.cryptoAlgoPreCloseSeconds,

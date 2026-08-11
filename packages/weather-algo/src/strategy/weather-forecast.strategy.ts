@@ -1,5 +1,5 @@
 import pino from 'pino';
-import type { MarketListItemDto, WeatherConfig } from '@polywatch/core';
+import type { MarketListItemDto, WeatherStrategyParamsBag } from '@polywatch/core';
 import { parseWeatherQuestion } from '@polywatch/core';
 import type {
   WeatherStrategy,
@@ -34,10 +34,10 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     this.minForecastProbability = minProb;
   }
 
-  setRiskConfig(risk: WeatherConfig): void {
-    this.setMinEdge(risk.weatherAlgoMinEdge);
-    this.setMaxForecastStd(risk.weatherAlgoMaxForecastStd);
-    this.setMinForecastProbability(risk.weatherAlgoMinForecastProbability);
+  setRiskConfig(params: WeatherStrategyParamsBag): void {
+    this.setMinEdge(params.minEdge);
+    this.setMaxForecastStd(params.maxForecastStd);
+    this.setMinForecastProbability(params.minForecastProbability);
   }
 
   private gateOptions() {

@@ -7,6 +7,7 @@ import {
 } from '../market/lifecycle.js';
 import {
   getMaxPreCloseSeconds,
+  resolveWeatherPreCloseAggregate,
   type PreCloseCheckSource,
 } from '../risk/policy.js';
 import { CopiedPositionService } from './copied-position.service.js';
@@ -61,26 +62,23 @@ export class MarketResolutionService {
       this.cryptoConfigService.getConfig(),
       this.weatherConfigService.getConfig(),
     ]);
+    const weatherAgg = resolveWeatherPreCloseAggregate(weather);
     return {
       simPreCloseEnabled:
         copy.simPreCloseEnabled ||
         crypto.cryptoAlgoPreCloseEnabled === true ||
-        weather.weatherAlgoPreCloseEnabled,
+        weatherAgg.enabled,
       realPreCloseEnabled:
         copy.realPreCloseEnabled ||
         crypto.cryptoAlgoPreCloseEnabled === true ||
-        weather.weatherAlgoPreCloseEnabled,
+        weatherAgg.enabled,
       simPreCloseSeconds: Math.max(
         copy.simPreCloseEnabled ? copy.simPreCloseSeconds ?? 0 : 0,
-        weather.weatherAlgoPreCloseEnabled
-          ? weather.weatherAlgoPreCloseSeconds ?? 0
-          : 0,
+        weatherAgg.enabled ? weatherAgg.seconds : 0,
       ),
       realPreCloseSeconds: Math.max(
         copy.realPreCloseEnabled ? copy.realPreCloseSeconds ?? 0 : 0,
-        weather.weatherAlgoPreCloseEnabled
-          ? weather.weatherAlgoPreCloseSeconds ?? 0
-          : 0,
+        weatherAgg.enabled ? weatherAgg.seconds : 0,
       ),
       cryptoAlgoPreCloseEnabled: crypto.cryptoAlgoPreCloseEnabled,
       cryptoAlgoPreCloseSeconds: crypto.cryptoAlgoPreCloseSeconds,

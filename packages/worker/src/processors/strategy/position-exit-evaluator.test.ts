@@ -5,7 +5,7 @@ import {
   FORCED_EXIT_RETRY_COOLDOWN_MS,
   SL_CONFIRMATION_MIN_WINDOW_MS,
 } from '../../constants.js';
-import { makeCryptoConfig, makeGlobalConfig } from './test-config-fixtures.js';
+import { makeCryptoConfig, makeGlobalConfig, makeWeatherConfig } from './test-config-fixtures.js';
 
 function makePos(overrides: Partial<CopiedPosition> = {}): CopiedPosition {
   return {
@@ -900,6 +900,47 @@ describe('PositionExitEvaluator', () => {
           'ok',
         );
         expect(enqueue).toHaveBeenCalledTimes(1);
+      });
+
+      it('reads weather SL confirmation ticks from the per-strategy bag', async () => {
+        const enqueue = vi.fn();
+        const evaluator = new PositionExitEvaluator(
+          { enqueue } as any,
+          vi.fn().mockResolvedValue(false),
+        );
+        // Weather position with strategyId; bag sets slConfirmationTicks = 2.
+        const pos = makePos({ reason: 'WEATHER_OPEN', strategyId: 'weather-forecast' });
+        const algo = makeWeatherConfig();
+
+        await closeLogic(
+          evaluator,
+          pos,
+          undefined,
+          algo,
+          -25,
+          -25,
+          -25,
+          -0.5,
+          0.4,
+          'ok',
+        );
+        expect(enqueue).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(SL_CONFIRMATION_MIN_WINDOW_MS + 1);
+        await closeLogic(
+          evaluator,
+          pos,
+          undefined,
+          algo,
+          -25,
+          -25,
+          -25,
+          -0.5,
+          0.4,
+          'ok',
+        );
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        expect(enqueue.mock.calls[0][0].reason).toBe('SL');
       });
     });
 

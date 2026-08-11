@@ -33,10 +33,170 @@ export type WeatherStrategyMeta = {
 };
 
 /**
- * Per-strategy params (declarative). Entry gates (minEdge, minProb, maxStd) stay on
- * WeatherConfig global knobs — both forecast strategies share them via setRiskConfig.
- * Add strategy-specific keys here when a strategy needs its own tunables.
+ * Typed per-strategy tunables for the weather-algo.
+ *
+ * Each strategy carries its own complete trading config (entry gates, sizing,
+ * exits, SL/TP/trailing, risk limits, kill-switch). Stored as a JSON object
+ * under `weatherAlgoStrategyParams[strategyId]`. Absent keys fall back to
+ * `DEFAULT_WEATHER_STRATEGY_PARAMS` (catalogue defaults), never to global
+ * WeatherConfig columns.
  */
+export type WeatherStrategyParamsBag = {
+  // ── Entry gates ────────────────────────────────────────────────────
+  /** Min YES edge required to emit a signal. */
+  minEdge: number;
+  /** Max forecast std dev; null disables the filter. */
+  maxForecastStd: number | null;
+  /** Min forecast-implied YES probability; null disables the filter. */
+  minForecastProbability: number | null;
+  // ── Sizing ─────────────────────────────────────────────────────────
+  /** Fixed entry notional (USDC). */
+  entryUsdc: number;
+  /** Sizing mode. Currently only fixed_usdc is wired to the runtime. */
+  sizingMode: 'fixed_usdc';
+  // ── Exit ───────────────────────────────────────────────────────────
+  /** Forecast mean change (delta °C) triggering WEATHER_FORECAST_CHANGE. */
+  forecastChangeThreshold: number;
+  /** Hours before resolution to pre-close WEATHER_PRE_CLOSE. */
+  closeBeforeResolutionHours: number;
+  /** Consecutive out-of-bucket polls before WEATHER_BUCKET_EXIT. */
+  bucketHysteresisPolls: number;
+  /** Pause after bucket/drift close before re-entering the same city. */
+  reentryThrottleMs: number;
+  /** City-follow switch mode on bucket exit. */
+  cityFollowSwitchMode: 'close_and_reenter' | 'hold';
+  // ── SL / TP / Trailing ─────────────────────────────────────────────
+  slEnabled: boolean;
+  tpEnabled: boolean;
+  trailingEnabled: boolean;
+  slBidPoints: number | null;
+  tpBidPoints: number | null;
+  trailingBidPoints: number | null;
+  trailingActivationBidPoints: number | null;
+  // ── Risk limits ────────────────────────────────────────────────────
+  maxOpenPositions: number;
+  maxExposureUsdc: number;
+  maxDailyLossUsdc: number;
+  maxPositionSizeUsdc: number;
+  // ── Depth retry / confirmation ─────────────────────────────────────
+  entryDepthRetryMax: number;
+  entryDepthRetryDelayMs: number;
+  slCloseMaxRetries: number;
+  slConfirmationTicks: number;
+  // ── Kill switch ────────────────────────────────────────────────────
+  killSwitchAction: 'block_entries' | 'force_close_all' | 'block_and_notify';
+  // ── Pre-close ──────────────────────────────────────────────────────
+  preCloseEnabled: boolean;
+  preCloseSeconds: number;
+  // ── Misc ───────────────────────────────────────────────────────────
+  allowedMarketTags: string[];
+  signalScoreSizingEnabled: boolean;
+  minBidToAskRatio: number;
+  minTimeToClose: number;
+};
+
+/**
+ * Catalogue defaults for a weather strategy. Absent keys in the stored params
+ * bag fall back to these values. Reflects the WeatherConfig column defaults
+ * (kept only as reference — the runtime reads the bag, not the columns).
+ */
+export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
+  minEdge: 0.1,
+  maxForecastStd: null,
+  minForecastProbability: null,
+  entryUsdc: 10,
+  sizingMode: 'fixed_usdc',
+  forecastChangeThreshold: 2,
+  closeBeforeResolutionHours: 1,
+  bucketHysteresisPolls: 2,
+  reentryThrottleMs: 1_800_000,
+  cityFollowSwitchMode: 'close_and_reenter',
+  slEnabled: true,
+  tpEnabled: true,
+  trailingEnabled: true,
+  slBidPoints: null,
+  tpBidPoints: null,
+  trailingBidPoints: null,
+  trailingActivationBidPoints: null,
+  maxOpenPositions: 10,
+  maxExposureUsdc: 1000,
+  maxDailyLossUsdc: 100,
+  maxPositionSizeUsdc: 200,
+  entryDepthRetryMax: 3,
+  entryDepthRetryDelayMs: 1000,
+  slCloseMaxRetries: 5,
+  slConfirmationTicks: 2,
+  killSwitchAction: 'block_entries',
+  preCloseEnabled: true,
+  preCloseSeconds: 60,
+  allowedMarketTags: [],
+  signalScoreSizingEnabled: true,
+  minBidToAskRatio: 0.9,
+  minTimeToClose: 0,
+};
+
+const SIZING_MODE_OPTIONS = [{ value: 'fixed_usdc', label: 'Fixed USDC' }];
+
+const CITY_FOLLOW_OPTIONS = [
+  { value: 'close_and_reenter', label: 'Fermer et rouvrir' },
+  { value: 'hold', label: 'Tenir (pas de fermeture bucket)' },
+];
+
+const KILL_SWITCH_OPTIONS = [
+  { value: 'block_entries', label: 'Bloquer les entrées' },
+  { value: 'force_close_all', label: 'Forcer la fermeture totale' },
+  { value: 'block_and_notify', label: 'Bloquer et notifier' },
+];
+
+/**
+ * UI schemas shared by both forecast strategies. Nullable numeric knobs use a
+ * sentinel default (0 = disabled) for the form; the runtime bag keeps `null`.
+ */
+function sharedParamsSchemas(): StrategyParamSchema[] {
+  return [
+    // Entry gates
+    { key: 'minEdge', label: 'Edge minimal (YES)', kind: 'number', min: 0.01, max: 0.5, step: 0.01, default: 0.1, hint: 'Écart minimal entre probabilité forecast et prix marché.' },
+    { key: 'maxForecastStd', label: 'Écart-type forecast max', kind: 'number', min: 0, max: 20, step: 0.5, default: 0, hint: '0 = désactivé. Filtre les forecasts trop incertains.' },
+    { key: 'minForecastProbability', label: 'Probabilité YES min', kind: 'number', min: 0, max: 1, step: 0.05, default: 0, hint: '0 = désactivé. Filtre les buckets très peu probables.' },
+    // Sizing
+    { key: 'entryUsdc', label: 'Taille d’entrée (USDC)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
+    { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_usdc' },
+    // Exit
+    { key: 'forecastChangeThreshold', label: 'Seuil de dérive forecast (°C)', kind: 'number', min: 0.5, max: 20, step: 0.5, default: 2, hint: 'Déclenche WEATHER_FORECAST_CHANGE.' },
+    { key: 'closeBeforeResolutionHours', label: 'Fermeture avant résolution (h)', kind: 'number', min: 0.5, max: 168, step: 0.5, default: 1 },
+    { key: 'bucketHysteresisPolls', label: 'Hystérésis bucket (polls)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
+    { key: 'reentryThrottleMs', label: 'Ré-entrée ville (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000 },
+    { key: 'cityFollowSwitchMode', label: 'Mode suivi ville', kind: 'select', options: CITY_FOLLOW_OPTIONS, default: 'close_and_reenter' },
+    // SL / TP / Trailing
+    { key: 'slEnabled', label: 'Stop-loss actif', kind: 'boolean', default: true },
+    { key: 'tpEnabled', label: 'Take-profit actif', kind: 'boolean', default: true },
+    { key: 'trailingEnabled', label: 'Trailing actif', kind: 'boolean', default: true },
+    { key: 'slBidPoints', label: 'SL (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'tpBidPoints', label: 'TP (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'trailingBidPoints', label: 'Trailing (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'trailingActivationBidPoints', label: 'Trailing activation (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    // Risk limits
+    { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
+    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 100, default: 1000 },
+    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 100 },
+    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 200 },
+    // Depth retry / confirmation
+    { key: 'entryDepthRetryMax', label: 'Retries profondeur', kind: 'number', min: 0, max: 10, step: 1, default: 3 },
+    { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },
+    { key: 'slCloseMaxRetries', label: 'Retries fermeture SL', kind: 'number', min: 0, max: 20, step: 1, default: 5 },
+    { key: 'slConfirmationTicks', label: 'Confirmation SL (ticks)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
+    // Kill switch
+    { key: 'killSwitchAction', label: 'Action kill-switch', kind: 'select', options: KILL_SWITCH_OPTIONS, default: 'block_entries' },
+    // Pre-close
+    { key: 'preCloseEnabled', label: 'Pre-close actif', kind: 'boolean', default: true },
+    { key: 'preCloseSeconds', label: 'Pre-close (secondes)', kind: 'number', min: 0, max: 86_400, step: 30, default: 60 },
+    // Misc
+    { key: 'signalScoreSizingEnabled', label: 'Sizing par score de signal', kind: 'boolean', default: true },
+    { key: 'minBidToAskRatio', label: 'Ratio bid/ask min', kind: 'number', min: 0, max: 1, step: 0.05, default: 0.9 },
+    { key: 'minTimeToClose', label: 'Temps min avant fermeture (s)', kind: 'number', min: 0, max: 86_400, step: 30, default: 0 },
+  ];
+}
+
 export const WEATHER_STRATEGY_CATALOG: WeatherStrategyMeta[] = [
   {
     id: WEATHER_FORECAST_STRATEGY_ID,
@@ -44,7 +204,7 @@ export const WEATHER_STRATEGY_CATALOG: WeatherStrategyMeta[] = [
     description:
       'Évalue tous les paliers actifs et choisit celui avec le plus grand edge YES (pickBestEdgeBucket).',
     supportsGroup: true,
-    params: [],
+    params: sharedParamsSchemas(),
   },
   {
     id: WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
@@ -52,7 +212,7 @@ export const WEATHER_STRATEGY_CATALOG: WeatherStrategyMeta[] = [
     description:
       'Choisit le palier dont la fourchette contient le forecast mean (selectForecastAlignedBucket), puis applique les gates edge.',
     supportsGroup: true,
-    params: [],
+    params: sharedParamsSchemas(),
   },
 ];
 
@@ -85,7 +245,8 @@ export function serializeWeatherAlgoStrategies(ids: string[]): string {
   return JSON.stringify(ids);
 }
 
-export type WeatherStrategyParamsMap = Record<string, Record<string, number | boolean | string>>;
+/** Stored per-strategy params: partial bags keyed by strategy id. */
+export type WeatherStrategyParamsMap = Record<string, Partial<WeatherStrategyParamsBag>>;
 
 export function parseWeatherAlgoStrategyParams(
   raw: string | null | undefined,
@@ -104,16 +265,35 @@ export function serializeWeatherAlgoStrategyParams(params: WeatherStrategyParams
   return JSON.stringify(params ?? {});
 }
 
+/**
+ * Keys whose stored value `0` means "disabled" (nullable numeric knobs). A
+ * stored `0` is coerced to `null` so the runtime treats it as an inactive
+ * filter / leg instead of an active zero-width gate.
+ */
+const NULLABLE_ZERO_KEYS = new Set([
+  'maxForecastStd',
+  'minForecastProbability',
+  'slBidPoints',
+  'tpBidPoints',
+  'trailingBidPoints',
+  'trailingActivationBidPoints',
+]);
+
+/**
+ * Resolve the full per-strategy params bag: catalogue defaults overlaid with
+ * the stored partial bag for the strategy. Absent keys fall back to catalogue
+ * defaults — never to global WeatherConfig columns.
+ */
 export function getStrategyParams(
   config: Pick<WeatherConfig, 'weatherAlgoStrategyParams'>,
   strategyId: string,
-): Record<string, number | boolean | string> {
-  const meta = getWeatherStrategyMeta(strategyId);
+): WeatherStrategyParamsBag {
   const stored = parseWeatherAlgoStrategyParams(config.weatherAlgoStrategyParams)[strategyId] ?? {};
-  const merged: Record<string, number | boolean | string> = {};
-  for (const schema of meta?.params ?? []) {
-    const v = stored[schema.key];
-    merged[schema.key] = v !== undefined ? v : schema.default;
+  const merged: WeatherStrategyParamsBag = { ...DEFAULT_WEATHER_STRATEGY_PARAMS, ...stored };
+  for (const key of NULLABLE_ZERO_KEYS) {
+    if ((merged as Record<string, unknown>)[key] === 0) {
+      (merged as Record<string, unknown>)[key] = null;
+    }
   }
   return merged;
 }
@@ -131,14 +311,12 @@ export function sanitizeWeatherStrategyParams(
   params: WeatherStrategyParamsMap,
 ): WeatherStrategyParamsMap {
   const out: WeatherStrategyParamsMap = {};
+  const allowedKeys = new Set(Object.keys(DEFAULT_WEATHER_STRATEGY_PARAMS));
   for (const [strategyId, bag] of Object.entries(params ?? {})) {
     if (!isKnownWeatherStrategyId(strategyId)) continue;
-    const meta = getWeatherStrategyMeta(strategyId);
-    if (!meta) continue;
-    const allowedKeys = new Set(meta.params.map((p) => p.key));
-    const cleaned: Record<string, number | boolean | string> = {};
+    const cleaned: Partial<WeatherStrategyParamsBag> = {};
     for (const [key, value] of Object.entries(bag ?? {})) {
-      if (allowedKeys.has(key)) cleaned[key] = value;
+      if (allowedKeys.has(key)) (cleaned as Record<string, unknown>)[key] = value;
     }
     if (Object.keys(cleaned).length > 0) out[strategyId] = cleaned;
   }
@@ -154,13 +332,19 @@ export function validateWeatherStrategyParamsUpdate(
   for (const strategyId of Object.keys(sanitized)) {
     const meta = getWeatherStrategyMeta(strategyId)!;
     for (const [key, value] of Object.entries(sanitized[strategyId] ?? {})) {
-      const schema = meta.params.find((p) => p.key === key)!;
+      const schema = meta.params.find((p) => p.key === key);
+      if (!schema) continue;
       if (schema.kind === 'number' && typeof value !== 'number') {
         errors.push({ strategyId, key, message: 'expected number' });
       } else if (schema.kind === 'boolean' && typeof value !== 'boolean') {
         errors.push({ strategyId, key, message: 'expected boolean' });
       } else if (schema.kind === 'select' && typeof value !== 'string') {
         errors.push({ strategyId, key, message: 'expected string' });
+      } else if (schema.kind === 'select' && typeof value === 'string') {
+        const optionValues = (schema.options ?? []).map((o) => o.value);
+        if (optionValues.length > 0 && !optionValues.includes(value)) {
+          errors.push({ strategyId, key, message: `must be one of ${optionValues.join(', ')}` });
+        }
       } else if (schema.kind === 'number' && typeof value === 'number') {
         if (schema.min != null && value < schema.min) {
           errors.push({ strategyId, key, message: `min ${schema.min}` });

@@ -13,6 +13,26 @@ const mocks = vi.hoisted(() => {
     incrementWeatherBucketHysteresis: vi.fn(async () => 1),
     resetWeatherBucketHysteresis: vi.fn(async () => {}),
     buildCloseOrderSignal: vi.fn(() => ({ id: 'close-signal-1' })),
+    resolveEnabledWeatherStrategies: vi.fn(() => ['weather-forecast']),
+    WEATHER_FORECAST_STRATEGY_ID: 'weather-forecast',
+    getStrategyParams: vi.fn(() => ({
+      minEdge: null,
+      maxForecastStd: null,
+      minForecastProbability: null,
+      closeBeforeResolutionHours: null,
+      entryUsdc: null,
+      maxPositionSizeUsdc: null,
+      entryDepthRetryMax: null,
+      entryDepthRetryDelayMs: null,
+      maxOpenPositions: null,
+      maxExposureUsdc: null,
+      maxDailyLossUsdc: null,
+      killSwitchAction: null,
+      forecastChangeThreshold: null,
+      cityFollowSwitchMode: null,
+      bucketHysteresisPolls: null,
+      reentryThrottleMs: null,
+    })),
   };
 });
 
@@ -27,6 +47,9 @@ vi.mock('@polywatch/core', () => ({
   incrementWeatherBucketHysteresis: mocks.incrementWeatherBucketHysteresis,
   resetWeatherBucketHysteresis: mocks.resetWeatherBucketHysteresis,
   buildCloseOrderSignal: mocks.buildCloseOrderSignal,
+  resolveEnabledWeatherStrategies: mocks.resolveEnabledWeatherStrategies,
+  WEATHER_FORECAST_STRATEGY_ID: mocks.WEATHER_FORECAST_STRATEGY_ID,
+  getStrategyParams: mocks.getStrategyParams,
 }));
 
 import { WeatherExitEvaluator } from './weather-exit-evaluator.js';

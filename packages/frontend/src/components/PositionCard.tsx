@@ -87,9 +87,10 @@ export function PositionCard(props: Props) {
   }
 
   async function loadHistory() {
-    setClosedPositions(
-      await api<Position[]>(buildPositionsQuery('closed')),
+    const result = await api<Position[] | { items: Position[]; total: number }>(
+      buildPositionsQuery('closed'),
     );
+    setClosedPositions(Array.isArray(result) ? result : result.items);
   }
 
   async function loadAll() {

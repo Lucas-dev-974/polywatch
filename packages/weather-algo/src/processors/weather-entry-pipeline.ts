@@ -21,6 +21,7 @@ import {
   fetchEntryAskLiquidityWithRetries,
   getWeatherEntryDepthRetryMax,
   getWeatherEntryDepthRetryDelayMs,
+  getStrategyParams,
   enqueueEntrySignal,
   resolveEntryEnqueueBlocked,
   hasAlgoEntryCooldown,
@@ -33,6 +34,7 @@ import {
   resolveEntryMinOrderSharesDetailed,
   WeatherForecastService,
   WeatherPositionForecastService,
+  RiskService,
 } from '@polywatch/core';
 import type { GlobalConfig } from '@polywatch/core';
 import type { WeatherSignal } from '../strategy/strategy.js';
@@ -105,7 +107,8 @@ export async function runWeatherEntryPipeline(
   }
 
   // --- Pre-close check -----------------------------------------------------
-  const minHoursToClose = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+  const entryBag = getStrategyParams(risk, signal.strategyId);
+  const minHoursToClose = entryBag.closeBeforeResolutionHours ?? 1;
   if (market.endDate) {
     const hoursToEnd = (new Date(market.endDate).getTime() - Date.now()) / 3_600_000;
     if (hoursToEnd <= minHoursToClose) {
@@ -217,7 +220,26 @@ async function runMode(args: {
     return 'Throttle re-entry ville actif';
   }
 
-  const exit: AlgoEntryExitParams = resolveWeatherEntryExitParams(risk, mode, null);
+  // Kill-switch gate: block entries when the per-strategy daily loss limit is
+  // hit (action block_entries / block_and_notify). force_close_all is handled
+  // by the worker's KillSwitchMonitor; here we only gate new entries.
+  const killSwitch = await new RiskService(ds).checkKillSwitch('weather', mode, signal.strategyId);
+  if (killSwitch.blockEntries) {
+    log.warn(
+      { conditionId: signal.conditionId, mode, strategyId: signal.strategyId, action: killSwitch.action },
+      'entry skipped — weather kill-switch active',
+    );
+    return 'Kill-switch actif (block_entries)';
+  }
+
+  const bag = getStrategyParams(risk, signal.strategyId);
+
+  const exit: AlgoEntryExitParams = resolveWeatherEntryExitParams(
+    risk,
+    mode,
+    null,
+    signal.strategyId,
+  );
 
   const algoKeyParams = {
     conditionId: signal.conditionId,
@@ -284,9 +306,9 @@ async function runMode(args: {
   const sizing: import('@polywatch/core').ModeSizingParams = {
     sizingMode: 'fixed_usdc',
     copyRatio: 1,
-    fixedUsdcAmount: risk.weatherAlgoEntryUsdc ?? 10,
+    fixedUsdcAmount: bag.entryUsdc,
     fixedShareCount: 0,
-    signalScoreSizingEnabled: false,
+    signalScoreSizingEnabled: bag.signalScoreSizingEnabled,
   };
 
   // --- Balances -------------------------------------------------------------
@@ -325,7 +347,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: bag.maxPositionSizeUsdc,
     signalScore,
     stopDistance: undefined,
   });
@@ -353,7 +375,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: bag.maxPositionSizeUsdc,
     signalScore,
     stopDistance: undefined,
   });
@@ -368,7 +390,7 @@ async function runMode(args: {
     targetQty,
     askVwap,
     cash: balances.cash,
-    maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizeUsdc: bag.maxPositionSizeUsdc,
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     clobApi: CLOB_API,
@@ -395,8 +417,8 @@ async function runMode(args: {
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId: signal.assetId,
     targetQty: finalQty,
-    maxRetries: getWeatherEntryDepthRetryMax(risk, mode),
-    delayMs: getWeatherEntryDepthRetryDelayMs(risk, mode),
+    maxRetries: bag.entryDepthRetryMax,
+    delayMs: bag.entryDepthRetryDelayMs,
     connectionManager,
   });
   if (!depthResult.ok) {
@@ -421,6 +443,7 @@ async function runMode(args: {
     trailingActivationBidPoints: exit.trailingActivationBidPoints ?? undefined,
     slBidPoints: exit.slBidPoints ?? undefined,
     tpBidPoints: exit.tpBidPoints ?? undefined,
+    strategyId: signal.strategyId,
   });
 
   const orderSignalId = hashAlgoOrderSignalId({
@@ -535,6 +558,7 @@ async function persistEntryForecastSnapshot(args: {
       entryModelValues: modelValues,
       entryBucketComparison: signal.entryBucketComparison ?? null,
       entryBucketBounds: signal.entryBucketBounds ?? null,
+      strategyId: signal.strategyId,
     });
   } catch (err) {
     log.error(

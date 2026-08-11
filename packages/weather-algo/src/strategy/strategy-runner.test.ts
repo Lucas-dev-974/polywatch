@@ -67,7 +67,10 @@ describe('WeatherStrategyRunner setRiskConfig propagation', () => {
     runner.setRiskConfig(risk);
 
     expect(setRiskConfig).toHaveBeenCalledTimes(1);
-    expect(setRiskConfig).toHaveBeenCalledWith(risk);
+    // The runner resolves the per-strategy bag; unknown strategy id falls back
+    // to catalogue defaults (weather-forecast bag has default minEdge 0.1).
+    const bag = setRiskConfig.mock.calls[0][0] as { minEdge: number };
+    expect(bag.minEdge).toBe(0.1);
   });
 
   it('does not throw when a strategy does not implement setRiskConfig', () => {

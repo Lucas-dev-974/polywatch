@@ -5,9 +5,7 @@ import {
   type WeatherConfig,
 } from '../api';
 import {
-  KillSwitchField,
   NumberField,
-  NullableNumberField,
   ToggleField,
 } from './settings-fields';
 import { CollapsibleSection } from './CollapsibleSection';
@@ -38,33 +36,9 @@ export function WeatherAlgoSettingsTab() {
         weatherAlgoEnabled: c.weatherAlgoEnabled,
         weatherAlgoSimEnabled: c.weatherAlgoSimEnabled,
         weatherAlgoRealEnabled: c.weatherAlgoRealEnabled,
-        weatherAlgoKillSwitchAction: c.weatherAlgoKillSwitchAction,
-        weatherAlgoMinEdge: c.weatherAlgoMinEdge,
-        weatherAlgoMaxForecastStd: c.weatherAlgoMaxForecastStd,
-        weatherAlgoEntryUsdc: c.weatherAlgoEntryUsdc,
         weatherAlgoSelectionMode: c.weatherAlgoSelectionMode,
         weatherAlgoMaxSignalsPerEvent: c.weatherAlgoMaxSignalsPerEvent,
-        weatherAlgoEntryDepthRetryMax: c.weatherAlgoEntryDepthRetryMax,
-        weatherAlgoEntryDepthRetryDelayMs: c.weatherAlgoEntryDepthRetryDelayMs,
-        weatherAlgoForecastChangeThreshold: c.weatherAlgoForecastChangeThreshold,
-        weatherAlgoCloseBeforeResolutionHours: c.weatherAlgoCloseBeforeResolutionHours,
         weatherAlgoPollMs: c.weatherAlgoPollMs,
-        weatherAlgoCityFollowSwitchMode: c.weatherAlgoCityFollowSwitchMode,
-        weatherAlgoBucketHysteresisPolls: c.weatherAlgoBucketHysteresisPolls,
-        weatherAlgoReentryThrottleMs: c.weatherAlgoReentryThrottleMs,
-        weatherAlgoMaxOpenPositions: c.weatherAlgoMaxOpenPositions,
-        weatherAlgoMaxExposureUsdc: c.weatherAlgoMaxExposureUsdc,
-        weatherAlgoMaxDailyLossUsdc: c.weatherAlgoMaxDailyLossUsdc,
-        weatherAlgoMaxPositionSizeUsdc: c.weatherAlgoMaxPositionSizeUsdc,
-        weatherAlgoSlConfirmationTicks: c.weatherAlgoSlConfirmationTicks,
-        weatherAlgoSlCloseMaxRetries: c.weatherAlgoSlCloseMaxRetries,
-        weatherAlgoSlEnabled: c.weatherAlgoSlEnabled,
-        weatherAlgoTpEnabled: c.weatherAlgoTpEnabled,
-        weatherAlgoTrailingEnabled: c.weatherAlgoTrailingEnabled,
-        weatherAlgoSlBidPoints: c.weatherAlgoSlBidPoints,
-        weatherAlgoTpBidPoints: c.weatherAlgoTpBidPoints,
-        weatherAlgoTrailingBidPoints: c.weatherAlgoTrailingBidPoints,
-        weatherAlgoTrailingActivationBidPoints: c.weatherAlgoTrailingActivationBidPoints,
         simInitialCapitalWeather: c.simInitialCapitalWeather,
         weatherAlgoForecastHistoryRecordingEnabled: c.weatherAlgoForecastHistoryRecordingEnabled,
         weatherAlgoMarketSnapshotRecordingEnabled: c.weatherAlgoMarketSnapshotRecordingEnabled,
@@ -100,7 +74,8 @@ export function WeatherAlgoSettingsTab() {
       }
     >
       <p class="form-hint">
-        L’horizon de dates (lookAheadDays) se configure par ville dans l’onglet Villes surveillées.
+        Les réglages de trading (gates d’entrée, sizing, sortie, SL/TP/trailing, limites, kill-switch,
+        pre-close) se configurent par stratégie dans l’onglet Stratégies.
       </p>
       <Show when={error()}>
         <p class="form-hint weather-settings-error">{error()}</p>
@@ -126,68 +101,21 @@ export function WeatherAlgoSettingsTab() {
               hint="Requiert aussi le master kill global realTradingEnabled activé."
               onChange={(checked) => update('weatherAlgoRealEnabled', checked)}
             />
-            <KillSwitchField
-              value={c().weatherAlgoKillSwitchAction}
-              onChange={(value) => update('weatherAlgoKillSwitchAction', value)}
+
+            <h3 class="settings-subheading">Polling</h3>
+            <NumberField
+              label="Poll (minutes)"
+              value={c().weatherAlgoPollMs / 60_000}
+              min={1}
+              max={1440}
+              step={1}
+              hint="Cadence d’évaluation des entrées/sorties, en minutes. Minimum 1 minute (60 000 ms). Les cycles longs peuvent être différés (anti-overlap). Le timer est recréé à chaud après sauvegarde."
+              onChange={(minutes) =>
+                update('weatherAlgoPollMs', Math.max(10_000, Math.round(minutes * 60_000)))
+              }
             />
 
-            <h3 class="settings-subheading">Polling & anti-churn</h3>
-            <NumberField
-              label="Poll (ms)"
-              value={c().weatherAlgoPollMs}
-              min={10_000}
-              max={86_400_000}
-              step={1000}
-              hint="Cadence d’évaluation des entrées/sorties. Minimum 10 000 ms. Les cycles longs peuvent être différés (anti-overlap). Le timer est recréé à chaud après sauvegarde."
-              onChange={(value) => update('weatherAlgoPollMs', value)}
-            />
-            <NumberField
-              label="Hysteresis bucket (polls hors palier)"
-              value={c().weatherAlgoBucketHysteresisPolls}
-              min={1}
-              max={10}
-              step={1}
-              hint="Nombre de polls consécutifs hors palier avant fermeture (close_and_reenter)."
-              onChange={(value) => update('weatherAlgoBucketHysteresisPolls', value)}
-            />
-            <NumberField
-              label="Throttle re-entry (ms)"
-              value={c().weatherAlgoReentryThrottleMs}
-              min={0}
-              max={86_400_000}
-              step={60_000}
-              hint="Pause après une sortie drift/bucket avant de pouvoir ré-entrer sur la même ville."
-              onChange={(value) => update('weatherAlgoReentryThrottleMs', value)}
-            />
-
-            <h3 class="settings-subheading">Entrée & sélection</h3>
-            <label>
-              Edge minimum ({(c().weatherAlgoMinEdge * 100).toFixed(0)}%)
-              <input
-                type="range"
-                min="0.05"
-                max="0.30"
-                step="0.01"
-                value={c().weatherAlgoMinEdge}
-                onInput={(e) => update('weatherAlgoMinEdge', Number(e.currentTarget.value))}
-              />
-            </label>
-            <NullableNumberField
-              label="Std dev max (°C, vide = illimité)"
-              value={c().weatherAlgoMaxForecastStd}
-              min={0}
-              max={20}
-              step={0.5}
-              onChange={(value) => update('weatherAlgoMaxForecastStd', value)}
-            />
-            <NumberField
-              label="USDC par entrée"
-              value={c().weatherAlgoEntryUsdc}
-              min={1}
-              max={10_000}
-              step={1}
-              onChange={(value) => update('weatherAlgoEntryUsdc', value)}
-            />
+            <h3 class="settings-subheading">Sélection entre villes</h3>
             <div class="form-field">
               <label>Mode de sélection (entre villes)</label>
               <select
@@ -207,155 +135,8 @@ export function WeatherAlgoSettingsTab() {
               step={1}
               onChange={(value) => update('weatherAlgoMaxSignalsPerEvent', value)}
             />
-            <NumberField
-              label="Retries profondeur ask (entrée)"
-              value={c().weatherAlgoEntryDepthRetryMax}
-              min={0}
-              step={1}
-              onChange={(value) => update('weatherAlgoEntryDepthRetryMax', value)}
-            />
-            <NumberField
-              label="Délai entre retries profondeur (ms)"
-              value={c().weatherAlgoEntryDepthRetryDelayMs}
-              min={0}
-              step={100}
-              onChange={(value) => update('weatherAlgoEntryDepthRetryDelayMs', value)}
-            />
 
-            <h3 class="settings-subheading">Gestion de position</h3>
-            <div class="form-field">
-              <label>Si la prévision change de palier</label>
-              <select
-                class="select"
-                value={c().weatherAlgoCityFollowSwitchMode}
-                onChange={(e) => update('weatherAlgoCityFollowSwitchMode', e.currentTarget.value)}
-              >
-                <option value="close_and_reenter">Fermer et re-entrer sur le nouveau palier</option>
-                <option value="hold">Conserver la position (drift / fenêtre résolution uniquement)</option>
-              </select>
-            </div>
-            <NumberField
-              label="Seuil drift forecast (°C)"
-              value={c().weatherAlgoForecastChangeThreshold}
-              min={0.5}
-              max={20}
-              step={0.5}
-              hint="Ferme la position si le forecast mean dérive au-delà de ce seuil."
-              onChange={(value) => update('weatherAlgoForecastChangeThreshold', value)}
-            />
-            <NumberField
-              label="Pré-clôture (heures avant fin)"
-              value={c().weatherAlgoCloseBeforeResolutionHours}
-              min={0.5}
-              max={168}
-              step={0.5}
-              hint="Dans cette fenêtre : bloque les nouvelles entrées et vend les positions ouvertes (motif WEATHER_PRE_CLOSE)."
-              onChange={(value) => update('weatherAlgoCloseBeforeResolutionHours', value)}
-            />
-
-            <h3 class="settings-subheading">SL / TP / Trailing</h3>
-            <ToggleField
-              label="Stop Loss"
-              checked={c().weatherAlgoSlEnabled}
-              onChange={(checked) => update('weatherAlgoSlEnabled', checked)}
-            />
-            <Show when={c().weatherAlgoSlEnabled}>
-              <NullableNumberField
-                label="Stop Loss (points bid)"
-                value={c().weatherAlgoSlBidPoints}
-                min={0}
-                max={1}
-                step={0.01}
-                placeholder="auto"
-                onChange={(value) => update('weatherAlgoSlBidPoints', value)}
-              />
-            </Show>
-            <ToggleField
-              label="Take Profit"
-              checked={c().weatherAlgoTpEnabled}
-              onChange={(checked) => update('weatherAlgoTpEnabled', checked)}
-            />
-            <Show when={c().weatherAlgoTpEnabled}>
-              <NullableNumberField
-                label="Take Profit (points bid)"
-                value={c().weatherAlgoTpBidPoints}
-                min={0}
-                max={1}
-                step={0.01}
-                placeholder="auto"
-                onChange={(value) => update('weatherAlgoTpBidPoints', value)}
-              />
-            </Show>
-            <ToggleField
-              label="Trailing stop"
-              checked={c().weatherAlgoTrailingEnabled}
-              onChange={(checked) => update('weatherAlgoTrailingEnabled', checked)}
-            />
-            <Show when={c().weatherAlgoTrailingEnabled}>
-              <NullableNumberField
-                label="Trailing stop (points bid)"
-                value={c().weatherAlgoTrailingBidPoints}
-                min={0}
-                max={1}
-                step={0.01}
-                placeholder="auto"
-                onChange={(value) => update('weatherAlgoTrailingBidPoints', value)}
-              />
-              <NullableNumberField
-                label="Activation trailing (points bid)"
-                value={c().weatherAlgoTrailingActivationBidPoints}
-                min={0}
-                max={1}
-                step={0.01}
-                placeholder="auto"
-                onChange={(value) => update('weatherAlgoTrailingActivationBidPoints', value)}
-              />
-            </Show>
-            <NumberField
-              label="Ticks de confirmation SL"
-              value={c().weatherAlgoSlConfirmationTicks}
-              min={1}
-              max={10}
-              step={1}
-              onChange={(value) => update('weatherAlgoSlConfirmationTicks', value)}
-            />
-            <NumberField
-              label="Retries max close SL"
-              value={c().weatherAlgoSlCloseMaxRetries}
-              min={0}
-              step={1}
-              onChange={(value) => update('weatherAlgoSlCloseMaxRetries', value)}
-            />
-
-            <h3 class="settings-subheading">Limites & capital</h3>
-            <NumberField
-              label="Max positions ouvertes"
-              value={c().weatherAlgoMaxOpenPositions}
-              min={1}
-              step={1}
-              onChange={(value) => update('weatherAlgoMaxOpenPositions', value)}
-            />
-            <NumberField
-              label="Max exposition (USDC)"
-              value={c().weatherAlgoMaxExposureUsdc}
-              min={0}
-              step={1}
-              onChange={(value) => update('weatherAlgoMaxExposureUsdc', value)}
-            />
-            <NumberField
-              label="Max perte journalière (USDC)"
-              value={c().weatherAlgoMaxDailyLossUsdc}
-              min={0}
-              step={1}
-              onChange={(value) => update('weatherAlgoMaxDailyLossUsdc', value)}
-            />
-            <NumberField
-              label="Plafond max par position (USDC)"
-              value={c().weatherAlgoMaxPositionSizeUsdc}
-              min={0}
-              step={1}
-              onChange={(value) => update('weatherAlgoMaxPositionSizeUsdc', value)}
-            />
+            <h3 class="settings-subheading">Capital sim</h3>
             <NumberField
               label="Capital initial sim weather (pUSD)"
               value={c().simInitialCapitalWeather}

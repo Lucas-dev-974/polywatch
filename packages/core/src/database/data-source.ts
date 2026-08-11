@@ -136,6 +136,9 @@ import { AddWeatherAlgoStrategies1700000000102 } from '../migrations/AddWeatherA
 import { AddWeatherClobPriceHistory1700000000103 } from '../migrations/AddWeatherClobPriceHistory1700000000103.js';
 import { AddClobHistoryIntervalToUniqueKey1700000000104 } from '../migrations/AddClobHistoryIntervalToUniqueKey1700000000104.js';
 import { AddBucketTickDenormalizedColumns1700000000105 } from '../migrations/AddBucketTickDenormalizedColumns1700000000105.js';
+import { AddWeatherStrategyId1700000000106 } from '../migrations/AddWeatherStrategyId1700000000106.js';
+import { BackfillWeatherStrategyParams1700000000107 } from '../migrations/BackfillWeatherStrategyParams1700000000107.js';
+import { BackfillWeatherStrategyRepair1700000000108 } from '../migrations/BackfillWeatherStrategyRepair1700000000108.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -236,6 +239,9 @@ export const migrations = [
   AddWeatherClobPriceHistory1700000000103,
   AddClobHistoryIntervalToUniqueKey1700000000104,
   AddBucketTickDenormalizedColumns1700000000105,
+  AddWeatherStrategyId1700000000106,
+  BackfillWeatherStrategyParams1700000000107,
+  BackfillWeatherStrategyRepair1700000000108,
 ];
 
 export const entities = [

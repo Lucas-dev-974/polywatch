@@ -620,7 +620,7 @@ export interface WeatherConfig {
   weatherAlgoMarketSnapshotRetentionDays: number;
   weatherAlgoEvaluationLogRetentionDays: number;
   weatherAlgoStrategies: string[];
-  weatherAlgoStrategyParams: Record<string, Record<string, number | boolean | string>>;
+  weatherAlgoStrategyParams: Record<string, Record<string, number | boolean | string | null>>;
 }
 
 export interface WeatherStrategyMeta {
@@ -635,6 +635,7 @@ export interface WeatherStrategyMeta {
     min?: number;
     max?: number;
     step?: number;
+    options?: Array<{ value: string; label: string }>;
     default: number | boolean | string;
     hint?: string;
   }>;

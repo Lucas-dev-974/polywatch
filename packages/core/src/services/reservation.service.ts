@@ -62,6 +62,8 @@ export interface ReserveInput {
   trailingActivationBidPoints?: number;
   slBidPoints?: number;
   tpBidPoints?: number;
+  /** Strategy that opens the position (weather-algo). Null for copy/crypto/manual. */
+  strategyId?: string | null;
 }
 
 export interface ReserveResult {
@@ -84,6 +86,7 @@ function resolveReserveLimits(
   config: AlgoKindConfig,
   reason: ReserveInput['reason'],
   mode: 'sim' | 'real',
+  strategyId?: string | null,
 ): ReserveLimits {
   const algoKind = algoKindFromReason(reason);
   switch (algoKind) {
@@ -95,9 +98,9 @@ function resolveReserveLimits(
       };
     case 'weather':
       return {
-        maxOpenPositions: getWeatherMaxOpenPositions(config as WeatherConfig, mode),
-        maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(config as WeatherConfig, mode),
-        maxExposureUsdc: getWeatherMaxExposureUsdc(config as WeatherConfig, mode),
+        maxOpenPositions: getWeatherMaxOpenPositions(config as WeatherConfig, mode, strategyId),
+        maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(config as WeatherConfig, mode, strategyId),
+        maxExposureUsdc: getWeatherMaxExposureUsdc(config as WeatherConfig, mode, strategyId),
       };
     default:
       return {
@@ -115,15 +118,19 @@ export class ReservationService {
     manager: EntityManager,
     mode: 'sim' | 'real',
     algoKind: SimAlgoKind,
+    strategyId?: string | null,
   ): Promise<number> {
     const reasons = openingReasonsForAlgoKind(algoKind);
-    return manager
+    const qb = manager
       .getRepository(CopiedPosition)
       .createQueryBuilder('p')
       .where('p.mode = :mode', { mode })
       .andWhere('p.status IN (:...statuses)', { statuses: ACTIVE_STATUSES })
-      .andWhere('p.reason IN (:...reasons)', { reasons })
-      .getCount();
+      .andWhere('p.reason IN (:...reasons)', { reasons });
+    if (algoKind === 'weather' && strategyId) {
+      qb.andWhere('p.strategyId = :strategyId', { strategyId });
+    }
+    return qb.getCount();
   }
 
   async reserve(input: ReserveInput): Promise<ReserveResult> {
@@ -141,7 +148,7 @@ export class ReservationService {
 
       const algoConfig: AlgoKindConfig =
         algoKind === 'copy' ? copy : algoKind === 'weather' ? weather : crypto;
-      const limits = resolveReserveLimits(algoConfig, input.reason, input.mode);
+      const limits = resolveReserveLimits(algoConfig, input.reason, input.mode, input.strategyId);
 
       // Defense-in-depth: ALGO_* and WEATHER_* reasons require their respective master toggles.
       if (input.reason.startsWith('ALGO_') && !crypto.cryptoAlgoEnabled) {
@@ -154,7 +161,12 @@ export class ReservationService {
       const posRepo = manager.getRepository(CopiedPosition);
       const resRepo = manager.getRepository(PositionReservation);
 
-      const activeCount = await this.countActivePositions(manager, input.mode, algoKind);
+      const activeCount = await this.countActivePositions(
+        manager,
+        input.mode,
+        algoKind,
+        input.strategyId,
+      );
 
       if (
         input.mode === 'real' &&
@@ -188,7 +200,12 @@ export class ReservationService {
         throw new Error('max_position_size');
       }
 
-      const exposure = await this.computeExposure(manager, input.mode, algoKind);
+      const exposure = await this.computeExposure(
+        manager,
+        input.mode,
+        algoKind,
+        input.strategyId,
+      );
       if (exposure + input.notionalUsdc > limits.maxExposureUsdc) {
         throw new Error('max_exposure');
       }
@@ -255,6 +272,7 @@ export class ReservationService {
           slBidPoints: input.slBidPoints ?? null,
           tpBidPoints: input.tpBidPoints ?? null,
           reason: input.reason,
+          strategyId: input.strategyId ?? null,
         });
         const saved = await posRepo.save(pending);
         copiedPositionId = saved.id;
@@ -481,17 +499,21 @@ export class ReservationService {
     manager: EntityManager,
     mode: string,
     algoKind: SimAlgoKind,
+    strategyId?: string | null,
   ): Promise<number> {
     const reasons = openingReasonsForAlgoKind(algoKind);
     const posRepo = manager.getRepository(CopiedPosition);
-    const positions = await posRepo
+    const posQb = posRepo
       .createQueryBuilder('p')
       .where('p.mode = :mode', { mode })
       .andWhere('p.status IN (:...statuses)', {
         statuses: ACTIVE_STATUSES,
       })
-      .andWhere('p.reason IN (:...reasons)', { reasons })
-      .getMany();
+      .andWhere('p.reason IN (:...reasons)', { reasons });
+    if (algoKind === 'weather' && strategyId) {
+      posQb.andWhere('p.strategyId = :strategyId', { strategyId });
+    }
+    const positions = await posQb.getMany();
 
     // Expired reservations are dead weight until the janitor collects them;
     // counting them would phantom-block new entries.
@@ -509,6 +531,13 @@ export class ReservationService {
     }
     for (const r of reservations) {
       if (algoKindFromReason(r.reason) !== algoKind) continue;
+      if (algoKind === 'weather' && strategyId) {
+        // Reservation strategyId is not persisted; infer via the linked position.
+        // If the position is missing (other strategy / not active) it must not
+        // count toward this strategy's exposure.
+        const pos = positions.find((p) => p.id === r.copiedPositionId);
+        if (!pos || pos.strategyId !== strategyId) continue;
+      }
       exposure += r.reservedNotionalUsdc;
     }
     return exposure;

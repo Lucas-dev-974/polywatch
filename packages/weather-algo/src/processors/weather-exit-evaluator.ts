@@ -20,6 +20,9 @@ import {
   setWeatherReentryThrottle,
   incrementWeatherBucketHysteresis,
   resetWeatherBucketHysteresis,
+  getStrategyParams,
+  resolveEnabledWeatherStrategies,
+  WEATHER_FORECAST_STRATEGY_ID,
   type BucketBounds,
 } from '@polywatch/core';
 import { DEFAULT_REENTRY_THROTTLE_MS, CLOSE_QUEUE_DEDUPE_TTL_SECONDS } from '../constants.js';
@@ -89,6 +92,17 @@ export class WeatherExitEvaluator {
       return;
     }
 
+    // Resolve per-strategy params from the position's originating strategy.
+    // Legacy positions (strategyId = null) fall back to the catalogue defaults.
+    const strategyId = snapshot.strategyId ?? pos.strategyId;
+    if (!strategyId) {
+      log.warn({ positionId: pos.id }, 'weather exit — legacy position without strategyId; using defaults');
+    }
+    const bag = getStrategyParams(
+      risk,
+      strategyId ?? resolveEnabledWeatherStrategies(risk)[0] ?? WEATHER_FORECAST_STRATEGY_ID,
+    );
+
     const markets = await this.params.marketService.loadByConditionIds([pos.conditionId]);
     const market = markets.get(pos.conditionId);
     const endDate = market?.endDate ? new Date(market.endDate) : null;
@@ -96,7 +110,7 @@ export class WeatherExitEvaluator {
       ? (endDate.getTime() - Date.now()) / 3_600_000
       : Number.POSITIVE_INFINITY;
 
-    const closeBeforeHours = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+    const closeBeforeHours = bag.closeBeforeResolutionHours;
     const preClose = shouldCloseBeforeResolution(hoursToEnd, closeBeforeHours);
 
     let drift = false;
@@ -116,7 +130,7 @@ export class WeatherExitEvaluator {
         drift = shouldCloseForForecastDrift(
           snapshot.entryForecastMean,
           current.forecastMean,
-          risk.weatherAlgoForecastChangeThreshold ?? 2,
+          bag.forecastChangeThreshold,
         );
 
         if (!drift && snapshot.entryBucketComparison && snapshot.entryBucketBounds) {
@@ -135,8 +149,8 @@ export class WeatherExitEvaluator {
               bounds,
               current.forecastMean,
             );
-            const switchMode = resolveCityFollowSwitchMode(risk.weatherAlgoCityFollowSwitchMode);
-            const hysteresisPolls = risk.weatherAlgoBucketHysteresisPolls ?? 2;
+            const switchMode = resolveCityFollowSwitchMode(bag.cityFollowSwitchMode);
+            const hysteresisPolls = bag.bucketHysteresisPolls;
 
             if (!leftBucket) {
               await resetWeatherBucketHysteresis(this.params.redisCmd, pos.id);
@@ -216,7 +230,7 @@ export class WeatherExitEvaluator {
     );
 
     if (reason === 'WEATHER_BUCKET_EXIT' || reason === 'WEATHER_FORECAST_CHANGE') {
-      const throttleMs = risk.weatherAlgoReentryThrottleMs ?? DEFAULT_REENTRY_THROTTLE_MS;
+      const throttleMs = bag.reentryThrottleMs ?? DEFAULT_REENTRY_THROTTLE_MS;
       await setWeatherReentryThrottle(
         this.params.redisCmd,
         snapshot.city,

@@ -7,7 +7,18 @@ import {
   type WeatherStrategyMeta,
 } from '../api';
 import { CollapsibleSection } from './CollapsibleSection';
-import { NumberField, ToggleField } from './settings-fields';
+import { NumberField, ToggleField, SelectField, NullableNumberField } from './settings-fields';
+
+/** Nullable numeric knobs: stored `0` is coerced to `null` at runtime, so the
+ * form uses NullableNumberField to write `null` (disabled) instead of `0`. */
+const NULLABLE_PARAM_KEYS = new Set([
+  'maxForecastStd',
+  'minForecastProbability',
+  'slBidPoints',
+  'tpBidPoints',
+  'trailingBidPoints',
+  'trailingActivationBidPoints',
+]);
 
 export function WeatherAlgoStrategiesTab() {
   const [config, setConfig] = createSignal<WeatherConfig | null>(null);
@@ -49,7 +60,7 @@ export function WeatherAlgoStrategiesTab() {
   function updateStrategyParam(
     strategyId: string,
     key: string,
-    value: number | boolean | string,
+    value: number | boolean | string | null,
   ) {
     const c = config();
     if (!c) return;
@@ -89,8 +100,8 @@ export function WeatherAlgoStrategiesTab() {
       }
     >
       <p class="form-hint">
-        Ordre du catalogue = priorité first-wins si plusieurs stratégies sont cochées. Les
-        paramètres globaux (minEdge, minForecastProb…) restent dans l&apos;onglet Paramètres.
+        Ordre du catalogue = priorité first-wins si plusieurs stratégies sont cochées.
+        Chaque stratégie a sa propre configuration ci-dessous.
       </p>
       <Show when={error()}>
         <p class="form-hint weather-settings-error">{error()}</p>
@@ -131,20 +142,61 @@ export function WeatherAlgoStrategiesTab() {
                       <Show
                         when={param.kind === 'boolean'}
                         fallback={
-                          <NumberField
-                            label={param.label}
-                            value={Number(
-                              (c().weatherAlgoStrategyParams?.[strategy.id] ?? {})[param.key] ??
-                                param.default,
-                            )}
-                            min={param.min}
-                            max={param.max}
-                            step={param.step ?? 0.01}
-                            hint={param.hint}
-                            onChange={(value) =>
-                              updateStrategyParam(strategy.id, param.key, value)
+                          <Show
+                            when={param.kind === 'select'}
+                            fallback={
+                              <Show
+                                when={NULLABLE_PARAM_KEYS.has(param.key)}
+                                fallback={
+                                  <NumberField
+                                    label={param.label}
+                                    value={Number(
+                                      (c().weatherAlgoStrategyParams?.[strategy.id] ?? {})[
+                                        param.key
+                                      ] ?? param.default,
+                                    )}
+                                    min={param.min}
+                                    max={param.max}
+                                    step={param.step ?? 0.01}
+                                    hint={param.hint}
+                                    onChange={(value) =>
+                                      updateStrategyParam(strategy.id, param.key, value)
+                                    }
+                                  />
+                                }
+                              >
+                                <NullableNumberField
+                                  label={param.label}
+                                  value={
+                                    (c().weatherAlgoStrategyParams?.[strategy.id] ?? {})[
+                                      param.key
+                                    ] as number | null | undefined ?? null
+                                  }
+                                  min={param.min}
+                                  max={param.max}
+                                  step={param.step ?? 0.01}
+                                  hint={param.hint}
+                                  onChange={(value) =>
+                                    updateStrategyParam(strategy.id, param.key, value)
+                                  }
+                                />
+                              </Show>
                             }
-                          />
+                          >
+                            <SelectField
+                              label={param.label}
+                              value={String(
+                                (c().weatherAlgoStrategyParams?.[strategy.id] ?? {})[
+                                  param.key
+                                ] ?? param.default,
+                              )}
+                              options={param.options ?? []}
+                              hint={param.hint}
+                              onChange={(value) =>
+                                updateStrategyParam(strategy.id, param.key, value)
+                              }
+                            />
+                          </Show>
                         }
                       >
                         <ToggleField

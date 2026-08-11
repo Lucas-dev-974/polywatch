@@ -16,6 +16,8 @@ export interface WeatherPositionForecastInput {
   entryBucketComparison?: 'exact' | 'between' | 'or_below' | 'or_above' | null;
   /** Bucket bounds at entry time (city-follow). Null for manual/expand entries. */
   entryBucketBounds?: { low?: number | null; high?: number | null; target?: number | null } | null;
+  /** Strategy that opened the position (weather-algo). Null for manual/expand entries. */
+  strategyId?: string | null;
 }
 
 export class WeatherPositionForecastService {
@@ -48,6 +50,7 @@ export class WeatherPositionForecastService {
         entryModelValues: JSON.stringify(input.entryModelValues),
         entryBucketComparison: input.entryBucketComparison ?? null,
         entryBucketBounds: input.entryBucketBounds ? JSON.stringify(input.entryBucketBounds) : null,
+        strategyId: input.strategyId ?? null,
       });
       return true;
     } catch (err) {

@@ -99,20 +99,17 @@ export function resolveSimRotationTargetsFromConfigs(
     targets.add('crypto');
   }
 
-  // Weather-algo rotation keys.
+  // Weather-algo rotation keys. Per-strategy tunables live in
+  // weatherAlgoStrategyParams (JSON), which triggers rotation as a whole.
   const weatherRotationKeys: (keyof WeatherConfig)[] = [
     'weatherAlgoEnabled', 'weatherAlgoSimEnabled', 'weatherAlgoRealEnabled',
-    'weatherAlgoMinEdge', 'weatherAlgoMaxForecastStd', 'weatherAlgoSizingMode',
-    'weatherAlgoEntryUsdc', 'weatherAlgoSelectionMode', 'weatherAlgoMaxSignalsPerEvent',
-    'weatherAlgoForecastChangeThreshold', 'weatherAlgoCloseBeforeResolutionHours',
-    'weatherAlgoCityFollowSwitchMode', 'weatherAlgoMaxOpenPositions',
-    'weatherAlgoMaxExposureUsdc', 'weatherAlgoMaxDailyLossUsdc', 'weatherAlgoMaxPositionSizeUsdc',
-    'weatherAlgoSlBidPoints', 'weatherAlgoTpBidPoints', 'weatherAlgoTrailingBidPoints',
-    'weatherAlgoTrailingActivationBidPoints', 'weatherAlgoPreCloseEnabled', 'weatherAlgoPreCloseSeconds',
-    'weatherAlgoSlEnabled', 'weatherAlgoTpEnabled', 'weatherAlgoTrailingEnabled',
-    'weatherAlgoKillSwitchAction', 'weatherAlgoMinBidToAskRatio', 'weatherAlgoEntryDepthRetryMax',
-    'weatherAlgoEntryDepthRetryDelayMs', 'weatherAlgoSlCloseMaxRetries', 'weatherAlgoMinTimeToClose',
-    'weatherAlgoAllowedMarketTags', 'weatherAlgoSignalScoreSizingEnabled', 'weatherAlgoSlConfirmationTicks',
+    'weatherAlgoSelectionMode', 'weatherAlgoMaxSignalsPerEvent',
+    'weatherAlgoPollMs',
+    'weatherAlgoForecastHistoryRecordingEnabled', 'weatherAlgoMarketSnapshotRecordingEnabled',
+    'weatherAlgoEvaluationLogRecordingEnabled',
+    'weatherAlgoForecastHistoryRetentionDays', 'weatherAlgoMarketSnapshotRetentionDays',
+    'weatherAlgoEvaluationLogRetentionDays',
+    'weatherAlgoStrategies', 'weatherAlgoStrategyParams',
   ];
   if (hasChangedKeys(before.weather, after.weather, weatherRotationKeys)) {
     targets.add('weather');

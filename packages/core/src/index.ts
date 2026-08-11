@@ -338,6 +338,7 @@ export {
   serializeWeatherAlgoStrategies,
   serializeWeatherAlgoStrategyParams,
   getStrategyParams,
+  DEFAULT_WEATHER_STRATEGY_PARAMS,
   resolveEnabledWeatherStrategies,
   sanitizeWeatherStrategyParams,
   validateWeatherStrategyParamsUpdate,
@@ -345,6 +346,7 @@ export {
   getWeatherStrategyMeta,
   type WeatherStrategyId,
   type WeatherStrategyMeta,
+  type WeatherStrategyParamsBag,
   type WeatherStrategyParamsMap,
   type StrategyParamSchema,
 } from './weather/strategy-catalog.js';

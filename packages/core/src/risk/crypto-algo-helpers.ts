@@ -116,13 +116,14 @@ export function getPositionPreCloseParams(
   mode: TradingMode,
   positionReason: string | null | undefined,
   interval?: string | null,
+  strategyId?: string | null,
 ): ModePreCloseParams {
   const algoKind = algoKindFromReason(positionReason);
   if (algoKind === 'copy') {
     return getCopyPreCloseParams(cfg as CopyConfig, mode);
   }
   if (algoKind === 'weather') {
-    return getWeatherPreCloseParams(cfg as WeatherConfig, mode);
+    return getWeatherPreCloseParams(cfg as WeatherConfig, mode, strategyId);
   }
   return getCryptoPositionPreCloseParams(cfg as CryptoConfig, mode, interval);
 }

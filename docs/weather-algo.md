@@ -63,14 +63,37 @@ stratégies peuvent être activées (ordre catalogue = priorité first-wins). Mo
 **UI** : onglet **Stratégies** (checkboxes d'activation ; priorité first-wins =
 ordre du catalogue, pas l'ordre de cochage). Params JSON
 `weatherAlgoStrategies` / `weatherAlgoStrategyParams` — catalogue partagé dans
-`@polywatch/core` (`strategy-catalog.ts`). Les seuils d'entrée (minEdge, minProb,
-maxStd) restent des knobs globaux (onglet Paramètres).
+`@polywatch/core` (`strategy-catalog.ts`). **Chaque stratégie porte sa propre
+config complète** (gates d'entrée, sizing, sorties, SL/TP/trailing, risk
+limits, kill-switch, pre-close) dans `weatherAlgoStrategyParams[strategyId]`.
+Les colonnes `weatherAlgo*` legacy ne servent plus que de **fallback** au
+backfill (migration `0107`/`0108`) et ne sont plus modifiables via l'API
+(`weatherConfigUpdateSchema` rejette les champs per-strategy via `.strict()`).
+Onglet **Paramètres** : uniquement les globaux structurels (toggles, `pollMs`,
+`selectionMode`, `maxSignalsPerEvent`, recording/retention, `simInitialCapital`).
+Les knobs nullables (`maxForecastStd`, `minForecastProbability`, `slBidPoints`,
+`tpBidPoints`, `trailingBidPoints`, `trailingActivationBidPoints`) utilisent
+`NullableNumberField` en UI — une valeur vide = `null` (désactivé) ; une
+valeur `0` stockée est coercée à `null` au runtime par `getStrategyParams`.
 
-**Sorties** :
-- `WEATHER_PRE_CLOSE` (pré-clôture) si `hoursToEnd <= weatherAlgoCloseBeforeResolutionHours` (prioritaire)
-- `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > weatherAlgoForecastChangeThreshold`
-- `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `weatherAlgoCityFollowSwitchMode = close_and_reenter` **après** `weatherAlgoBucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave
-- Après close bucket/drift : throttle Redis `weather-reentry:{city}:{mode}` pendant `weatherAlgoReentryThrottleMs`
+**Sorties** (paramètres lus depuis le bag de la stratégie d'origine, via
+`snapshot.strategyId ?? pos.strategyId` ; legacy `null` → fallback
+`resolveEnabledWeatherStrategies(risk)[0] ?? 'weather-forecast'`) :
+- `WEATHER_PRE_CLOSE` (pré-clôture) si `hoursToEnd <= bag.closeBeforeResolutionHours` (prioritaire)
+- `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > bag.forecastChangeThreshold`
+- `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `bag.cityFollowSwitchMode = close_and_reenter` **après** `bag.bucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave
+- Après close bucket/drift : throttle Redis `weather-reentry:{city}:{mode}` pendant `bag.reentryThrottleMs`
+
+**Kill-switch** : le `bag.killSwitchAction` (`block_entries` | `force_close_all` |
+`block_and_notify`) est évalué **par stratégie** — le PnL journalière est
+filtrée par `p.strategyId` dans `RiskService.checkKillSwitch`. L'entry pipeline
+(`runMode`) appelle `checkKillSwitch('weather', mode, signal.strategyId)` avant
+reserve ; si `blockEntries` → skip avec raison `'Kill-switch actif
+(block_entries)'`. `force_close_all` reste géré par le `KillSwitchMonitor` du
+worker (ferme uniquement les positions de la stratégie concernée). Les
+limites `maxDailyLossUsdc` / `maxExposureUsdc` / `maxOpenPositions` /
+`maxPositionSizeUsdc` sont aussi **par stratégie** — la réservation
+(`ReservationService`) filtre positions et réservations par `strategyId`.
 
 Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept que la pré-clôture crypto/copy (fenêtre avant résolution), en heures plutôt qu'en secondes.
 
@@ -145,8 +168,9 @@ Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.2.0` …).
 - Routes trading : [`api.md`](./api.md) § Weather Algo
 - Routes données : [`api.md`](./api.md) § Weather Algo data (`/api/weather-algo-data/*`) et § Weather Algo history (`/api/weather-algo-history/*`)
 - Routes backtest : [`api.md`](./api.md) § Backtest (`/api/backtest/*`) ; moteur : [`backtest.md`](./backtest.md)
-- Config : [`configuration.md`](./configuration.md) § Weather Algo ; entité `WeatherConfig` ; présentation API `packages/core/src/risk/weather-config-api.ts`
-- Sorties / defaults intervalle : `packages/core/src/risk/weather-exit-params.ts` (`resolveWeatherEntryExitParams`)
+- Config : [`configuration.md`](./configuration.md) § Weather Algo ; entité `WeatherConfig` ; présentation API `packages/core/src/risk/weather-config-api.ts`. **Per-strategy** : `WeatherStrategyParamsBag` + `getStrategyParams` dans `packages/core/src/weather/strategy-catalog.ts` ; getters `policy.ts` (`getWeatherMaxOpenPositions(cfg, mode, strategyId)`, etc.).
+- Sorties / defaults intervalle : `packages/core/src/risk/weather-exit-params.ts` (`resolveWeatherEntryExitParams(risk, mode, marketInterval, strategyId)`)
+- Kill-switch weather : `packages/core/src/services/risk.service.ts` (`checkKillSwitch('weather', mode, strategyId)`) ; gate entry : `packages/weather-algo/src/processors/weather-entry-pipeline.ts` `runMode`
 - Redis : `weather-reentry-throttle.ts`, `weather-bucket-hysteresis.ts`
 - Entités : [`modele-donnees.md`](./modele-donnees.md)
 - Backtest : [`backtest.md`](./backtest.md)

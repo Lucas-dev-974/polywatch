@@ -180,13 +180,18 @@ un run `running` **ou** `queued` → la route `POST /runs` renvoie `409`.
 
 ## 5. Sorties weather (exits)
 
+Paramètres lus depuis le bag per-strategy
+(`getStrategyParams(cfgSnapshot, strategyId)` → `WeatherStrategyParamsBag`).
+`strategyId` attaché à chaque position/snapshot ; legacy `null` → fallback
+`'weather-forecast'`.
+
 | Raison | Déclencheur |
 |--------|-------------|
-| `WEATHER_PRE_CLOSE` | `hoursToEnd <= weatherAlgoCloseBeforeResolutionHours` (prioritaire) — **pas** de throttle re-entry |
-| `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > weatherAlgoForecastChangeThreshold` — **pose** le throttle |
-| `WEATHER_BUCKET_EXIT` | Forecast hors palier + `close_and_reenter` après `bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle |
-| `SL` / `TP` / `TRAILING` | Seuils résolus à l’entrée via `resolveWeatherEntryExitParams` (défauts `WEATHER_EXIT_DEFAULTS` si bidPoints null) — **pas** de confirmation ticks, **pas** de throttle |
-| `KILL_SWITCH` | `dailyPnl <= -maxDailyLoss` et `weatherAlgoKillSwitchAction === 'force_close_all'` |
+| `WEATHER_PRE_CLOSE` | `hoursToEnd <= bag.closeBeforeResolutionHours` (prioritaire) — **pas** de throttle re-entry |
+| `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > bag.forecastChangeThreshold` — **pose** le throttle |
+| `WEATHER_BUCKET_EXIT` | Forecast hors palier + `bag.cityFollowSwitchMode = close_and_reenter` après `bag.bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle |
+| `SL` / `TP` / `TRAILING` | Seuils résolus à l’entrée via `resolveWeatherEntryExitParams(risk, mode, interval, strategyId)` (défauts `WEATHER_EXIT_DEFAULTS` si bidPoints null) — **pas** de confirmation ticks, **pas** de throttle |
+| `KILL_SWITCH` | `dailyPnl(strategyId) <= -bag.maxDailyLossUsdc` et `bag.killSwitchAction === 'force_close_all'` — ferme uniquement les positions de la stratégie |
 | `RESOLUTION` | Marché résolu (`endDate` passé, ou fallback `targetDateIso T23:59:59Z + 24h` si `endDate` absent) |
 
 > **Note** : les runs avec `engineVersion < 0.2.0` ont été produits avant l’alignement

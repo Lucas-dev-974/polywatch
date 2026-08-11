@@ -26,6 +26,7 @@ import {
   isMarketActiveForWeather,
   type BucketCandidate,
   resolveEnabledWeatherStrategies,
+  getStrategyParams,
   type WeatherStrategyId,
 } from '@polywatch/core';
 import type { WeatherStrategyRegistry } from './registry.js';
@@ -105,7 +106,8 @@ export class WeatherStrategyRunner {
       }
     }
     for (const strategy of this.registry.getAll()) {
-      strategy.setRiskConfig?.(risk);
+      const bag = getStrategyParams(risk, strategy.id);
+      strategy.setRiskConfig?.(bag);
     }
   }
 

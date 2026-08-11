@@ -2,6 +2,12 @@ import type { GlobalConfig } from '../entities/GlobalConfig.js';
 import type { CopyConfig } from '../entities/CopyConfig.js';
 import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
+import {
+  getStrategyParams,
+  DEFAULT_WEATHER_STRATEGY_PARAMS,
+  resolveEnabledWeatherStrategies,
+  type WeatherStrategyParamsBag,
+} from '../weather/strategy-catalog.js';
 import { isMarketTagAllowed } from '../market/tags.js';
 import type {
   MoveEventType,
@@ -88,13 +94,44 @@ export function getCopyPreCloseParams(cfg: CopyConfig, mode: TradingMode): ModeP
   };
 }
 
-export function getWeatherPreCloseParams(cfg: WeatherConfig, mode: TradingMode): ModePreCloseParams {
+export function getWeatherPreCloseParams(
+  cfg: WeatherConfig,
+  _mode: TradingMode,
+  strategyId?: string | null,
+): ModePreCloseParams {
+  const bag = strategyId ? getStrategyParams(cfg, strategyId) : DEFAULT_WEATHER_STRATEGY_PARAMS;
   return {
-    preCloseEnabled: cfg.weatherAlgoPreCloseEnabled,
-    preCloseSeconds: cfg.weatherAlgoPreCloseSeconds,
+    preCloseEnabled: bag.preCloseEnabled,
+    preCloseSeconds: bag.preCloseSeconds,
     keepEnabled: false,
     keepBidThreshold: 0.80,
   };
+}
+
+export interface WeatherPreCloseAggregate {
+  enabled: boolean;
+  seconds: number;
+}
+
+/**
+ * Aggregate weather pre-close across enabled strategies. A strategy that has
+ * preClose disabled contributes 0 seconds; the aggregate is the max seconds
+ * among enabled strategies. Reused by both the market-resolution service and
+ * the worker pre-close refresh so they stay consistent.
+ */
+export function resolveWeatherPreCloseAggregate(
+  cfg: WeatherConfig,
+): WeatherPreCloseAggregate {
+  const enabled = resolveEnabledWeatherStrategies(cfg);
+  let seconds = 0;
+  let anyEnabled = false;
+  for (const strategyId of enabled) {
+    const bag = getStrategyParams(cfg, strategyId);
+    if (!bag.preCloseEnabled) continue;
+    anyEnabled = true;
+    seconds = Math.max(seconds, bag.preCloseSeconds ?? 0);
+  }
+  return { enabled: anyEnabled, seconds };
 }
 
 export interface PreCloseCheckSource {
@@ -104,14 +141,11 @@ export interface PreCloseCheckSource {
   realPreCloseSeconds?: number;
   cryptoAlgoPreCloseEnabled?: boolean | null;
   cryptoAlgoPreCloseSeconds?: number | null;
-  weatherAlgoPreCloseEnabled?: boolean;
-  weatherAlgoPreCloseSeconds?: number | null;
 }
 
 export function isAnyPreCloseEnabled(cfg: PreCloseCheckSource): boolean {
   if (cfg.simPreCloseEnabled || cfg.realPreCloseEnabled) return true;
   if (cfg.cryptoAlgoPreCloseEnabled === true) return true;
-  if (cfg.weatherAlgoPreCloseEnabled) return true;
   return false;
 }
 
@@ -119,7 +153,6 @@ export function getMaxPreCloseSeconds(cfg: PreCloseCheckSource): number {
   const modeMax = Math.max(
     cfg.simPreCloseEnabled ? cfg.simPreCloseSeconds ?? 0 : 0,
     cfg.realPreCloseEnabled ? cfg.realPreCloseSeconds ?? 0 : 0,
-    cfg.weatherAlgoPreCloseEnabled ? cfg.weatherAlgoPreCloseSeconds ?? 0 : 0,
   );
   const cryptoIntervalMax = 600;
   // Crypto window length is independent of enabled (null ≡ false for sells).
@@ -490,70 +523,93 @@ export function getCryptoSlConfirmationTicks(cfg: CryptoConfig): number {
 }
 
 // ─── Weather getters ──────────────────────────────────────────────────
+//
+// Per-strategy config: when a strategyId is provided the getter resolves the
+// full params bag via getStrategyParams (catalogue defaults + stored overrides).
+// When strategyId is null/undefined (legacy positions, backtest, copy/crypto
+// callers) the getter falls back to the catalogue defaults — never to the
+// legacy global WeatherConfig columns.
+
+function weatherBag(cfg: WeatherConfig, strategyId?: string | null): WeatherStrategyParamsBag {
+  if (strategyId) return getStrategyParams(cfg, strategyId);
+  return DEFAULT_WEATHER_STRATEGY_PARAMS;
+}
 
 export function getWeatherMaxOpenPositions(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoMaxOpenPositions : cfg.weatherAlgoMaxOpenPositions;
+  return weatherBag(cfg, strategyId).maxOpenPositions;
 }
 
 export function getWeatherMaxPositionSizeUsdc(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoMaxPositionSizeUsdc : cfg.weatherAlgoMaxPositionSizeUsdc;
+  return weatherBag(cfg, strategyId).maxPositionSizeUsdc;
 }
 
 export function getWeatherMaxExposureUsdc(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoMaxExposureUsdc : cfg.weatherAlgoMaxExposureUsdc;
+  return weatherBag(cfg, strategyId).maxExposureUsdc;
 }
 
 export function getWeatherMaxDailyLossUsdc(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoMaxDailyLossUsdc : cfg.weatherAlgoMaxDailyLossUsdc;
+  return weatherBag(cfg, strategyId).maxDailyLossUsdc;
 }
 
 export function getWeatherEntryDepthRetryMax(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoEntryDepthRetryMax : cfg.weatherAlgoEntryDepthRetryMax;
+  return weatherBag(cfg, strategyId).entryDepthRetryMax;
 }
 
 export function getWeatherEntryDepthRetryDelayMs(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoEntryDepthRetryDelayMs : cfg.weatherAlgoEntryDepthRetryDelayMs;
+  return weatherBag(cfg, strategyId).entryDepthRetryDelayMs;
 }
 
 export function getWeatherSlCloseMaxRetries(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoSlCloseMaxRetries : cfg.weatherAlgoSlCloseMaxRetries;
+  return weatherBag(cfg, strategyId).slCloseMaxRetries;
 }
 
 export function getWeatherKillSwitchAction(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): string {
-  return mode === 'sim' ? cfg.weatherAlgoKillSwitchAction : cfg.weatherAlgoKillSwitchAction;
+  return weatherBag(cfg, strategyId).killSwitchAction;
 }
 
 export function getWeatherMinBidToAskRatio(
   cfg: WeatherConfig,
-  mode: TradingMode,
+  _mode: TradingMode,
+  strategyId?: string | null,
 ): number {
-  return mode === 'sim' ? cfg.weatherAlgoMinBidToAskRatio : cfg.weatherAlgoMinBidToAskRatio;
+  return weatherBag(cfg, strategyId).minBidToAskRatio;
 }
 
-export function getWeatherSlConfirmationTicks(cfg: WeatherConfig): number {
-  return cfg.weatherAlgoSlConfirmationTicks;
+export function getWeatherSlConfirmationTicks(
+  cfg: WeatherConfig,
+  strategyId?: string | null,
+): number {
+  return weatherBag(cfg, strategyId).slConfirmationTicks;
 }

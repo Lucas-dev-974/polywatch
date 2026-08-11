@@ -106,20 +106,27 @@ export class RiskService {
     return global.realTradingEnabled && weather.weatherAlgoRealEnabled;
   }
 
-  async checkKillSwitch(algoKind: SimAlgoKind, mode: TradingMode): Promise<RiskCheckResult> {
+  async checkKillSwitch(
+    algoKind: SimAlgoKind,
+    mode: TradingMode,
+    strategyId?: string,
+  ): Promise<RiskCheckResult> {
     const config = await this.getConfigForAlgo(algoKind);
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const result = await this.ds
+    const qb = this.ds
       .getRepository(Execution)
       .createQueryBuilder('e')
       .select('COALESCE(SUM(e.realized_pnl), 0)', 'total')
       .innerJoin(CopiedPosition, 'p', 'p.id = e.copied_position_id')
       .where('e.mode = :mode', { mode })
       .andWhere('e.executed_at >= :start', { start: startOfDay })
-      .andWhere('p.reason IN (:...reasons)', { reasons: openingReasonsForAlgoKind(algoKind) })
-      .getRawOne<{ total: number }>();
+      .andWhere('p.reason IN (:...reasons)', { reasons: openingReasonsForAlgoKind(algoKind) });
+    if (algoKind === 'weather' && strategyId) {
+      qb.andWhere('p.strategyId = :strategyId', { strategyId });
+    }
+    const result = await qb.getRawOne<{ total: number }>();
 
     const dailyNet = result?.total ?? 0;
 
@@ -132,8 +139,8 @@ export class RiskService {
       triggered = dailyNet < 0 && Math.abs(dailyNet) >= getCryptoMaxDailyLossUsdc(config as CryptoConfig, mode);
       action = getCryptoKillSwitchAction(config as CryptoConfig, mode) as KillSwitchAction;
     } else {
-      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getWeatherMaxDailyLossUsdc(config as WeatherConfig, mode);
-      action = getWeatherKillSwitchAction(config as WeatherConfig, mode) as KillSwitchAction;
+      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getWeatherMaxDailyLossUsdc(config as WeatherConfig, mode, strategyId);
+      action = getWeatherKillSwitchAction(config as WeatherConfig, mode, strategyId) as KillSwitchAction;
     }
 
     return {

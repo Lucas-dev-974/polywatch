@@ -5,6 +5,9 @@ import {
   shouldCloseForBucketExit,
   shouldEmitBucketExit,
   resolveCityFollowSwitchMode,
+  getStrategyParams,
+  DEFAULT_WEATHER_STRATEGY_PARAMS,
+  type WeatherStrategyParamsBag,
   type BacktestExitReason,
 } from '@polywatch/core';
 import { type LedgerPosition } from './ledger.js';
@@ -38,13 +41,18 @@ export class WeatherExitManager {
   private lastHysteresisAdvanceAt = new Map<string, number>();
   /** city -> last close timestamp (re-entry throttle). */
   private reentryThrottle = new Map<string, number>();
+  private readonly bag: WeatherStrategyParamsBag;
 
-  constructor(private readonly risk: WeatherConfig) {}
+  constructor(private readonly risk: WeatherConfig, strategyId?: string | null) {
+    this.bag = strategyId
+      ? getStrategyParams(risk, strategyId)
+      : DEFAULT_WEATHER_STRATEGY_PARAMS;
+  }
 
   isReentryBlocked(city: string, now: Date): boolean {
     const last = this.reentryThrottle.get(city);
     if (last == null) return false;
-    const throttleMs = this.risk.weatherAlgoReentryThrottleMs ?? 1_800_000;
+    const throttleMs = this.bag.reentryThrottleMs;
     return now.getTime() - last < throttleMs;
   }
 
@@ -69,10 +77,9 @@ export class WeatherExitManager {
       entryBucketBounds: { low?: number | null; high?: number | null; target?: number | null } | null;
     },
   ): ExitDecision | null {
-    const risk = this.risk;
     const now = input.now;
 
-    const closeBeforeHours = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
+    const closeBeforeHours = this.bag.closeBeforeResolutionHours;
     // Negative hoursToEnd (endDate already past) is intentional: the helper
     // treats hoursToEnd <= closeBeforeHours as pre-close (see R3 follow-up).
     let hoursToEnd = Number.POSITIVE_INFINITY;
@@ -94,7 +101,7 @@ export class WeatherExitManager {
       drift = shouldCloseForForecastDrift(
         input.entryMean,
         input.currentMean,
-        risk.weatherAlgoForecastChangeThreshold ?? 2,
+        this.bag.forecastChangeThreshold,
       );
     }
 
@@ -104,9 +111,9 @@ export class WeatherExitManager {
         input.entryBucketBounds,
         input.currentMean ?? Number.NaN,
       );
-      const switchMode = resolveCityFollowSwitchMode(risk.weatherAlgoCityFollowSwitchMode);
-      const hysteresisPolls = risk.weatherAlgoBucketHysteresisPolls ?? 2;
-      const pollMs = risk.weatherAlgoPollMs ?? 1_800_000;
+      const switchMode = resolveCityFollowSwitchMode(this.bag.cityFollowSwitchMode);
+      const hysteresisPolls = this.bag.bucketHysteresisPolls;
+      const pollMs = this.risk.weatherAlgoPollMs;
 
       if (!leftBucket) {
         this.bucketHysteresis.delete(pos.conditionId);

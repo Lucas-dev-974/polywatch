@@ -398,6 +398,8 @@ Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./pla
 | GET | `/api/weather-algo-data/forecast-cache` | Liste cache Open-Meteo opérationnel |
 | GET | `/api/weather-algo-data/position-forecasts` | Liste snapshots d’entrée (+ `openedAt` joint) |
 | GET | `/api/weather-algo-data/clob-price-history/timeline` | Timeline prix CLOB (`targetDate`, `city?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle |
+| GET | `/api/weather-algo-data/bucket-ticks/timeline` | Timeline bucket ticks (`targetDateIso`, `city?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle |
+| DELETE | `/api/weather-algo-data/bucket-ticks/interval?city=&fidelityMinutes=` | Supprime tous les ticks d'une ville à un intervalle donné → `{ city, fidelityMinutes, deleted }` |
 | GET | `/api/weather-algo-data/coverage` | Agrégat legacy (période snapshots + totaux) — UI Paramètres retirée |
 
 ### Weather Algo history (ingestion historique CLOB)
@@ -426,7 +428,7 @@ Doc : [`backtest.md`](./backtest.md).
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/backtest/data-coverage` | Couverture des données de ticks (`from`, `to`, `totalTicks`, `cities`) |
+| GET | `/api/backtest/data-coverage` | Couverture des données de ticks (`from`, `to`, `totalTicks`, `cities`) — `?fidelityMinutes=` optionnel pour ne compter que les ticks d'un intervalle |
 | POST | `/api/backtest/runs` | Lance un run — **202** `{ id, status }` ; **409** `run_already_active` si un run weather est déjà `running`/`queued` ; **400** `invalid_params` si params Zod invalides |
 | GET | `/api/backtest/runs` | Liste paginée (`domain`, `status`, `limit`≤100, `offset`) → `{ items, total }` |
 | GET | `/api/backtest/runs/:id` | Détail d'un run (params, stats, warnings, plage, `error` si failed) |

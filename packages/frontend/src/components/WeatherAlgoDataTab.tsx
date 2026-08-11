@@ -1,5 +1,6 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
 import {
+  deleteBucketTickInterval,
   deleteWeatherAlgoDataTable,
   deleteWeatherAlgoDataTables,
   fetchWeatherAlgoBucketTicks,
@@ -185,6 +186,7 @@ export function WeatherAlgoDataTab() {
   const [summaryError, setSummaryError] = createSignal<string | null>(null);
   const [deleting, setDeleting] = createSignal(false);
   const [tableDeleting, setTableDeleting] = createSignal(false);
+  const [intervalDeleting, setIntervalDeleting] = createSignal(false);
   const [pollMs, setPollMs] = createSignal(DEFAULT_POLL_MS);
 
   const [city, setCity] = usePersistedSignal(UI_KEYS.weatherAlgoDataCity, '', isPersistedString);
@@ -192,6 +194,11 @@ export function WeatherAlgoDataTab() {
   const [to, setTo] = usePersistedSignal(UI_KEYS.weatherAlgoDataTo, '', isPersistedString);
   const [conditionId, setConditionId] = usePersistedSignal(
     UI_KEYS.weatherAlgoDataConditionId,
+    '',
+    isPersistedString,
+  );
+  const [intervalFidelity, setIntervalFidelity] = usePersistedSignal(
+    'polywatch_weather_algo_data_interval_fidelity',
     '',
     isPersistedString,
   );
@@ -370,12 +377,44 @@ export function WeatherAlgoDataTab() {
     setTableDeleting(false);
   }
 
+  async function deleteInterval() {
+    const id = selectedId();
+    const intervalFid = Number(intervalFidelity());
+    if (id !== 'bucket_ticks' || !intervalFid || intervalFid <= 0) return;
+    const targetCity = city().trim().toLowerCase();
+    if (!targetCity) {
+      setDetailError('Indiquez une ville dans le filtre avant de supprimer un intervalle.');
+      return;
+    }
+    if (
+      !confirm(
+        `Supprimer tous les bucket ticks de « ${targetCity} » à l'intervalle ${intervalFid} min ?\n\nCette action est irréversible.`,
+      )
+    ) {
+      return;
+    }
+    setIntervalDeleting(true);
+    setDetailError(null);
+    try {
+      const res = await deleteBucketTickInterval(targetCity, intervalFid);
+      setDetailError(
+        `${res.deleted} ligne(s) supprimée(s) pour ${targetCity} @ ${intervalFid} min.`,
+      );
+      await loadDetail(0);
+      await refreshSummary();
+    } catch (err) {
+      setDetailError(err instanceof Error ? err.message : 'Échec de la suppression de l’intervalle');
+    }
+    setIntervalDeleting(false);
+  }
+
   function openDetail(id: WeatherAlgoDataTableId) {
     setSelectedId(id);
     setCity('');
     setFrom('');
     setTo('');
     setConditionId('');
+    setIntervalFidelity('');
     setStrategyId('');
     setDecision('');
     setPage(0);
@@ -593,6 +632,27 @@ export function WeatherAlgoDataTab() {
                     onInput={(e) => setConditionId(e.currentTarget.value)}
                   />
                 </label>
+              </Show>
+              <Show when={selectedId() === 'bucket_ticks'}>
+                <label class="weather-data-filter">
+                  <span>Intervalle (min)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={intervalFidelity()}
+                    onInput={(e) => setIntervalFidelity(e.currentTarget.value)}
+                    placeholder="ex. 15"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-danger"
+                  onClick={() => void deleteInterval()}
+                  disabled={intervalDeleting() || detailLoading()}
+                  title="Supprimer tous les ticks d'une ville pour un intervalle de fidelity donné"
+                >
+                  {intervalDeleting() ? 'Suppression…' : 'Supprimer l’intervalle'}
+                </button>
               </Show>
               <Show when={meta().hasStrategyFilters}>
                 <label class="weather-data-filter">

@@ -394,6 +394,7 @@ export class WeatherAlgoDataService {
     from?: Date;
     to?: Date;
     maxTicks?: number;
+    fidelityMinutes?: number;
   }): Promise<BucketTimelineResponse> {
     const target = options.targetDateIso.trim();
     if (!target) return { dates: [] };
@@ -411,6 +412,9 @@ export class WeatherAlgoDataService {
       tickQb.andWhere('t.cityNormalized = :city', {
         city: options.city.trim().toLowerCase(),
       });
+    }
+    if (options.fidelityMinutes != null) {
+      tickQb.andWhere('t.fidelityMinutes = :fid', { fid: options.fidelityMinutes });
     }
     if (options.from) {
       tickQb.andWhere('t.recordedAt >= :from', { from: options.from });
@@ -799,6 +803,27 @@ export class WeatherAlgoDataService {
 
     log.info({ id, deleted, cascaded }, 'deleted weather algo table data');
     return { id, deleted, cascaded };
+  }
+
+  /**
+   * Supprime les bucket ticks d'une ville pour un intervalle de fidelity donné.
+   * Ne touche pas aux autres intervalles de la même ville (ni aux autres villes).
+   */
+  async deleteBucketTickCityInterval(
+    city: string,
+    fidelityMinutes: number,
+  ): Promise<number> {
+    if (!Number.isFinite(fidelityMinutes) || fidelityMinutes <= 0) {
+      throw new Error('invalid_fidelity');
+    }
+    const result = await this.ds
+      .getRepository(WeatherBucketTick)
+      .createQueryBuilder()
+      .delete()
+      .where('LOWER(city_normalized) = :city', { city: city.trim().toLowerCase() })
+      .andWhere('fidelity_minutes = :fidelityMinutes', { fidelityMinutes })
+      .execute();
+    return result.affected ?? 0;
   }
 
   async getTablesSummary(): Promise<WeatherAlgoDataTablesResponse> {

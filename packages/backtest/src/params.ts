@@ -14,6 +14,7 @@ export const backtestRunParamsSchema = z
     entryUsdc: z.number().positive().optional(),
     slippageBps: z.number().min(0).default(50),
     maxConcurrentPositions: z.number().int().positive().optional(),
+    fidelityMinutes: z.number().int().positive().optional(),
     detectionDelayMs: z.number().min(0).default(0),
     label: z.string().optional(),
   })

@@ -80,6 +80,7 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `risk_sizing_simplified_fixed_usdc` | Taille fixe `entryUsdc` (pas de signal-score sizing) |
 | `risk_min_time_to_close_ignored` | `minTimeToClose` non appliqué (`closeBeforeHours` l’est à l’entrée) |
 | `detection_delay_unused` | `detectionDelayMs > 0` paramétré mais non appliqué |
+| `replay_fidelity_filter_unsupported` | `fidelityMinutes` défini mais ignoré en mode `replay` (weather_evaluation_log ne porte pas `fidelity_minutes`) |
 | `market_lifecycle_filtered` | Ticks exclus (`closed` / `acceptingOrders` / token / minHours) — compteur |
 | `kill_switch_force_close` | `force_close_all` a clôturé les positions ouvertes |
 | `kill_switch_block_entries` | Kill-switch actif sans force-close — entrées bloquées |
@@ -105,6 +106,15 @@ one-thesis-per-city, throttle re-entry **uniquement** après
 |------|--------------|-------|
 | `reevaluate` | À chaque `book_tick` : reconstruit le contexte marché + forecast as-of et appelle `WeatherForecastStrategy.evaluate` → décide l'entrée | Tester une stratégie sur données passées |
 | `replay` | Entre sur chaque décision `signal` déjà enregistrée dans `weather_evaluation_log` (pas de re-stratégie) | Simuler l'exécution des décisions passées |
+
+**Filtre par intervalle (`fidelityMinutes`)** : paramètre **optionnel** transmis au
+lancement. En `reevaluate`, seuls les `book_tick` dont `fidelity_minutes` correspond
+sont chargés (`data-loader` filtre `t.fidelityMinutes = :fid`). En `replay`, le
+filtre est **ignoré** et un warning `replay_fidelity_filter_unsupported` est émis,
+car `weather_evaluation_log` (et son snapshot parent) ne portent pas de colonne
+`fidelity_minutes`. Sans `fidelityMinutes`, tous les ticks sont chargés
+(comportement historique). Le bandeau de couverture (`GET /backtest/data-coverage`)
+accepte `?fidelityMinutes=` pour afficher un `totalTicks` cohérent avec le filtre choisi.
 
 Les **sorties** (drift / bucket-exit / pre-close / SL-TP-trailing / kill-switch /
 résolution) sont évaluées en mémoire à chaque `book_tick` pour **toutes** les

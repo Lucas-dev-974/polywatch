@@ -53,11 +53,23 @@ function bucketTargetLabel(bucket: {
   return fmt(bucketTarget);
 }
 
+const FIDELITY_OPTIONS = [
+  { value: '1', label: '1 min' },
+  { value: '5', label: '5 min' },
+  { value: '15', label: '15 min' },
+  { value: '60', label: '1 h' },
+  { value: '1440', label: '1 j' },
+];
+
 const source: WeatherTimelineSource<BucketTimelineCity> = {
   dateKey: UI_KEYS.weatherAlgoTimelineDate,
   maxTicksKey: UI_KEYS.weatherAlgoTimelineMaxTicks,
   minPriceKey: UI_KEYS.weatherAlgoTimelineMinPrice,
   minPriceDefault: 0.1,
+  fidelityKey: UI_KEYS.weatherAlgoTimelineFidelity,
+  fidelityOptions: FIDELITY_OPTIONS,
+  fidelityDefault: '15',
+  fidelityRequired: true,
   unitLabel: 'tick',
   dialogTitleId: 'weather-bucket-city-dialog',
 
@@ -69,8 +81,11 @@ const source: WeatherTimelineSource<BucketTimelineCity> = {
     }));
   },
 
-  fetchTimeline: async (targetDateIso, maxTicks) => {
-    const res = await fetchBucketTickTimeline(targetDateIso, { maxTicks });
+  fetchTimeline: async (targetDateIso, maxTicks, fidelity) => {
+    const res = await fetchBucketTickTimeline(targetDateIso, {
+      maxTicks,
+      fidelityMinutes: fidelity ? Number(fidelity) : undefined,
+    });
     return res.dates[0]?.cities ?? [];
   },
 

@@ -146,6 +146,7 @@ export const UI_KEYS = {
   weatherAlgoTimelineDate: 'polywatch_weather_algo_timeline_date',
   weatherAlgoTimelineMaxTicks: 'polywatch_weather_algo_timeline_max_ticks',
   weatherAlgoTimelineMinPrice: 'polywatch_weather_algo_timeline_min_price',
+  weatherAlgoTimelineFidelity: 'polywatch_weather_algo_timeline_fidelity',
   weatherAlgoClobTimelineDate: 'polywatch_weather_algo_clob_timeline_date',
   weatherAlgoClobTimelineMaxTicks: 'polywatch_weather_algo_clob_timeline_max_ticks',
   weatherAlgoClobTimelineSide: 'polywatch_weather_algo_clob_timeline_side',

@@ -21,12 +21,16 @@ export async function* loadWeatherEvents(
   const from = new Date(params.from);
   const to = new Date(params.to);
   const cities = params.cities?.length ? params.cities : null;
+  const fidelityMinutes = params.fidelityMinutes;
 
   const streams: AsyncIterable<BacktestEvent>[] = [
     loadForecastEvents(ds, from, to, cities),
-    loadTickEvents(ds, from, to, cities),
+    loadTickEvents(ds, from, to, cities, fidelityMinutes),
   ];
   if (params.mode === 'replay') {
+    // Le filtre fidelity ne s'applique pas aux signals : weather_evaluation_log
+    // ne porte pas de colonne fidelity_minutes (limite documentée — warning
+    // émis par l'adapter en mode replay).
     streams.push(loadSignalEvents(ds, from, to, cities, params.strategyId));
   }
 
@@ -41,9 +45,10 @@ export async function countWeatherEvents(
   const from = new Date(params.from);
   const to = new Date(params.to);
   const cities = params.cities?.length ? params.cities : null;
+  const fidelityMinutes = params.fidelityMinutes;
 
   let total = await countForecastEvents(ds, from, to, cities);
-  total += await countTickEvents(ds, from, to, cities);
+  total += await countTickEvents(ds, from, to, cities, fidelityMinutes);
   if (params.mode === 'replay') {
     total += await countSignalEvents(ds, from, to, cities, params.strategyId);
   }
@@ -72,12 +77,16 @@ async function countTickEvents(
   from: Date,
   to: Date,
   cities: string[] | null,
+  fidelityMinutes?: number,
 ): Promise<number> {
   const qb = ds
     .getRepository(WeatherBucketTick)
     .createQueryBuilder('t')
     .where('t.recordedAt >= :from', { from })
     .andWhere('t.recordedAt <= :to', { to });
+  if (fidelityMinutes != null) {
+    qb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+  }
   if (cities) {
     qb.andWhere('LOWER(t.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
   }
@@ -196,6 +205,7 @@ async function* loadTickEvents(
   from: Date,
   to: Date,
   cities: string[] | null,
+  fidelityMinutes?: number,
 ): AsyncGenerator<BacktestEvent> {
   const CHUNK = 5000;
   let cursor: TimeIdCursor | null = null;
@@ -234,6 +244,9 @@ async function* loadTickEvents(
       .addOrderBy('t.id', 'ASC')
       .limit(CHUNK);
     applyTimeIdCursor(qb, 't', 'recordedAt', cursor);
+    if (fidelityMinutes != null) {
+      qb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+    }
     if (cities) {
       qb.andWhere('LOWER(t.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
     }

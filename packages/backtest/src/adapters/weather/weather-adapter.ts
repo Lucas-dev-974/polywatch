@@ -152,6 +152,13 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         'detectionDelayMs paramétré mais non appliqué au replay',
       );
     }
+    if (ctx.params.mode === 'replay' && ctx.params.fidelityMinutes != null) {
+      this.warnOnce(
+        ctx,
+        'replay_fidelity_filter_unsupported',
+        'filtre intervalle ignoré en mode replay (weather_evaluation_log ne porte pas fidelity_minutes)',
+      );
+    }
   }
 
   private hasOpenCity(ctx: RunContext, city: string | null | undefined): boolean {

@@ -126,6 +126,11 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
     const from = parseOptionalDate(req.query.from);
     const to = parseOptionalDate(req.query.to);
     const maxTicks = Number(req.query.maxTicks);
+    const fidelityMinutesRaw = Number(req.query.fidelityMinutes);
+    const fidelityMinutes =
+      Number.isFinite(fidelityMinutesRaw) && fidelityMinutesRaw > 0
+        ? Math.floor(fidelityMinutesRaw)
+        : undefined;
     res.json(
       await service.getBucketTicksTimeline({
         targetDateIso,
@@ -133,8 +138,20 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
         from,
         to,
         maxTicks: Number.isFinite(maxTicks) ? maxTicks : undefined,
+        fidelityMinutes,
       }),
     );
+  });
+
+  router.delete('/bucket-ticks/interval', requireJwt, async (req, res) => {
+    const city = typeof req.query.city === 'string' ? req.query.city : '';
+    const fidelityMinutes = Number(req.query.fidelityMinutes);
+    if (!city || !Number.isFinite(fidelityMinutes) || fidelityMinutes <= 0) {
+      res.status(400).json({ error: 'city and fidelityMinutes (>0) are required' });
+      return;
+    }
+    const deleted = await service.deleteBucketTickCityInterval(city, fidelityMinutes);
+    res.json({ city, fidelityMinutes, deleted });
   });
 
   router.get('/clob-price-history/dates', requireJwt, async (_req, res) => {

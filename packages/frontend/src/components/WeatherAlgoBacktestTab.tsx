@@ -89,6 +89,11 @@ export function WeatherAlgoBacktestTab() {
   const [entryUsdc, setEntryUsdc] = createSignal('10');
   const [slippageBps, setSlippageBps] = createSignal('50');
   const [maxPos, setMaxPos] = createSignal('10');
+  const [fidelityMinutes, setFidelityMinutes] = usePersistedSignal(
+    'polywatch_weather_algo_backtest_fidelity',
+    '',
+    (v): v is string => typeof v === 'string',
+  );
   const [label, setLabel] = createSignal('');
   const [strategyId, setStrategyId] = usePersistedSignal(
     'polywatch_weather_algo_backtest_strategy_id',
@@ -131,7 +136,9 @@ export function WeatherAlgoBacktestTab() {
 
   async function refreshCoverage() {
     try {
-      const cov = await fetchBacktestDataCoverage();
+      const cov = await fetchBacktestDataCoverage(
+        fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
+      );
       setCoverage(cov);
       if (!from()) setFrom(toDateInputValue(cov.from));
       if (!to()) setTo(toDateInputValue(cov.to));
@@ -231,6 +238,7 @@ export function WeatherAlgoBacktestTab() {
         entryUsdc: Number(entryUsdc()) || 10,
         slippageBps: Number(slippageBps()) || 0,
         maxConcurrentPositions: Number(maxPos()) || 10,
+        fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
         label: label().trim() || undefined,
       });
       setPage(0);
@@ -387,6 +395,20 @@ export function WeatherAlgoBacktestTab() {
             <label class="backtest-field">
               <span>Max positions concurrentes</span>
               <input type="number" min="1" value={maxPos()} onInput={(e) => setMaxPos(e.currentTarget.value)} />
+            </label>
+            <label class="backtest-field">
+              <span>Intervalle (min, optionnel)</span>
+              <input
+                type="number"
+                min="1"
+                placeholder="vide = tous"
+                value={fidelityMinutes()}
+                onInput={(e) => {
+                  setFidelityMinutes(e.currentTarget.value);
+                  void refreshCoverage();
+                }}
+                title="Filtre les ticks par intervalle de fidelity (15 = 15 min). Vide = tous les intervalles."
+              />
             </label>
             <label class="backtest-field backtest-field-wide">
               <span>Libellé (optionnel)</span>

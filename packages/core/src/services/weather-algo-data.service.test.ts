@@ -164,6 +164,23 @@ describe('WeatherAlgoDataService — bucket ticks timeline', () => {
     expect(res.dates).toEqual([]);
   });
 
+  it('filtre la timeline par intervalle (fidelityMinutes)', async () => {
+    const snap = await seedSnapshot();
+    await seedTick(snap.id, { fidelityMinutes: 15, yesPrice: 0.3, conditionId: 'cond-15' });
+    await seedTick(snap.id, { fidelityMinutes: 60, yesPrice: 0.6, conditionId: 'cond-60' });
+
+    const all = await service.getBucketTicksTimeline({ targetDateIso: '2026-01-01' });
+    expect(all.dates[0]!.cities[0]!.buckets).toHaveLength(2);
+
+    const filtered = await service.getBucketTicksTimeline({
+      targetDateIso: '2026-01-01',
+      fidelityMinutes: 15,
+    });
+    const buckets = filtered.dates[0]!.cities[0]!.buckets;
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]!.conditionId).toBe('cond-15');
+  });
+
   it('listBucketTickDates — agrège par date cible', async () => {
     const snap = await seedSnapshot({ targetDateIso: '2026-01-02' });
     await seedTick(snap.id, { targetDateIso: '2026-01-02' });
@@ -440,5 +457,26 @@ describe('WeatherAlgoDataService — deleteTableData', () => {
     const series = filtered.dates[0]!.cities[0]!.buckets[0]!.series;
     expect(series).toHaveLength(1);
     expect(series[0]!.price).toBeCloseTo(0.3);
+  });
+
+  it('deleteBucketTickCityInterval — supprime une ville × intervalle sans toucher aux autres', async () => {
+    const snap = await seedSnapshot();
+    await seedTick(snap.id, { fidelityMinutes: 15, yesPrice: 0.3, conditionId: 'cond-15' });
+    await seedTick(snap.id, { fidelityMinutes: 60, yesPrice: 0.6, conditionId: 'cond-60' });
+    await seedSnapshot({ city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02' }).then(
+      async (s) => seedTick(s.id, { city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02', fidelityMinutes: 15, conditionId: 'cond-paris' }),
+    );
+
+    const deleted = await service.deleteBucketTickCityInterval('london', 15);
+    expect(deleted).toBe(1);
+
+    const remaining = await ds.getRepository(WeatherBucketTick).find();
+    const conds = remaining.map((t) => t.conditionId);
+    expect(conds).toEqual(expect.arrayContaining(['cond-60', 'cond-paris']));
+    expect(conds).not.toContain('cond-15');
+  });
+
+  it('deleteBucketTickCityInterval — rejette un fidelity invalide', async () => {
+    await expect(service.deleteBucketTickCityInterval('london', 0)).rejects.toThrow('invalid_fidelity');
   });
 });

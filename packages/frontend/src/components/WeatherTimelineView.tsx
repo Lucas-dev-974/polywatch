@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, Show, type JSX } from 'solid-js';
+import { createEffect, createSignal, For, onMount, Show, type JSX } from 'solid-js';
 import {
   UI_KEYS,
   WEATHER_ALGO_TIMELINE_MAX_TICKS,
@@ -76,6 +76,8 @@ export interface WeatherTimelineSource<TCity extends object> {
   fidelityOptions?: WeatherTimelineSideOption[];
   /** Intervalle par défaut (vide = tous). */
   fidelityDefault?: string;
+  /** Intervalle obligatoire : masque l'option « Tous » et impose une sélection non vide. */
+  fidelityRequired?: boolean;
   /** Unité singulière pour les libellés de stats (ex. `tick`, `point`). */
   unitLabel: string;
   dialogTitleId: string;
@@ -507,6 +509,29 @@ export function WeatherTimelineView<TCity extends object>(
     (value): value is string => typeof value === 'string',
   );
 
+  // Quand l'intervalle est obligatoire (fidelityRequired), on force une valeur
+  // non vide : une valeur persistée "" (ou stale) serait sinon utilisée pour
+  // charger tous les intervalles, contredisant la contrainte « pas de Tous ».
+  createEffect(() => {
+    if (source().fidelityRequired && !fidelity()) {
+      setFidelity(source().fidelityDefault ?? source().fidelityOptions?.[0]?.value ?? '');
+    }
+  });
+
+  // Quand l'intervalle est obligatoire (fidelityRequired), on s'assure qu'une
+  // valeur non vide est toujours sélectionnée — sinon une valeur persistée ""
+  // (ou un fallback vide) ferait charger tous les intervalles au lieu du défaut.
+  if (source().fidelityRequired && !fidelity()) {
+    setFidelity(source().fidelityDefault ?? source().fidelityOptions?.[0]?.value ?? '');
+  }
+
+  // fidelityRequired : garantir une sélection non vide (sinon la valeur persistée
+  // "" — valide selon le guard — ferait charger tous les intervalles au lieu du
+  // défaut, et désynchroniserait le <select> qui n'a plus d'option « Tous »).
+  if (source().fidelityRequired && !fidelity()) {
+    setFidelity(source().fidelityDefault ?? '');
+  }
+
   async function loadDates() {
     try {
       const res = await source().fetchDates();
@@ -637,7 +662,9 @@ export function WeatherTimelineView<TCity extends object>(
               }}
               disabled={loading()}
             >
-              <option value="">Tous</option>
+              <Show when={!source().fidelityRequired}>
+                <option value="">Tous</option>
+              </Show>
               <For each={source().fidelityOptions!}>
                 {(o) => <option value={o.value}>{o.label}</option>}
               </For>

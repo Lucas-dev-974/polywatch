@@ -284,6 +284,41 @@ describe('runBacktest (weather replay)', () => {
     expect(stored?.status).toBe('completed');
   });
 
+  it('replay mode with fidelityMinutes emits replay_fidelity_filter_unsupported warning', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    await seed(now);
+    const service = new BacktestRunService(ds);
+
+    const run = await service.create({
+      domain: 'weather',
+      mode: 'replay',
+      paramsJson: JSON.stringify({}),
+    });
+
+    const result = await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather',
+        mode: 'replay',
+        from: '2026-01-01T00:00:00.000Z',
+        to: '2026-01-04T00:00:00.000Z',
+        capital: 1000,
+        entryUsdc: 10,
+        slippageBps: 0,
+        maxConcurrentPositions: 10,
+        detectionDelayMs: 0,
+        fidelityMinutes: 15,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    expect(
+      result.fidelityWarnings.some((w) => w.startsWith('replay_fidelity_filter_unsupported')),
+    ).toBe(true);
+  });
+
   it('persists metaJson on positions (edge/entryMean/bucketBounds)', async () => {
     const now = new Date('2026-01-01T00:00:00.000Z');
     await seed(now);

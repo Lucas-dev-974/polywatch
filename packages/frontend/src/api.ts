@@ -939,14 +939,26 @@ export async function fetchBucketTickDates(): Promise<{ dates: BucketTickDateEnt
 
 export async function fetchBucketTickTimeline(
   targetDateIso: string,
-  params?: { city?: string; maxTicks?: number },
+  params?: { city?: string; maxTicks?: number; fidelityMinutes?: number },
 ): Promise<{ dates: BucketTimelineDate[] }> {
   const qs = weatherAlgoDataQuery({
     targetDateIso,
     city: params?.city,
     maxTicks: params?.maxTicks,
+    fidelityMinutes: params?.fidelityMinutes,
   });
   return api(`/weather-algo-data/bucket-ticks/timeline${qs}`);
+}
+
+export async function deleteBucketTickInterval(
+  city: string,
+  fidelityMinutes: number,
+): Promise<{ city: string; fidelityMinutes: number; deleted: number }> {
+  const qs = new URLSearchParams({ city, fidelityMinutes: String(fidelityMinutes) });
+  return api<{ city: string; fidelityMinutes: number; deleted: number }>(
+    `/weather-algo-data/bucket-ticks/interval?${qs}`,
+    { method: 'DELETE' },
+  );
 }
 
 export interface ClobPriceHistoryDateEntry {
@@ -1151,6 +1163,7 @@ export interface BacktestRunParamsInput {
   entryUsdc?: number;
   slippageBps?: number;
   maxConcurrentPositions?: number;
+  fidelityMinutes?: number;
   detectionDelayMs?: number;
   label?: string;
 }
@@ -1184,8 +1197,13 @@ export interface BacktestListResponse {
   total: number;
 }
 
-export async function fetchBacktestDataCoverage(): Promise<BacktestDataCoverage> {
-  return api<BacktestDataCoverage>('/backtest/data-coverage');
+export async function fetchBacktestDataCoverage(
+  fidelityMinutes?: number,
+): Promise<BacktestDataCoverage> {
+  const qs = fidelityMinutes != null && fidelityMinutes > 0
+    ? `?fidelityMinutes=${Math.floor(fidelityMinutes)}`
+    : '';
+  return api<BacktestDataCoverage>(`/backtest/data-coverage${qs}`);
 }
 
 export async function launchBacktestRun(data: BacktestRunParamsInput): Promise<{ id: number; status: string }> {

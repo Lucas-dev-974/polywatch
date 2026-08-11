@@ -72,14 +72,22 @@ export function createBacktestRouter(ds: DataSource): Router {
   const weatherConfigService = new WeatherConfigService(ds);
 
   // ── Data coverage ──────────────────────────────────────────────────────
-  router.get('/data-coverage', requireJwt, async (_req, res) => {
-    const range = await ds
+  router.get('/data-coverage', requireJwt, async (req, res) => {
+    const fidelityMinutesRaw = Number(req.query.fidelityMinutes);
+    const fidelityMinutes =
+      Number.isFinite(fidelityMinutesRaw) && fidelityMinutesRaw > 0
+        ? Math.floor(fidelityMinutesRaw)
+        : undefined;
+    const rangeQb = ds
       .getRepository(WeatherBucketTick)
       .createQueryBuilder('t')
       .select('MIN(t.recordedAt)', 'from')
       .addSelect('MAX(t.recordedAt)', 'to')
-      .addSelect('COUNT(*)', 'count')
-      .getRawOne<{ from: Date | null; to: Date | null; count: string }>();
+      .addSelect('COUNT(*)', 'count');
+    if (fidelityMinutes != null) {
+      rangeQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+    }
+    const range = await rangeQb.getRawOne<{ from: Date | null; to: Date | null; count: string }>();
     const citiesRows = await ds
       .getRepository(WeatherMarketSnapshot)
       .createQueryBuilder('s')

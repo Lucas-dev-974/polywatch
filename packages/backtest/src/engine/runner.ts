@@ -28,6 +28,7 @@ export interface RunContext {
     mode: 'reevaluate' | 'replay';
     strategyId: string;
     backtestExecutionMode: 'strategy' | 'runner-sim';
+    fidelityMinutes?: number;
   };
   /** Current event being processed (read-only, set by the runner). */
   currentEvent: BacktestEvent | null;
@@ -60,6 +61,7 @@ export interface RunSpec {
   mode: 'reevaluate' | 'replay';
   strategyId: string;
   backtestExecutionMode: 'strategy' | 'runner-sim';
+  fidelityMinutes?: number;
   service: BacktestRunService;
   /** Cooperative abort: 'cancelled' (user) or 'timeout'. */
   getAbortReason?: () => 'cancelled' | 'timeout' | null;
@@ -136,6 +138,7 @@ export class BacktestRunner {
         mode: spec.mode,
         strategyId: spec.strategyId,
         backtestExecutionMode: spec.backtestExecutionMode,
+        fidelityMinutes: spec.fidelityMinutes,
       },
       currentEvent: null,
       cancelRequested: () => (spec.getAbortReason ? spec.getAbortReason() != null : false),

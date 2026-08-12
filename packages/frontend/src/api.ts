@@ -915,6 +915,7 @@ export interface BucketTimelineBucket {
   bucketTarget: number | null;
   bucketLow: number | null;
   bucketHigh: number | null;
+  unit: 'celsius' | 'fahrenheit' | null;
   series: BucketTimelineSeriesPoint[];
 }
 
@@ -979,6 +980,7 @@ export interface ClobTimelineBucket {
   bucketTarget: number | null;
   bucketLow: number | null;
   bucketHigh: number | null;
+  unit: 'celsius' | 'fahrenheit' | null;
   series: ClobTimelineSeriesPoint[];
 }
 

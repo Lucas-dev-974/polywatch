@@ -597,7 +597,7 @@ export class WeatherStrategyRunner {
 
     if (
       forecast &&
-      !forecast.isFresh &&
+      forecast.wasFetched &&
       !forecast.isStaleFallback &&
       this.risk?.weatherAlgoForecastHistoryRecordingEnabled &&
       this.forecastHistoryRecorder

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { DataSource } from 'typeorm';
-import { WeatherForecastService, fetchWeatherForecast } from '@polywatch/core';
+import { WeatherForecastService } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 
 export function createWeatherAlgoForecastsRouter(ds: DataSource): Router {
@@ -32,21 +32,8 @@ export function createWeatherAlgoForecastsRouter(ds: DataSource): Router {
     }
 
     try {
-      // Check cache first
-      const cached = await forecastService.getCached(city, forecastDate, metric);
-      if (cached && cached.isFresh) {
-        res.json(cached);
-        return;
-      }
-
-      // Fall back to live fetch
-      const fresh = await fetchWeatherForecast(city, forecastDate, metric);
-      if (!fresh) {
-        // Return stale cache if available, else 404
-        if (cached) {
-          res.json(cached);
-          return;
-        }
+      const result = await forecastService.getOrFetch(city, forecastDate, metric, ttlMs);
+      if (!result) {
         res.status(404).json({
           error: 'forecast_unavailable',
           message: `No forecast available for ${city} on ${dateStr}`,
@@ -54,26 +41,19 @@ export function createWeatherAlgoForecastsRouter(ds: DataSource): Router {
         return;
       }
 
-      const result = {
+      res.json({
         city,
         forecastDate,
         metric,
-        forecastMean: fresh.forecastMean,
-        forecastStdDev: fresh.forecastStdDev,
-        modelValues: fresh.modelValues,
-        latitude: fresh.latitude,
-        longitude: fresh.longitude,
-        fetchedAt: new Date(),
-        expiresAt: new Date(Date.now() + ttlMs),
-        isFresh: true,
-      };
-
-      // Save to cache (fire and forget)
-      forecastService.save(result).catch(() => {
-        // Cache save failure is non-fatal
+        forecastMean: result.forecastMean,
+        forecastStdDev: result.forecastStdDev,
+        modelValues: result.modelValues,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        fetchedAt: result.fetchedAt,
+        expiresAt: result.expiresAt,
+        isFresh: result.isFresh,
       });
-
-      res.json(result);
     } catch (err) {
       res.status(500).json({
         error: 'forecast_failed',

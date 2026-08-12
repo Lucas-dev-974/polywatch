@@ -25,8 +25,11 @@ export interface GetOrFetchResult {
   modelValues: Record<string, number>;
   latitude: number;
   longitude: number;
+  fetchedAt: Date;
+  expiresAt: Date;
   isFresh: boolean;
   isStaleFallback: boolean;
+  wasFetched: boolean;
 }
 
 export class WeatherForecastService {
@@ -50,8 +53,11 @@ export class WeatherForecastService {
         modelValues: cached.modelValues,
         latitude: cached.latitude,
         longitude: cached.longitude,
+        fetchedAt: cached.fetchedAt,
+        expiresAt: cached.expiresAt,
         isFresh: true,
         isStaleFallback: false,
+        wasFetched: false,
       };
     }
 
@@ -70,14 +76,18 @@ export class WeatherForecastService {
           modelValues: cached.modelValues,
           latitude: cached.latitude,
           longitude: cached.longitude,
+          fetchedAt: cached.fetchedAt,
+          expiresAt: cached.expiresAt,
           isFresh: false,
           isStaleFallback: true,
+          wasFetched: false,
         };
       }
       return null;
     }
 
     const expiresAt = new Date(Date.now() + ttlMs);
+    const fetchedAt = new Date();
     await this.save({
       city,
       forecastDate,
@@ -87,7 +97,7 @@ export class WeatherForecastService {
       modelValues: fresh.modelValues,
       latitude: fresh.latitude,
       longitude: fresh.longitude,
-      fetchedAt: new Date(),
+      fetchedAt,
       expiresAt,
       isFresh: true,
     });
@@ -98,8 +108,11 @@ export class WeatherForecastService {
       modelValues: fresh.modelValues,
       latitude: fresh.latitude,
       longitude: fresh.longitude,
-      isFresh: false,
+      fetchedAt,
+      expiresAt,
+      isFresh: true,
       isStaleFallback: false,
+      wasFetched: true,
     };
   }
 

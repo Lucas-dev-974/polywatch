@@ -15,7 +15,7 @@ import {
   pnlPercent,
 } from '../lib/position';
 import {
-  bucketLabel,
+  formatBucketLabel,
   formatPnL,
   formatWeatherDate,
   pnlClass,
@@ -67,9 +67,10 @@ function WeatherPositionCard(props: { pos: WeatherPosition; onClose: (id: number
         <div class="weather-position-card__metric">
           <span class="weather-position-card__label">Bucket entrée</span>
           <span class="weather-position-card__value">
-            {bucketLabel(
+            {formatBucketLabel(
               wf?.entryBucketComparison ?? null,
               (wf?.entryBucketBounds as WeatherBucketBounds) ?? null,
+              wf?.unit ?? null,
             )}
           </span>
         </div>
@@ -167,10 +168,11 @@ function WeatherHistoryPositionItem(props: { pos: WeatherPosition }) {
       <div class="weather-history-pos-item__row">
         <span class="weather-history-pos-item__metric">
           <span class="weather-history-pos-item__label">Bucket</span>
-          {bucketLabel(
-            wf?.entryBucketComparison ?? null,
-            (wf?.entryBucketBounds as WeatherBucketBounds) ?? null,
-          )}
+            {formatBucketLabel(
+              wf?.entryBucketComparison ?? null,
+              (wf?.entryBucketBounds as WeatherBucketBounds) ?? null,
+              wf?.unit ?? null,
+            )}
         </span>
         <span class="weather-history-pos-item__metric">
           <span class="weather-history-pos-item__label">Qté</span>

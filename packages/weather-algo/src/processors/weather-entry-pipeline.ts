@@ -553,6 +553,7 @@ async function persistEntryForecastSnapshot(args: {
       city: signal.city,
       targetDate: signal.targetDate,
       metric: signal.metric,
+      unit: signal.unit ?? null,
       entryForecastMean: signal.forecastMean,
       entryForecastStdDev: signal.forecastStdDev,
       entryModelValues: modelValues,

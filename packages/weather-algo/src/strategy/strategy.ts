@@ -23,6 +23,8 @@ export interface WeatherSignal {
   entryBucketComparison?: 'exact' | 'between' | 'or_below' | 'or_above' | null;
   /** Bucket bounds at entry time (city-follow). Null for manual/expand entries. */
   entryBucketBounds?: { low?: number | null; high?: number | null; target?: number | null } | null;
+  /** Original unit of the market question (celsius | fahrenheit). Null for non-weather or legacy. */
+  unit?: 'celsius' | 'fahrenheit' | null;
 }
 
 export interface WeatherEvaluationContext {

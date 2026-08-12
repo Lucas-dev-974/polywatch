@@ -4,6 +4,7 @@ export interface WeatherForecastSnapshotDto {
   city: string;
   targetDate: string;
   metric: string;
+  unit: 'celsius' | 'fahrenheit' | null;
   entryForecastMean: number;
   entryForecastStdDev: number;
   entryBucketComparison: string | null;
@@ -34,6 +35,7 @@ export function serializeWeatherForecast(
     city: row.city,
     targetDate: row.targetDate.toISOString(),
     metric: row.metric,
+    unit: row.unit === 'celsius' || row.unit === 'fahrenheit' ? row.unit : null,
     entryForecastMean: row.entryForecastMean,
     entryForecastStdDev: row.entryForecastStdDev,
     entryBucketComparison: row.entryBucketComparison,

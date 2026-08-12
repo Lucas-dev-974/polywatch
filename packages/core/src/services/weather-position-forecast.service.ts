@@ -9,6 +9,7 @@ export interface WeatherPositionForecastInput {
   city: string;
   targetDate: Date;
   metric: string;
+  unit?: 'celsius' | 'fahrenheit' | null;
   entryForecastMean: number;
   entryForecastStdDev: number;
   entryModelValues: Record<string, number>;
@@ -45,6 +46,7 @@ export class WeatherPositionForecastService {
         city: input.city,
         targetDate: input.targetDate,
         metric: input.metric,
+        unit: input.unit ?? null,
         entryForecastMean: input.entryForecastMean,
         entryForecastStdDev: input.entryForecastStdDev,
         entryModelValues: JSON.stringify(input.entryModelValues),

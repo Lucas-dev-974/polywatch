@@ -139,6 +139,7 @@ import { AddBucketTickDenormalizedColumns1700000000105 } from '../migrations/Add
 import { AddWeatherStrategyId1700000000106 } from '../migrations/AddWeatherStrategyId1700000000106.js';
 import { BackfillWeatherStrategyParams1700000000107 } from '../migrations/BackfillWeatherStrategyParams1700000000107.js';
 import { BackfillWeatherStrategyRepair1700000000108 } from '../migrations/BackfillWeatherStrategyRepair1700000000108.js';
+import { AddUnitToWeatherPositionForecast1700000000109 } from '../migrations/AddUnitToWeatherPositionForecast1700000000109.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -242,6 +243,7 @@ export const migrations = [
   AddWeatherStrategyId1700000000106,
   BackfillWeatherStrategyParams1700000000107,
   BackfillWeatherStrategyRepair1700000000108,
+  AddUnitToWeatherPositionForecast1700000000109,
 ];
 
 export const entities = [

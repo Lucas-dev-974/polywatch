@@ -154,6 +154,7 @@ export async function evaluateBucketGate(
       high: parsed.targetValueHigh,
       target: parsed.targetValue,
     },
+    unit: parsed.unit,
   };
 
   return { kind: 'signal', signal };

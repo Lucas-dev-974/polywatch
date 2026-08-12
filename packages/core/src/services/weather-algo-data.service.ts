@@ -8,6 +8,7 @@ import { WeatherForecastCache } from '../entities/WeatherForecastCache.js';
 import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
 import { WeatherClobPriceHistory } from '../entities/WeatherClobPriceHistory.js';
 import { CopiedPosition } from '../entities/CopiedPosition.js';
+import { parseWeatherQuestion } from '../weather/question-parser.js';
 
 const log = pino({ name: 'core:weather-algo-data' });
 
@@ -102,6 +103,7 @@ export interface BucketTimelineBucket {
   bucketTarget: number | null;
   bucketLow: number | null;
   bucketHigh: number | null;
+  unit: 'celsius' | 'fahrenheit' | null;
   series: BucketTimelineSeriesPoint[];
 }
 
@@ -142,6 +144,7 @@ export interface ClobTimelineBucket {
   bucketTarget: number | null;
   bucketLow: number | null;
   bucketHigh: number | null;
+  unit: 'celsius' | 'fahrenheit' | null;
   series: ClobTimelineSeriesPoint[];
 }
 
@@ -501,12 +504,14 @@ export class WeatherAlgoDataService {
 
       let bucket = acc.bucketMap.get(tick.conditionId);
       if (!bucket) {
+        const parsed = tick.question ? parseWeatherQuestion(tick.question) : null;
         bucket = {
           conditionId: tick.conditionId,
           bucketComparison: tick.bucketComparison,
           bucketTarget: tick.bucketTarget,
           bucketLow: tick.bucketLow,
           bucketHigh: tick.bucketHigh,
+          unit: parsed?.unit ?? null,
           series: [],
         };
         acc.bucketMap.set(tick.conditionId, bucket);
@@ -639,12 +644,14 @@ export class WeatherAlgoDataService {
 
       let bucket = acc.bucketMap.get(row.conditionId);
       if (!bucket) {
+        const parsed = row.question ? parseWeatherQuestion(row.question) : null;
         bucket = {
           conditionId: row.conditionId,
           bucketComparison: row.bucketComparison,
           bucketTarget: row.bucketTarget,
           bucketLow: row.bucketLow,
           bucketHigh: row.bucketHigh,
+          unit: parsed?.unit ?? null,
           series: [],
         };
         acc.bucketMap.set(row.conditionId, bucket);

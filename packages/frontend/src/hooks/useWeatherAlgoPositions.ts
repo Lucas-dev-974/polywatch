@@ -15,6 +15,7 @@ export interface WeatherForecastSnapshot {
   city: string;
   targetDate: string;
   metric: string;
+  unit: 'celsius' | 'fahrenheit' | null;
   entryForecastMean: number;
   entryForecastStdDev: number;
   entryBucketComparison: string | null;

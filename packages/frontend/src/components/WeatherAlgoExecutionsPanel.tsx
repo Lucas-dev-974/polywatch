@@ -7,7 +7,7 @@ import {
   executionStatusLabel,
   formatExecutionCashImpact,
 } from '../lib/execution';
-import { formatWeatherDate, bucketLabel, type WeatherBucketBounds } from '../lib/weather-position';
+import { formatWeatherDate, formatBucketLabel, type WeatherBucketBounds } from '../lib/weather-position';
 import type { useWeatherAlgoExecutions, WeatherExecution } from '../hooks/useWeatherAlgoExecutions';
 import { Icon } from './Icon';
 import { CollapsibleSection } from './CollapsibleSection';
@@ -48,9 +48,10 @@ function WeatherExecRow(props: { item: WeatherExecution }) {
         {wf() ? formatWeatherDate(wf()!.targetDate) : '—'}
       </td>
       <td class="text-sm">
-        {bucketLabel(
+        {formatBucketLabel(
           wf()?.entryBucketComparison ?? null,
           (wf()?.entryBucketBounds as WeatherBucketBounds) ?? null,
+          wf()?.unit ?? null,
         )}
       </td>
       <td class="cell-truncate" title={marketLabel(item())}>

@@ -47,4 +47,8 @@ export class WeatherPositionForecast {
   /** JSON of bucket bounds at entry time: { low, high, target }. Null for non-city-follow entries. */
   @Column({ type: 'text', name: 'entry_bucket_bounds', nullable: true })
   entryBucketBounds!: string | null;
+
+  /** Original unit of the market question (celsius | fahrenheit). Null for legacy rows. */
+  @Column({ type: 'text', nullable: true })
+  unit!: string | null;
 }

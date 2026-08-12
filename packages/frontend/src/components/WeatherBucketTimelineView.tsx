@@ -11,6 +11,7 @@ import {
   type WeatherTimelineSeriesPoint,
   type WeatherTimelineSource,
 } from './WeatherTimelineView';
+import { formatTimelineBucketLabel, formatBucketTargetLabel } from '../lib/weather-position';
 
 function toChartPoints(
   series: Array<{ recordedAt: string; yesPrice: number | null }>,
@@ -19,38 +20,6 @@ function toChartPoints(
     t: new Date(p.recordedAt).getTime(),
     y: p.yesPrice,
   }));
-}
-
-function bucketLabel(bucket: {
-  bucketComparison: string | null;
-  bucketTarget: number | null;
-  bucketLow: number | null;
-  bucketHigh: number | null;
-}): string {
-  const { bucketComparison, bucketTarget, bucketLow, bucketHigh } = bucket;
-  const cmp = bucketComparison;
-  const fmt = (v: number | null) => (v == null ? '?' : `${v}°`);
-  if (cmp === 'or_below') return `≤ ${fmt(bucketTarget)}`;
-  if (cmp === 'or_above') return `≥ ${fmt(bucketTarget)}`;
-  if (cmp === 'exact') return fmt(bucketTarget);
-  if (cmp === 'between' && bucketLow != null && bucketHigh != null) {
-    return `${fmt(bucketLow)}–${fmt(bucketHigh)}`;
-  }
-  return `${cmp ?? 'bucket'} ${fmt(bucketTarget)}`.trim();
-}
-
-function bucketTargetLabel(bucket: {
-  bucketComparison: string | null;
-  bucketTarget: number | null;
-  bucketLow: number | null;
-  bucketHigh: number | null;
-}): string {
-  const { bucketComparison, bucketTarget, bucketLow, bucketHigh } = bucket;
-  const fmt = (v: number | null) => (v == null ? '?' : `${v}°`);
-  if (bucketComparison === 'between' && bucketLow != null && bucketHigh != null) {
-    return `${fmt(bucketLow)}–${fmt(bucketHigh)}`;
-  }
-  return fmt(bucketTarget);
 }
 
 const FIDELITY_OPTIONS = [
@@ -96,8 +65,8 @@ const source: WeatherTimelineSource<BucketTimelineCity> = {
     lastRecordedAt: city.lastRecordedAt,
     raw: city,
     buckets: city.buckets.map((b) => ({
-      label: bucketTargetLabel(b),
-      fullLabel: bucketLabel(b),
+      label: formatBucketTargetLabel(b),
+      fullLabel: formatTimelineBucketLabel(b),
       series: toChartPoints(b.series),
     })),
   }),

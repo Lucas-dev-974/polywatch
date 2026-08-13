@@ -16,9 +16,9 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 26 |
+| **applied** | 27 |
 | **partial** (racine) | 3 |
-| **not_implemented** (racine) | 3 |
+| **not_implemented** (racine) | 2 |
 | **reference** | 7 |
 | **archived** | 5 |
 | **Total** | **44** |
@@ -57,6 +57,7 @@
 | [../weather-algo-audits-plans/2026-08-13_PLAN-purge-dead-code-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-purge-dead-code-weather-algo.md) | Partie 2 : purge dead code D1–D11 (8 suppressions + inline + D11 scopé ; D7/D12/D13 conservés) | `WeatherCityGroup.tsx` (suppr), `weather-grouping.ts` (suppr), `api.ts`, `clocked-weather-strategy.ts`, `backtest/src/index.ts`, `context-builder.ts`, `events.ts`, `question-builder.ts`, `strategy-catalog.ts`, `weather-algo-markets.ts`, `weather-auto-track.service.ts`, `auto-track-janitor.ts` (suppr), `index.ts` |
 | [../weather-algo-audits-plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md](../weather-algo-audits-plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md) | Partie 4 : refactors R1–R10 (R4 déjà fait via C2) — agrégateur timeline, split DataTab/BacktestTab, `EXIT_REASON_LABEL` typeorm-free, helpers routes, watched-table, formatters, `FIDELITY_OPTIONS`, split `evaluateExits` | `weather-algo-data.service.ts`, `weather-market-discovery.ts`, `query-params.ts`, `backtest-exit-reasons.ts`, `weather-adapter.ts`, `format.ts`, `fidelity-options.ts`, `Pagination.tsx`, `WeatherWatchedTable.tsx`, `WeatherAlgoDataTab.tsx`, `WeatherAlgoBacktestTab.tsx`, `vite.config.ts` |
 | [../weather-algo-audits-plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md) | Partie 5 : fix Doc vs code F1–F8 (routes manquantes, `fidelityMinutes`, warning `kill_switch_partial_close`, retrait janitor auto-track, wording « 6 tables ») | `api.md`, `backtest.md`, `weather-algo.md`, `code/08-weather-algo.md`, `plans/applied/2026-08-08_IMPL-...`, `plans/2026-08-08_PLAN-...` |
+| [../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md) | Fix C7 (proxyFallback), C10 (asymétrie CDF), C11 (tolérance bucket), C12 (clé unique metric) | `resolution.ts`, `forecast-distribution.ts`, `weather-exit-helpers.ts`, `WeatherClobPriceHistory.ts`, `weather-history-ingest.service.ts`, migration `AddMetricToClobHistoryUniqueKey1700000000110` |
 
 ---
 
@@ -76,7 +77,6 @@
 |---------|--------|-----------------|
 | [2026-08-05_PLAN-backtest-engine-universel.md](2026-08-05_PLAN-backtest-engine-universel.md) | Moteur backtest universel event-driven | **Weather v1 livré** (`packages/backtest`, UI, API) ; crypto/copy, Socket.IO, Prometheus hors scope |
 | [2026-08-06_PLAN-phase3-data-stream-rtds.md](2026-08-06_PLAN-phase3-data-stream-rtds.md) | Phase 3 RTDS/oracle data stream | **Désimplémenté / reporté 2026-08-07** — spec conservée, aucun code en repo |
-| [../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md) | Fix C7 (proxyFallback), C10 (asymétrie CDF), C11 (tolérance bucket), C12 (clé unique metric) | **Proposé 2026-08-13** — non implémenté |
 
 ---
 

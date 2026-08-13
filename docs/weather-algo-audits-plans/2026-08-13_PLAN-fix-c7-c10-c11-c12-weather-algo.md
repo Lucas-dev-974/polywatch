@@ -1,7 +1,7 @@
 # Plan — Fix C7 (`proxyFallback` inutilisé) + C10 (asymétrie CDF) + C11 (tolérance `isForecastInBucket`) + C12 (clé unique upsert sans `metric`)
 
 - **Date** : 2026-08-13
-- **Statut** : proposé (non implémenté)
+- **Statut** : ✅ implémenté (vérifié 2026-08-13)
 - **Scope** : `packages/backtest`, `packages/core`, `tools/`
 - **Référence** : [`2026-08-11_audit-weather-algo-complet.md`](./2026-08-11_audit-weather-algo-complet.md)
 
@@ -428,31 +428,31 @@ Enregistrer dans `packages/core/src/database/data-source.ts` : ajouter l'import 
 
 ## 9. Checklist prod
 
-- [ ] `npm run build -w @polywatch/core` — passe sans erreur
-- [ ] `npm run build -w @polywatch/backtest` — passe sans erreur
-- [ ] `npm test` — aucun nouveau échec (les échecs pré-existants hors périmètre restent)
-- [ ] ReadLints — aucun nouveau lint error sur les fichiers modifiés
-- [ ] `npm run migrate` — la migration `AddMetricToClobHistoryUniqueKey` s'applique (à exécuter en prod)
+- [x] `npm run build -w @polywatch/core` — passe sans erreur
+- [x] `npm run build -w @polywatch/backtest` — passe sans erreur
+- [x] `npm test` — aucun nouveau échec (les échecs pré-existants hors périmètre restent)
+- [x] ReadLints — aucun nouveau lint error sur les fichiers modifiés
+- [x] `npm run migrate` — la migration `AddMetricToClobHistoryUniqueKey` s'applique (à exécuter en prod)
 - [ ] Smoke test ingest : deux métriques distinctes sur un même `conditionId` ne s'écrasent plus (à valider en env)
 - [ ] Smoke test backtest : `proxyFallback` correct selon la présence du forecast (à valider en env)
-- [ ] `git diff --stat` — confirmer le périmètre des fichiers modifiés
+- [x] `git diff --stat` — confirmer le périmètre des fichiers modifiés
 
 ---
 
 ## 10. Critère de complétude
 
-- [ ] C10 : `computeCdfBelow(target)` = `normalCDF(target + 0.5)` (convention de bin alignée sur `computeCdfAbove`)
-- [ ] C10 : `computeCdfAbove` inchangé (`1 − normalCDF(target − 0.5)`) — déjà aligné
-- [ ] C10 : Tests de symétrie `computeCdfBelow(X) + computeCdfAbove(X)` ≈ 1
-- [ ] C11 : `or_below` utilise `<= target + 0.5`
-- [ ] C11 : `or_above` utilise `>= target - 0.5`
-- [ ] C11 : Les tests existants `isForecastInBucket` (exact/between/or_below/or_above) passent toujours
-- [ ] C11 : Tests de limite ajoutés (`or_below` 30.4 → true, `or_above` 34.6 → true)
-- [ ] C7 : `proxyFallback: false` quand le forecast est présent (ligne 34)
-- [ ] C7 : `proxyFallback: true` quand le forecast est `null` (ligne 25)
-- [ ] C12 : `metric` ajouté à l'index unique de `WeatherClobPriceHistory`
-- [ ] C12 : `metric` ajouté au conflictTarget d'`orUpdate`
-- [ ] C12 : Migration `AddMetricToClobHistoryUniqueKey` créée + enregistrée dans `data-source.ts`
-- [ ] C12 : Test d'upsert avec deux métriques distinctes sur le même `conditionId` → pas de collision
-- [ ] Builds core / backtest + tests + lints passent
-- [ ] Aucun fichier hors périmètre modifié
+- [x] C10 : `computeCdfBelow(target)` = `normalCDF(target + 0.5)` (convention de bin alignée sur `computeCdfAbove`)
+- [x] C10 : `computeCdfAbove` inchangé (`1 − normalCDF(target − 0.5)`) — déjà aligné
+- [x] C10 : Tests de symétrie `computeCdfBelow(X) + computeCdfAbove(X)` ≈ 1
+- [x] C11 : `or_below` utilise `<= target + 0.5`
+- [x] C11 : `or_above` utilise `>= target - 0.5`
+- [x] C11 : Les tests existants `isForecastInBucket` (exact/between/or_below/or_above) passent toujours
+- [x] C11 : Tests de limite ajoutés (`or_below` 30.4 → true, `or_above` 34.6 → true)
+- [x] C7 : `proxyFallback: false` quand le forecast est présent (ligne 34)
+- [x] C7 : `proxyFallback: true` quand le forecast est `null` (ligne 25)
+- [x] C12 : `metric` ajouté à l'index unique de `WeatherClobPriceHistory`
+- [x] C12 : `metric` ajouté au conflictTarget d'`orUpdate`
+- [x] C12 : Migration `AddMetricToClobHistoryUniqueKey` créée + enregistrée dans `data-source.ts`
+- [x] C12 : Test d'upsert avec deux métriques distinctes sur le même `conditionId` → pas de collision
+- [x] Builds core / backtest + tests + lints passent
+- [x] Aucun fichier hors périmètre modifié

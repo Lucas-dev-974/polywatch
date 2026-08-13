@@ -1,6 +1,6 @@
-const SCROLL_AMOUNT = 212;
+const DEFAULT_SCROLL_AMOUNT = 212;
 
-export function useAlgoCarouselScroll() {
+export function useAlgoCarouselScroll(step: number = DEFAULT_SCROLL_AMOUNT) {
   let scrollRef: HTMLDivElement | undefined;
 
   function setScrollRef(el: HTMLDivElement) {
@@ -10,8 +10,7 @@ export function useAlgoCarouselScroll() {
   function scroll(direction: 'left' | 'right') {
     if (!scrollRef) return;
     const current = scrollRef.scrollLeft;
-    const target =
-      direction === 'left' ? current - SCROLL_AMOUNT : current + SCROLL_AMOUNT;
+    const target = direction === 'left' ? current - step : current + step;
     scrollRef.scrollTo({ left: target, behavior: 'smooth' });
   }
 

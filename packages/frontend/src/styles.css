@@ -10600,8 +10600,8 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 /* Weather history cards (grouped by city, dropdown by target date) */
 .weather-history-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   padding: .75rem;
 }
@@ -10638,7 +10638,18 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 .weather-history-city-card__dates {
   display: flex;
-  flex-direction: column;
+  align-items: stretch;
+}
+
+.weather-history-date-tile {
+  flex: 0 0 300px;
+  min-width: 300px;
+  max-width: 300px;
+}
+
+.weather-history-date-tile .weather-history-date-dropdown {
+  border-bottom: none;
+  height: 100%;
 }
 
 .weather-history-date-dropdown {
@@ -10745,6 +10756,16 @@ body.is-resizing-columns .position-market-split-handle::after {
   font-weight: 600;
   padding: .25rem .5rem;
   border-radius: .375rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .125rem;
+}
+
+.weather-pnl-badge__pct {
+  font-size: .6875rem;
+  font-weight: 500;
+  opacity: .85;
 }
 
 .weather-pnl-positive {

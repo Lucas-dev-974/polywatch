@@ -8,6 +8,9 @@ import {
 } from '../lib/ui-persistence';
 import { CollapsibleSection } from './CollapsibleSection';
 import { Icon } from './Icon';
+import { AlgoCarousel } from './AlgoCarousel';
+import { AlgoCarouselNav } from './AlgoCarouselNav';
+import { useAlgoCarouselScroll } from '../hooks/useAlgoCarouselScroll';
 import {
   formatPnlAmount,
   formatPnlPercent,
@@ -44,6 +47,7 @@ function matchesMode(
 function WeatherPositionCard(props: { pos: WeatherPosition; onClose: (id: number) => void }) {
   const pos = props.pos;
   const wf = pos.weatherForecast;
+  const invested = () => pos.quantity * pos.entryPrice;
   return (
     <div class="weather-position-card">
       <div class="weather-position-card__header">
@@ -58,7 +62,10 @@ function WeatherPositionCard(props: { pos: WeatherPosition; onClose: (id: number
             {pos.mode.toUpperCase()}
           </span>
           <span class={`weather-pnl-badge ${pnlClass(pos.unrealizedPnl)}`}>
-            {formatPnL(pos.unrealizedPnl)}
+            <span class="weather-pnl-badge__amount">{formatPnL(pos.unrealizedPnl)}</span>
+            <span class="weather-pnl-badge__pct">
+              {formatPnlPercent(pnlPercent(pos.unrealizedPnl, invested()))}
+            </span>
           </span>
         </div>
       </div>
@@ -93,7 +100,7 @@ function WeatherPositionCard(props: { pos: WeatherPosition; onClose: (id: number
         <div class="weather-position-card__metric">
           <span class="weather-position-card__label">Montant investi</span>
           <span class="weather-position-card__value">
-            {(pos.quantity * pos.entryPrice).toFixed(2)} USDC
+            {invested().toFixed(2)} USDC
           </span>
         </div>
         <div class="weather-position-card__metric">
@@ -179,6 +186,10 @@ function WeatherHistoryPositionItem(props: { pos: WeatherPosition }) {
           <span class="text-mono">{qty.toFixed(4)}</span>
         </span>
         <span class="weather-history-pos-item__metric">
+          <span class="weather-history-pos-item__label">Mise investie</span>
+          <span class="text-mono">{invested.toFixed(2)} USDC</span>
+        </span>
+        <span class="weather-history-pos-item__metric">
           <span class="weather-history-pos-item__label">Prix entrée</span>
           <span class="text-mono">{pos.entryPrice.toFixed(3)}</span>
         </span>
@@ -233,6 +244,7 @@ function WeatherHistoryDateDropdown(props: { group: WeatherHistoryDateGroup; def
 }
 
 function WeatherHistoryCityCard(props: { group: WeatherHistoryCityGroup }) {
+  const carousel = useAlgoCarouselScroll(308);
   const totalPositions = () =>
     props.group.dates.reduce((sum, d) => sum + d.positions.length, 0);
   return (
@@ -243,14 +255,21 @@ function WeatherHistoryCityCard(props: { group: WeatherHistoryCityGroup }) {
           {totalPositions()} position{totalPositions() > 1 ? 's' : ''} ·{' '}
           {props.group.dates.length} date{props.group.dates.length > 1 ? 's' : ''}
         </span>
+        <AlgoCarouselNav
+          visible={props.group.dates.length > 0}
+          onScrollLeft={carousel.scrollLeft}
+          onScrollRight={carousel.scrollRight}
+        />
       </div>
-      <div class="weather-history-city-card__dates">
+      <AlgoCarousel class="weather-history-city-card__dates" setScrollRef={carousel.setScrollRef}>
         <For each={props.group.dates}>
           {(date, i) => (
-            <WeatherHistoryDateDropdown group={date} defaultOpen={i() === 0} />
+            <div class="weather-history-date-tile">
+              <WeatherHistoryDateDropdown group={date} defaultOpen={i() === 0} />
+            </div>
           )}
         </For>
-      </div>
+      </AlgoCarousel>
     </div>
   );
 }

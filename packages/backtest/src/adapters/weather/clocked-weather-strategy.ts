@@ -65,10 +65,3 @@ export function createWeatherStrategy(strategyId: WeatherStrategyId): ClockedWea
       return new ClockedWeatherStrategy(new WeatherForecastStrategy());
   }
 }
-
-/** @deprecated Use createWeatherStrategy + ClockedWeatherStrategy */
-export class ClockedWeatherForecastStrategy extends ClockedWeatherStrategy {
-  constructor() {
-    super(new WeatherForecastStrategy());
-  }
-}

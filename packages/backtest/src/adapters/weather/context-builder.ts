@@ -2,16 +2,6 @@ import type { MarketListItemDto } from '@polywatch/core';
 import type { BookTickEventData, ForecastRevisionData } from '../../engine/events.js';
 import { buildWeatherQuestion } from './question-builder.js';
 
-/** A reconstructed market + current forecast revision for re-evaluation. */
-export interface WeatherReconstructedMarket {
-  market: MarketListItemDto;
-  /** city the market belongs to. */
-  city: string;
-  /** target date ISO (used to look up the forecast revision). */
-  targetDateIso: string;
-  metric: string;
-}
-
 /**
  * Rebuilds a MarketListItemDto from a book tick + snapshot. The strategy's
  * parseWeatherQuestion needs a structured question text; we synthesize it when

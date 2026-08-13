@@ -2,9 +2,8 @@ import { Router } from 'express';
 import type { DataSource } from 'typeorm';
 import pino from 'pino';
 import { WeatherAutoTrackService } from '@polywatch/core';
-import { requireJwt, requireServiceToken } from '../middleware/auth.js';
-import { publishConfigChanged, getRedis } from '../redis.js';
-import { emitAlgoMarketsChanged } from '../websocket.js';
+import { requireJwt } from '../middleware/auth.js';
+import { getRedis } from '../redis.js';
 
 const log = pino({ name: 'weather-algo:routes' });
 
@@ -76,35 +75,6 @@ export function createWeatherAlgoMarketsRouter(ds: DataSource): Router {
       lastSkipReason: runtime?.lastSkipReason ?? null,
       lastSkipAt: runtime?.lastSkipAt ? new Date(runtime.lastSkipAt) : null,
     });
-  });
-
-  router.post('/notify-changed', requireServiceToken, async (_req, res) => {
-    await publishConfigChanged();
-    emitAlgoMarketsChanged();
-    res.status(200).json({ ok: true });
-  });
-
-  /** Per-market selection is deprecated — use /weather-algo-auto-track (city watch). */
-  router.post('/', requireJwt, async (_req, res) => {
-    res.status(410).json({
-      error: 'deprecated',
-      message:
-        'La sélection par sous-marché est retirée. Surveillez une ville via POST /weather-algo-auto-track.',
-    });
-  });
-
-  router.delete('/:conditionId', requireJwt, async (_req, res) => {
-    // Legacy per-market selection removal — no-op in city-first mode.
-    await publishConfigChanged();
-    emitAlgoMarketsChanged();
-    res.status(204).end();
-  });
-
-  router.patch('/:conditionId', requireJwt, async (_req, res) => {
-    // Legacy per-market selection toggle — no-op in city-first mode.
-    await publishConfigChanged();
-    emitAlgoMarketsChanged();
-    res.status(200).json({ ok: true });
   });
 
   return router;

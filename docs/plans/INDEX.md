@@ -16,12 +16,12 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 23 |
+| **applied** | 24 |
 | **partial** (racine) | 3 |
 | **not_implemented** (racine) | 3 |
 | **reference** | 7 |
 | **archived** | 5 |
-| **Total** | **41** |
+| **Total** | **42** |
 
 ---
 
@@ -54,6 +54,7 @@
 | [applied/2026-08-07_PLAN_audit-crypto-algo.md](applied/2026-08-07_PLAN_audit-crypto-algo.md) | Audit crypto-algo complet (C1–C3, S1–S6, F1–F5) 100% implémenté | `strategy-runner.ts`, `naive-momentum.strategy.ts`, `monitor.ts`, `market-surveillance-recorder.ts`, `position-context-cache.ts` |
 | [applied/2026-08-08_IMPL-weather-market-data-persistence.md](applied/2026-08-08_IMPL-weather-market-data-persistence.md) | Persistance snapshots/ticks/eval/forecast history + onglet Données / purge | `weather-algo-data.service.ts`, recorders, `WeatherAlgoDataTab.tsx`, migration `0100` |
 | [applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) | Patch audit backtest weather (B1–B9, F1–F6) → `engineVersion` 0.2.0 + follow-up R1–R3 (§7) | `exit-manager.ts`, `weather-adapter.ts`, `market-active.ts`, `WeatherAlgoBacktestTab.tsx` |
+| [applied/2026-08-13_PLAN-purge-dead-code-weather-algo.md](applied/2026-08-13_PLAN-purge-dead-code-weather-algo.md) | Partie 2 : purge dead code D1–D11 (8 suppressions + inline + D11 scopé ; D7/D12/D13 conservés) | `WeatherCityGroup.tsx` (suppr), `weather-grouping.ts` (suppr), `api.ts`, `clocked-weather-strategy.ts`, `backtest/src/index.ts`, `context-builder.ts`, `events.ts`, `question-builder.ts`, `strategy-catalog.ts`, `weather-algo-markets.ts`, `weather-auto-track.service.ts`, `auto-track-janitor.ts` (suppr), `index.ts` |
 
 ---
 

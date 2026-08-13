@@ -642,16 +642,6 @@ export interface WeatherStrategyMeta {
   }>;
 }
 
-export interface WeatherAlgoDataCoverage {
-  from: string | null;
-  to: string | null;
-  cities: string[];
-  totalSnapshots: number;
-  totalEvaluations: number;
-  totalForecastHistory: number;
-  totalBucketTicks: number;
-}
-
 export type WeatherAlgoDataTableId =
   | 'forecast_history'
   | 'market_snapshots'
@@ -806,10 +796,6 @@ export async function fetchWeatherStrategyCatalog(): Promise<{ strategies: Weath
 
 export async function updateWeatherConfig(data: Partial<WeatherConfig>): Promise<WeatherConfig> {
   return api<WeatherConfig>('/config/weather', { method: 'PUT', body: JSON.stringify(data) });
-}
-
-export async function fetchWeatherAlgoDataCoverage(): Promise<WeatherAlgoDataCoverage> {
-  return api<WeatherAlgoDataCoverage>('/weather-algo-data/coverage');
 }
 
 export async function fetchWeatherAlgoDataTables(): Promise<WeatherAlgoDataTablesResponse> {

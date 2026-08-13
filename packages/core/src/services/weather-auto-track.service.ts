@@ -1,14 +1,6 @@
 import { DataSource } from 'typeorm';
-import pino from 'pino';
 import { WeatherAutoTrackRule } from '../entities/WeatherAutoTrackRule.js';
 import type { WeatherMetric } from '../weather/metric.js';
-
-const log = pino({ name: 'core:weather-auto-track' });
-
-export type WeatherAutoTrackSyncResult = {
-  disabled: number;
-  added: number;
-};
 
 export class WeatherAutoTrackService {
   constructor(private readonly ds: DataSource) {}
@@ -76,13 +68,5 @@ export class WeatherAutoTrackService {
       rule.lookAheadDays = Math.max(1, Math.min(30, Math.floor(patch.lookAheadDays)));
     }
     return repo.save(rule);
-  }
-
-  /**
-   * City-first: legacy per-market selections have been removed.
-   * This is a no-op kept for backward compatibility with the janitor cycle.
-   */
-  async syncMarketSelectionsForAutoTrack(): Promise<WeatherAutoTrackSyncResult> {
-    return { disabled: 0, added: 0 };
   }
 }

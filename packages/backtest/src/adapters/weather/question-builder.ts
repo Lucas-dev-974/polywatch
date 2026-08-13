@@ -7,12 +7,6 @@
  * verbatim; otherwise we synthesize one in the exact format the regexes expect.
  */
 
-function formatDate(dateIso: string): string {
-  // targetDateIso is like "2026-01-01". parseWeatherQuestion matches
-  // "... on {date}?" with a greedy group — a bare ISO date parses fine.
-  return dateIso;
-}
-
 export function buildWeatherQuestion(input: {
   question: string | null;
   city: string;
@@ -35,7 +29,7 @@ export function buildWeatherQuestion(input: {
   }
 
   const metricWord = input.metric === 'lowest_temp' ? 'lowest' : 'highest';
-  const date = formatDate(input.targetDateIso);
+  const date = input.targetDateIso;
   const comparison = input.bucketComparison;
 
   // parseWeatherQuestion only accepts integer °C (`-?\d+`). Round non-integers

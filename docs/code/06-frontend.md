@@ -79,7 +79,7 @@ façade `/api/config/{global,copy,crypto,weather}`. Catalogue routes = [`api.md`
 - **Wallet** : `WalletPage`, `PusdTransferDialog` (dépôt MetaMask/bridge, retrait routé), `BridgeDepositPanel` (quote + polling statut 15 s), `WalletAccountsDialog` (CRUD + validation live de la clé privée), `ClobCredentialsDialog`, `WalletHistorySection`/`Panel`, `WalletPolywatchExecutions`.
 - **Autres** : `Login`, `WatchlistEditor` (optimistic updates avec rollback), `Leaderboard`, `ExecutionLog`, `EventsPanel` (événements copy-trading + algo, filtrable par source Copy/Algo), `AlertBanner`, `Dialog` (portal), `MetaMaskButton`, `CredField(s)`.
 - **Crypto-Algo** : `CryptoAlgoPage`, panels Live/Inactive/Future/Positions/Executions/Capital/Surveillance, `CryptoAlgoSettingsDialog` (+ EntryTab), `CryptoAlgoMonitorPage` (Système).
-- **Weather-Algo** : `WeatherAlgoPage` + Header/CapitalHero/ActiveMarkets/Discover/Positions/Executions/AutoTrack/**Data**/Settings/`WeatherCityGroup`.
+- **Weather-Algo** : `WeatherAlgoPage` + Header/CapitalHero/ActiveMarkets/Discover/Positions/Executions/AutoTrack/**Data**/Settings.
 - **Marchés / chart** : `MarketsPage`, `MarketChartDialog`, `UpDownPriceChart` (SVG overlays SL/TP/signals).
 - **Trader Insight** : via Leaderboard → `TraderProfilePage` + charts.
 - **Analytics / snapshots** : panels Sim* ; snapshots sous page Système.

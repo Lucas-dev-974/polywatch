@@ -58,5 +58,4 @@ export interface SignalEventData {
 export type BacktestEvent =
   | { kind: 'book_tick'; at: Date; data: BookTickEventData }
   | { kind: 'forecast'; at: Date; data: ForecastRevisionData }
-  | { kind: 'signal'; at: Date; data: SignalEventData }
-  | { kind: 'timer'; at: Date; tag: string };
+  | { kind: 'signal'; at: Date; data: SignalEventData };

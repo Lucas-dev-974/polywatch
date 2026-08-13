@@ -133,7 +133,6 @@ src/
 │   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire, liste, détail (poll `onCleanup` ; capital chart = `run.params` ; equity/positions si `completed` ; métriques byExit/byCity)
 │   │   │   └── BacktestEquityChart.tsx courbe d'equity (SVG, axe X = champ `t`)
 │   │   ├── WeatherAlgoSettingsTab.tsx  toggles recording + rétention
-│   │   └── WeatherCityGroup.tsx
 │   ├── AlgoMarketCard.tsx, AlgoCarousel.tsx, AlgoCarouselNav.tsx
 │   ├── AlgoMarketChartTrigger.tsx / SurveillanceHistoryCard.tsx
 │   ├── UpDownPriceChart.tsx            ~1219 L — SVG Up/Down + overlays SL/TP/signals (pas canvas) ; helpers `lib/updown-*` ; consommateur `MarketChartDialog`

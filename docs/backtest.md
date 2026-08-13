@@ -131,7 +131,7 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 | Fichier | Rôle |
 |---------|------|
 | `virtual-clock.ts` | Horloge virtuelle `now()` / `advanceTo(t)` avec garde anti-retour |
-| `events.ts` | Types d'événements `book_tick`, `forecast`, `signal`, `timer` |
+| `events.ts` | Types d'événements `book_tick`, `forecast`, `signal` |
 | `merge-event-streams.ts` | Merge k-way de streams async par timestamp |
 | `ledger.ts` | Cash + positions ; mark-to-market via `markPrice` courant (`peakBid` seulement pour trailing) |
 | `fill-engine.ts` | Fill d'entrée/sortie simulé : `yesPrice × (1 ± slippageBps)` + `computeTakerFee` |
@@ -157,8 +157,6 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 - `runBacktest(input)` : parse les params, applique `configOverrides` sur le snapshot
   config, charge les événements, construit `WeatherBacktestAdapter`, exécute le runner.
 - `parseBacktestParams` / `backtestRunParamsSchema` (validation Zod).
-- `createWeatherAdapter(ctx)` : export utilitaire (la route backend appelle
-  `runBacktest` directement, qui instancie l'adapter elle-même).
 
 ---
 

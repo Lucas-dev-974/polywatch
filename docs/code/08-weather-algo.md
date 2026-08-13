@@ -19,7 +19,6 @@ dédiées (`close-signals`).
 | `constants.ts` | Fallbacks package (edge, TTL runtime-status, reentry, dedupe close) |
 | `watchlist-seed.ts` | Watchlist sentinelle `traderAddress = 'weather-algo'` |
 | `runtime-status.ts` | Publisher Redis `weather-algo:runtime-status` |
-| `auto-track-janitor.ts` | Wrapper `WeatherAutoTrackService.syncMarketSelectionsForAutoTrack` |
 | `metrics-publisher.ts` | Flush parse rate + alertes backend |
 | `real-cash.ts` | Wrapper cash réel (namespace log weather) |
 | `strategy/strategy.ts` | Contrats `WeatherSignal` / `WeatherStrategy` |
@@ -93,7 +92,6 @@ dédiées (`close-signals`).
 | Composant | Cadence | Rôle |
 |---|---|---|
 | `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min), **aligné grille UTC** | Exit puis entry city-follow. Polls sur multiples de `pollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de boot, stable d'un redémarrage à l'autre. Au boot : passe d'exit immédiate (reprise positions ouvertes) + premier cycle complet au prochain créneau aligné. `config-changed` force un cycle immédiat. |
-| Auto-track janitor | `config.pollMs` | Sync sélections ; pub `config-changed` si added |
 | Metrics publisher | 30 s | Parse rate questions + alertes |
 | Heartbeat | 30 s | Pub + Redis TTL 60 s |
 | WS Polymarket | boot | Prix exécutables ; **ne déclenche pas** l'eval (poll-driven) |
@@ -201,7 +199,6 @@ pas dans ce package) : `bag.slBidPoints` / `bag.tpBidPoints` /
 | Redis ×3, heartbeat, runtime-status | TTL status 300 s ; pas de `wsConnected` |
 | Registry + stratégies catalogue | `weather-forecast` + `weather-forecast-aligned` |
 | Entry pipeline sizing/MOS/reserve | File `weather-order-signals`, reason `WEATHER_OPEN` |
-| Auto-track janitor | Villes / `WeatherAutoTrackService` |
 | `config-changed` reload | Ignore kinds copy/crypto ; `WeatherConfig` |
 | — | Exit evaluator **in-package** (crypto délègue SL/TP au worker) |
 | — | Forecast + city-follow + hysteresis + reentry ville |

@@ -224,9 +224,6 @@ export function isKnownWeatherStrategyId(id: string): id is WeatherStrategyId {
   return (WEATHER_STRATEGY_IDS as readonly string[]).includes(id);
 }
 
-const DEFAULT_STRATEGIES_JSON = JSON.stringify([WEATHER_FORECAST_STRATEGY_ID]);
-const DEFAULT_PARAMS_JSON = '{}';
-
 export function parseWeatherAlgoStrategies(raw: string | null | undefined): WeatherStrategyId[] {
   if (!raw || raw.trim() === '') {
     return [WEATHER_FORECAST_STRATEGY_ID];
@@ -362,5 +359,3 @@ export function validateWeatherStrategyParamsUpdate(
   }
   return errors;
 }
-
-export { DEFAULT_STRATEGIES_JSON, DEFAULT_PARAMS_JSON };

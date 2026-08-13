@@ -35,7 +35,6 @@ import { WeatherStrategyRunner } from './strategy/strategy-runner.js';
 import { WeatherAlgoRuntimeStatusPublisher } from './runtime-status.js';
 import { runWeatherEntryPipeline } from './processors/weather-entry-pipeline.js';
 import { WeatherExitEvaluator } from './processors/weather-exit-evaluator.js';
-import { runWeatherAutoTrackJanitorCycle } from './auto-track-janitor.js';
 import { WeatherAlgoMetricsPublisher } from './metrics-publisher.js';
 
 const log = pino({ name: 'weather-algo' });
@@ -171,21 +170,6 @@ async function main() {
     evaluationRecorder,
   });
   strategyRunner.setRiskConfig(weatherConfig);
-  const runAutoTrackTick = async (): Promise<void> => {
-    try {
-      const { added } = await runWeatherAutoTrackJanitorCycle(
-        autoTrackService,
-      );
-      if (added > 0) {
-        await redisPub.publish(
-          CONFIG_CHANGED_CHANNEL,
-          JSON.stringify({ at: Date.now(), source: 'weather-algo-auto-track' }),
-        );
-      }
-    } catch (err) {
-      log.error({ err }, 'weather auto-track janitor failed');
-    }
-  };
 
   strategyRunner.start();
   metricsPublisher.start();
@@ -212,13 +196,6 @@ async function main() {
     60 * 60 * 1000,
     'weather-algo:data-purge',
   );
-
-  const autoTrackTimer = safeInterval(
-    () => runAutoTrackTick(),
-    config.pollMs,
-    'weather-algo:auto-track-janitor',
-  );
-  void runAutoTrackTick();
 
   const heartbeatTimer = safeInterval(
     async () => {
@@ -284,7 +261,6 @@ async function main() {
     strategyRunner.stop();
     metricsPublisher.stop();
     clearInterval(heartbeatTimer);
-    clearInterval(autoTrackTimer);
     clearInterval(dataPurgeTimer);
     try {
       await connectionManager.getWsClient().disconnect();

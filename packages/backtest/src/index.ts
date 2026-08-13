@@ -6,7 +6,7 @@ import {
 } from '@polywatch/core';
 import { loadWeatherEvents, countWeatherEvents } from './adapters/weather/data-loader.js';
 import { WeatherBacktestAdapter } from './adapters/weather/weather-adapter.js';
-import { BacktestRunner, type RunResult, type RunContext } from './engine/runner.js';
+import { BacktestRunner, type RunResult } from './engine/runner.js';
 import {
   parseBacktestParams,
   backtestRunParamsSchema,
@@ -69,9 +69,4 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     service: input.service,
     getAbortReason: input.getAbortReason,
   });
-}
-
-/** Factory used by the backend route to create the weather adapter. */
-export function createWeatherAdapter(ctx: RunContext): WeatherBacktestAdapter {
-  return new WeatherBacktestAdapter(ctx);
 }

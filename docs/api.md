@@ -337,17 +337,15 @@ Routes pour le trading algorithmique météo (weather-algo). Toutes requièrent 
 
 ### Sélections de marchés (legacy)
 
-La sélection active est **par ville** (`/weather-algo-auto-track`). Les routes
-ci-dessous restent pour cleanup / statut ; `POST` est retiré.
+La sélection active est **par ville** (`/weather-algo-auto-track`). Seules les
+routes `GET /` (legacy, retourne `[]`) et `GET /status` subsistent ; les routes
+d'écriture legacy (`POST /`, `DELETE /:conditionId`, `PATCH /:conditionId`,
+`POST /notify-changed`) ont été supprimées (dead code — 2026-08-13).
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/weather-algo-markets` | Liste legacy (retourne `[]` en city-first) |
-| POST | `/api/weather-algo-markets` | **410 Gone** — utiliser `POST /weather-algo-auto-track` |
-| DELETE | `/api/weather-algo-markets/:conditionId` | Supprime une sélection legacy (204) |
-| PATCH | `/api/weather-algo-markets/:conditionId` | Active/désactive `{enabled: boolean}` |
 | GET | `/api/weather-algo-markets/status` | Statut runtime (`alive`, `watchedCities`, heartbeat Redis, lastSkip…) |
-| POST | `/api/weather-algo-markets/notify-changed` | Interne — notifie un changement (`x-service-token`) |
 
 ### Découverte
 
@@ -358,8 +356,8 @@ ci-dessous restent pour cleanup / statut ; `POST` est retiré.
 ### Auto-track (villes surveillées)
 
 Les règles persistent une **ville** à surveiller (`highest_temp`). Le runner
-sélectionne le palier à runtime. `POST /weather-algo-markets` (sélection par
-sous-marché) renvoie **410 Gone**.
+sélectionne le palier à runtime. La sélection par sous-marché (`POST /weather-algo-markets`)
+a été supprimée (dead code — 2026-08-13).
 
 | Méthode | Route | Description |
 |---------|-------|-------------|

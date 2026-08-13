@@ -1,8 +1,5 @@
 import { DataSource } from 'typeorm';
-import pino from 'pino';
 import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
-
-const log = pino({ name: 'core:weather-position-forecast' });
 
 export interface WeatherPositionForecastInput {
   copiedPositionId: number;
@@ -32,16 +29,14 @@ export class WeatherPositionForecastService {
     });
   }
 
-  /** Insert snapshot once per position; no-op if already present. */
+  /** Insert snapshot once per position; no-op if already present (atomic). */
   async saveIfAbsent(input: WeatherPositionForecastInput): Promise<boolean> {
     const repo = this.ds.getRepository(WeatherPositionForecast);
-    const existing = await repo.findOne({
-      where: { copiedPositionId: input.copiedPositionId },
-    });
-    if (existing) return false;
-
-    try {
-      await repo.save({
+    const result = await repo
+      .createQueryBuilder()
+      .insert()
+      .into(WeatherPositionForecast)
+      .values({
         copiedPositionId: input.copiedPositionId,
         city: input.city,
         targetDate: input.targetDate,
@@ -51,18 +46,13 @@ export class WeatherPositionForecastService {
         entryForecastStdDev: input.entryForecastStdDev,
         entryModelValues: JSON.stringify(input.entryModelValues),
         entryBucketComparison: input.entryBucketComparison ?? null,
-        entryBucketBounds: input.entryBucketBounds ? JSON.stringify(input.entryBucketBounds) : null,
+        entryBucketBounds: input.entryBucketBounds
+          ? JSON.stringify(input.entryBucketBounds)
+          : null,
         strategyId: input.strategyId ?? null,
-      });
-      return true;
-    } catch (err) {
-      // Concurrent insert on unique index — treat as success.
-      const dup = await repo.findOne({
-        where: { copiedPositionId: input.copiedPositionId },
-      });
-      if (dup) return false;
-      log.error({ err, copiedPositionId: input.copiedPositionId }, 'failed to save position forecast');
-      throw err;
-    }
+      })
+      .onConflict('("copied_position_id") DO NOTHING')
+      .execute();
+    return (result.raw?.length ?? 0) === 1;
   }
 }

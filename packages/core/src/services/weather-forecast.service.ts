@@ -132,6 +132,16 @@ export class WeatherForecastService {
       log.warn({ city, forecastDate, metric: row.metric }, 'getCached: invalid metric in row — skipping');
       return null;
     }
+    let modelValues: Record<string, number>;
+    try {
+      modelValues = JSON.parse(row.modelValues);
+    } catch (err) {
+      log.warn(
+        { city, forecastDate, metric: row.metric, err },
+        'getCached: invalid JSON in modelValues — skipping row',
+      );
+      return null;
+    }
     const isFresh = new Date(row.expiresAt) > new Date();
     return {
       city: row.city,
@@ -139,7 +149,7 @@ export class WeatherForecastService {
       metric: row.metric,
       forecastMean: row.forecastMean,
       forecastStdDev: row.forecastStdDev,
-      modelValues: JSON.parse(row.modelValues),
+      modelValues,
       latitude: row.latitude,
       longitude: row.longitude,
       fetchedAt: row.fetchedAt,

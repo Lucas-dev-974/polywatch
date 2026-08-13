@@ -1,4 +1,4 @@
-import { createSignal, createEffect, For, Show } from 'solid-js';
+import { createSignal, createEffect, For, Show, onCleanup } from 'solid-js';
 import {
   deleteWeatherHistoryInterval,
   fetchWeatherHistoryCities,
@@ -89,6 +89,14 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
   const [cities, setCities] = createSignal<string[]>([]);
   const [citiesLoading, setCitiesLoading] = createSignal(true);
   const [rowState, setRowState] = createSignal<Record<string, CityRowState>>({});
+  // Active poll cancellation tokens keyed by city (lowercased). Flipped on
+  // unmount so in-flight pollJob loops stop before touching setState.
+  const pollTokens = new Map<string, { cancelled: boolean }>();
+
+  onCleanup(() => {
+    for (const token of pollTokens.values()) token.cancelled = true;
+    pollTokens.clear();
+  });
 
   async function loadCities() {
     setCitiesLoading(true);
@@ -178,27 +186,34 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
   }
 
   async function pollJob(city: string, jobId: number) {
+    const token = { cancelled: false };
+    pollTokens.set(city.toLowerCase(), token);
     const startedAt = Date.now();
     const MAX_POLL_MS = 30 * 60 * 1000; // 30 min
-    while (true) {
-      const job = await fetchWeatherHistoryJob(jobId);
-      patchRow(city, { job });
-      if (job.status === 'done' || job.status === 'error' || job.status === 'cancelled') {
-        patchRow(city, {
-          loading: false,
-          error: job.status === 'error' ? (job.errorMessage ?? 'Erreur inconnue') : null,
-        });
-        void loadCoverage(city);
-        break;
+    try {
+      while (!token.cancelled) {
+        const job = await fetchWeatherHistoryJob(jobId);
+        if (token.cancelled) break;
+        patchRow(city, { job });
+        if (job.status === 'done' || job.status === 'error' || job.status === 'cancelled') {
+          patchRow(city, {
+            loading: false,
+            error: job.status === 'error' ? (job.errorMessage ?? 'Erreur inconnue') : null,
+          });
+          void loadCoverage(city);
+          break;
+        }
+        if (Date.now() - startedAt > MAX_POLL_MS) {
+          patchRow(city, {
+            loading: false,
+            error: 'Délai d’attente dépassé (30 min) — vérifiez l’état du job côté serveur',
+          });
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 2000));
       }
-      if (Date.now() - startedAt > MAX_POLL_MS) {
-        patchRow(city, {
-          loading: false,
-          error: 'Délai d’attente dépassé (30 min) — vérifiez l’état du job côté serveur',
-        });
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 2000));
+    } finally {
+      pollTokens.delete(city.toLowerCase());
     }
   }
 

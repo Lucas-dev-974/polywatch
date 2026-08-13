@@ -17,7 +17,9 @@ const ingestBodySchema = z.object({
   metric: z.custom<WeatherMetric>((v) => isWeatherMetric(v)).optional(),
 });
 
-export function createWeatherAlgoHistoryRouter(ds: DataSource): Router {
+export function createWeatherAlgoHistoryRouter(
+  ds: DataSource,
+): Router & { cleanup: () => void } {
   const router = Router();
   const service = new WeatherHistoryIngestService(ds);
 
@@ -151,5 +153,6 @@ export function createWeatherAlgoHistoryRouter(ds: DataSource): Router {
     }
   });
 
-  return router;
+  const cleanup = () => clearInterval(staleSweep);
+  return Object.assign(router, { cleanup });
 }

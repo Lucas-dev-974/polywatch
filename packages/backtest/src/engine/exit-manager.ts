@@ -148,7 +148,9 @@ export class WeatherExitManager {
       yesPrice: input.yesPrice,
       slippageBps: input.slippageBps,
     });
-    this.markClosed(pos.city ?? '', now);
+    if (pos.city) {
+      this.markClosed(pos.city, now);
+    }
     this.bucketHysteresis.delete(pos.conditionId);
     this.lastHysteresisAdvanceAt.delete(pos.conditionId);
     return { reason, exitPrice, fees };

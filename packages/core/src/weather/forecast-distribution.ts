@@ -104,19 +104,23 @@ export function computeMarketImpliedProbabilities(
     );
     return { yesProb, noProb: 1 - yesProb };
   }
+  // or_below / or_above / exact nécessitent target
+  if (target == null || !Number.isFinite(target)) {
+    return { yesProb: 0, noProb: 1 };
+  }
   if (comparison === 'or_below') {
-    const yesProb = computeCdfBelow(target!, forecastMean, forecastStdDev);
+    const yesProb = computeCdfBelow(target, forecastMean, forecastStdDev);
     return { yesProb, noProb: 1 - yesProb };
   }
   if (comparison === 'or_above') {
-    const yesProb = computeCdfAbove(target!, forecastMean, forecastStdDev);
+    const yesProb = computeCdfAbove(target, forecastMean, forecastStdDev);
     return { yesProb, noProb: 1 - yesProb };
   }
   // exact
   const yesProb = Math.max(
     0,
-    normalCDF(target! + 0.5, forecastMean, forecastStdDev) -
-      normalCDF(target! - 0.5, forecastMean, forecastStdDev),
+    normalCDF(target + 0.5, forecastMean, forecastStdDev) -
+      normalCDF(target - 0.5, forecastMean, forecastStdDev),
   );
   return { yesProb, noProb: 1 - yesProb };
 }

@@ -84,13 +84,13 @@
 
 | #              | Constat                                                                                                                                           | Localisation                                  | Sévérité    | Implémenté |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ----------- | ---------- |
-| T1             | `pollJob` `while(true)` sans `onCleanup` → `patchRow` (setState) sur composant unmounté + fuite                                                   | `WeatherAlgoHistoryIngestSection.tsx:180-203` | 🔴 Critique | —          |
-| T2             | `setInterval` stale-sweep jamais nettoyé (leak sur hot-reload) ; seul `unref()` est appliqué                                                      | `weather-algo-history.ts:29-34`               | 🟠 Haute    | —          |
-| T3             | `JSON.parse(row.modelValues)` sans try/catch → crash de `getCached` si JSON corrompu                                                              | `weather-forecast.service.ts:124`             | 🟠 Haute    | —          |
-| T4             | Assertions `!` sur `target` nullable (`target!`) → si `target` est `null`, `normalCDF(NaN)` → NaN silencieux                                      | `forecast-distribution.ts:105,109,115-116`    | 🟠 Haute    | —          |
-| T5             | Side-effects en render (`if (!loaded()) void load()`)                                                                                             | StrategiesTab / SettingsTab                   | 🟡 Moyenne  | —          |
-| T6 *(nouveau)* | `WeatherPositionForecastService.saveIfAbsent` fait un `findOne` puis un `save` non atomique ; le catch gère la concurrence mais pas l'upsert race | `weather-position-forecast.service.ts:37-64`  | 🟡 Moyenne  | —          |
-| T7 *(nouveau)* | `markClosed(pos.city ?? '')` — le throttle de ré-entrée est keyé sur `''` pour les positions sans ville                                           | `exit-manager.ts:151`                         | 🟡 Moyenne  | —          |
+| T1             | `pollJob` `while(true)` sans `onCleanup` → `patchRow` (setState) sur composant unmounté + fuite                                                   | `WeatherAlgoHistoryIngestSection.tsx:180-203` | 🔴 Critique | ✅          |
+| T2             | `setInterval` stale-sweep jamais nettoyé (leak sur hot-reload) ; seul `unref()` est appliqué                                                      | `weather-algo-history.ts:29-34`               | 🟠 Haute    | ✅          |
+| T3             | `JSON.parse(row.modelValues)` sans try/catch → crash de `getCached` si JSON corrompu                                                              | `weather-forecast.service.ts:124`             | 🟠 Haute    | ✅          |
+| T4             | Assertions `!` sur `target` nullable (`target!`) → si `target` est `null`, `normalCDF(NaN)` → NaN silencieux                                      | `forecast-distribution.ts:105,109,115-116`    | 🟠 Haute    | ✅          |
+| T5             | Side-effects en render (`if (!loaded()) void load()`)                                                                                             | StrategiesTab / SettingsTab                   | 🟡 Moyenne  | ✅          |
+| T6 *(nouveau)* | `WeatherPositionForecastService.saveIfAbsent` fait un `findOne` puis un `save` non atomique ; le catch gère la concurrence mais pas l'upsert race | `weather-position-forecast.service.ts:37-64`  | 🟡 Moyenne  | ✅          |
+| T7 *(nouveau)* | `markClosed(pos.city ?? '')` — le throttle de ré-entrée est keyé sur `''` pour les positions sans ville                                           | `exit-manager.ts:151`                         | 🟡 Moyenne  | ✅          |
 
 
 ---
@@ -136,11 +136,11 @@
 
 ## 6. Synthèse par sévérité
 
-**🔴 Critique (4)** : C1 (✅ implémenté), C2 (✅ implémenté), C10 (✅ implémenté — asymétrie CDF), T1 (leak `pollJob`). → **reste 1 actif** : T1.
+**🔴 Critique (4)** : C1 (✅ implémenté), C2 (✅ implémenté), C10 (✅ implémenté — asymétrie CDF), T1 (✅ implémenté — `pollJob` annulable via `onCleanup`). → **0 actif**.
 
-**🟠 Haute (8)** : C3 (✅ implémenté), C4 (✅ implémenté), C5 (✅ implémenté), C6 (✅ implémenté), T2, T3, T4, C12 (✅ implémenté — race upsert). → **reste 3 actifs**.
+**🟠 Haute (8)** : C3 (✅ implémenté), C4 (✅ implémenté), C5 (✅ implémenté), C6 (✅ implémenté), T2 (✅ implémenté — cleanup `clearInterval` au shutdown), T3 (✅ implémenté — `JSON.parse` protégé), T4 (✅ implémenté — guard `target` null), C12 (✅ implémenté — race upsert). → **0 actif**.
 
-**🟡 Moyenne (7)** : C7 (✅ implémenté), C11 (✅ implémenté), T5, T6, T7, F1, F2 (+ tous les refactors R1-R10 comme dette). → **reste 5 actifs**.
+**🟡 Moyenne (7)** : C7 (✅ implémenté), C11 (✅ implémenté), T5 (✅ implémenté — `onMount`), T6 (✅ implémenté — upsert atomique `ON CONFLICT`), T7 (✅ implémenté — skip `markClosed` si ville null), F1, F2 (+ tous les refactors R1-R10 comme dette). → **reste 2 actifs** (F1, F2).
 
 **🟢 Faible (13)** : F3, F4, D1 (✅ implémenté), D2 (✅ implémenté), D3 (✅ implémenté), D4 (✅ implémenté), D5 (✅ implémenté), D6 (✅ implémenté), D8 (✅ implémenté), D9 (✅ implémenté), D10 (✅ implémenté), D11 (✅ implémenté), D12 (⏸️ hors scope — audit futur). → **reste 3 actifs** (F3, F4, D12).
 
@@ -153,15 +153,15 @@
 ## 7. Recommandations prioritaires
 
 1. **C1 + C6** : unifier la logique cache/fetch dans `WeatherForecastService` (appeler `getOrFetch` depuis la route) et corriger le flag `isFresh` du retour après fetch. ✅ **Fait** (2026-08-12).
-2. **T1** : rendre `pollJob` annulable via `onCleanup` (flag local + garde sur le composant monté).
+2. **T1** : rendre `pollJob` annulable via `onCleanup` (flag local + garde sur le composant monté). ✅ **Fait** (2026-08-13).
 3. **C10 + C11** : aligner les conventions de bin (`or_below` / `or_above` / `exact` / `between`) et les tolérances `isForecastInBucket`. ✅ **Fait** (2026-08-13).
 4. **R4 (C2)** : extraire un `formatBucketLabel(unit)` unique et propager l'unité du marché (C vs F). ✅ **Fait** (2026-08-12).
 5. **C3-C5** : centraliser les sources de vérité (`WEATHER_ALGO_DATA_TABLE_IDS`, `WeatherMetric`/`isWeatherMetric`, `BACKTEST_EXIT_REASONS`) dans `@polywatch/core` et resserrer les types. ✅ **Fait** (2026-08-12).
-6. **T3** : encadrer `JSON.parse(row.modelValues)` d'un try/catch.
+6. **T3** : encadrer `JSON.parse(row.modelValues)` d'un try/catch. ✅ **Fait** (2026-08-13) — avec T2/T4/T5/T6/T7, cf. §13.
 7. **F1-F4** : mettre à jour `api.md` / `modele-donnees.md` / `backtest.md`.
 8. **D1-D12** : purger le dead code selon l'inventaire §2 (D13 réfuté — les fichiers `node_modules` ne sont pas trackés par git, aucune action gitignore nécessaire). ✅ **Fait** (2026-08-13) — D1-D11 supprimés, D12 hors scope (audit futur), D13 réfuté.
 
-Aucun fichier n'a été modifié pendant l'audit initial ; les implémentations sont suivies en §9 (C1/C2/C6), §10 (C3/C4/C5), §11 (C7/C10/C11/C12) et §12 (D1-D11 dead code).
+Aucun fichier n'a été modifié pendant l'audit initial ; les implémentations sont suivies en §9 (C1/C2/C6), §10 (C3/C4/C5), §11 (C7/C10/C11/C12), §12 (D1-D11 dead code) et §13 (T1-T7 risques techniques).
 
 ---
 
@@ -181,9 +181,9 @@ Chaque constat a été re-vérifié par lecture directe du code sur disque. Corr
 - **F3** → **Localisation corrigée** (reste 🟢 Faible). La référence à `modele-donnees.md` est retirée : le wording « 6 tables » n'y figure pas (le fichier documente les tables individuellement sans les compter). Seuls `api.md:392-393` et `plans/applied/2026-08-08_IMPL-...:57-58` contiennent le wording stale.
 - **§6 Synthèse** → **Comptages corrigés**. La version initiale annonçait 7 🟡 Moyenne et 4 🟢 Faible, mais listait respectivement 8 et 12 éléments. Correction : 7 🟡 Moyenne (D12 déplacé vers 🟢 Faible) et 13 🟢 Faible (F3, F4, D1-D6, D8-D12).
 
-Synthèse mise à jour : 4 constats critiques, 8 hauts, 7 moyens, 13 faibles, 5 réfutations. Aucune question de comportement n'était nécessaire — toutes les corrections découlent directement de la lecture du code. **Implémentation (2026-08-12)** : C1, C2, C3, C4, C5 et C6 sont implémentés (statut `✅` dans le tableau §1) ; R4 est implémenté (statut `✅` dans le tableau §4). C3/C4/C5 détaillés en §10. **Implémentation (2026-08-13)** : C7, C10, C11 et C12 sont implémentés (statut `✅` dans le tableau §1). Détails en §11.
+Synthèse mise à jour : 4 constats critiques, 8 hauts, 7 moyens, 13 faibles, 5 réfutations. Aucune question de comportement n'était nécessaire — toutes les corrections découlent directement de la lecture du code. **Implémentation (2026-08-12)** : C1, C2, C3, C4, C5 et C6 sont implémentés (statut `✅` dans le tableau §1) ; R4 est implémenté (statut `✅` dans le tableau §4). C3/C4/C5 détaillés en §10. **Implémentation (2026-08-13)** : C7, C10, C11 et C12 sont implémentés (statut `✅` dans le tableau §1). Détails en §11. **Implémentation (2026-08-13, risques techniques)** : T1, T2, T3, T4, T5, T6 et T7 sont implémentés (statut `✅` dans le tableau §3). Détails en §13.
 
-**Impact sur la synthèse §6** : C1, C2, C3, C4, C5, C6, C7, C10, C11 et C12 sont désormais corrigés. Actifs restants — 1 critique (T1), 3 hauts (T2, T3, T4), 5 moyens, 13 faibles.
+**Impact sur la synthèse §6** : C1, C2, C3, C4, C5, C6, C7, C10, C11, C12, T1, T2, T3, T4, T5, T6 et T7 sont désormais corrigés. Actifs restants — 2 moyens (F1, F2), 3 faibles (F3, F4, D12).
 
 ---
 
@@ -349,5 +349,58 @@ Les constats **D1 à D11** de l'inventaire dead code (§2) ont été implément�
 - **Lints** : 0 erreur, 0 warning sur les fichiers modifiés.
 - **Grep final** : aucun des 12 symboles supprimés ne subsiste dans `packages/`.
 - **Périmètre** : 16 fichiers modifiés (10 modifiés + 3 supprimés + 3 docs), 247 suppressions, 9 insertions. Conforme au plan.
+
+---
+
+## 13. Implémentation T1-T7 — risques techniques (2026-08-13)
+
+Les constats **T1 à T7** de la partie 3 (§3) ont été implémentés et vérifiés (voir [`../plans/2026-08-13_PLAN-fix-t1-t7-weather-algo.md`](../plans/2026-08-13_PLAN-fix-t1-t7-weather-algo.md)).
+
+### T1 — `pollJob` annulable via `onCleanup`
+
+- `WeatherAlgoHistoryIngestSection.tsx` : map `pollTokens` (keyée par city lowercased) de tokens `{ cancelled: boolean }`. `pollJob` teste `!token.cancelled` en tête de boucle **et** après chaque `await` (fetch + `setTimeout`), avant chaque `patchRow`. Un `try/finally` retire le token. `onCleanup` flip tous les tokens + vide la map → aucun `patchRow` post-unmount.
+
+### T2 — `setInterval` stale-sweep nettoyé au shutdown
+
+- `weather-algo-history.ts` : `createWeatherAlgoHistoryRouter` retourne `Router & { cleanup: () => void }` via `Object.assign(router, { cleanup })` ; `cleanup = () => clearInterval(staleSweep)`.
+- `index.ts` : le routeur est stocké dans `weatherAlgoHistoryRouter`, `weatherAlgoHistoryRouter.cleanup()` appelé dans `shutdown` (après `stopRealAutoSnapshotLoop`). `unref()` conservé.
+
+### T3 — `JSON.parse(row.modelValues)` protégé
+
+- `weather-forecast.service.ts` : `getCached` enveloppe `JSON.parse` dans un `try/catch` ; en cas d'échec → `log.warn` (city/forecastDate/metric/err) + `return null` (fail-safe). Le fetch frais est déclenché par `getOrFetch` ; `weather-entry-pipeline` skip (déjà fail-open).
+
+### T4 — Guard `target` nullable dans `computeMarketImpliedProbabilities`
+
+- `forecast-distribution.ts` : les branches `or_below`/`or_above`/`exact` passent par un guard `if (target == null || !Number.isFinite(target)) return { yesProb: 0, noProb: 1 }` → plus d'assertion `!` (NaN silencieux éliminé). `between` inchangé (géré avant le guard, fallback `target ?? 0` conservé). `evaluateBucketGate` abstient avec `zero_forecast_probability`.
+- **Tests** : 5 nouveaux cas dans `forecast-distribution.test.ts` (null/NaN pour les 3 comparisons + `between` avec bounds).
+
+### T5 — `onMount` au lieu de side-effect en render
+
+- `WeatherAlgoStrategiesTab.tsx` et `WeatherAlgoSettingsTab.tsx` : `if (!loaded()) void load()` → `onMount(() => void load())` / `onMount(() => void loadConfig())`. Le signal `loaded` reste mis à jour.
+
+### T6 — `saveIfAbsent` atomique via `ON CONFLICT DO NOTHING`
+
+- `weather-position-forecast.service.ts` : `saveIfAbsent` réécrit avec `repo.createQueryBuilder().insert().into(...).values(...).onConflict('("copied_position_id") DO NOTHING').execute()` ; retourne `(result.raw?.length ?? 0) === 1`. Supprime le check-then-insert et le catch re-`findOne`. S'appuie sur l'unique index `IDX_weather_pos_forecast_position_id` (migration 0081). Imports `pino`/`log` devenus inutiles → retirés.
+- **Tests** : `weather-position-forecast.service.test.ts` réécrit pour mocker `createQueryBuilder` (retour `raw` par référence mutable) — 3 cas (idempotent, insert true, conflict false).
+
+### T7 — Skip `markClosed` si `pos.city` est null
+
+- `exit-manager.ts` : `this.markClosed(pos.city ?? '', now)` → `if (pos.city) { this.markClosed(pos.city, now) }`. Évite la collision de clé `''` (throttle faux-positif sur les positions sans ville). `isReentryBlocked(undefined)` retourne déjà `false` côté adapter → cohérent.
+- **Tests** : 2 nouveaux cas dans `exit-manager.test.ts` (position sans ville non throttlée + régression position avec ville).
+
+### Validation post-implémentation
+
+- **Builds** : core, backtest, backend, frontend — **OK** (tous les packages concernés compilent).
+- **Tests** :
+  - core : `forecast-distribution` **15/15** (5 nouveaux T4), `weather-position-forecast` **3/3** (réécrit T6), `weather-forecast` **2/2** (2 nouveaux T3) — 20/20 sur les modules modifiés.
+  - backtest : `exit-manager` **7/7** (2 nouveaux T7), `weather-adapter` **8/8** — aucune régression.
+  - weather-algo : `weather-entry-pipeline` **13/13** (mock `saveIfAbsent` compatible).
+- **Lints** : 0 erreur sur tous les fichiers modifiés.
+- **Périmètre** : 9 fichiers source + 3 tests + 2 docs (plan + audit). Conforme au plan.
+
+### Reste à faire en prod
+
+- Aucune migration nécessaire (T6 s'appuie sur l'unique index existant).
+- Smoke test : backend `GET /api/weather-algo-history/jobs` répond toujours ; timer stale-sweep annulé au SIGTERM/SIGINT ; UI — unmount pendant un poll d'ingest sans warning console post-unmount ; onglets Stratégies / Paramètres chargent au mount.
 
 ---

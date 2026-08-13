@@ -4,6 +4,7 @@ import {
   normalCDF,
   computeCdfBelow,
   computeCdfAbove,
+  computeMarketImpliedProbabilities,
 } from './forecast-distribution.js';
 
 describe('normalCDF', () => {
@@ -70,5 +71,31 @@ describe('computeCdfBelow / computeCdfAbove (convention de bin)', () => {
     const X = 0;
     const sum = computeCdfBelow(X, 0, 1) + computeCdfAbove(X + 1, 0, 1);
     expect(sum).toBeCloseTo(1, 4);
+  });
+});
+
+describe('computeMarketImpliedProbabilities null-target guard (T4)', () => {
+  it('returns yesProb=0 for or_below with null target', () => {
+    const r = computeMarketImpliedProbabilities(null, 'or_below', 25, 2);
+    expect(r.yesProb).toBe(0);
+    expect(r.noProb).toBe(1);
+  });
+  it('returns yesProb=0 for or_above with null target', () => {
+    const r = computeMarketImpliedProbabilities(null, 'or_above', 25, 2);
+    expect(r.yesProb).toBe(0);
+    expect(r.noProb).toBe(1);
+  });
+  it('returns yesProb=0 for exact with null target', () => {
+    const r = computeMarketImpliedProbabilities(null, 'exact', 25, 2);
+    expect(r.yesProb).toBe(0);
+  });
+  it('returns yesProb=0 for NaN target', () => {
+    const r = computeMarketImpliedProbabilities(NaN, 'or_below', 25, 2);
+    expect(r.yesProb).toBe(0);
+  });
+  it('between with null target but valid bounds computes normally', () => {
+    const r = computeMarketImpliedProbabilities(null, 'between', 25, 2, 20, 30);
+    expect(r.yesProb).toBeGreaterThan(0);
+    expect(r.yesProb).toBeLessThan(1);
   });
 });

@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For, Show, onMount } from 'solid-js';
 import {
   fetchWeatherConfig,
   fetchWeatherStrategyCatalog,
@@ -42,7 +42,7 @@ export function WeatherAlgoStrategiesTab() {
     setLoaded(true);
   }
 
-  if (!loaded()) void load();
+  onMount(() => void load());
 
   function update<K extends keyof WeatherConfig>(key: K, value: WeatherConfig[K]) {
     setConfig((prev) => (prev ? { ...prev, [key]: value } : prev));

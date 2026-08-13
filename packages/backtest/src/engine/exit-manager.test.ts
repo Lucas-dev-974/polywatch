@@ -115,6 +115,44 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
   });
 });
 
+describe('WeatherExitManager null-city throttle (T7)', () => {
+  it('does not mark throttle for null-city position', () => {
+    const mgr = new WeatherExitManager(risk());
+    const p = pos();
+    p.city = null;
+    const now = new Date('2026-01-01T12:00:00Z');
+    const decision = mgr.evaluate(p, {
+      yesPrice: 0.5,
+      endDate: new Date('2026-01-03T00:00:00Z'),
+      currentMean: 20, // drifted from 12
+      now,
+      slippageBps: 0,
+      entryMean: 12,
+      entryBucketComparison: 'or_above',
+      entryBucketBounds: { target: 12 },
+    });
+    expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
+    expect(mgr.isReentryBlocked('', now)).toBe(false);
+  });
+
+  it('still throttles for city position (regression)', () => {
+    const mgr = new WeatherExitManager(risk());
+    const now = new Date('2026-01-01T12:00:00Z');
+    const decision = mgr.evaluate(pos(), {
+      yesPrice: 0.5,
+      endDate: new Date('2026-01-03T00:00:00Z'),
+      currentMean: 20, // drifted from 12
+      now,
+      slippageBps: 0,
+      entryMean: 12,
+      entryBucketComparison: 'or_above',
+      entryBucketBounds: { target: 12 },
+    });
+    expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
+    expect(mgr.isReentryBlocked('london', now)).toBe(true);
+  });
+});
+
 describe('WeatherExitManager hysteresis poll window (F1)', () => {
   it('requires pollMs between hysteresis advances', () => {
     const mgr = new WeatherExitManager(

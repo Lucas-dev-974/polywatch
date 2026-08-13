@@ -214,7 +214,8 @@ async function main() {
   app.use('/api/weather-algo/capital', jwtLimiter, createWeatherAlgoCapitalRouter(ds));
   app.use('/api/weather-algo', jwtLimiter, createWeatherAlgoStrategyCatalogRouter());
   app.use('/api/weather-algo-data', jwtLimiter, createWeatherAlgoDataRouter(ds));
-  app.use('/api/weather-algo-history', jwtLimiter, createWeatherAlgoHistoryRouter(ds));
+  const weatherAlgoHistoryRouter = createWeatherAlgoHistoryRouter(ds);
+  app.use('/api/weather-algo-history', jwtLimiter, weatherAlgoHistoryRouter);
   app.use('/api/backtest', jwtLimiter, createBacktestRouter(ds));
   app.use('/api/internal', createInternalRouter(ds));
 
@@ -233,6 +234,7 @@ async function main() {
     killAllCryptoAlgoMonitorProcesses();
     stopSimAutoSnapshotLoop();
     stopRealAutoSnapshotLoop();
+    weatherAlgoHistoryRouter.cleanup();
     void e2eRunner
       .shutdown()
       .catch((err) => log.warn({ err }, 'e2e runner shutdown failed'))

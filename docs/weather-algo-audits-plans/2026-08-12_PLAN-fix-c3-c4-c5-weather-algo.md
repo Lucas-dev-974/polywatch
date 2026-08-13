@@ -3,7 +3,7 @@
 - **Date** : 2026-08-12
 - **Statut** : implémenté (vérifié 2026-08-12)
 - **Scope** : `packages/core`, `packages/backend`, `packages/weather-algo`, `packages/frontend`
-- **Référence** : [`../audits/2026-08-11_audit-weather-algo-complet.md`](../audits/2026-08-11_audit-weather-algo-complet.md) · [`./2026-08-12_PLAN-fix-c1-c2-weather-algo.md`](./2026-08-12_PLAN-fix-c1-c2-weather-algo.md)
+- **Référence** : [`2026-08-11_audit-weather-algo-complet.md`](./2026-08-11_audit-weather-algo-complet.md) · [`2026-08-12_PLAN-fix-c1-c2-weather-algo.md`](./2026-08-12_PLAN-fix-c1-c2-weather-algo.md)
 
 **Objectif** : Corriger trois constats 🟠 Haute de l'audit weather-algo. C3 est une duplication d'une liste d'identifiants de tables entre la route et le service (drift à chaque nouvelle table). C4 est un ensemble de restrictions `metric` inconsistantes entre le parser, le service, les routes, le strategy et les tests (le service accepte `string` libre, les routes valident un enum strict, les tests seedent `metric: 'temp'`). C5 est une liste `parseExitReason` hardcodée dans la route `backtest.ts` qui duplique l'union `BacktestExitReason` core (drift si une nouvelle raison est ajoutée).
 

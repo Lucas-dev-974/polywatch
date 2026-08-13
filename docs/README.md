@@ -68,12 +68,12 @@ kill switch, limites d'exposition).
 > [`plans/reference/riskconfig-consumer-matrix.md`](./plans/reference/riskconfig-consumer-matrix.md)
 >
 > Audit weather-algo + correctifs (2026-08-04) — **appliqué** :
-> [`audit-weather-algo-2026-08-04.md`](./audit-weather-algo-2026-08-04.md) ·
+> [`weather-algo-audits-plans/audit-weather-algo-2026-08-04.md`](./weather-algo-audits-plans/audit-weather-algo-2026-08-04.md) ·
 > [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 >
 > Persistance données weather + onglet Données (2026-08-08) — **appliqué** (Phases 0–4) :
-> [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md) ·
-> [`plans/2026-08-08_PLAN-weather-market-data-persistence.md`](./plans/2026-08-08_PLAN-weather-market-data-persistence.md)
+> [`weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md`](./weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md) ·
+> [`weather-algo-audits-plans/2026-08-08_PLAN-weather-market-data-persistence.md`](./weather-algo-audits-plans/2026-08-08_PLAN-weather-market-data-persistence.md)
 >
 > Backtest événementiel weather (moteur `@polywatch/backtest` + onglet Backtest) — **appliqué** (2026-08-09) :
 > [`backtest.md`](./backtest.md) ·

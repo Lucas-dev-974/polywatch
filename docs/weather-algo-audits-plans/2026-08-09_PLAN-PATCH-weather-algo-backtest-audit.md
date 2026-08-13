@@ -1,10 +1,10 @@
 # Plan patch — Correctifs audit weather-algo backtest
 
 **Date** : 2026-08-09  
-**Source** : [`../../weather-backtest/2026-08-09_audit-weather-algo-backtest.md`](../../weather-backtest/2026-08-09_audit-weather-algo-backtest.md)  
+**Source** : [`2026-08-09_audit-weather-algo-backtest.md`](./2026-08-09_audit-weather-algo-backtest.md)  
 **Vérification** : audit confronté au code (session 2026-08-09) — findings confirmés  
 **Statut** : **applied** (2026-08-09) — `engineVersion` / package `@polywatch/backtest` **`0.2.0`**  
-**Doc produit** : [`../../backtest.md`](../../backtest.md) · [`../../code/09-backtest.md`](../../code/09-backtest.md) · [`../../api.md`](../../api.md)  
+**Doc produit** : [`../backtest.md`](../backtest.md) · [`../code/09-backtest.md`](../code/09-backtest.md) · [`../api.md`](../api.md)  
 **Objectif** : aligner le backtest weather sur le live (fidélité), corriger les bugs UI, et documenter les écarts restants.
 
 ### Décisions enregistrées (2026-08-09)

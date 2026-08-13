@@ -123,10 +123,13 @@
 
 | #   | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Doc                                                         | Sévérité   | Implémenté |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------- | ---------- |
-| F1  | 2 routes data manquantes : `DELETE /tables/:id` (route `weather-algo-data.ts:189`) et `GET /weather-algo-history/jobs` (route `weather-algo-history.ts:64`). ⚠️ **Corrigé** : la version initiale listait 6 routes manquantes, mais `/bucket-ticks/timeline`, `/clob-price-history/timeline` et `DELETE /bucket-ticks/interval` sont **déjà documentées** (`api.md:400-402`).                                                                                                                                                                                                                                                                                                                                                                      | `api.md:390-416`                                            | 🟡 Moyenne | —          |
-| F2  | Param `fidelityMinutes` backtest omis dans la liste des paramètres de run (`api.md:440`) — pourtant documenté dans `backtest.md:110`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `api.md`                                                    | 🟡 Moyenne | —          |
-| F3  | Wording « 6 tables » stale (le code renvoie 7 avec `clob_price_history`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `api.md:392-393`, `plans/applied/2026-08-08_IMPL-...:57-58` | 🟢 Faible  | —          |
+| F1  | 2 routes data manquantes : `DELETE /tables/:id` (route `weather-algo-data.ts:170`) et `GET /weather-algo-history/jobs` (route `weather-algo-history.ts:68`). ⚠️ **Corrigé** : la version initiale listait 6 routes manquantes, mais `/bucket-ticks/timeline`, `/clob-price-history/timeline` et `DELETE /bucket-ticks/interval` sont **déjà documentées** (`api.md:400-402`). *(Correction 2026-08-13 : les numéros de ligne cités étaient décalés — `DELETE /tables/:id` est à la ligne 170, `GET /jobs` à la ligne 68.)*                                                                                                                                                                                                                                                                                                                                                                      | `api.md:390-416`                                            | 🟡 Moyenne | —          |
+| F2  | Param `fidelityMinutes` backtest omis dans la liste des paramètres de run (`api.md:438`) — pourtant documenté dans `backtest.md:110`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `api.md`                                                    | 🟡 Moyenne | —          |
+| F3  | Wording « 6 tables » stale (le code renvoie 7 avec `clob_price_history`). ⚠️ **Nuancé (2026-08-13)** : `api.md:390-391` est **déjà corrigé** (« 7 tables ») ; seul `plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md:57-58,90` conserve le wording « 6 tables ».                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `plans/applied/2026-08-08_IMPL-...:57-58,90`                | 🟢 Faible  | —          |
 | F4  | Code warning `kill_switch_partial_close` manquant dans le tableau des warnings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `backtest.md:85-93`                                         | 🟢 Faible  | —          |
+| F6 *(nouveau)* | 3 routes data **supplémentaires** non documentées dans `api.md` : `GET /clob-price-history` (route `weather-algo-data.ts:86`), `GET /bucket-ticks/dates` (route `weather-algo-data.ts:99`), `GET /clob-price-history/dates` (route `weather-algo-data.ts:138`). Seule la variante `/timeline` est documentée (`api.md:398-399`). | `api.md:390-401`                                            | 🟡 Moyenne | —          |
+| F7 *(nouveau)* | `docs/weather-algo.md:42` documente encore `WeatherAutoTrackJanitor` (cadence `pollMs`, « Cleanup legacy ») comme composant actif du processus — **réfuté** : le janitor weather a été supprimé en D11 (2026-08-13, `auto-track-janitor.ts` + cycle `runAutoTrackTick`/`autoTrackTimer` retirés de `index.ts`). Doc stale. | `weather-algo.md:42`                                        | 🟢 Faible  | —          |
+| F8 *(nouveau)* | `docs/code/08-weather-algo.md` référence encore le cycle auto-track supprimé en D11 : ligne 58 (« Timer auto-track (`config.pollMs`) + tick immédiat »), ligne 67 (« Auto-track tick »), ligne 81 (« `clearInterval` heartbeat + auto-track »). Le `index.ts` actuel ne contient plus de timer auto-track (seuls heartbeat + data-purge subsistent). Doc stale. | `code/08-weather-algo.md:58,67,81`                          | 🟢 Faible  | —          |
 | F5  | ⚠️ **Réfuté** : les cross-refs `docs/code/08-weather-algo.md`, `configuration.md`, `plans/applied` existent toutes ; `weather-config-api.ts` et `policy.ts` référencés par `weather-algo.md` existent aussi. Le package `packages/weather-algo/` **existe et est tracké par git** (27 fichiers, dont `package.json`, `src/index.ts`, `src/strategy/weather-forecast.strategy.ts`) ; il est importé par `@polywatch/weather-algo` (ex. `clocked-weather-strategy.ts:6`). Le constat initial (cross-refs manquantes) est donc réfuté. *(Correction 2026-08-12 : la version précédente indiquait à tort que le dossier n'apparaissait pas dans git status — confusion entre fichiers non-trackés du working dir et fichiers déjà trackés/committés.)* | multiple                                                    | ⚪ Résolu   | N/A        |
 
 
@@ -140,9 +143,9 @@
 
 **🟠 Haute (8)** : C3 (✅ implémenté), C4 (✅ implémenté), C5 (✅ implémenté), C6 (✅ implémenté), T2 (✅ implémenté — cleanup `clearInterval` au shutdown), T3 (✅ implémenté — `JSON.parse` protégé), T4 (✅ implémenté — guard `target` null), C12 (✅ implémenté — race upsert). → **0 actif**.
 
-**🟡 Moyenne (7)** : C7 (✅ implémenté), C11 (✅ implémenté), T5 (✅ implémenté — `onMount`), T6 (✅ implémenté — upsert atomique `ON CONFLICT`), T7 (✅ implémenté — skip `markClosed` si ville null), F1, F2 (refactors R1-R10 ✅ implémentés le 2026-08-13). → **reste 2 actifs** (F1, F2).
+**🟡 Moyenne (8)** : C7 (✅ implémenté), C11 (✅ implémenté), T5 (✅ implémenté — `onMount`), T6 (✅ implémenté — upsert atomique `ON CONFLICT`), T7 (✅ implémenté — skip `markClosed` si ville null), F1, F2, F6 (refactors R1-R10 ✅ implémentés le 2026-08-13). → **reste 3 actifs** (F1, F2, F6).
 
-**🟢 Faible (13)** : F3, F4, D1 (✅ implémenté), D2 (✅ implémenté), D3 (✅ implémenté), D4 (✅ implémenté), D5 (✅ implémenté), D6 (✅ implémenté), D8 (✅ implémenté), D9 (✅ implémenté), D10 (✅ implémenté), D11 (✅ implémenté), D12 (⏸️ hors scope — audit futur). → **reste 3 actifs** (F3, F4, D12).
+**🟢 Faible (16)** : F3, F4, F7, F8, D1 (✅ implémenté), D2 (✅ implémenté), D3 (✅ implémenté), D4 (✅ implémenté), D5 (✅ implémenté), D6 (✅ implémenté), D8 (✅ implémenté), D9 (✅ implémenté), D10 (✅ implémenté), D11 (✅ implémenté), D12 (⏸️ hors scope — audit futur). → **reste 5 actifs** (F3, F4, F7, F8, D12).
 
 **Réfutations (5)** : C8 (migration existe), C9 (`?? {}` atteignable), D7 (`WeatherRuntimeStatus` utilisé), D13 (node_modules non trackés), F5 (cross-refs résolues).
 
@@ -158,7 +161,7 @@
 4. **R4 (C2)** : extraire un `formatBucketLabel(unit)` unique et propager l'unité du marché (C vs F). ✅ **Fait** (2026-08-12).
 5. **C3-C5** : centraliser les sources de vérité (`WEATHER_ALGO_DATA_TABLE_IDS`, `WeatherMetric`/`isWeatherMetric`, `BACKTEST_EXIT_REASONS`) dans `@polywatch/core` et resserrer les types. ✅ **Fait** (2026-08-12).
 6. **T3** : encadrer `JSON.parse(row.modelValues)` d'un try/catch. ✅ **Fait** (2026-08-13) — avec T2/T4/T5/T6/T7, cf. §13.
-7. **F1-F4** : mettre à jour `api.md` / `modele-donnees.md` / `backtest.md`.
+7. **F1-F8** : mettre à jour `api.md` (ajouter `DELETE /tables/:id`, `GET /weather-algo-history/jobs`, `GET /clob-price-history`, `GET /bucket-ticks/dates`, `GET /clob-price-history/dates`, param `fidelityMinutes` backtest), `backtest.md` (warning `kill_switch_partial_close`), `weather-algo.md` (retirer `WeatherAutoTrackJanitor`), `code/08-weather-algo.md` (retirer le cycle auto-track) et `plans/applied/2026-08-08_IMPL-...` (wording « 6 tables » → « 7 tables »). *(2026-08-13 : F1-F4 confirmés ; F3 nuancé — seul `plans/applied/2026-08-08_IMPL-...` reste stale ; F6-F8 ajoutés.)*
 8. **D1-D12** : purger le dead code selon l'inventaire §2 (D13 réfuté — les fichiers `node_modules` ne sont pas trackés par git, aucune action gitignore nécessaire). ✅ **Fait** (2026-08-13) — D1-D11 supprimés, D12 hors scope (audit futur), D13 réfuté.
 
 Aucun fichier n'a été modifié pendant l'audit initial ; les implémentations sont suivies en §9 (C1/C2/C6), §10 (C3/C4/C5), §11 (C7/C10/C11/C12), §12 (D1-D11 dead code) et §13 (T1-T7 risques techniques).
@@ -187,9 +190,26 @@ Synthèse mise à jour : 4 constats critiques, 8 hauts, 7 moyens, 13 faibles, 5 
 
 ---
 
+## 8bis. Vérification §5 Doc vs code (2026-08-13)
+
+Re-vérification de la partie 5 par lecture directe du code et des docs. Chaque constat F1-F5 confirmé/réfuté, et 3 nouveaux constats (F6-F8) ajoutés au tableau §5.
+
+- **F1** → **Confirmé** (reste 🟡 Moyenne). `DELETE /tables/:id` existe (`weather-algo-data.ts:170`) et `GET /weather-algo-history/jobs` existe (`weather-algo-history.ts:68`) ; ni l'un ni l'autre n'est documenté dans `api.md`. Les numéros de ligne cités dans le constat étaient décalés (189→170, 64→68) — corrigés.
+- **F2** → **Confirmé** (reste 🟡 Moyenne). `fidelityMinutes` est un paramètre valide (`backtest/src/params.ts:17`) et documenté dans `backtest.md:110-117`, mais absent de la liste des paramètres de run dans `api.md:438`.
+- **F3** → **Nuancé** (reste 🟢 Faible). `api.md:390-391` est **déjà corrigé** (« 7 tables ») ; seul `plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md:57-58,90` conserve le wording « 6 tables ». La localisation `api.md:392-393` du constat est donc obsolète.
+- **F4** → **Confirmé** (reste 🟢 Faible). `kill_switch_partial_close` est émis (`weather-adapter.ts:259`) mais absent du tableau des warnings `backtest.md:76-93`.
+- **F5** → **Confirmé réfuté** (reste ⚪ Résolu). `docs/code/08-weather-algo.md`, `configuration.md`, `packages/core/src/risk/weather-config-api.ts` et `packages/core/src/risk/policy.ts` existent tous ; le package `packages/weather-algo/` est tracké par git.
+- **F6** *(nouveau)* → **Ajouté** (🟡 Moyenne). 3 routes data non documentées : `GET /clob-price-history` (`weather-algo-data.ts:86`), `GET /bucket-ticks/dates` (`weather-algo-data.ts:99`), `GET /clob-price-history/dates` (`weather-algo-data.ts:138`). Seule la variante `/timeline` est documentée (`api.md:398-399`).
+- **F7** *(nouveau)* → **Ajouté** (🟢 Faible). `docs/weather-algo.md:42` documente `WeatherAutoTrackJanitor` comme composant actif, mais le janitor weather a été supprimé en D11 (2026-08-13).
+- **F8** *(nouveau)* → **Ajouté** (🟢 Faible). `docs/code/08-weather-algo.md:58,67,81` référence le cycle auto-track supprimé en D11 ; le `index.ts` actuel ne contient plus de timer auto-track.
+
+**Impact sur la synthèse §6** : actifs restants — 3 moyens (F1, F2, F6), 5 faibles (F3, F4, F7, F8, D12).
+
+---
+
 ## 9. Suivi d'implémentation (2026-08-12)
 
-Les constats **C1**, **C2** et **C6** ont été implémentés et vérifiés (voir [`plans/2026-08-12_PLAN-fix-c1-c2-weather-algo.md`](../plans/2026-08-12_PLAN-fix-c1-c2-weather-algo.md)).
+Les constats **C1**, **C2** et **C6** ont été implémentés et vérifiés (voir [`2026-08-12_PLAN-fix-c1-c2-weather-algo.md`](./2026-08-12_PLAN-fix-c1-c2-weather-algo.md)).
 
 ### C1 — flag `isFresh` / `wasFetched`
 
@@ -224,7 +244,7 @@ Les constats **C1**, **C2** et **C6** ont été implémentés et vérifiés (voi
 
 ## 10. Implémentation C3/C4/C5 (2026-08-12)
 
-Les constats **C3**, **C4** et **C5** ont été implémentés et vérifiés (voir [`plans/2026-08-12_PLAN-fix-c3-c4-c5-weather-algo.md`](../plans/2026-08-12_PLAN-fix-c3-c4-c5-weather-algo.md)).
+Les constats **C3**, **C4** et **C5** ont été implémentés et vérifiés (voir [`2026-08-12_PLAN-fix-c3-c4-c5-weather-algo.md`](./2026-08-12_PLAN-fix-c3-c4-c5-weather-algo.md)).
 
 ### C3 — `WEATHER_ALGO_DATA_TABLE_IDS` source unique
 
@@ -263,7 +283,7 @@ Les constats **C3**, **C4** et **C5** ont été implémentés et vérifiés (voi
 
 ## 11. Implémentation C7/C10/C11/C12 (2026-08-13)
 
-Les constats **C7**, **C10**, **C11** et **C12** ont été implémentés et vérifiés (voir [`plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md`](../plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md)).
+Les constats **C7**, **C10**, **C11** et **C12** ont été implémentés et vérifiés (voir [`2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md`](./2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md)).
 
 ### C7 — `proxyFallback` sémantiquement correct
 
@@ -309,7 +329,7 @@ Les constats **C7**, **C10**, **C11** et **C12** ont été implémentés et vér
 
 ## 12. Implémentation D1-D11 — purge dead code (2026-08-13)
 
-Les constats **D1 à D11** de l'inventaire dead code (§2) ont été implémentés et vérifiés (voir [`../plans/applied/2026-08-13_PLAN-purge-dead-code-weather-algo.md`](../plans/applied/2026-08-13_PLAN-purge-dead-code-weather-algo.md)).
+Les constats **D1 à D11** de l'inventaire dead code (§2) ont été implémentés et vérifiés (voir [`2026-08-13_PLAN-purge-dead-code-weather-algo.md`](./2026-08-13_PLAN-purge-dead-code-weather-algo.md)).
 
 ### Suppressions réalisées
 
@@ -354,7 +374,7 @@ Les constats **D1 à D11** de l'inventaire dead code (§2) ont été implément�
 
 ## 13. Implémentation T1-T7 — risques techniques (2026-08-13)
 
-Les constats **T1 à T7** de la partie 3 (§3) ont été implémentés et vérifiés (voir [`../plans/2026-08-13_PLAN-fix-t1-t7-weather-algo.md`](../plans/2026-08-13_PLAN-fix-t1-t7-weather-algo.md)).
+Les constats **T1 à T7** de la partie 3 (§3) ont été implémentés et vérifiés (voir [`2026-08-13_PLAN-fix-t1-t7-weather-algo.md`](./2026-08-13_PLAN-fix-t1-t7-weather-algo.md)).
 
 ### T1 — `pollJob` annulable via `onCleanup`
 
@@ -407,7 +427,7 @@ Les constats **T1 à T7** de la partie 3 (§3) ont été implémentés et vérif
 
 ## 14. Implémentation R1-R10 — refactors / simplification (2026-08-13)
 
-Les constats **R1, R2, R3, R5, R6, R7, R8, R9, R10** de la partie 4 (§4) ont été implémentés et vérifiés (voir [`../plans/applied/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md`](../plans/applied/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md)). **R4** était déjà implémenté (résolu par C2, §9).
+Les constats **R1, R2, R3, R5, R6, R7, R8, R9, R10** de la partie 4 (§4) ont été implémentés et vérifiés (voir [`2026-08-13_PLAN-refactor-weather-algo-r1-r10.md`](./2026-08-13_PLAN-refactor-weather-algo-r1-r10.md)). **R4** était déjà implémenté (résolu par C2, §9).
 
 ### R1 — Agrégateur timeline commun
 

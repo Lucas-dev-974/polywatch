@@ -3,7 +3,7 @@
 **Date** : 2026-08-12
 **Statut** : **appliqué** (2026-08-12)
 **Scope** : `packages/core`, `packages/backend`, `packages/frontend`, `packages/weather-algo`
-**Référence** : [`../audits/2026-08-11_audit-weather-algo-complet.md`](../audits/2026-08-11_audit-weather-algo-complet.md) · [`./applied/2026-08-11_PLAN-weather-per-strategy-config.md`](./applied/2026-08-11_PLAN-weather-per-strategy-config.md)
+**Référence** : [`2026-08-11_audit-weather-algo-complet.md`](./2026-08-11_audit-weather-algo-complet.md) · [`2026-08-11_PLAN-weather-per-strategy-config.md`](./2026-08-11_PLAN-weather-per-strategy-config.md)
 
 **Objectif** : Corriger les deux constats critiques C1 et C2 de l'audit weather-algo. C1 est un bug sémantique one-line (`isFresh: false` retourné pour un forecast frais) avec un impact collatéral sur l'enregistrement d'historique des prévisions. C2 est une triplication de `bucketLabel` avec unités divergentes (`°C` vs `°`) nécessitant la propagation de l'unité du marché (C vs F) du parser jusqu'au frontend. Aucune des deux corrections ne change le régime nominal au-delà du bug lui-même.
 

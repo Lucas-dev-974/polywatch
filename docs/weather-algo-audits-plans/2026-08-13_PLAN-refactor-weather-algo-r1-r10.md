@@ -3,7 +3,7 @@
 - **Date** : 2026-08-13
 - **Statut** : ✅ implémenté (2026-08-13)
 - **Scope** : `packages/core`, `packages/backtest`, `packages/backend`, `packages/frontend`
-- **Référence** : [`../../audits/2026-08-11_audit-weather-algo-complet.md`](../../audits/2026-08-11_audit-weather-algo-complet.md) (§4 « Besoins de refactor / simplification », R1–R10)
+- **Référence** : [`2026-08-11_audit-weather-algo-complet.md`](./2026-08-11_audit-weather-algo-complet.md) (§4 « Besoins de refactor / simplification », R1–R10)
 
 **Objectif** : implémenter les refactors R1–R10 identifiés à l'audit weather-algo (partie 4). R4 était déjà implémenté (résolu par C2, §9 de l'audit) ; ce plan couvre R1, R2, R3, R5, R6, R7, R8, R9, R10.
 

@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-11  
 **Statut** : **applied** (2026-08-11)  
-**Doc produit** : [`../../weather-algo.md`](../../weather-algo.md) · [`../../code/08-weather-algo.md`](../../code/08-weather-algo.md) · [`../../configuration.md`](../../configuration.md)  
+**Doc produit** : [`../weather-algo.md`](../weather-algo.md) · [`../code/08-weather-algo.md`](../code/08-weather-algo.md) · [`../configuration.md`](../configuration.md)  
 **Objectif** : Remplacer les ~40 tunables `weatherAlgo*` globaux par une
 configuration **par stratégie** — chaque stratégie activée porte sa config
 complète (gates d'entrée, sizing, sorties, SL/TP/trailing, risk limits,

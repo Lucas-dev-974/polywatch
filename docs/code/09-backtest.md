@@ -2,7 +2,7 @@
 
 > **Vue d'ensemble produit** : [`../backtest.md`](../backtest.md).  
 > **Plan d'origine** : [`../plans/2026-08-05_PLAN-backtest-engine-universel.md`](../plans/2026-08-05_PLAN-backtest-engine-universel.md).  
-> **Patch fidélité 0.2.0** : [`../plans/applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../plans/applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md).  
+> **Patch fidélité 0.2.0** : [`../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md).  
 > **Périmètre v1** : domaine **weather uniquement** (crypto/copy hors scope).
 
 ## 1. Topologie du package

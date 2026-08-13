@@ -217,7 +217,7 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 
 UI : onglet **Paramètres** (globaux) + onglet **Stratégies** (activation +
 params per-strategy) + onglet **Donnees** (exploration/purge). Voir
-[`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+[`weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md`](./weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 ##### Colonnes legacy (source backfill, non modifiables API)
 

@@ -1,12 +1,12 @@
 # Plan v4 — Persistance données marché weather (buckets par ville suivie)
 
 **Date** : 2026-08-08 (v4 corrigée revue code)
-**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; **Phase 5 implémentée** (2026-08-09) — moteur `@polywatch/backtest` + onglet **Backtest** dans Weather Algo (voir `[../backtest.md](../backtest.md)`) ; patch fidélité audit `[applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)` (`0.2.0`). Warnings quantitatifs §12.2 **non livrés**.
-**Doc d’implémentation** : `[applied/2026-08-08_IMPL-weather-market-data-persistence.md](./applied/2026-08-08_IMPL-weather-market-data-persistence.md)`
+**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; **Phase 5 implémentée** (2026-08-09) — moteur `@polywatch/backtest` + onglet **Backtest** dans Weather Algo (voir `[../backtest.md](../backtest.md)`) ; patch fidélité audit `[2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)` (`0.2.0`). Warnings quantitatifs §12.2 **non livrés**.
+**Doc d’implémentation** : `[2026-08-08_IMPL-weather-market-data-persistence.md](./2026-08-08_IMPL-weather-market-data-persistence.md)`
 **Scope** : Enregistrer les données marché (prix buckets) + forecasts versionnés pour backtester les stratégies weather
-**Référence backtest** : `[2026-08-05_PLAN-backtest-engine-universel.md](./2026-08-05_PLAN-backtest-engine-universel.md)` §1.3 et Phase 0.3
-**Référence audit** : `[2026-08-08_audit-weather-forecast-strategy.md](../strategies-audit/2026-08-08_audit-weather-forecast-strategy.md)`
-**Référence spec multi-stratégies** : `[2026-08-08_SPEC_multi-strategy-weather-algo.md](../strategies-audit/2026-08-08_SPEC_multi-strategy-weather-algo.md)`
+**Référence backtest** : `[../plans/2026-08-05_PLAN-backtest-engine-universel.md](../plans/2026-08-05_PLAN-backtest-engine-universel.md)` §1.3 et Phase 0.3
+**Référence audit** : `[2026-08-08_audit-weather-forecast-strategy.md](./2026-08-08_audit-weather-forecast-strategy.md)`
+**Référence spec multi-stratégies** : `[../strategies-audit/2026-08-08_SPEC_multi-strategy-weather-algo.md](../strategies-audit/2026-08-08_SPEC_multi-strategy-weather-algo.md)`
 
 ### Objectif final (clarification)
 
@@ -1051,11 +1051,11 @@ export class AddWeatherMarketDataPersistence1700000000100 implements MigrationIn
 | `GET`    | `/api/weather-algo-data/forecast-cache?...`                                    | `{ items, total }`                                                                 | Cache opérationnel             |
 | `GET`    | `/api/weather-algo-data/position-forecasts?...`                                | `{ items, total }` (+ `openedAt`)                                                  | Snapshots d’entrée             |
 | `GET`    | `/api/weather-algo-data/tables`                                                | `{ tables[] }` rowCount / oldest / newest                                          | UI onglet Données              |
-| `DELETE` | `/api/weather-algo-data/tables`                                                | `{ deleted, totalDeleted }`                                                        | Purge UI (6 tables)            |
+| `DELETE` | `/api/weather-algo-data/tables`                                                | `{ deleted, totalDeleted }`                                                        | Purge UI (7 tables)            |
 | `GET`    | `/api/weather-algo-data/coverage`                                              | `{ from, to, cities[], totals… }`                                                  | Legacy (UI Paramètres retirée) |
 
 
-**Fichier** : `packages/backend/src/routes/weather-algo-data.ts` — détail : `[applied/2026-08-08_IMPL-weather-market-data-persistence.md](./applied/2026-08-08_IMPL-weather-market-data-persistence.md)`
+**Fichier** : `packages/backend/src/routes/weather-algo-data.ts` — détail : `[2026-08-08_IMPL-weather-market-data-persistence.md](./2026-08-08_IMPL-weather-market-data-persistence.md)`
 
 ### 12.2 Warnings de fidélité backtest
 
@@ -1063,7 +1063,7 @@ export class AddWeatherMarketDataPersistence1700000000100 implements MigrationIn
 > (`inactiveBucketsExcluded`, `arbitrage_unreliable`, `missingSnapshots`, …)
 > ne sont **pas** implémentés dans `packages/backtest`. Voir les codes réellement
 > émis dans `[../backtest.md](../backtest.md)` §1 et le patch
-> `[applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](./applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)`.
+> `[2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)`.
 
 Le `WeatherDataLoader` devait émettre ces warnings (fix #11 — buckets inactifs non enregistrés) :
 
@@ -1188,7 +1188,7 @@ Voir doc d’implémentation pour l’état réel des routes.
 
 ### Phase 5 — Intégration backtest — **HORS SCOPE** (V4-6)
 
-`packages/backtest` n’existe pas encore. Différer au plan `[2026-08-05_PLAN-backtest-engine-universel.md](./2026-08-05_PLAN-backtest-engine-universel.md)` (Phase weather + `WeatherDataLoader` consommant `weather_market_snapshots` / `weather_bucket_ticks` / `weather_forecast_history` / `weather_evaluation_log`).
+`packages/backtest` n’existe pas encore. Différer au plan `[../plans/2026-08-05_PLAN-backtest-engine-universel.md](../plans/2026-08-05_PLAN-backtest-engine-universel.md)` (Phase weather + `WeatherDataLoader` consommant `weather_market_snapshots` / `weather_bucket_ticks` / `weather_forecast_history` / `weather_evaluation_log`).
 
 Ne pas bloquer le merge prod des Phases 0–4 sur cette phase.
 

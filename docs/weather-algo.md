@@ -39,7 +39,6 @@ sentinelle n'est pas pollée par le MoveDetector Data API.
 |-----------|---------|------|
 | `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min), **aligné sur une grille UTC** | Sorties puis entrées city-follow. Chaque cycle est planifié sur le prochain multiple de `pollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de démarrage et stable d'un redémarrage à l'autre (ex. 15 min → :00/:15/:30/:45 UTC). Au boot, une passe d'exit **immédiate** réévalue les positions ouvertes (reprise) mais **aucun** cycle d'entrée n'est déclenché — le premier cycle complet se fait au prochain créneau aligné. Un cycle immédiat est en revanche forcé sur `config-changed` pour appliquer la config à chaud. |
 | `WeatherExitEvaluator` | début de chaque cycle | Drift + bucket-exit (hysteresis) + pre-close |
-| `WeatherAutoTrackJanitor` | `pollMs` | Cleanup legacy (no-op après suppression de `WeatherMarketSelection`) |
 | `runWeatherEntryPipeline` | sur signal | Gate throttle re-entry + enqueue `WEATHER_OPEN` |
 | Heartbeat / runtime-status | 30 s | Redis `weather-algo:heartbeat`, `weather-algo:runtime-status` |
 
@@ -149,7 +148,7 @@ Purge horaire selon rétention (`weatherAlgo*RetentionDays`), indépendante des 
 
 **UI** : page Weather Algo → onglet **Données** (cards, cadence, drill-down, purge) ; toggles dans **Paramètres**.
 
-Doc d’implémentation : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+Doc d’implémentation : [`weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md`](./weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 ### Ingestion historique CLOB (onglet Villes → Données télécharger)
 

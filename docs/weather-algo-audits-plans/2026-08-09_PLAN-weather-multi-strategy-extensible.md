@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-09
 **Statut** : Plan validé, **partiellement implémenté** (2026-08-09)
-**Références** : [`../2026-08-09_audit-weather-algo-strategy-live.md`](../2026-08-09_audit-weather-algo-strategy-live.md) · [`../2026-08-08_SPEC_multi-strategy-weather-algo.md`](../2026-08-08_SPEC_multi-strategy-weather-algo.md)
+**Références** : [`2026-08-09_audit-weather-algo-strategy-live.md`](./2026-08-09_audit-weather-algo-strategy-live.md) · [`../strategies-audit/2026-08-08_SPEC_multi-strategy-weather-algo.md`](../strategies-audit/2026-08-08_SPEC_multi-strategy-weather-algo.md)
 
 ### Livré vs ouvert
 

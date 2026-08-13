@@ -3,7 +3,7 @@
 - **Date** : 2026-08-13
 - **Statut** : proposé (non implémenté)
 - **Scope** : `packages/backtest`, `packages/core`, `tools/`
-- **Référence** : [`../audits/2026-08-11_audit-weather-algo-complet.md`](../audits/2026-08-11_audit-weather-algo-complet.md)
+- **Référence** : [`2026-08-11_audit-weather-algo-complet.md`](./2026-08-11_audit-weather-algo-complet.md)
 
 **Objectif** : Corriger quatre constats de l'audit weather-algo restés actifs — **C10** (🔴 Critique, asymétrie de convention de bin CDF entre `or_below` et `or_above`), **C11** (🟡 Moyenne, asymétrie de tolérance dans `isForecastInBucket`), **C12** (🟡 Moyenne, index unique d'upsert sans `metric`), et **C7** (🟡 Moyenne, champ `proxyFallback` retourné mais jamais consommé).
 

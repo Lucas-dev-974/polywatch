@@ -48,7 +48,7 @@ Audit global / purge RiskConfig / post-entry-mid (2026-08-06) — **appliqué** 
 [`plans/2026-08-06_PLAN-p0-implementation.md`](../plans/2026-08-06_PLAN-p0-implementation.md)
 
 Audit weather-algo (2026-08-04) — **appliqué** :
-[`audit-weather-algo-2026-08-04.md`](../audit-weather-algo-2026-08-04.md)
+[`audit-weather-algo-2026-08-04.md`](../weather-algo-audits-plans/audit-weather-algo-2026-08-04.md)
 
 Sim-reset Redis (2026-07-12 + 4.5) — **appliqué** :
 [`plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](../plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)

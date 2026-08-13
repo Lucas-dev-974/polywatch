@@ -5,7 +5,7 @@
 
 > **Statut post-patch (2026-08-09)** : les findings B1–B9 et F1–F4 sont **corrigés** dans
 > `engineVersion` **`0.2.0`**. Voir
-> [`../plans/applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../plans/applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)
+> [`2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)
 > et [`../backtest.md`](../backtest.md).  
 > Follow-up post-vérif **R1–R3** (capital UI, kill-switch résilient, doc `hoursToEnd`) :
 > plan §7 — pas de bump version.  

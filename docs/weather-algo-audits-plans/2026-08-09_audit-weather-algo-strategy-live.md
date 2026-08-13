@@ -6,10 +6,10 @@
 **Sources** :
 - Code : `packages/weather-algo/**`, `packages/core/src/weather/**`, `WeatherConfig`
 - BDD : `tools/weather-algo-rules-audit.ts` + `tools/weather-algo-audit.ts` (snapshot `2026-08-09T07:25Z`)
-- Canvas : [`weather-algo-strategy-audit-2026-08-09.canvas.tsx`](../../../.cursor/projects/c-Users-lcsystem-Desktop-TradeInterface-Polytwatch-versioning-Polywatch-v1-1/canvases/weather-algo-strategy-audit-2026-08-09.canvas.tsx)
+- Canvas : [`weather-algo-strategy-audit-2026-08-09.canvas.tsx`](../../.cursor/projects/c-Users-lcsystem-Desktop-TradeInterface-Polytwatch-versioning-Polywatch-v1-1/canvases/weather-algo-strategy-audit-2026-08-09.canvas.tsx)
 
 > **Addendum 2026-08-09 (post multi-stratégies)** — cet audit décrit l'état **avant** le chantier
-> [`plans/2026-08-09_PLAN-weather-multi-strategy-extensible.md`](./plans/2026-08-09_PLAN-weather-multi-strategy-extensible.md).
+> [`2026-08-09_PLAN-weather-multi-strategy-extensible.md`](./2026-08-09_PLAN-weather-multi-strategy-extensible.md).
 > Depuis : catalogue + `weather-forecast-aligned`, `pickBestEdgeBucket` est dans la stratégie
 > (`evaluateGroup`), plus dans le runner ; docs produit corrigées. Les conclusions BDD / ops
 > (churn, gates, KPI) restent utiles ; les sections « une seule stratégie » / « pick dans runner »

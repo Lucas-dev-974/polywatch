@@ -383,18 +383,22 @@ a été supprimée (dead code — 2026-08-13).
 ### Weather Algo data (persistance / audit)
 
 Routes JWT sous `/api/weather-algo-data`. Service : `WeatherAlgoDataService`.  
-Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+Doc : [`weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md`](./weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/weather-algo-data/tables` | Résumé des 7 tables (`id`, `tableName`, `rowCount`, `oldestAt`, `newestAt`) |
 | DELETE | `/api/weather-algo-data/tables` | Vide les 7 tables → `{ deleted, totalDeleted }` |
+| DELETE | `/api/weather-algo-data/tables/:id` | Vide une table précise (`id` ∈ `WEATHER_ALGO_DATA_TABLE_IDS`) → `{ deleted }` ; **400** `Unknown table id` |
 | GET | `/api/weather-algo-data/forecast-history` | Liste paginée (`city`, `from`, `to`, `limit`≤500, `offset`) |
 | GET | `/api/weather-algo-data/market-snapshots` | Liste (`city`, `from`, `to`, `limit`≤200) ; `includeTicks=true` pour embarquer les ticks (défaut **false**) |
 | GET | `/api/weather-algo-data/bucket-ticks` | Liste (`city`, `conditionId`, `from`, `to`, `limit`≤500) |
+| GET | `/api/weather-algo-data/bucket-ticks/dates` | Liste des dates distinctes de bucket ticks |
 | GET | `/api/weather-algo-data/evaluation-log` | Liste (`from`, `to`, `strategyId`, `decision`, `limit`≤500) |
 | GET | `/api/weather-algo-data/forecast-cache` | Liste cache Open-Meteo opérationnel |
 | GET | `/api/weather-algo-data/position-forecasts` | Liste snapshots d’entrée (+ `openedAt` joint) |
+| GET | `/api/weather-algo-data/clob-price-history` | Liste (`city`, `from`, `to`, `limit`≤500) |
+| GET | `/api/weather-algo-data/clob-price-history/dates` | Liste des dates distinctes de prix CLOB |
 | GET | `/api/weather-algo-data/clob-price-history/timeline` | Timeline prix CLOB (`targetDate`, `city?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle |
 | GET | `/api/weather-algo-data/bucket-ticks/timeline` | Timeline bucket ticks (`targetDateIso`, `city?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle |
 | DELETE | `/api/weather-algo-data/bucket-ticks/interval?city=&fidelityMinutes=` | Supprime tous les ticks d'une ville à un intervalle donné → `{ city, fidelityMinutes, deleted }` |
@@ -409,6 +413,7 @@ Récupère l'historique des prix YES/NO des buckets météo d'une ville sur une 
 |---------|-------|-------------|
 | GET | `/api/weather-algo-history/cities` | Villes connues (auto-track + snapshots + historique déjà ingéré) |
 | GET | `/api/weather-algo-history/coverage?city=` | Statistiques d'ingestion d'une ville (`pointCount`, bornes `recordedAt`, `targetDates`, `intervals: [{ fidelityMinutes, pointCount }]`) |
+| GET | `/api/weather-algo-history/jobs` | Liste des jobs d'ingestion (`limit`≤100, défaut 20) → `{ jobs }` |
 | GET | `/api/weather-algo-history/jobs/:id` | Statut d'un job d'ingestion (polling) |
 | POST | `/api/weather-algo-history/ingest` | Lance un job : `{ city, from, to, fidelityMinutes, metric? }` → `{ jobId, job }` |
 | DELETE | `/api/weather-algo-history/interval?city=&fidelityMinutes=` | Supprime toutes les données d'une ville à un intervalle donné → `{ city, fidelityMinutes, deleted }` |
@@ -435,9 +440,9 @@ Doc : [`backtest.md`](./backtest.md).
 | GET | `/api/backtest/runs/:id/positions` | Positions paginées (`limit`≤500, `offset`, filtre `exitReason`) |
 | GET | `/api/backtest/runs/:id/equity` | Courbe d'equity `{ points: [{ t, equity, cash, openPositions }] }` (`t` = ISO timestamp) |
 
-Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId` (défaut `weather-forecast` — **filtré en SQL** en mode `replay` ; instancie la stratégie en `reevaluate`), `backtestExecutionMode` (`strategy` | `runner-sim`, défaut `strategy` — voir [`backtest.md`](./backtest.md)), `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `detectionDelayMs` (accepté mais non appliqué → warning `detection_delay_unused` si > 0), `label`.
+Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` | `replay`), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId` (défaut `weather-forecast` — **filtré en SQL** en mode `replay` ; instancie la stratégie en `reevaluate`), `backtestExecutionMode` (`strategy` | `runner-sim`, défaut `strategy` — voir [`backtest.md`](./backtest.md)), `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `fidelityMinutes` (optionnel — filtre les `book_tick` en mode `reevaluate` ; **ignoré** en `replay` → warning `replay_fidelity_filter_unsupported`), `detectionDelayMs` (accepté mais non appliqué → warning `detection_delay_unused` si > 0), `label`.
 
-Config weather (`PUT /api/config/weather`) accepte `weatherAlgoStrategies` (array d'IDs catalogue, min 1) et `weatherAlgoStrategyParams` (objet par strategyId, validé contre le schéma catalogue). **Per-strategy** : chaque stratégie porte sa config complète (gates d'entrée, sizing, sorties, SL/TP/trailing, risk limits, kill-switch, pre-close) — voir [`configuration.md`](./configuration.md) § Weather Algo. Les champs legacy (`weatherAlgoMinEdge`, `weatherAlgoEntryUsdc`, …) sont **rejetés** par `weatherConfigUpdateSchema` (`.strict()`). Refonte : [`plans/applied/2026-08-11_PLAN-weather-per-strategy-config.md`](./plans/applied/2026-08-11_PLAN-weather-per-strategy-config.md).
+Config weather (`PUT /api/config/weather`) accepte `weatherAlgoStrategies` (array d'IDs catalogue, min 1) et `weatherAlgoStrategyParams` (objet par strategyId, validé contre le schéma catalogue). **Per-strategy** : chaque stratégie porte sa config complète (gates d'entrée, sizing, sorties, SL/TP/trailing, risk limits, kill-switch, pre-close) — voir [`configuration.md`](./configuration.md) § Weather Algo. Les champs legacy (`weatherAlgoMinEdge`, `weatherAlgoEntryUsdc`, …) sont **rejetés** par `weatherConfigUpdateSchema` (`.strict()`). Refonte : [`weather-algo-audits-plans/2026-08-11_PLAN-weather-per-strategy-config.md`](./weather-algo-audits-plans/2026-08-11_PLAN-weather-per-strategy-config.md).
 
 `engine_version` du run = `BACKTEST_ENGINE_VERSION` du package (`0.2.0`+). `stats.profitFactor` peut être `null` (= +∞, aucun trade perdant).
 

@@ -3,7 +3,7 @@
 - **Date** : 2026-08-13
 - **Statut** : ✅ implémenté (2026-08-13)
 - **Scope** : `packages/backtest`, `packages/core`, `packages/frontend`, `packages/weather-algo`
-- **Référence** : [`../../audits/2026-08-11_audit-weather-algo-complet.md`](../../audits/2026-08-11_audit-weather-algo-complet.md) (§2 « Inventaire dead code », D1–D12)
+- **Référence** : [`2026-08-11_audit-weather-algo-complet.md`](./2026-08-11_audit-weather-algo-complet.md) (§2 « Inventaire dead code », D1–D12)
 
 **Objectif** : Purger le dead code identifié à l'audit weather-algo (partie 2). L'inventaire D1–D12 a été **re-vérifié par lecture directe du code au 2026-08-13** ; les éléments réfutés (D7, D13) et les éléments à conserver (D12, partie de D11) sont explicitement sortis du périmètre de suppression ou re-scopés.
 

@@ -2,8 +2,8 @@
 
 **Date** : 2026-08-08  
 **Statut** : **Appliqué** (Phases 0–4 du plan + UI onglet Données / purge)  
-**Plan source** : [`../2026-08-08_PLAN-weather-market-data-persistence.md`](../2026-08-08_PLAN-weather-market-data-persistence.md)  
-**Hors scope initial** : Phase 5 (`WeatherDataLoader` / `packages/backtest`) — **implémentée depuis 2026-08-09** ; voir [`../../backtest.md`](../../backtest.md), [`../2026-08-05_PLAN-backtest-engine-universel.md`](../2026-08-05_PLAN-backtest-engine-universel.md), et patch [`2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) (`engineVersion` 0.2.0)
+**Plan source** : [`2026-08-08_PLAN-weather-market-data-persistence.md`](./2026-08-08_PLAN-weather-market-data-persistence.md)  
+**Hors scope initial** : Phase 5 (`WeatherDataLoader` / `packages/backtest`) — **implémentée depuis 2026-08-09** ; voir [`../backtest.md`](../backtest.md), [`../plans/2026-08-05_PLAN-backtest-engine-universel.md`](../plans/2026-08-05_PLAN-backtest-engine-universel.md), et patch [`2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) (`engineVersion` 0.2.0)
 
 ---
 
@@ -54,8 +54,8 @@ Exposition UI : onglet **Données** (cards + drill-down + purge) ; toggles / ré
 
 | Méthode | Path | Rôle |
 |---|---|---|
-| `GET` | `/tables` | Résumé 6 tables : `rowCount`, `oldestAt`, `newestAt`, `tableName` |
-| `DELETE` | `/tables` | Vide les 6 tables (ordre FK-safe) → `{ deleted, totalDeleted }` |
+| `GET` | `/tables` | Résumé 7 tables : `rowCount`, `oldestAt`, `newestAt`, `tableName` |
+| `DELETE` | `/tables` | Vide les 7 tables (ordre FK-safe) → `{ deleted, totalDeleted }` |
 | `GET` | `/forecast-history` | Liste paginée |
 | `GET` | `/market-snapshots` | Liste ; query `includeTicks` (**défaut `false`**) |
 | `GET` | `/bucket-ticks` | Liste (+ `cityNormalized` via JOIN snapshot) |
@@ -87,16 +87,16 @@ Exposition UI : onglet **Données** (cards + drill-down + purge) ; toggles / ré
 |---|---|
 | Mini panneau couverture dans Paramètres | Remplacé par onglet **Données** |
 | API lecture seule (4 routes) | + `/tables`, `DELETE /tables`, `/bucket-ticks`, `/forecast-cache`, `/position-forecasts` ; `includeTicks` sur snapshots |
-| Pas d’UI pour les listes | Drill-down frontend sur les 6 tables |
+| Pas d’UI pour les listes | Drill-down frontend sur les 7 tables |
 | Phase 5 backtest | **Implémentée** (2026-08-09) — [`../backtest.md`](../backtest.md) |
 
 ---
 
 ## 7. Doc liée
 
-- Produit : [`../../weather-algo.md`](../../weather-algo.md) § Persistance
-- Code package : [`../../code/08-weather-algo.md`](../../code/08-weather-algo.md)
-- API : [`../../api.md`](../../api.md) § Weather Algo data
-- Modèle : [`../../modele-donnees.md`](../../modele-donnees.md)
-- Config : [`../../configuration.md`](../../configuration.md)
-- Frontend : [`../../frontend.md`](../../frontend.md)
+- Produit : [`../weather-algo.md`](../weather-algo.md) § Persistance
+- Code package : [`../code/08-weather-algo.md`](../code/08-weather-algo.md)
+- API : [`../api.md`](../api.md) § Weather Algo data
+- Modèle : [`../modele-donnees.md`](../modele-donnees.md)
+- Config : [`../configuration.md`](../configuration.md)
+- Frontend : [`../frontend.md`](../frontend.md)

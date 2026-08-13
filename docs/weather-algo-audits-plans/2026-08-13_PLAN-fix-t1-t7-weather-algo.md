@@ -3,7 +3,7 @@
 - **Date** : 2026-08-13
 - **Statut** : ✅ implémenté (2026-08-13)
 - **Scope** : `packages/frontend`, `packages/backend`, `packages/core`, `packages/backtest`
-- **Référence** : [`../audits/2026-08-11_audit-weather-algo-complet.md`](../audits/2026-08-11_audit-weather-algo-complet.md) (§3 « Risques techniques », T1–T7)
+- **Référence** : [`2026-08-11_audit-weather-algo-complet.md`](./2026-08-11_audit-weather-algo-complet.md) (§3 « Risques techniques », T1–T7)
 
 **Objectif** : Patcher les 7 risques techniques T1–T7 identifiés à l'audit weather-algo. Chaque correctif est minimal, ciblé, et accompagné d'un test dédié pour prévenir bug fantôme et régression silencieuse. Aucune zone d'ombre.
 

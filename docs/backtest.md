@@ -9,7 +9,7 @@ produit positions, equity, statistiques et avertissements de fidélité.
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
 > Prometheus et Socket.IO décrits dans le plan d'origine ne sont **pas** implémentés.  
 > **Moteur** : `engineVersion` **`0.2.0`** (patch fidélité audit —
-> [`plans/applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](./plans/applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)).  
+> [`weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](./weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)).  
 > Runs `< 0.2.0` non comparables.
 
 ---
@@ -83,6 +83,7 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `replay_fidelity_filter_unsupported` | `fidelityMinutes` défini mais ignoré en mode `replay` (weather_evaluation_log ne porte pas `fidelity_minutes`) |
 | `market_lifecycle_filtered` | Ticks exclus (`closed` / `acceptingOrders` / token / minHours) — compteur |
 | `kill_switch_force_close` | `force_close_all` a clôturé les positions ouvertes |
+| `kill_switch_partial_close` | `force_close_all` a échoué sur ≥1 position (close en erreur / positions restantes) — retry au prochain tick |
 | `kill_switch_block_entries` | Kill-switch actif sans force-close — entrées bloquées |
 | `exit_stale_tick` | Sortie évaluée avec un tick plus vieux que `pollMs` |
 | `no_events_in_range` | Aucune donnée sur la plage demandée |

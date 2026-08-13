@@ -55,16 +55,15 @@ dédiées (`close-signals`).
     `WeatherStrategyRunner.setRiskConfig(weatherConfig)` (naming hérité ;
     type = `WeatherConfig`).
 12. `strategyRunner.start()` + `metricsPublisher.start()`.
-13. Timer auto-track (`config.pollMs`) + tick immédiat.
-14. Heartbeat 30 s → pub + clé `weather-algo:heartbeat` (TTL 60 s).
-15. Sub `config-changed` (ignore `kind === 'copy' | 'crypto'`) → reload configs,
+13. Heartbeat 30 s → pub + clé `weather-algo:heartbeat` (TTL 60 s).
+14. Sub `config-changed` (ignore `kind === 'copy' | 'crypto'`) → reload configs,
     `setRiskConfig` / `updateRiskConfig`, `requestEvaluationCycle`.
 
 ### Resilience patterns
 
 - **Backend-ready timeout** : continue (warn) — pas de blocage boot.
 - **WS fail** : log + continue REST.
-- **Auto-track tick** / **config reload** : `try/catch` — cycle suivant reprend.
+- **Config reload** : `try/catch` — cycle suivant reprend.
 - **Eval cycle** : `cycleRunning` + un `pendingRerun` trailing ; erreurs →
   `lastSkipReason = 'cycle_error'`.
 - **Exit cycle isolé** : erreur exit n'empêche pas les entries du même tick.
@@ -78,7 +77,7 @@ dédiées (`close-signals`).
 
 1. `strategyRunner.stop()`
 2. `metricsPublisher.stop()`
-3. `clearInterval` heartbeat + auto-track
+3. `clearInterval` heartbeat + data-purge
 4. `connectionManager.getWsClient().disconnect()` (catch ignoré)
 5. `redisCmd` / `Pub` / `Sub` `.quit()`
 6. `ds.destroy()`
@@ -270,7 +269,7 @@ Lecture / purge manuelle : `WeatherAlgoDataService` + routes
 
 Détail : [`../api.md`](../api.md) § Weather Algo history ; [`../modele-donnees.md`](../modele-donnees.md).
 
-Détail : [`../plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](../plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md).
+Détail : [`../weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md`](../weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 ## Raccordements
 

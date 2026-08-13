@@ -31,5 +31,6 @@ export function resolveWeatherBucket(input: ResolutionInput): ResolutionResult {
     target: input.bucketTarget,
   };
   const inBucket = isForecastInBucket(input.forecastMean, comparison, bounds);
-  return { winningOutcome: inBucket ? 'YES' : 'NO', proxyFallback: true };
+  // Forecast réel utilisé : pas de proxy.
+  return { winningOutcome: inBucket ? 'YES' : 'NO', proxyFallback: false };
 }

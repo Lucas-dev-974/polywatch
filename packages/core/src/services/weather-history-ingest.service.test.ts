@@ -593,4 +593,33 @@ describe('WeatherHistoryIngestService', () => {
       { fidelityMinutes: 60, pointCount: 1 },
     ]);
   });
+
+  it('stores two metrics on the same conditionId as distinct series (no overwrite)', async () => {
+    const repo = ds.getRepository(WeatherClobPriceHistory);
+    const base = {
+      city: 'Paris',
+      targetDate: '2026-08-08',
+      conditionId: 'cond-1',
+      eventSlug: 'paris-aug-8',
+      question: 'Will the highest temperature in Paris be 25°C on August 8?',
+      bucketComparison: 'exact',
+      bucketTarget: 25,
+      bucketLow: null,
+      bucketHigh: null,
+      side: 'YES' as const,
+      tokenId: 'yes-token',
+      price: 0.5,
+      recordedAt: new Date('2026-08-08T12:00:00.000Z'),
+      fidelityMinutes: 60,
+      ingestJobId: null,
+    };
+
+    await repo.save(repo.create({ ...base, metric: 'highest_temp' }));
+    await repo.save(repo.create({ ...base, metric: 'lowest_temp' }));
+
+    const rows = await repo.find({ where: { city: 'Paris' } });
+    expect(rows).toHaveLength(2);
+    const metrics = rows.map((r) => r.metric).sort();
+    expect(metrics).toEqual(['highest_temp', 'lowest_temp']);
+  });
 });

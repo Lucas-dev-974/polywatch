@@ -51,7 +51,10 @@ export function computeCdfBelow(
   forecastMean: number,
   forecastStdDev: number,
 ): number {
-  return normalCDF(target, forecastMean, forecastStdDev);
+  // Convention de bin discrète (1 °C) : le bin du target couvre
+  // [target - 0.5, target + 0.5). "Or below" = temp <= target, soit jusqu'à la
+  // fin du bin du target. Symétrique de computeCdfAbove (qui soustrait 0.5).
+  return normalCDF(target + 0.5, forecastMean, forecastStdDev);
 }
 
 /**

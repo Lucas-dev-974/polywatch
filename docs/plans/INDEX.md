@@ -1,6 +1,6 @@
 # Inventaire des plans — Polywatch
 
-> Dernière mise à jour : 2026-08-09  
+> Dernière mise à jour : 2026-08-13  
 > Critère `applied/` : plan d'implémentation dont les livrables concrets sont présents dans le code (vérification codebase, pas seulement les cases `[x]` du markdown).
 
 ## Structure des dossiers
@@ -18,10 +18,10 @@
 |--------|--------|
 | **applied** | 23 |
 | **partial** (racine) | 3 |
-| **not_implemented** (racine) | 2 |
+| **not_implemented** (racine) | 3 |
 | **reference** | 7 |
 | **archived** | 5 |
-| **Total** | **40** |
+| **Total** | **41** |
 
 ---
 
@@ -73,6 +73,7 @@
 |---------|--------|-----------------|
 | [2026-08-05_PLAN-backtest-engine-universel.md](2026-08-05_PLAN-backtest-engine-universel.md) | Moteur backtest universel event-driven | **Weather v1 livré** (`packages/backtest`, UI, API) ; crypto/copy, Socket.IO, Prometheus hors scope |
 | [2026-08-06_PLAN-phase3-data-stream-rtds.md](2026-08-06_PLAN-phase3-data-stream-rtds.md) | Phase 3 RTDS/oracle data stream | **Désimplémenté / reporté 2026-08-07** — spec conservée, aucun code en repo |
+| [2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md](2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md) | Fix C7 (proxyFallback), C10 (asymétrie CDF), C11 (tolérance bucket), C12 (clé unique metric) | **Proposé 2026-08-13** — non implémenté |
 
 ---
 

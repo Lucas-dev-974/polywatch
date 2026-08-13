@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 
 @Entity('weather_clob_price_history')
-@Index(['conditionId', 'side', 'recordedAt', 'fidelityMinutes'], { unique: true })
+@Index(['conditionId', 'side', 'recordedAt', 'fidelityMinutes', 'metric'], { unique: true })
 @Index(['city', 'targetDate', 'recordedAt'])
 @Index(['ingestJobId'])
 export class WeatherClobPriceHistory {

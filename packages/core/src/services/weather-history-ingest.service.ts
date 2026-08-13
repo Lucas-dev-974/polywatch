@@ -667,11 +667,10 @@ export class WeatherHistoryIngestService {
           .values(rows)
           .orUpdate(
             ['price', 'ingest_job_id'],
-            // L'intervalle fait partie de l'identité d'une ligne : on peut stocker
-            // plusieurs séries (15 min, 1 h, …) pour la même ville/date. `metric`
-            // reste hors de la clé — sans risque car un condition_id correspond à
-            // un marché à métrique fixe.
-            ['condition_id', 'side', 'recorded_at', 'fidelity_minutes'],
+            // L'intervalle et la métrique font partie de l'identité d'une ligne :
+            // on peut stocker plusieurs séries (15 min, 1 h, …) et plusieurs
+            // métriques pour la même ville/date sans collision.
+            ['condition_id', 'side', 'recorded_at', 'fidelity_minutes', 'metric'],
           )
           .execute();
         attempted += chunk.length;

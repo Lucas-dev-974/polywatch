@@ -140,6 +140,7 @@ import { AddWeatherStrategyId1700000000106 } from '../migrations/AddWeatherStrat
 import { BackfillWeatherStrategyParams1700000000107 } from '../migrations/BackfillWeatherStrategyParams1700000000107.js';
 import { BackfillWeatherStrategyRepair1700000000108 } from '../migrations/BackfillWeatherStrategyRepair1700000000108.js';
 import { AddUnitToWeatherPositionForecast1700000000109 } from '../migrations/AddUnitToWeatherPositionForecast1700000000109.js';
+import { AddMetricToClobHistoryUniqueKey1700000000110 } from '../migrations/AddMetricToClobHistoryUniqueKey1700000000110.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -244,6 +245,7 @@ export const migrations = [
   BackfillWeatherStrategyParams1700000000107,
   BackfillWeatherStrategyRepair1700000000108,
   AddUnitToWeatherPositionForecast1700000000109,
+  AddMetricToClobHistoryUniqueKey1700000000110,
 ];
 
 export const entities = [

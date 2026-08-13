@@ -47,11 +47,12 @@ export function isForecastInBucket(
     }
     case 'or_below': {
       const target = bounds.target ?? NaN;
-      return forecastMean <= target;
+      // Tolérance de bin : le bin du target couvre [target - 0.5, target + 0.5).
+      return forecastMean <= target + 0.5;
     }
     case 'or_above': {
       const target = bounds.target ?? NaN;
-      return forecastMean >= target;
+      return forecastMean >= target - 0.5;
     }
     default:
       return false;

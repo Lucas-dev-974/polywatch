@@ -48,9 +48,21 @@ describe('weather-exit-helpers', () => {
       expect(isForecastInBucket(31, 'or_below', { target: 30 })).toBe(false);
     });
 
+    it('or_below: applies the +0.5 bin tolerance at the boundary', () => {
+      // bin 30 couvre [29.5, 30.5) → mean 30.4 est dans le bucket
+      expect(isForecastInBucket(30.4, 'or_below', { target: 30 })).toBe(true);
+      expect(isForecastInBucket(30.6, 'or_below', { target: 30 })).toBe(false);
+    });
+
     it('or_above: matches when forecastMean >= target', () => {
       expect(isForecastInBucket(35, 'or_above', { target: 35 })).toBe(true);
       expect(isForecastInBucket(34, 'or_above', { target: 35 })).toBe(false);
+    });
+
+    it('or_above: applies the -0.5 bin tolerance at the boundary', () => {
+      // bin 35 couvre [34.5, 35.5) → mean 34.6 est dans le bucket
+      expect(isForecastInBucket(34.6, 'or_above', { target: 35 })).toBe(true);
+      expect(isForecastInBucket(34.4, 'or_above', { target: 35 })).toBe(false);
     });
   });
 

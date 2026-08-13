@@ -6,6 +6,7 @@ import { binaryPricesFromParsed } from '../polymarket/outcome-tokens.js';
 import { fetchPriceHistory } from '../polymarket/price-history-client.js';
 import { fetchGammaMarket } from '../polymarket/market-metadata.js';
 import { parseWeatherQuestion } from '../weather/question-parser.js';
+import { isWeatherMetric, type WeatherMetric } from '../weather/metric.js';
 import {
   discoverWeatherMarketsInRange,
   resolveMarketTargetDateIso,
@@ -36,7 +37,7 @@ export interface StartWeatherHistoryIngestInput {
   from: Date;
   to: Date;
   fidelityMinutes: number;
-  metric?: 'highest_temp' | 'lowest_temp';
+  metric?: WeatherMetric;
 }
 
 export interface WeatherHistoryIngestJobDto {
@@ -453,7 +454,16 @@ export class WeatherHistoryIngestService {
     try {
       const from = new Date(`${job.fromDate}T00:00:00.000Z`);
       const to = new Date(`${job.toDate}T00:00:00.000Z`);
-      const metric = job.metric as 'highest_temp' | 'lowest_temp';
+      if (!isWeatherMetric(job.metric)) {
+        log.warn({ jobId, metric: job.metric }, 'runJob: invalid metric — aborting job');
+        await this.jobRepo().update(jobId, {
+          status: 'error',
+          errorMessage: 'invalid_metric',
+          finishedAt: new Date(),
+        });
+        return;
+      }
+      const metric: WeatherMetric = job.metric;
 
       const { markets } = await discoverWeatherMarketsInRange({
         city: job.city,

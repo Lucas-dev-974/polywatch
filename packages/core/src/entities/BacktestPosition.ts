@@ -1,16 +1,19 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-export type BacktestExitReason =
-  | 'SL'
-  | 'TP'
-  | 'TRAILING'
-  | 'RESOLUTION'
-  | 'STRATEGY_FLIP'
-  | 'WINDOW_CLOSE'
-  | 'KILL_SWITCH'
-  | 'WEATHER_PRE_CLOSE'
-  | 'WEATHER_FORECAST_CHANGE'
-  | 'WEATHER_BUCKET_EXIT';
+export const BACKTEST_EXIT_REASONS = [
+  'SL',
+  'TP',
+  'TRAILING',
+  'RESOLUTION',
+  'STRATEGY_FLIP',
+  'WINDOW_CLOSE',
+  'KILL_SWITCH',
+  'WEATHER_PRE_CLOSE',
+  'WEATHER_FORECAST_CHANGE',
+  'WEATHER_BUCKET_EXIT',
+] as const;
+
+export type BacktestExitReason = (typeof BACKTEST_EXIT_REASONS)[number];
 
 @Entity('backtest_positions')
 @Index(['runId'])

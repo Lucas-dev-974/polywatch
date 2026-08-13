@@ -1,5 +1,40 @@
 # Change History
 
+## 2026-08-12 — Fix C3/C4/C5 weather-algo : source de vérité unique pour table ids, metric, exit reasons
+
+### Added
+- Core: `weather/metric.ts` — module leaf exportant `WEATHER_METRICS` (const array `['highest_temp','lowest_temp']`), `WeatherMetric` (type dérivé), `isWeatherMetric` (type guard runtime) — source unique pour les métriques weather
+- Core: `BACKTEST_EXIT_REASONS` (const array des 10 exit reasons) dans `entities/BacktestPosition.ts` — `BacktestExitReason` devient un type dérivé de l'array
+- Core: `WEATHER_ALGO_DATA_TABLE_IDS` (const array des 7 tables) dans `services/weather-algo-data.service.ts` — `WeatherAlgoDataTableId` devient un type dérivé de l'array
+- Core: exports `WEATHER_METRICS`, `isWeatherMetric`, `WeatherMetric`, `BACKTEST_EXIT_REASONS`, `WEATHER_ALGO_DATA_TABLE_IDS` depuis `@polywatch/core`
+- Core: `weather/metric.test.ts` — tests unitaires pour `WEATHER_METRICS` (ordre stable) et `isWeatherMetric` (accepte `highest_temp`/`lowest_temp`, rejette `temp`/`precip`/`''`/`null`/`undefined`/`42`)
+- Core: guard `isWeatherMetric` dans `WeatherForecastService.getCached` — retourne `null` si `row.metric` est une valeur legacy invalide (au lieu de corrompre le type)
+- Core: guard `isWeatherMetric` dans `WeatherHistoryIngestService.runJob` — aborte le job (status `error`, `errorMessage: 'invalid_metric'`, `finishedAt`) si `job.metric` est invalide
+- Weather-algo: guard `isWeatherMetric` dans `strategy-runner` (skip la rule) et `weather-exit-evaluator` (skip les exit checks) — remplace les casts `as 'highest_temp' | 'lowest_temp'` qui masquaient les valeurs invalides
+
+### Changed
+- Core: `weather-forecast.service.ts` (`getOrFetch`/`getCached`/`save`/`ForecastResult.metric`) resserré de `string` → `WeatherMetric` ; suppression du cast `metric as 'highest_temp'|'lowest_temp'` ligne 68
+- Core: `weather-auto-track.service.ts:addRule` resserré de `string` → `WeatherMetric` ; suppression de `resolvedMetric`
+- Core: `weather-history-ingest.service.ts` — cast `job.metric as 'highest_temp'|'lowest_temp'` remplacé par guard `isWeatherMetric` runtime
+- Core: `question-parser.ts`, `weather-api-client.ts`, `weather-market-discovery.ts`, `weather-forecast-enricher.ts` — unions `'highest_temp' | 'lowest_temp'` (~10 sites) remplacées par `WeatherMetric`
+- Weather-algo: `strategy.ts` (`WeatherSignal.metric`) — union remplacée par `WeatherMetric`
+- Weather-algo: `strategy-runner.ts:562`, `weather-exit-evaluator.ts:128` — signatures resserrées sur `WeatherMetric`
+- Backend: `weather-algo-data.ts` — suppression du `VALID_TABLE_IDS` local dupliqué, import de `WEATHER_ALGO_DATA_TABLE_IDS` depuis `@polywatch/core` (C3)
+- Backend: `backtest.ts:parseExitReason` — suppression de la liste littérale hardcodée, utilisation de `BACKTEST_EXIT_REASONS` (C5)
+- Backend: `weather-algo-forecasts.ts` — guard manuel remplacé par `isWeatherMetric` (C4)
+- Backend: `weather-algo-history.ts` — `zod enum` remplacé par `z.custom<WeatherMetric>(isWeatherMetric)` (C4)
+- Frontend: `api.ts` — DTOs `metric: string` resserrés sur `WeatherMetric` (7 sites, dont `WeatherMetric | null` pour `WeatherBucketTickDto`)
+- Tests: `weather-algo-data.service.test.ts` — `metric: 'temp'` → `'highest_temp'` (6 occurrences) ; `weather-exit-evaluator.test.ts` — mock `isWeatherMetric` ajouté
+
+### Fixed
+- Core: `weather-history-ingest.service.ts:459` — le guard `isWeatherMetric` ajouté omettait `finishedAt` dans l'update d'erreur, laissant le job avec `finishedAt: null` (pouvait bloquer la conflict guard indéfiniment) — corrigé
+
+### Notes
+- Les colonnes entité `metric: string` (`WeatherForecastCache`, `WeatherMarketSnapshot`, `WeatherBucketTick`, `WeatherClobPriceHistory`, `WeatherAutoTrackRule`, `WeatherHistoryIngestJob`) restent **inchangées** (pas de migration) pour la compat legacy ; la validation se fait en couche applicative via `isWeatherMetric`
+- Le test `weather-adapter.test.ts` (`metric: 'precip'` intentionnel) reste valide (no-op)
+- Contrat API inchangé (`highest_temp`/`lowest_temp` restent les seules valeurs autorisées)
+- Réf : `docs/plans/2026-08-12_PLAN-fix-c3-c4-c5-weather-algo.md`, `docs/audits/2026-08-11_audit-weather-algo-complet.md`
+
 ## 2026-08-10 — Historique CLOB weather complet (point de settlement) + corrections types frontend
 
 ### Added

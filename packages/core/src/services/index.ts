@@ -176,6 +176,7 @@ export {
 } from './weather-evaluation-recorder.js';
 export {
   WeatherAlgoDataService,
+  WEATHER_ALGO_DATA_TABLE_IDS,
   type WeatherAlgoDataCoverage,
   type WeatherAlgoDataTableId,
   type WeatherAlgoDataTableSummary,

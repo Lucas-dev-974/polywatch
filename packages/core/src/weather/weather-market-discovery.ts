@@ -3,6 +3,7 @@ import {
   type MarketListItemDto,
 } from '../polymarket/market-list.js';
 import { parseWeatherQuestion, resolveWeatherDate } from './question-parser.js';
+import type { WeatherMetric } from './metric.js';
 import pino from 'pino';
 
 export const WEATHER_TAG_SLUG = 'weather';
@@ -227,7 +228,7 @@ export interface DiscoverWeatherMarketsInRangeOptions {
   city: string;
   from: Date;
   to: Date;
-  metric?: 'highest_temp' | 'lowest_temp';
+  metric?: WeatherMetric;
 }
 
 export interface WeatherMarketsInRangeResult {
@@ -259,7 +260,7 @@ export function matchMarketToDateRange(
 function matchesCityAndMetric(
   m: MarketListItemDto,
   cityNormalized: string,
-  metric: 'highest_temp' | 'lowest_temp',
+  metric: WeatherMetric,
 ): boolean {
   if (!m.question) return false;
   const parsed = parseWeatherQuestion(m.question);
@@ -470,7 +471,7 @@ export function resolveGroupTargetDate(group: CityMarketGroup): Date {
  */
 export function groupMarketsByCity(
   markets: MarketListItemDto[],
-  metricFilter?: 'highest_temp' | 'lowest_temp',
+  metricFilter?: WeatherMetric,
 ): CityMarketGroup[] {
   const map = new Map<string, CityMarketGroup>();
 
@@ -567,7 +568,7 @@ function marketTempSortKey(market: MarketListItemDto): number {
  */
 export function groupMarketsByCityAndDate(
   markets: MarketListItemDto[],
-  metricFilter?: 'highest_temp' | 'lowest_temp',
+  metricFilter?: WeatherMetric,
 ): DiscoverCityGroup[] {
   type DateAcc = { date: string; markets: MarketListItemDto[] };
   type CityAcc = { city: string; dates: Map<string, DateAcc> };

@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => {
       bucketHysteresisPolls: null,
       reentryThrottleMs: null,
     })),
+    isWeatherMetric: vi.fn((v: unknown) => v === 'highest_temp' || v === 'lowest_temp'),
   };
 });
 
@@ -50,6 +51,7 @@ vi.mock('@polywatch/core', () => ({
   resolveEnabledWeatherStrategies: mocks.resolveEnabledWeatherStrategies,
   WEATHER_FORECAST_STRATEGY_ID: mocks.WEATHER_FORECAST_STRATEGY_ID,
   getStrategyParams: mocks.getStrategyParams,
+  isWeatherMetric: mocks.isWeatherMetric,
 }));
 
 import { WeatherExitEvaluator } from './weather-exit-evaluator.js';

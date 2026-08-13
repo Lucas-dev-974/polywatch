@@ -1,5 +1,6 @@
 import type { MarketListItemDto } from '@polywatch/core';
 import type { WeatherStrategyParamsBag } from '@polywatch/core';
+import type { WeatherMetric } from '@polywatch/core';
 
 export interface WeatherSignal {
   conditionId: string;
@@ -11,7 +12,7 @@ export interface WeatherSignal {
   strategyId: string;
   eventSlug: string;
   city: string;
-  metric: 'highest_temp' | 'lowest_temp';
+  metric: WeatherMetric;
   targetDate: Date;
   forecastMean: number;
   forecastStdDev: number;

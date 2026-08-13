@@ -2,6 +2,7 @@ import type { DataSource } from 'typeorm';
 import pino from 'pino';
 import { WeatherForecastService, type ForecastResult } from '../services/weather-forecast.service.js';
 import { fetchWeatherForecast } from './weather-api-client.js';
+import type { WeatherMetric } from './metric.js';
 import type {
   DiscoverCityGroup,
   ForecastEnrichedCityGroup,
@@ -13,7 +14,7 @@ const log = pino({ name: 'core:weather-forecast-enricher' });
 
 export interface EnrichForecastOptions {
   /** Metric to forecast. Default: highest_temp. */
-  metric?: 'highest_temp' | 'lowest_temp';
+  metric?: WeatherMetric;
   /** Cache TTL in ms. Default: 1 hour. */
   ttlMs?: number;
 }
@@ -24,7 +25,7 @@ async function enrichDateBucket(
   markets: ForecastEnrichedDateBucket['markets'],
   dateLabel: string,
   forecastService: WeatherForecastService,
-  metric: 'highest_temp' | 'lowest_temp',
+  metric: WeatherMetric,
   ttlMs: number,
 ): Promise<ForecastEnrichedDateBucket> {
   const makeBucket = (

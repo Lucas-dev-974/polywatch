@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import pino from 'pino';
 import { WeatherAutoTrackRule } from '../entities/WeatherAutoTrackRule.js';
+import type { WeatherMetric } from '../weather/metric.js';
 
 const log = pino({ name: 'core:weather-auto-track' });
 
@@ -24,30 +25,29 @@ export class WeatherAutoTrackService {
 
   async addRule(
     city: string,
-    metric: string = 'highest_temp',
+    metric: WeatherMetric = 'highest_temp',
     lookAheadDays: number = 1,
     mode?: 'city_follow',
   ): Promise<WeatherAutoTrackRule> {
     const repo = this.ds.getRepository(WeatherAutoTrackRule);
-    const resolvedMetric = metric || 'highest_temp';
     const resolvedMode = mode ?? 'city_follow';
     const normalizedCity = city.trim();
     const existing = await repo
       .createQueryBuilder('r')
       .where('LOWER(TRIM(r.city)) = LOWER(:city)', { city: normalizedCity })
-      .andWhere('r.metric = :metric', { metric: resolvedMetric })
+      .andWhere('r.metric = :metric', { metric })
       .getOne();
     if (existing) {
       existing.city = normalizedCity;
       existing.lookAheadDays = lookAheadDays;
       existing.enabled = true;
       existing.mode = resolvedMode;
-      existing.metric = resolvedMetric;
+      existing.metric = metric;
       return repo.save(existing);
     }
     const entry = repo.create({
       city: normalizedCity,
-      metric: resolvedMetric,
+      metric,
       lookAheadDays,
       mode: resolvedMode,
     });

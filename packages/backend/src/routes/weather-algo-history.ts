@@ -4,6 +4,8 @@ import type { DataSource } from 'typeorm';
 import {
   WeatherHistoryIngestService,
   WeatherHistoryIngestConflictError,
+  isWeatherMetric,
+  type WeatherMetric,
 } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 
@@ -12,7 +14,7 @@ const ingestBodySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   fidelityMinutes: z.number().int().min(1).max(1440),
-  metric: z.enum(['highest_temp', 'lowest_temp']).optional(),
+  metric: z.custom<WeatherMetric>((v) => isWeatherMetric(v)).optional(),
 });
 
 export function createWeatherAlgoHistoryRouter(ds: DataSource): Router {

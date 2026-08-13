@@ -21,6 +21,8 @@ import {
   parseWeatherQuestion,
   normalizeWeatherCity,
   buildLookAheadTargetDates,
+  isWeatherMetric,
+  type WeatherMetric,
   resolveMarketTargetDateIso,
   isMarketActiveForWeather,
   type BucketCandidate,
@@ -464,7 +466,12 @@ export class WeatherStrategyRunner {
         targetDates.map((d) => d.toISOString().slice(0, 10)),
       );
 
-      const metric = (rule.metric || 'highest_temp') as 'highest_temp' | 'lowest_temp';
+      const metricRaw = rule.metric || 'highest_temp';
+      if (!isWeatherMetric(metricRaw)) {
+        log.warn({ city: rule.city, metric: metricRaw }, 'city-follow: invalid metric — skipping rule');
+        continue;
+      }
+      const metric: WeatherMetric = metricRaw;
       const matching: Array<{ market: MarketListItemDto; dateKey: string }> = [];
       for (const market of temperatureMarkets) {
         if (!market.question) continue;
@@ -552,7 +559,7 @@ export class WeatherStrategyRunner {
   private async evaluateCityFollowDateGroup(
     ruleId: number,
     city: string,
-    metric: 'highest_temp' | 'lowest_temp',
+    metric: WeatherMetric,
     dateKey: string,
     markets: MarketListItemDto[],
     resolvedMarkets: MarketListItemDto[],

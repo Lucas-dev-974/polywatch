@@ -12,14 +12,17 @@ import { parseWeatherQuestion } from '../weather/question-parser.js';
 
 const log = pino({ name: 'core:weather-algo-data' });
 
-export type WeatherAlgoDataTableId =
-  | 'forecast_history'
-  | 'market_snapshots'
-  | 'bucket_ticks'
-  | 'evaluation_log'
-  | 'forecast_cache'
-  | 'position_forecasts'
-  | 'clob_price_history';
+export const WEATHER_ALGO_DATA_TABLE_IDS = [
+  'forecast_history',
+  'market_snapshots',
+  'bucket_ticks',
+  'evaluation_log',
+  'forecast_cache',
+  'position_forecasts',
+  'clob_price_history',
+] as const;
+
+export type WeatherAlgoDataTableId = (typeof WEATHER_ALGO_DATA_TABLE_IDS)[number];
 
 export interface WeatherAlgoDataTableSummary {
   id: WeatherAlgoDataTableId;

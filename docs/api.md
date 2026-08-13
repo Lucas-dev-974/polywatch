@@ -389,8 +389,8 @@ Doc : [`plans/applied/2026-08-08_IMPL-weather-market-data-persistence.md`](./pla
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/weather-algo-data/tables` | Résumé des 6 tables (`id`, `tableName`, `rowCount`, `oldestAt`, `newestAt`) |
-| DELETE | `/api/weather-algo-data/tables` | Vide les 6 tables → `{ deleted, totalDeleted }` |
+| GET | `/api/weather-algo-data/tables` | Résumé des 7 tables (`id`, `tableName`, `rowCount`, `oldestAt`, `newestAt`) |
+| DELETE | `/api/weather-algo-data/tables` | Vide les 7 tables → `{ deleted, totalDeleted }` |
 | GET | `/api/weather-algo-data/forecast-history` | Liste paginée (`city`, `from`, `to`, `limit`≤500, `offset`) |
 | GET | `/api/weather-algo-data/market-snapshots` | Liste (`city`, `from`, `to`, `limit`≤200) ; `includeTicks=true` pour embarquer les ticks (défaut **false**) |
 | GET | `/api/weather-algo-data/bucket-ticks` | Liste (`city`, `conditionId`, `from`, `to`, `limit`≤500) |

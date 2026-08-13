@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { DataSource } from 'typeorm';
-import { WeatherForecastService } from '@polywatch/core';
+import { WeatherForecastService, isWeatherMetric, type WeatherMetric } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 
 export function createWeatherAlgoForecastsRouter(ds: DataSource): Router {
@@ -13,14 +13,14 @@ export function createWeatherAlgoForecastsRouter(ds: DataSource): Router {
     const dateStr = String(req.params.date);
     const metricRaw = String(req.query.metric ?? 'highest_temp');
 
-    if (metricRaw !== 'highest_temp' && metricRaw !== 'lowest_temp') {
+    if (!isWeatherMetric(metricRaw)) {
       res.status(400).json({
         error: 'invalid_metric',
         message: `metric must be 'highest_temp' or 'lowest_temp'`,
       });
       return;
     }
-    const metric = metricRaw as 'highest_temp' | 'lowest_temp';
+    const metric = metricRaw as WeatherMetric;
 
     const forecastDate = new Date(dateStr);
     if (Number.isNaN(forecastDate.getTime())) {

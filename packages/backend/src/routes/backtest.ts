@@ -5,6 +5,7 @@ import {
   WeatherConfigService,
   WeatherBucketTick,
   WeatherMarketSnapshot,
+  BACKTEST_EXIT_REASONS,
   type BacktestRun,
   type BacktestExitReason,
   type WeatherConfig,
@@ -58,12 +59,9 @@ function parseOptionalDate(value: unknown): Date | undefined {
 
 function parseExitReason(value: unknown): BacktestExitReason | null {
   if (typeof value !== 'string' || !value.trim()) return null;
-  const known: BacktestExitReason[] = [
-    'SL', 'TP', 'TRAILING', 'RESOLUTION', 'STRATEGY_FLIP', 'WINDOW_CLOSE',
-    'KILL_SWITCH',
-    'WEATHER_PRE_CLOSE', 'WEATHER_FORECAST_CHANGE', 'WEATHER_BUCKET_EXIT',
-  ];
-  return known.includes(value as BacktestExitReason) ? (value as BacktestExitReason) : null;
+  return (BACKTEST_EXIT_REASONS as readonly string[]).includes(value)
+    ? (value as BacktestExitReason)
+    : null;
 }
 
 export function createBacktestRouter(ds: DataSource): Router {

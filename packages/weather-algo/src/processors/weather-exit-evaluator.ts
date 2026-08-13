@@ -23,6 +23,8 @@ import {
   getStrategyParams,
   resolveEnabledWeatherStrategies,
   WEATHER_FORECAST_STRATEGY_ID,
+  isWeatherMetric,
+  type WeatherMetric,
   type BucketBounds,
 } from '@polywatch/core';
 import { DEFAULT_REENTRY_THROTTLE_MS, CLOSE_QUEUE_DEDUPE_TTL_SECONDS } from '../constants.js';
@@ -116,10 +118,18 @@ export class WeatherExitEvaluator {
     let drift = false;
     let bucketExit = false;
     if (!preClose) {
+      if (!isWeatherMetric(snapshot.metric)) {
+        log.warn(
+          { positionId: pos.id, city: snapshot.city, metric: snapshot.metric },
+          'weather exit checks skipped — invalid metric',
+        );
+        return;
+      }
+      const metric: WeatherMetric = snapshot.metric;
       const current = await this.params.forecastService.getOrFetch(
         snapshot.city,
         snapshot.targetDate,
-        snapshot.metric as 'highest_temp' | 'lowest_temp',
+        metric,
       );
       if (current == null) {
         log.warn(

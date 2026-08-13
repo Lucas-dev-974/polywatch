@@ -1,6 +1,8 @@
+import type { WeatherMetric } from './metric.js';
+
 export interface ParsedWeatherQuestion {
   city: string;
-  metric: 'highest_temp' | 'lowest_temp';
+  metric: WeatherMetric;
   /** Target temperature in Celsius. Non-null for exact, or_below, or_above. Null for between. */
   targetValue: number | null;
   /** Low bound in Celsius. Only set for 'between' comparison. Null otherwise. */
@@ -34,7 +36,7 @@ const LOWEST_TEMP_REGEX_BETWEEN =
 
 function buildOrResult(
   match: RegExpExecArray,
-  metric: 'highest_temp' | 'lowest_temp',
+  metric: WeatherMetric,
 ): ParsedWeatherQuestion {
   const unit = match[3]!.toLowerCase() === 'f' ? 'fahrenheit' : 'celsius';
   const rawVal = parseInt(match[2]!, 10);
@@ -55,7 +57,7 @@ function buildOrResult(
 
 function buildBetweenResult(
   match: RegExpExecArray,
-  metric: 'highest_temp' | 'lowest_temp',
+  metric: WeatherMetric,
 ): ParsedWeatherQuestion {
   const unit = match[4]!.toLowerCase() === 'f' ? 'fahrenheit' : 'celsius';
   const lowRaw = parseInt(match[2]!, 10);

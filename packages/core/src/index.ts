@@ -294,6 +294,7 @@ export {
 export { enrichCityGroupsWithForecast, type EnrichForecastOptions } from './weather/weather-forecast-enricher.js';
 export { parseWeatherQuestion, resolveWeatherDate, type ParsedWeatherQuestion } from './weather/question-parser.js';
 export { isMarketActiveForWeather } from './weather/market-active.js';
+export { WEATHER_METRICS, isWeatherMetric, type WeatherMetric } from './weather/metric.js';
 export {
   geocodeCity,
   fetchMultiModelForecast,

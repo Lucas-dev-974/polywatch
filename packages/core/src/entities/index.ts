@@ -73,7 +73,7 @@ export { WeatherBucketTick } from './WeatherBucketTick.js';
 export { WeatherEvaluationLog } from './WeatherEvaluationLog.js';
 export { PostEntryMidSample } from './PostEntryMidSample.js';
 export { BacktestRun, type BacktestRunStatus, type BacktestDomain, type BacktestMode } from './BacktestRun.js';
-export { BacktestPosition, type BacktestExitReason } from './BacktestPosition.js';
+export { BacktestPosition, BACKTEST_EXIT_REASONS, type BacktestExitReason } from './BacktestPosition.js';
 export { BacktestEquityPoint } from './BacktestEquityPoint.js';
 export { WeatherClobPriceHistory } from './WeatherClobPriceHistory.js';
 export {

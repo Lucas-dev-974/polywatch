@@ -1,20 +1,14 @@
 import { Router } from 'express';
 import type { DataSource } from 'typeorm';
-import { WeatherAlgoDataService, type WeatherAlgoDataTableId } from '@polywatch/core';
+import {
+  WeatherAlgoDataService,
+  WEATHER_ALGO_DATA_TABLE_IDS,
+  type WeatherAlgoDataTableId,
+} from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 
-const VALID_TABLE_IDS: readonly string[] = [
-  'forecast_history',
-  'market_snapshots',
-  'bucket_ticks',
-  'evaluation_log',
-  'forecast_cache',
-  'position_forecasts',
-  'clob_price_history',
-];
-
 function isValidTableId(value: string): value is WeatherAlgoDataTableId {
-  return (VALID_TABLE_IDS as readonly string[]).includes(value);
+  return (WEATHER_ALGO_DATA_TABLE_IDS as readonly string[]).includes(value);
 }
 
 function parseOptionalDate(value: unknown): Date | undefined {

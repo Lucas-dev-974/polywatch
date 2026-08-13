@@ -1,4 +1,5 @@
 import type { EnvSettings } from './components/env-settings-types';
+import type { WeatherMetric } from '@polywatch/core';
 
 const API_BASE = '/api';
 
@@ -681,7 +682,7 @@ export interface WeatherAlgoForecastHistoryRow {
   id: number;
   city: string;
   forecastDate: string;
-  metric: string;
+  metric: WeatherMetric;
   forecastMean: number;
   forecastStdDev: number;
   modelValuesJson: string;
@@ -695,7 +696,7 @@ export interface WeatherAlgoMarketSnapshotRow {
   city: string;
   cityNormalized: string;
   targetDateIso: string;
-  metric: string;
+  metric: WeatherMetric;
   forecastMean: number | null;
   forecastStdDev: number | null;
   bucketCount: number;
@@ -711,7 +712,7 @@ export interface WeatherAlgoBucketTickRow {
   city: string | null;
   cityNormalized: string | null;
   targetDateIso: string | null;
-  metric: string | null;
+  metric: WeatherMetric | null;
   fidelityMinutes: number | null;
   conditionId: string;
   eventSlug: string | null;
@@ -751,7 +752,7 @@ export interface WeatherAlgoForecastCacheRow {
   id: number;
   city: string;
   forecastDate: string;
-  metric: string;
+  metric: WeatherMetric;
   forecastMean: number;
   forecastStdDev: number;
   modelValues: string;
@@ -764,7 +765,7 @@ export interface WeatherAlgoPositionForecastRow {
   copiedPositionId: number;
   city: string;
   targetDate: string;
-  metric: string;
+  metric: WeatherMetric;
   entryForecastMean: number;
   entryForecastStdDev: number;
   entryBucketComparison: string | null;
@@ -1257,7 +1258,7 @@ export async function fetchBacktestEquity(id: number): Promise<{ points: Backtes
 export interface WeatherHistoryIngestJob {
   id: number;
   city: string;
-  metric: string;
+  metric: WeatherMetric;
   fromDate: string;
   toDate: string;
   fidelityMinutes: number;
@@ -1300,7 +1301,7 @@ export async function startWeatherHistoryIngest(input: {
   from: string;
   to: string;
   fidelityMinutes: number;
-  metric?: 'highest_temp' | 'lowest_temp';
+  metric?: WeatherMetric;
 }): Promise<{ jobId: number; job: WeatherHistoryIngestJob }> {
   return api<{ jobId: number; job: WeatherHistoryIngestJob }>('/weather-algo-history/ingest', {
     method: 'POST',

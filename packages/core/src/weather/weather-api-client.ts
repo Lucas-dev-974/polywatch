@@ -1,4 +1,5 @@
 import pino from 'pino';
+import type { WeatherMetric } from './metric.js';
 
 const log = pino({ name: 'core:weather-api-client' });
 
@@ -63,7 +64,7 @@ export async function fetchMultiModelForecast(
   latitude: number,
   longitude: number,
   targetDate: Date,
-  metric: 'highest_temp' | 'lowest_temp',
+  metric: WeatherMetric,
 ): Promise<ModelForecast[]> {
   const dailyParam =
     metric === 'highest_temp'
@@ -181,7 +182,7 @@ export function buildForecastFromModelResults(
 export async function fetchWeatherForecast(
   city: string,
   targetDate: Date,
-  metric: 'highest_temp' | 'lowest_temp',
+  metric: WeatherMetric,
 ): Promise<{
   forecastMean: number;
   forecastStdDev: number;

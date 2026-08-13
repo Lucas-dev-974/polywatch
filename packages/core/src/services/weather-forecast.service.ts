@@ -2,13 +2,14 @@ import { LessThan, DataSource } from 'typeorm';
 import pino from 'pino';
 import { WeatherForecastCache } from '../entities/WeatherForecastCache.js';
 import { fetchWeatherForecast } from '../weather/weather-api-client.js';
+import { isWeatherMetric, type WeatherMetric } from '../weather/metric.js';
 
 const log = pino({ name: 'core:weather-forecast' });
 
 export interface ForecastResult {
   city: string;
   forecastDate: Date;
-  metric: string;
+  metric: WeatherMetric;
   forecastMean: number;
   forecastStdDev: number;
   modelValues: Record<string, number>;
@@ -42,7 +43,7 @@ export class WeatherForecastService {
   async getOrFetch(
     city: string,
     forecastDate: Date,
-    metric: 'highest_temp' | 'lowest_temp' | string,
+    metric: WeatherMetric,
     ttlMs: number = 3600_000,
   ): Promise<GetOrFetchResult | null> {
     const cached = await this.getCached(city, forecastDate, metric);
@@ -65,7 +66,7 @@ export class WeatherForecastService {
     const fresh = await fetchWeatherForecast(
       city,
       forecastDate,
-      metric as 'highest_temp' | 'lowest_temp',
+      metric,
     );
     if (!fresh) {
       log.warn({ city, forecastDate }, 'forecast fetch failed');
@@ -119,7 +120,7 @@ export class WeatherForecastService {
   async getCached(
     city: string,
     forecastDate: Date,
-    metric: string,
+    metric: WeatherMetric,
   ): Promise<ForecastResult | null> {
     const repo = this.ds.getRepository(WeatherForecastCache);
     const row = await repo.findOne({
@@ -127,6 +128,10 @@ export class WeatherForecastService {
       order: { fetchedAt: 'DESC' },
     });
     if (!row) return null;
+    if (!isWeatherMetric(row.metric)) {
+      log.warn({ city, forecastDate, metric: row.metric }, 'getCached: invalid metric in row — skipping');
+      return null;
+    }
     const isFresh = new Date(row.expiresAt) > new Date();
     return {
       city: row.city,

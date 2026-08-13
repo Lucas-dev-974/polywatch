@@ -93,14 +93,6 @@ export const WEATHER_ALGO_DATA_VIEWS = ['grid', 'detail'] as const;
 export type WeatherAlgoDataDetailMode = 'list' | 'timeline';
 export const WEATHER_ALGO_DATA_DETAIL_MODES = ['list', 'timeline'] as const;
 
-export type WeatherAlgoDataTableId =
-  | 'forecast_history'
-  | 'market_snapshots'
-  | 'bucket_ticks'
-  | 'evaluation_log'
-  | 'forecast_cache'
-  | 'position_forecasts'
-  | 'clob_price_history';
 export const WEATHER_ALGO_DATA_TABLE_IDS = [
   'forecast_history',
   'market_snapshots',
@@ -110,6 +102,7 @@ export const WEATHER_ALGO_DATA_TABLE_IDS = [
   'position_forecasts',
   'clob_price_history',
 ] as const;
+export type WeatherAlgoDataTableId = (typeof WEATHER_ALGO_DATA_TABLE_IDS)[number];
 
 export const WEATHER_ALGO_TIMELINE_MAX_TICKS = [500, 2000, 5000] as const;
 

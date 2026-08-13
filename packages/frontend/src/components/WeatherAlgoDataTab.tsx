@@ -12,7 +12,6 @@ import {
   fetchWeatherAlgoMarketSnapshots,
   fetchWeatherAlgoPositionForecasts,
   fetchWeatherConfig,
-  type WeatherAlgoDataTableId,
   type WeatherAlgoDataTableSummary,
 } from '../api';
 import {
@@ -22,10 +21,32 @@ import {
   WEATHER_ALGO_DATA_VIEWS,
   usePersistedEnum,
   usePersistedSignal,
+  type WeatherAlgoDataTableId,
   type WeatherAlgoDataView,
 } from '../lib/ui-persistence';
 import { WeatherBucketTimelineView } from './WeatherBucketTimelineView';
 import { WeatherClobTimelineView } from './WeatherClobTimelineView';
+import { Pagination } from './Pagination';
+import { formatNum, formatPollInterval, formatTs, formatTsCompact } from '../lib/format';
+import type {
+  WeatherAlgoBucketTickRow,
+  WeatherAlgoClobPriceHistoryRow,
+  WeatherAlgoEvaluationLogRow,
+  WeatherAlgoForecastCacheRow,
+  WeatherAlgoForecastHistoryRow,
+  WeatherAlgoMarketSnapshotRow,
+  WeatherAlgoPositionForecastRow,
+} from '../api';
+
+/** Union des lignes de détail par table (R2). */
+type WeatherAlgoDataRow =
+  | WeatherAlgoForecastHistoryRow
+  | WeatherAlgoMarketSnapshotRow
+  | WeatherAlgoBucketTickRow
+  | WeatherAlgoEvaluationLogRow
+  | WeatherAlgoForecastCacheRow
+  | WeatherAlgoPositionForecastRow
+  | WeatherAlgoClobPriceHistoryRow;
 
 const PAGE_SIZE = 50;
 const DEFAULT_POLL_MS = 1_800_000;
@@ -40,20 +61,6 @@ interface TableMeta {
   hasStrategyFilters?: boolean;
   /** Cadence d'écriture ; `pollMs` = weatherAlgoPollMs courant. */
   cadence: (pollMs: number) => string;
-}
-
-function formatPollInterval(pollMs: number): string {
-  if (!Number.isFinite(pollMs) || pollMs <= 0) return 'intervalle de poll';
-  if (pollMs >= 3_600_000) {
-    const h = pollMs / 3_600_000;
-    return h === 1 ? '1 h' : `${Number.isInteger(h) ? h : h.toFixed(1)} h`;
-  }
-  if (pollMs >= 60_000) {
-    const m = pollMs / 60_000;
-    return m === 1 ? '1 min' : `${Number.isInteger(m) ? m : m.toFixed(1)} min`;
-  }
-  const s = Math.max(1, Math.round(pollMs / 1000));
-  return s === 1 ? '1 s' : `${s} s`;
 }
 
 const TABLE_META: Record<WeatherAlgoDataTableId, TableMeta> = {
@@ -124,29 +131,6 @@ const TABLE_META: Record<WeatherAlgoDataTableId, TableMeta> = {
   },
 };
 
-function formatTs(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
-}
-
-function formatTsCompact(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatNum(value: number | null | undefined, digits = 3): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return value.toFixed(digits);
-}
-
 function truncate(value: string | null | undefined, max = 18): string {
   if (!value) return '—';
   return value.length > max ? `${value.slice(0, max)}…` : value;
@@ -214,7 +198,7 @@ export function WeatherAlgoDataTab() {
   );
   const [page, setPage] = usePersistedSignal(UI_KEYS.weatherAlgoDataPage, 0, isNonNegativeInt);
   const [total, setTotal] = createSignal(0);
-  const [rows, setRows] = createSignal<Record<string, unknown>[]>([]);
+  const [rows, setRows] = createSignal<WeatherAlgoDataRow[]>([]);
   const [detailLoading, setDetailLoading] = createSignal(false);
   const [detailError, setDetailError] = createSignal<string | null>(null);
   const [detailMode, setDetailMode] = usePersistedEnum(
@@ -250,7 +234,7 @@ export function WeatherAlgoDataTab() {
       offset,
     };
     try {
-      let result: { items: unknown[]; total: number };
+      let result: { items: WeatherAlgoDataRow[]; total: number } = { items: [], total: 0 };
       switch (id) {
         case 'forecast_history':
           result = await fetchWeatherAlgoForecastHistory(base);
@@ -287,7 +271,7 @@ export function WeatherAlgoDataTab() {
           result = await fetchWeatherAlgoClobPriceHistory(base);
           break;
       }
-      setRows(result.items as Record<string, unknown>[]);
+      setRows(result.items);
       setTotal(result.total);
     } catch (err) {
       setDetailError(err instanceof Error ? err.message : 'Chargement impossible');
@@ -706,27 +690,13 @@ export function WeatherAlgoDataTab() {
             </div>
 
             <Show when={total() > 0}>
-              <div class="algo-pagination weather-data-pagination">
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  disabled={page() === 0 || detailLoading()}
-                  onClick={() => goToPage(Math.max(0, page() - 1))}
-                >
-                  Préc.
-                </button>
-                <span class="algo-pagination-info">
-                  {page() + 1} / {pageCount()}
-                </span>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  disabled={page() >= pageCount() - 1 || detailLoading()}
-                  onClick={() => goToPage(page() + 1)}
-                >
-                  Suiv.
-                </button>
-              </div>
+              <Pagination
+                page={page()}
+                pageCount={pageCount()}
+                onPage={goToPage}
+                disabled={detailLoading()}
+                showIfSingle
+              />
             </Show>
             </Show>
 
@@ -788,8 +758,10 @@ function DetailHeaders(props: { id: WeatherAlgoDataTableId }) {
   );
 }
 
-function DetailRow(props: { id: WeatherAlgoDataTableId; row: Record<string, unknown> }) {
-  const r = props.row;
+function DetailRow(props: { id: WeatherAlgoDataTableId; row: WeatherAlgoDataRow }) {
+  // Accès dynamique par clé : chaque table a sa propre shape, le rendu est
+  // piloté par `id`. Le type `WeatherAlgoDataRow` documente l'union des shapes.
+  const r = props.row as unknown as Record<string, unknown>;
   const str = (key: string) => {
     const v = r[key];
     if (v == null) return '—';

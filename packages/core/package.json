@@ -129,6 +129,10 @@
     "./weather/question-parser": {
       "types": "./dist/weather/question-parser.d.ts",
       "import": "./dist/weather/question-parser.js"
+    },
+    "./backtest/exit-reasons": {
+      "types": "./dist/backtest/backtest-exit-reasons.d.ts",
+      "import": "./dist/backtest/backtest-exit-reasons.js"
     }
   },
   "scripts": {

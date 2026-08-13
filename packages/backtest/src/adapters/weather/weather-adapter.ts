@@ -10,6 +10,7 @@ import {
 } from '@polywatch/core';
 import type { BacktestEvent, BookTickEventData, SignalEventData } from '../../engine/events.js';
 import type { RunContext } from '../../engine/runner.js';
+import type { LedgerPosition } from '../../engine/ledger.js';
 import type { BacktestDomainAdapter } from '../backtest-domain-adapter.js';
 import {
   simulateWeatherEntryFill,
@@ -559,98 +560,11 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
       ctx.ledger.updateMark(pos.conditionId, yesPrice);
 
-      const resolutionTimeMs = this.resolveResolutionTimeMs(tick);
-      if (
-        resolutionTimeMs != null &&
-        !Number.isNaN(resolutionTimeMs) &&
-        resolutionTimeMs <= ctx.clock.now().getTime()
-      ) {
-        if (!tick.endDate) {
-          this.warnOnce(
-            ctx,
-            'resolution_no_endate_fallback',
-            'Résolution sans endDate: fallback targetDate+24h',
-          );
-        }
-        const res = resolveWeatherBucket({
-          forecastMean:
-            this.getCurrentForecast(
-              ctx,
-              tick.snapshotCity,
-              tick.snapshotTargetDateIso,
-              tick.snapshotMetric,
-            )?.forecastMean ?? tick.snapshotForecastMean,
-          bucketComparison: tick.bucketComparison,
-          bucketTarget: tick.bucketTarget,
-          bucketLow: tick.bucketLow,
-          bucketHigh: tick.bucketHigh,
-        });
-        if (res.winningOutcome == null) {
-          this.warnOnce(
-            ctx,
-            'resolution_no_forecast',
-            'Résolution impossible sans forecast — position laissée ouverte',
-          );
-          continue;
-        }
-        const exitPrice = res.winningOutcome === 'YES' ? 1 : 0;
-        ctx.ledger.closePosition({
-          conditionId: pos.conditionId,
-          exitPrice,
-          exitAt: ctx.clock.now(),
-          exitReason: 'RESOLUTION',
-          fees: 0,
-        });
-        this.warnOnce(
-          ctx,
-          'resolution_proxy_forecast',
-          'Résolution approximée par forecast final',
-        );
-        continue;
-      }
+      const outcome = this.tryResolvePosition(ctx, pos, tick);
+      if (outcome === 'resolved' || outcome === 'skip') continue;
 
-      if (resolutionTimeMs != null && Number.isNaN(resolutionTimeMs)) {
-        this.warnOnce(
-          ctx,
-          'resolution_invalid_date',
-          'Date de résolution invalide — skip',
-        );
-      }
-
-      const currentMean =
-        this.getCurrentForecast(
-          ctx,
-          tick.snapshotCity,
-          tick.snapshotTargetDateIso,
-          tick.snapshotMetric,
-        )?.forecastMean ?? tick.snapshotForecastMean;
-
-      const decision = this.exitManager.evaluate(pos, {
-        yesPrice,
-        endDate: tick.endDate,
-        currentMean,
-        now: ctx.clock.now(),
-        slippageBps: ctx.params.slippageBps,
-        entryMean: (pos.meta.entryMean as number | undefined) ?? null,
-        entryBucketComparison: (pos.meta.entryBucketComparison as string | null | undefined) ?? null,
-        entryBucketBounds:
-          (pos.meta.entryBucketBounds as {
-            low?: number | null;
-            high?: number | null;
-            target?: number | null;
-          } | null | undefined) ?? null,
-      });
-      if (decision) {
-        this.noteStaleTickIfNeeded(ctx, tickAt);
-        ctx.ledger.closePosition({
-          conditionId: pos.conditionId,
-          exitPrice: decision.exitPrice,
-          exitAt: ctx.clock.now(),
-          exitReason: decision.reason,
-          fees: decision.fees,
-        });
-        continue;
-      }
+      const currentMean = this.currentForecastMean(ctx, tick);
+      if (this.tryExitByDecision(ctx, pos, tick, tickAt, yesPrice, currentMean)) continue;
 
       const slTp = this.exitManager.evaluateSlTpTrailing(pos, {
         yesPrice,
@@ -668,5 +582,125 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         });
       }
     }
+  }
+
+  /** Forecast mean courant (ou fallback snapshot) pour un tick. */
+  private currentForecastMean(ctx: RunContext, tick: BookTickEventData): number | null {
+    return (
+      this.getCurrentForecast(
+        ctx,
+        tick.snapshotCity,
+        tick.snapshotTargetDateIso,
+        tick.snapshotMetric,
+      )?.forecastMean ?? tick.snapshotForecastMean
+    );
+  }
+
+  /**
+   * Tente de résoudre une position arrivée à échéance. Retourne un tri-state :
+   * - `'resolved'` : position fermée (RESOLUTION) → la boucle doit `continue`.
+   * - `'skip'` : résolution impossible sans forecast → la boucle doit `continue`
+   *   (position laissée ouverte, NE PAS évaluer la décision).
+   * - `'fallthrough'` : pas encore résolue (null / NaN / future) → la boucle
+   *   procède à l'évaluation de décision.
+   */
+  private tryResolvePosition(
+    ctx: RunContext,
+    pos: LedgerPosition,
+    tick: BookTickEventData,
+  ): 'resolved' | 'skip' | 'fallthrough' {
+    const resolutionTimeMs = this.resolveResolutionTimeMs(tick);
+    if (
+      resolutionTimeMs != null &&
+      !Number.isNaN(resolutionTimeMs) &&
+      resolutionTimeMs <= ctx.clock.now().getTime()
+    ) {
+      if (!tick.endDate) {
+        this.warnOnce(
+          ctx,
+          'resolution_no_endate_fallback',
+          'Résolution sans endDate: fallback targetDate+24h',
+        );
+      }
+      const res = resolveWeatherBucket({
+        forecastMean: this.currentForecastMean(ctx, tick),
+        bucketComparison: tick.bucketComparison,
+        bucketTarget: tick.bucketTarget,
+        bucketLow: tick.bucketLow,
+        bucketHigh: tick.bucketHigh,
+      });
+      if (res.winningOutcome == null) {
+        this.warnOnce(
+          ctx,
+          'resolution_no_forecast',
+          'Résolution impossible sans forecast — position laissée ouverte',
+        );
+        return 'skip';
+      }
+      const exitPrice = res.winningOutcome === 'YES' ? 1 : 0;
+      ctx.ledger.closePosition({
+        conditionId: pos.conditionId,
+        exitPrice,
+        exitAt: ctx.clock.now(),
+        exitReason: 'RESOLUTION',
+        fees: 0,
+      });
+      this.warnOnce(
+        ctx,
+        'resolution_proxy_forecast',
+        'Résolution approximée par forecast final',
+      );
+      return 'resolved';
+    }
+
+    if (resolutionTimeMs != null && Number.isNaN(resolutionTimeMs)) {
+      this.warnOnce(
+        ctx,
+        'resolution_invalid_date',
+        'Date de résolution invalide — skip',
+      );
+    }
+
+    return 'fallthrough';
+  }
+
+  /**
+   * Évalue la sortie par décision (drift / bucket-exit) via `exitManager.evaluate`.
+   * Retourne `true` si la position a été fermée. N'appelle `evaluate` qu'une
+   * seule fois (side-effects markClosed/hysteresis préservés).
+   */
+  private tryExitByDecision(
+    ctx: RunContext,
+    pos: LedgerPosition,
+    tick: BookTickEventData,
+    tickAt: Date,
+    yesPrice: number,
+    currentMean: number | null,
+  ): boolean {
+    const decision = this.exitManager.evaluate(pos, {
+      yesPrice,
+      endDate: tick.endDate,
+      currentMean,
+      now: ctx.clock.now(),
+      slippageBps: ctx.params.slippageBps,
+      entryMean: (pos.meta.entryMean as number | undefined) ?? null,
+      entryBucketComparison: (pos.meta.entryBucketComparison as string | null | undefined) ?? null,
+      entryBucketBounds:
+        (pos.meta.entryBucketBounds as {
+          low?: number | null;
+          high?: number | null;
+          target?: number | null;
+        } | null | undefined) ?? null,
+    });
+    if (!decision) return false;
+    this.noteStaleTickIfNeeded(ctx, tickAt);
+    ctx.ledger.closePosition({
+      conditionId: pos.conditionId,
+      exitPrice: decision.exitPrice,
+      exitAt: ctx.clock.now(),
+      exitReason: decision.reason,
+      fees: decision.fees,
+    });
+    return true;
   }
 }

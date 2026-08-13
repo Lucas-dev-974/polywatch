@@ -12,6 +12,7 @@ import {
   type WeatherTimelineSource,
 } from './WeatherTimelineView';
 import { formatTimelineBucketLabel, formatBucketTargetLabel } from '../lib/weather-position';
+import { FIDELITY_OPTIONS } from '../lib/fidelity-options';
 
 function toChartPoints(
   series: Array<{ recordedAt: string; yesPrice: number | null }>,
@@ -21,14 +22,6 @@ function toChartPoints(
     y: p.yesPrice,
   }));
 }
-
-const FIDELITY_OPTIONS = [
-  { value: '1', label: '1 min' },
-  { value: '5', label: '5 min' },
-  { value: '15', label: '15 min' },
-  { value: '60', label: '1 h' },
-  { value: '1440', label: '1 j' },
-];
 
 const source: WeatherTimelineSource<BucketTimelineCity> = {
   dateKey: UI_KEYS.weatherAlgoTimelineDate,

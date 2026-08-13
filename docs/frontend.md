@@ -145,6 +145,8 @@ src/
 │   ├── Icon.tsx                  composant d'affichage d'icônes vectorielles SVG
 │   ├── NavClock.tsx, CountdownTimer.tsx, CountdownContext.tsx composants d'horloge et compte à rebours
 │   ├── ModeHeroBalanceStat.tsx   statistique de solde pour le mode hero
+│   ├── Pagination.tsx            pagination partagée (Préc./Suiv. + compteur, prop `showIfSingle`)
+│   ├── WeatherWatchedTable.tsx   tableau des villes surveillées partagé (slot `renderHorizon`)
 │   └── Dialog.tsx                coquille modale réutilisable
 ├── hooks/
 │   ├── useDialog.ts              lock scroll + Escape (utilisé par Dialog)
@@ -190,7 +192,8 @@ src/
                                   wallet-history, pusd-transfer, pusd-errors,
                                   bridge, bridge-metamask, erc20, ethereum,
                                   address, private-key, deposit-wallet-signing,
-                                  debounce, clipboard, ui-persistence, date…)
+                                  debounce, clipboard, ui-persistence, format,
+                                  fidelity-options, date…)
 ```
 
 Documentation dédiée : [`snapshots-simulation.md`](./snapshots-simulation.md).

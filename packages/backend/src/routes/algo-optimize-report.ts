@@ -3,12 +3,7 @@ import type { DataSource } from 'typeorm';
 import { loadCryptoAlgoOptimizeReport } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 import { recordApiRouteDuration } from '../metrics.js';
-
-function parseOptionalDate(value: unknown): Date | null {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  const d = new Date(value);
-  return Number.isFinite(d.getTime()) ? d : null;
-}
+import { parseOptionalDate } from './lib/query-params.js';
 
 export function createAlgoOptimizeReportRouter(ds: DataSource): Router {
   const router = Router();

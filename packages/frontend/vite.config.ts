@@ -21,6 +21,7 @@ export default defineConfig({
       '@polywatch/core/polymarket/trading-wallet',
       '@polywatch/core/lib/algo-price-tick.types',
       '@polywatch/core/weather/question-parser',
+      '@polywatch/core/backtest/exit-reasons',
     ],
     exclude: ['typeorm', 'reflect-metadata'],
   },

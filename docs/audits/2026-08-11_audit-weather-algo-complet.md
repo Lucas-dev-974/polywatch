@@ -102,16 +102,16 @@
 
 | #   | Refactor                                                                                                                                            | Fichier                                | Effort | Implémenté |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------ | ---------- |
-| R1  | Extraire l'agrégateur timeline commun (dup ~100 lignes entre `getBucketTicksTimeline` et `getClobPriceHistoryTimeline`)                             | `weather-algo-data.service.ts:391-664` | 2h     | —          |
-| R2  | Split `WeatherAlgoDataTab.tsx` 906 lignes (rows non typées, 3 sources de table IDs)                                                                 | frontend                               | 3h     | —          |
-| R3  | Consolider `WeatherAlgoBacktestTab.tsx` 729 lignes (fallback strategy hardcoded, formatters dupliqués, `EXIT_REASON_LABEL` inline, 3 cadences poll) | frontend                               | 3h     | —          |
+| R1  | Extraire l'agrégateur timeline commun (dup ~100 lignes entre `getBucketTicksTimeline` et `getClobPriceHistoryTimeline`)                             | `weather-algo-data.service.ts:391-664` | 2h     | ✅          |
+| R2  | Split `WeatherAlgoDataTab.tsx` 906 lignes (rows non typées, 2 sources de table IDs)                                                                 | frontend                               | 3h     | ✅          |
+| R3  | Consolider `WeatherAlgoBacktestTab.tsx` 729 lignes (fallback strategy hardcoded, formatters dupliqués, `EXIT_REASON_LABEL` inline, 1 cadence poll) | frontend                               | 3h     | ✅          |
 | R4  | Extraire `formatBucketLabel` unifié (résout C2)                                                                                                     | 3 fichiers                             | 1h     | ✅          |
-| R5  | Nettoyer `weather-market-discovery.ts` (debug Paris lignes 99-119, magic numbers `MAX_PAGES`/`MAX_RANGE_PAGES`, tri Paris-first)                    | core                                   | 1h     | —          |
-| R6  | Consolider helpers routes (`parseLimit` / `parseOffset` / `parseOptionalDate`)                                                                      | routes                                 | 1h     | —          |
-| R7  | Factoriser le tableau watched-cities (ActiveMarketsPanel + AutoTrackTab)                                                                            | frontend                               | 1h     | —          |
-| R8  | Consolider formatters (`formatTs`/`formatNum`/`formatCents`/`formatPollInterval`) dans `lib/format.ts`                                              | frontend                               | 1h     | —          |
-| R9  | Unifier `FIDELITY_OPTIONS` (3 copies, shapes `string` vs `number`)                                                                                  | 3 fichiers                             | 30 min | —          |
-| R10 | Split `evaluateExits()` ~120 lignes dans l'adapter (résout la duplication `getCurrentForecast` ×2)                                                  | `weather-adapter.ts:553-671`           | 1h     | —          |
+| R5  | Nettoyer `weather-market-discovery.ts` (debug Paris lignes 99-119, magic numbers `MAX_PAGES`/`MAX_RANGE_PAGES`, tri Paris-first)                    | core                                   | 1h     | ✅          |
+| R6  | Consolider helpers routes (`parseLimit` / `parseOffset` / `parseOptionalDate`)                                                                      | routes                                 | 1h     | ✅          |
+| R7  | Factoriser le tableau watched-cities (ActiveMarketsPanel + AutoTrackTab)                                                                            | frontend                               | 1h     | ✅          |
+| R8  | Consolider formatters (`formatTs`/`formatNum`/`formatCents`/`formatPollInterval`) dans `lib/format.ts`                                              | frontend                               | 1h     | ✅          |
+| R9  | Unifier `FIDELITY_OPTIONS` (3 copies, shapes `string` vs `number`)                                                                                  | 3 fichiers                             | 30 min | ✅          |
+| R10 | Split `evaluateExits()` ~120 lignes dans l'adapter (résout la duplication `getCurrentForecast` ×2)                                                  | `weather-adapter.ts:553-671`           | 1h     | ✅          |
 
 
 ---
@@ -140,7 +140,7 @@
 
 **🟠 Haute (8)** : C3 (✅ implémenté), C4 (✅ implémenté), C5 (✅ implémenté), C6 (✅ implémenté), T2 (✅ implémenté — cleanup `clearInterval` au shutdown), T3 (✅ implémenté — `JSON.parse` protégé), T4 (✅ implémenté — guard `target` null), C12 (✅ implémenté — race upsert). → **0 actif**.
 
-**🟡 Moyenne (7)** : C7 (✅ implémenté), C11 (✅ implémenté), T5 (✅ implémenté — `onMount`), T6 (✅ implémenté — upsert atomique `ON CONFLICT`), T7 (✅ implémenté — skip `markClosed` si ville null), F1, F2 (+ tous les refactors R1-R10 comme dette). → **reste 2 actifs** (F1, F2).
+**🟡 Moyenne (7)** : C7 (✅ implémenté), C11 (✅ implémenté), T5 (✅ implémenté — `onMount`), T6 (✅ implémenté — upsert atomique `ON CONFLICT`), T7 (✅ implémenté — skip `markClosed` si ville null), F1, F2 (refactors R1-R10 ✅ implémentés le 2026-08-13). → **reste 2 actifs** (F1, F2).
 
 **🟢 Faible (13)** : F3, F4, D1 (✅ implémenté), D2 (✅ implémenté), D3 (✅ implémenté), D4 (✅ implémenté), D5 (✅ implémenté), D6 (✅ implémenté), D8 (✅ implémenté), D9 (✅ implémenté), D10 (✅ implémenté), D11 (✅ implémenté), D12 (⏸️ hors scope — audit futur). → **reste 3 actifs** (F3, F4, D12).
 
@@ -181,7 +181,7 @@ Chaque constat a été re-vérifié par lecture directe du code sur disque. Corr
 - **F3** → **Localisation corrigée** (reste 🟢 Faible). La référence à `modele-donnees.md` est retirée : le wording « 6 tables » n'y figure pas (le fichier documente les tables individuellement sans les compter). Seuls `api.md:392-393` et `plans/applied/2026-08-08_IMPL-...:57-58` contiennent le wording stale.
 - **§6 Synthèse** → **Comptages corrigés**. La version initiale annonçait 7 🟡 Moyenne et 4 🟢 Faible, mais listait respectivement 8 et 12 éléments. Correction : 7 🟡 Moyenne (D12 déplacé vers 🟢 Faible) et 13 🟢 Faible (F3, F4, D1-D6, D8-D12).
 
-Synthèse mise à jour : 4 constats critiques, 8 hauts, 7 moyens, 13 faibles, 5 réfutations. Aucune question de comportement n'était nécessaire — toutes les corrections découlent directement de la lecture du code. **Implémentation (2026-08-12)** : C1, C2, C3, C4, C5 et C6 sont implémentés (statut `✅` dans le tableau §1) ; R4 est implémenté (statut `✅` dans le tableau §4). C3/C4/C5 détaillés en §10. **Implémentation (2026-08-13)** : C7, C10, C11 et C12 sont implémentés (statut `✅` dans le tableau §1). Détails en §11. **Implémentation (2026-08-13, risques techniques)** : T1, T2, T3, T4, T5, T6 et T7 sont implémentés (statut `✅` dans le tableau §3). Détails en §13.
+Synthèse mise à jour : 4 constats critiques, 8 hauts, 7 moyens, 13 faibles, 5 réfutations. Aucune question de comportement n'était nécessaire — toutes les corrections découlent directement de la lecture du code. **Implémentation (2026-08-12)** : C1, C2, C3, C4, C5 et C6 sont implémentés (statut `✅` dans le tableau §1) ; R4 est implémenté (statut `✅` dans le tableau §4). C3/C4/C5 détaillés en §10. **Implémentation (2026-08-13)** : C7, C10, C11 et C12 sont implémentés (statut `✅` dans le tableau §1). Détails en §11. **Implémentation (2026-08-13, risques techniques)** : T1, T2, T3, T4, T5, T6 et T7 sont implémentés (statut `✅` dans le tableau §3). Détails en §13. **Implémentation (2026-08-13, refactors)** : R1, R2, R3, R5, R6, R7, R8, R9 et R10 sont implémentés (statut `✅` dans le tableau §4). Détails en §14.
 
 **Impact sur la synthèse §6** : C1, C2, C3, C4, C5, C6, C7, C10, C11, C12, T1, T2, T3, T4, T5, T6 et T7 sont désormais corrigés. Actifs restants — 2 moyens (F1, F2), 3 faibles (F3, F4, D12).
 
@@ -402,5 +402,78 @@ Les constats **T1 à T7** de la partie 3 (§3) ont été implémentés et vérif
 
 - Aucune migration nécessaire (T6 s'appuie sur l'unique index existant).
 - Smoke test : backend `GET /api/weather-algo-history/jobs` répond toujours ; timer stale-sweep annulé au SIGTERM/SIGINT ; UI — unmount pendant un poll d'ingest sans warning console post-unmount ; onglets Stratégies / Paramètres chargent au mount.
+
+---
+
+## 14. Implémentation R1-R10 — refactors / simplification (2026-08-13)
+
+Les constats **R1, R2, R3, R5, R6, R7, R8, R9, R10** de la partie 4 (§4) ont été implémentés et vérifiés (voir [`../plans/applied/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md`](../plans/applied/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md)). **R4** était déjà implémenté (résolu par C2, §9).
+
+### R1 — Agrégateur timeline commun
+
+- `weather-algo-data.service.ts` : extraction de `buildTimelineCities` (interfaces `TimelineRowLike`/`TimelineCityLike`/`TimelineBucketLike`). `getBucketTicksTimeline` et `getClobPriceHistoryTimeline` partagent la boucle d'accumulation `Map<conditionId, bucket>` par ville + la projection `Map → tableau` trié. Le query builder (filtres, tri, LIMIT) reste propre à chaque méthode.
+- Le guard `!cityKey` (falsy) est centralisé — sans impact sur clob (`city` non-nullable) ni sur bucket-ticks (guard identique à l'original).
+
+### R2 — Split `WeatherAlgoDataTab.tsx`
+
+- `WeatherAlgoDataTableId` dérivé de l'array `WEATHER_ALGO_DATA_TABLE_IDS` (`(typeof ...)[number]`) dans `ui-persistence.ts` ; `api.ts` l'importe (suppression de la 2e source).
+- Rows typées en union `WeatherAlgoDataRow` (7 shapes) ; `DetailRow` conserve l'accès dynamique par clé via un cast `as unknown as Record<string, unknown>`.
+- Composant `Pagination` partagé utilisé (prop `showIfSingle`).
+
+### R3 — Consolider `WeatherAlgoBacktestTab.tsx` + `EXIT_REASON_LABEL` typeorm-free
+
+- `FALLBACK_STRATEGIES` extrait ; formatters consolidés via `lib/format.ts` ; `Pagination` partagé.
+- `EXIT_REASON_LABEL`/`BACKTEST_EXIT_REASONS`/`BacktestExitReason` extraits dans `packages/core/src/backtest/backtest-exit-reasons.ts` (sans dépendance typeorm).
+- **Bug corrigé** : le re-export via `entities/BacktestPosition.ts` (qui importe typeorm) tirait typeorm dans le bundle frontend → `Uncaught SyntaxError: ... does not provide an export named 'Buffer'`. Corrigé par un re-export direct de `backtest-exit-reasons.js` dans `packages/core/src/index.ts` + sous-chemin d'export `./backtest/exit-reasons` dans `package.json` + import frontend depuis ce sous-chemin + ajout à `optimizeDeps.include` de `vite.config.ts`.
+
+### R5 — Nettoyage `weather-market-discovery.ts`
+
+- Bloc debug Paris supprimé (logs `parisMarkets`/`parisHighestTempJuly25` + boucle de debug).
+- `maxPages` configurable via paramètres (`discoverWeatherMarkets`, `discoverResolvedWeatherMarkets`, `DiscoverWeatherMarketsInRangeOptions`) ; défaut = `MAX_PAGES`/`MAX_RANGE_PAGES` → aucun changement en régime nominal.
+- Tri Paris-first extrait dans `compareCityGroups` (Paris en premier, « Autres » en dernier, puis alphabétique).
+
+### R6 — Helpers routes partagés
+
+- `packages/backend/src/routes/lib/query-params.ts` : `parseLimit`/`parseOffset`/`parseOptionalDate`.
+- Les 3 routes (`backtest.ts`, `weather-algo-data.ts`, `algo-optimize-report.ts`) importent les helpers partagés. `parseOptionalDate` unifié en `Date | undefined` (compatible avec `loadCryptoAlgoOptimizeReport` qui accepte `Date | null | undefined`).
+
+### R7 — Tableau watched-cities partagé
+
+- `WeatherWatchedTable` (slot `renderHorizon`) utilisé par `WeatherAlgoActiveMarketsPanel` (horizon statique `J+N`) et `WeatherAlgoAutoTrackTab` (input éditable). `emptyText` passé en prop (`JSX.Element`).
+
+### R8 — Formatters consolidés
+
+- `packages/frontend/src/lib/format.ts` : `formatCents`/`formatTs`/`formatTsCompact`/`formatNum`/`formatPollInterval`. `formatNum` gère `Infinity` (retourne `∞`). Consommateurs migrés (`WeatherAlgoDataTab`, `WeatherAlgoBacktestTab`, `WeatherTimelineView`, `WeatherSeriesLegend`).
+
+### R9 — `FIDELITY_OPTIONS` source unique
+
+- `packages/frontend/src/lib/fidelity-options.ts` (`value: string`). Les 3 copies (`WeatherAlgoHistoryIngestSection` avec `value: number`, `WeatherBucketTimelineView`/`WeatherClobTimelineView` avec `value: string`) sont unifiées. Compatible avec `WeatherTimelineSideOption` (`value: string`) et les consommateurs (`Number(...)`/`String(...)`).
+
+### R10 — Split `evaluateExits()`
+
+- `weather-adapter.ts` : `evaluateExits` décomposé en `currentForecastMean` (retourne `number | null`), `tryResolvePosition` (tri-state `'resolved' | 'skip' | 'fallthrough'`) et `tryExitByDecision` (n'appelle `evaluate` qu'une seule fois — side-effects `markClosed`/hysteresis préservés). Type `LedgerPosition` importé.
+
+### Bug fantôme / régression — vérification
+
+- **R1** : le guard `!cityKey` centralisé ne change pas le comportement clob (`city` non-nullable) ni bucket-ticks (guard identique).
+- **R3** : le frontend n'importe plus typeorm via `EXIT_REASON_LABEL` (sous-chemin typeorm-free). Le backend continue d'importer depuis le point d'entrée.
+- **R8** : `formatNum` a un défaut `digits=3` ; tous les appels de `WeatherAlgoBacktestTab` passent un `digits` explicite, `WeatherAlgoDataTab` utilise le défaut `3` identique à l'ancien.
+- **R9** : le passage `value: number` → `value: string` est sans impact (les consommateurs utilisent `Number(...)`/`String(...)`).
+- **R10** : le tri-state reproduit le flux original (`continue` sur résolution/skip, `fallthrough` vers la décision).
+
+### Validation post-implémentation
+
+- **Builds** : core, backtest, backend, frontend — **OK** (`tsc --noEmit`).
+- **Tests** :
+  - core : `weather-algo-data.service` **18/18** (R1), `weather-market-discovery` **19/19** (R5). 5 échecs pré-existants hors périmètre (confirmés §10).
+  - backtest : **30/30**, dont `weather-adapter` **8/8** (R10).
+- **Lints** : 0 erreur sur les fichiers modifiés.
+- **Grep final** : `EXIT_REASON_LABEL` importé par le frontend depuis `@polywatch/core/backtest/exit-reasons` (typeorm-free).
+- **Périmètre** : 25 fichiers (4 nouveaux modules core/backend + 4 nouveaux composants/libs frontend + 17 modifiés). Conforme au plan.
+
+### Reste à faire en prod
+
+- Redémarrer le serveur Vite (ou vider `node_modules/.vite`) pour que le pré-bundling prenne en compte le nouveau sous-chemin `@polywatch/core/backtest/exit-reasons`.
+- Smoke test UI : onglet Backtest (raisons de sortie affichées), onglet Données (pagination, rows typées), timelines bucket/clob (fidélité), panneaux watched-cities.
 
 ---

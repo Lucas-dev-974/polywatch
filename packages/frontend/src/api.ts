@@ -1,5 +1,6 @@
 import type { EnvSettings } from './components/env-settings-types';
 import type { WeatherMetric } from '@polywatch/core';
+import type { WeatherAlgoDataTableId } from './lib/ui-persistence';
 
 const API_BASE = '/api';
 
@@ -642,15 +643,6 @@ export interface WeatherStrategyMeta {
   }>;
 }
 
-export type WeatherAlgoDataTableId =
-  | 'forecast_history'
-  | 'market_snapshots'
-  | 'bucket_ticks'
-  | 'evaluation_log'
-  | 'forecast_cache'
-  | 'position_forecasts'
-  | 'clob_price_history';
-
 export interface WeatherAlgoDataTableSummary {
   id: WeatherAlgoDataTableId;
   tableName: string;
@@ -762,6 +754,20 @@ export interface WeatherAlgoPositionForecastRow {
   openedAt: string | null;
 }
 
+export interface WeatherAlgoClobPriceHistoryRow {
+  id: number;
+  city: string;
+  targetDate: string;
+  side: 'YES' | 'NO';
+  price: number;
+  conditionId: string;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  recordedAt: string;
+}
+
 export async function fetchGlobalConfig(): Promise<GlobalConfig> {
   return api<GlobalConfig>('/config/global');
 }
@@ -808,7 +814,7 @@ export async function fetchWeatherAlgoClobPriceHistory(params: {
   to?: string;
   limit?: number;
   offset?: number;
-}): Promise<{ items: Record<string, unknown>[]; total: number }> {
+}): Promise<WeatherAlgoDataListResponse<WeatherAlgoClobPriceHistoryRow>> {
   return api(
     `/weather-algo-data/clob-price-history${weatherAlgoDataQuery(params)}`,
   );

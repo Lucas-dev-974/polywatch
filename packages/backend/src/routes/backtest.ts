@@ -17,6 +17,7 @@ import {
   type BacktestRunParams,
 } from '@polywatch/backtest';
 import { requireJwt } from '../middleware/auth.js';
+import { parseLimit, parseOffset, parseOptionalDate } from './lib/query-params.js';
 import pino from 'pino';
 
 const log = pino({ name: 'backend:backtest' });
@@ -41,20 +42,6 @@ export function cancelAllActiveBacktestRuns(): void {
     tracker.cancelled = true;
     if (tracker.timeoutId) clearTimeout(tracker.timeoutId);
   }
-}
-
-function parseLimit(value: unknown, fallback: number, max: number): number {
-  return Math.max(1, Math.min(Number(value ?? fallback), max));
-}
-
-function parseOffset(value: unknown): number {
-  return Math.max(0, Number(value ?? 0));
-}
-
-function parseOptionalDate(value: unknown): Date | undefined {
-  if (typeof value !== 'string' || !value.trim()) return undefined;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 function parseExitReason(value: unknown): BacktestExitReason | null {

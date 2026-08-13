@@ -49,6 +49,11 @@ export type * from './types/trader-analytics.js';
 export type * from './types/market-analytics.js';
 export type * from './types/trader-insight.js';
 export * from './entities/index.js';
+export {
+  BACKTEST_EXIT_REASONS,
+  EXIT_REASON_LABEL,
+  type BacktestExitReason,
+} from './backtest/backtest-exit-reasons.js';
 export * from './database/data-source.js';
 export { createTestDataSource } from './database/test-data-source.js';
 export * from './pricing/vwap.js';

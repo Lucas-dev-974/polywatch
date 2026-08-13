@@ -8,6 +8,7 @@ import { Dialog } from './Dialog';
 import { useChartWidth } from '../hooks/useChartWidth';
 import { buildChartXTicks } from '../lib/updown-price-chart';
 import { WeatherSeriesLegend } from './WeatherSeriesLegend';
+import { formatCents } from '../lib/format';
 
 export { UI_KEYS };
 
@@ -148,10 +149,6 @@ function splitSegments(series: WeatherTimelineSeriesPoint[]): ChartPoint[][] {
 const CHART_H = 220;
 const CHART_MARGIN = { top: 12, right: 16, bottom: 26, left: 44 };
 const Y_TICKS = [0, 0.25, 0.5, 0.75, 1.0];
-
-function formatCents(p: number): string {
-  return `${Math.round(p * 100)}¢`;
-}
 
 interface HoverState {
   t: number;

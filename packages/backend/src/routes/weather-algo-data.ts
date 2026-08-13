@@ -6,23 +6,10 @@ import {
   type WeatherAlgoDataTableId,
 } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
+import { parseLimit, parseOffset, parseOptionalDate } from './lib/query-params.js';
 
 function isValidTableId(value: string): value is WeatherAlgoDataTableId {
   return (WEATHER_ALGO_DATA_TABLE_IDS as readonly string[]).includes(value);
-}
-
-function parseOptionalDate(value: unknown): Date | undefined {
-  if (typeof value !== 'string' || !value.trim()) return undefined;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? undefined : d;
-}
-
-function parseLimit(value: unknown, fallback: number, max: number): number {
-  return Math.max(1, Math.min(Number(value ?? fallback), max));
-}
-
-function parseOffset(value: unknown): number {
-  return Math.max(0, Number(value ?? 0));
 }
 
 export function createWeatherAlgoDataRouter(ds: DataSource): Router {

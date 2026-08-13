@@ -17,29 +17,26 @@ import {
 } from '../api';
 import { UI_KEYS, usePersistedSignal } from '../lib/ui-persistence';
 import { BacktestEquityChart } from './BacktestEquityChart';
+import { Pagination } from './Pagination';
+import { formatNum, formatTs } from '../lib/format';
+import { EXIT_REASON_LABEL } from '@polywatch/core/backtest/exit-reasons';
 
 const PAGE_SIZE = 20;
 const POLL_MS = 4000;
 
-function fmtNum(value: number | null | undefined, digits = 2): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  if (!Number.isFinite(value)) return '∞';
-  return value.toFixed(digits);
-}
+/** Stratégies affichées quand le catalogue n'est pas encore chargé (R3). */
+const FALLBACK_STRATEGIES = [
+  { id: 'weather-forecast', label: 'Forecast (best edge)' },
+  { id: 'weather-forecast-aligned', label: 'Forecast (aligned)' },
+];
 
 function fmtPct(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function fmtTs(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
-}
-
 function fmtUsd(value: number | null | undefined): string {
-  return fmtNum(value, 2);
+  return formatNum(value, 2);
 }
 
 /** Capital from a completed/selected run — never trust form state for the equity chart. */
@@ -53,19 +50,6 @@ function toDateInputValue(iso: string | null): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
 }
-
-const EXIT_REASON_LABEL: Record<string, string> = {
-  SL: 'Stop loss',
-  TP: 'Take profit',
-  TRAILING: 'Trailing',
-  RESOLUTION: 'Résolution',
-  KILL_SWITCH: 'Kill-switch',
-  WEATHER_PRE_CLOSE: 'Pré-close',
-  WEATHER_FORECAST_CHANGE: 'Dérive forecast',
-  WEATHER_BUCKET_EXIT: 'Sortie de bucket',
-  STRATEGY_FLIP: 'Flip stratégie',
-  WINDOW_CLOSE: 'Fenêtre',
-};
 
 function fmtHolding(ms: number | null | undefined): string {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
@@ -312,8 +296,8 @@ export function WeatherAlgoBacktestTab() {
           <Show when={coverage()}>
             <div class="backtest-coverage">
               <span>
-                Données dispo : <strong>{coverage()?.from ? fmtTs(coverage()!.from) : '—'}</strong> →{' '}
-                <strong>{coverage()?.to ? fmtTs(coverage()!.to) : '—'}</strong>
+                Données dispo : <strong>{coverage()?.from ? formatTs(coverage()!.from) : '—'}</strong> →{' '}
+                <strong>{coverage()?.to ? formatTs(coverage()!.to) : '—'}</strong>
               </span>
               <span>
                 Ticks : <strong>{(coverage()?.totalTicks ?? 0).toLocaleString()}</strong>
@@ -363,8 +347,9 @@ export function WeatherAlgoBacktestTab() {
                   {(s) => <option value={s.id}>{s.label}</option>}
                 </For>
                 <Show when={catalog().length === 0}>
-                  <option value="weather-forecast">Forecast (best edge)</option>
-                  <option value="weather-forecast-aligned">Forecast (aligned)</option>
+                  <For each={FALLBACK_STRATEGIES}>
+                    {(s) => <option value={s.id}>{s.label}</option>}
+                  </For>
                 </Show>
               </select>
             </label>
@@ -443,27 +428,11 @@ export function WeatherAlgoBacktestTab() {
             </For>
           </div>
           <Show when={listTotal() > PAGE_SIZE}>
-            <div class="algo-pagination weather-data-pagination">
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                disabled={page() === 0}
-                onClick={() => goToPage(Math.max(0, page() - 1))}
-              >
-                Préc.
-              </button>
-              <span class="algo-pagination-info">
-                {page() + 1} / {pageCount()}
-              </span>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                disabled={page() >= pageCount() - 1}
-                onClick={() => goToPage(page() + 1)}
-              >
-                Suiv.
-              </button>
-            </div>
+            <Pagination
+              page={page()}
+              pageCount={pageCount()}
+              onPage={goToPage}
+            />
           </Show>
         </div>
       </Show>
@@ -505,7 +474,7 @@ function RunCard(props: { run: BacktestRunDto; onOpen: () => void }) {
       <div class="backtest-run-card-meta">
         <span>{run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</span>
         {run.label ? <span>{run.label}</span> : null}
-        <span>{fmtTs(run.createdAt)}</span>
+        <span>{formatTs(run.createdAt)}</span>
       </div>
       <Show when={run.status === 'running' || run.status === 'queued'}>
         <div class="backtest-progress">
@@ -579,9 +548,9 @@ function RunDetail(props: {
         <span>
           Mode : <strong>{props.run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</strong>
         </span>
-        <span>Lancé : {fmtTs(props.run.startedAt)}</span>
-        <span>Fini : {fmtTs(props.run.finishedAt)}</span>
-        <span>Plage : {fmtTs(props.run.dataRangeFrom)} → {fmtTs(props.run.dataRangeTo)}</span>
+        <span>Lancé : {formatTs(props.run.startedAt)}</span>
+        <span>Fini : {formatTs(props.run.finishedAt)}</span>
+        <span>Plage : {formatTs(props.run.dataRangeFrom)} → {formatTs(props.run.dataRangeTo)}</span>
       </div>
 
       <Show when={isRunning()}>
@@ -644,8 +613,8 @@ function RunDetail(props: {
                       <td class="text-mono" title={p.conditionId}>
                         {p.conditionId.slice(0, 18)}…
                       </td>
-                      <td>{fmtNum(p.entryPrice, 3)}</td>
-                      <td>{p.exitPrice != null ? fmtNum(p.exitPrice, 3) : '—'}</td>
+                      <td>{formatNum(p.entryPrice, 3)}</td>
+                      <td>{p.exitPrice != null ? formatNum(p.exitPrice, 3) : '—'}</td>
                       <td class={p.pnl != null && p.pnl >= 0 ? 'backtest-pnl-pos' : 'backtest-pnl-neg'}>
                         {p.pnl != null ? fmtUsd(p.pnl) : '—'}
                       </td>
@@ -672,7 +641,7 @@ function MetricGrid(props: { stats: NonNullable<BacktestRunDto['stats']>; capita
       </div>
       <div class="backtest-metric">
         <span class="backtest-metric-label">P&L %</span>
-        <span class="backtest-metric-value">{fmtNum(s.pnlPct, 1)}%</span>
+        <span class="backtest-metric-value">{formatNum(s.pnlPct, 1)}%</span>
       </div>
       <div class="backtest-metric">
         <span class="backtest-metric-label">Equity finale</span>
@@ -693,7 +662,7 @@ function MetricGrid(props: { stats: NonNullable<BacktestRunDto['stats']>; capita
       <div class="backtest-metric">
         <span class="backtest-metric-label">Profit factor</span>
         <span class="backtest-metric-value">
-          {s.profitFactor == null && s.totalTrades > 0 ? '∞' : fmtNum(s.profitFactor, 2)}
+          {s.profitFactor == null && s.totalTrades > 0 ? '∞' : formatNum(s.profitFactor, 2)}
         </span>
       </div>
       <div class="backtest-metric">

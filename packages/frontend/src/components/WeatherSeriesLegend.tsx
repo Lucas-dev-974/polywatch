@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js';
 import { Icon } from './Icon';
+import { formatCents } from '../lib/format';
 
 export interface WeatherSeriesLegendItem {
   key: number;
@@ -7,10 +8,6 @@ export interface WeatherSeriesLegendItem {
   price: number | null;
   color: string;
   hidden: boolean;
-}
-
-function formatCents(p: number): string {
-  return `${Math.round(p * 100)}¢`;
 }
 
 /**

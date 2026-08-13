@@ -29,10 +29,13 @@ export async function discoverWeatherMarkets(
     targetDate?: Date;
     targetDates?: Date[];
     onParseResult?: (parsed: boolean) => void;
+    /** Max pages to fetch from Gamma (100 events/page). Defaults to MAX_PAGES. */
+    maxPages?: number;
   },
 ): Promise<WeatherMarketDiscoveryResult> {
   const limit = Math.min(100, Math.max(1, options?.limit ?? 100));
   const offset = Math.max(0, options?.offset ?? 0);
+  const maxPages = Math.max(1, options?.maxPages ?? MAX_PAGES);
 
   const today = defaultToday();
   const tomorrow = defaultTomorrow();
@@ -61,7 +64,7 @@ export async function discoverWeatherMarkets(
   const allItems: MarketListItemDto[] = [];
   let currentOffset = offset;
 
-  for (let page = 0; page < MAX_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const { items, nextCursor } = await fetchGammaMarketsByTagSlug({
       tagSlug: WEATHER_TAG_SLUG,
       closed: false,
@@ -97,28 +100,9 @@ export async function discoverWeatherMarkets(
       dateBuckets: byCity.reduce((n, c) => n + c.dates.length, 0),
       targetDates: Array.from(targetStrs),
       targetMonthDays: Array.from(targetMonthDays),
-      parisMarkets: allItems.filter((m) => m.question?.toLowerCase().includes('paris')).length,
-      parisHighestTempJuly25: allItems.filter(
-        (m) =>
-          m.question?.toLowerCase().includes('paris') &&
-          m.question?.toLowerCase().includes('highest temperature') &&
-          m.question?.toLowerCase().includes('july 25'),
-      ).length,
     },
     'weather market discovery summary',
   );
-
-  for (const m of allItems) {
-    if (m.question?.toLowerCase().includes('paris')) {
-      log.debug({
-        conditionId: m.conditionId,
-        question: m.question,
-        parsed: parseWeatherQuestion(m.question),
-        endDate: m.endDate,
-        matchesDate: matchesTargetDate(m),
-      }, 'paris market detail');
-    }
-  }
 
   return {
     temperatureMarkets,
@@ -173,9 +157,12 @@ export async function discoverResolvedWeatherMarkets(
   options: {
     lookbackDays?: number;
     onParseResult?: (parsed: boolean) => void;
+    /** Max pages to fetch from Gamma (100 events/page). Defaults to MAX_PAGES. */
+    maxPages?: number;
   } = {},
 ): Promise<ResolvedWeatherMarketsResult> {
   const lookback = Math.max(1, options.lookbackDays ?? DEFAULT_RESOLVED_LOOKBACK_DAYS);
+  const maxPages = Math.max(1, options.maxPages ?? MAX_PAGES);
   const targetDates = buildPastDates(lookback);
   const targetStrs = new Set(targetDates.map((d) => d.toISOString().slice(0, 10)));
   const targetMonthDays = new Set(
@@ -187,7 +174,7 @@ export async function discoverResolvedWeatherMarkets(
 
   const allItems: MarketListItemDto[] = [];
   let currentOffset = 0;
-  for (let page = 0; page < MAX_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const { items, nextCursor } = await fetchGammaMarketsByTagSlug({
       tagSlug: WEATHER_TAG_SLUG,
       closed: true,
@@ -229,6 +216,8 @@ export interface DiscoverWeatherMarketsInRangeOptions {
   from: Date;
   to: Date;
   metric?: WeatherMetric;
+  /** Max pages to scan per closed/open flag (100 events/page). Defaults to MAX_RANGE_PAGES. */
+  maxPages?: number;
 }
 
 export interface WeatherMarketsInRangeResult {
@@ -273,11 +262,12 @@ async function fetchWeatherMarketsByClosedFlag(
   closed: boolean,
   endDateMin: string,
   endDateMax: string,
+  maxPages = MAX_RANGE_PAGES,
 ): Promise<MarketListItemDto[]> {
   const allItems: MarketListItemDto[] = [];
   let currentOffset = 0;
 
-  for (let page = 0; page < MAX_RANGE_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const { items, nextCursor } = await fetchGammaMarketsByTagSlug({
       tagSlug: WEATHER_TAG_SLUG,
       closed,
@@ -312,8 +302,8 @@ export async function discoverWeatherMarketsInRange(
   const endDateMax = addUtcDays(options.to, 1).toISOString();
 
   const [closedItems, openItems] = await Promise.all([
-    fetchWeatherMarketsByClosedFlag(true, endDateMin, endDateMax),
-    fetchWeatherMarketsByClosedFlag(false, endDateMin, endDateMax),
+    fetchWeatherMarketsByClosedFlag(true, endDateMin, endDateMax, options.maxPages),
+    fetchWeatherMarketsByClosedFlag(false, endDateMin, endDateMax, options.maxPages),
   ]);
 
   const byCondition = new Map<string, MarketListItemDto>();
@@ -628,15 +618,21 @@ export function groupMarketsByCityAndDate(
     };
   });
 
-  groups.sort((a, b) => {
-    const aParis = a.city.toLowerCase() === 'paris';
-    const bParis = b.city.toLowerCase() === 'paris';
-    if (aParis && !bParis) return -1;
-    if (!aParis && bParis) return 1;
-    if (a.city === 'Autres') return 1;
-    if (b.city === 'Autres') return -1;
-    return a.city.localeCompare(b.city);
-  });
+  groups.sort(compareCityGroups);
 
   return groups;
+}
+
+/**
+ * Tri des groupes de villes pour le dropdown de découverte : Paris en premier,
+ * « Autres » en dernier, puis ordre alphabétique.
+ */
+function compareCityGroups(a: DiscoverCityGroup, b: DiscoverCityGroup): number {
+  const aParis = a.city.toLowerCase() === 'paris';
+  const bParis = b.city.toLowerCase() === 'paris';
+  if (aParis && !bParis) return -1;
+  if (!aParis && bParis) return 1;
+  if (a.city === 'Autres') return 1;
+  if (b.city === 'Autres') return -1;
+  return a.city.localeCompare(b.city);
 }

@@ -193,6 +193,89 @@ function toDateOnly(value: Date | string | null | undefined): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+// ── Agrégateur timeline commun (R1) ────────────────────────────────────────
+// Les deux timelines (bucket ticks et clob price history) partagent la même
+// boucle d'accumulation Map<conditionId, bucket> par ville + la projection
+// Map → tableau. Seuls diffèrent : la clé ville, l'init/update de la ville
+// (forecastMean/StdDev pour bucket-ticks), le mapper point et l'init du bucket.
+
+interface TimelineRowLike {
+  conditionId: string;
+  recordedAt: Date;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  question: string | null;
+}
+
+interface TimelineCityLike<TBucket> {
+  cityNormalized: string;
+  bucketCount: number;
+  buckets: TBucket[];
+}
+
+interface TimelineBucketLike<TPoint> {
+  conditionId: string;
+  series: TPoint[];
+}
+
+/**
+ * Accumule des rows (déjà triées par recordedAt ASC) en villes → buckets, puis
+ * projette la Map en tableau trié par cityNormalized. Le guard `!cityKey`
+ * (falsy) est centralisé : les extracteurs doivent produire une clé non vide
+ * pour les chemins sans ville nullable (clob).
+ */
+function buildTimelineCities<
+  TRow extends TimelineRowLike,
+  TCity extends TimelineCityLike<TBucket>,
+  TBucket extends TimelineBucketLike<TPoint>,
+  TPoint,
+>(
+  rows: TRow[],
+  opts: {
+    cityKey: (row: TRow) => string | null | undefined;
+    cityInit: (row: TRow, cityKey: string) => TCity;
+    cityUpdate: (city: TCity, row: TRow) => void;
+    bucketInit: (row: TRow) => TBucket;
+    point: (row: TRow) => TPoint;
+  },
+): TCity[] {
+  interface CityAccumulator {
+    city: TCity;
+    bucketMap: Map<string, TBucket>;
+  }
+  const cityMap = new Map<string, CityAccumulator>();
+
+  for (const row of rows) {
+    const cityKey = opts.cityKey(row);
+    if (!cityKey) continue;
+
+    let acc = cityMap.get(cityKey);
+    if (!acc) {
+      acc = { city: opts.cityInit(row, cityKey), bucketMap: new Map() };
+      cityMap.set(cityKey, acc);
+    }
+
+    opts.cityUpdate(acc.city, row);
+
+    let bucket = acc.bucketMap.get(row.conditionId);
+    if (!bucket) {
+      bucket = opts.bucketInit(row);
+      acc.bucketMap.set(row.conditionId, bucket);
+    }
+    bucket.series.push(opts.point(row));
+  }
+
+  return [...cityMap.values()]
+    .map((acc) => {
+      acc.city.buckets = [...acc.bucketMap.values()];
+      acc.city.bucketCount = acc.bucketMap.size;
+      return acc.city;
+    })
+    .sort((a, b) => a.cityNormalized.localeCompare(b.cityNormalized));
+}
+
 async function countMinMax(
   ds: DataSource,
   entity: new () => object,
@@ -463,52 +546,40 @@ export class WeatherAlgoDataService {
     const snapshotById = new Map<number, WeatherMarketSnapshot>();
     for (const s of snapshots) snapshotById.set(s.id, s);
 
-    // D.3 — Accumulateur avec Map<conditionId, bucket> par ville (lookup O(1)).
-    interface CityAccumulator {
-      city: BucketTimelineCity;
-      bucketMap: Map<string, BucketTimelineBucket>;
-    }
-    const cityMap = new Map<string, CityAccumulator>();
-
-    for (const tick of ticks) {
-      const snap = snapshotById.get(tick.snapshotId);
-      const cityKey = tick.cityNormalized || tick.city || snap?.cityNormalized || snap?.city;
-      if (!cityKey) continue;
-
-      let acc = cityMap.get(cityKey);
-      if (!acc) {
-        acc = {
-          city: {
-            cityNormalized: cityKey,
-            forecastMean: snap?.forecastMean ?? null,
-            forecastStdDev: snap?.forecastStdDev ?? null,
-            bucketCount: 0,
-            firstRecordedAt: toIso(tick.recordedAt) ?? '',
-            lastRecordedAt: toIso(tick.recordedAt) ?? '',
-            buckets: [],
-          },
-          bucketMap: new Map(),
+    // D.3 — Accumulation + projection via l'agrégateur commun (R1).
+    const cities = buildTimelineCities<
+      WeatherBucketTick,
+      BucketTimelineCity,
+      BucketTimelineBucket,
+      BucketTimelineSeriesPoint
+    >(ticks, {
+      cityKey: (tick) => {
+        const snap = snapshotById.get(tick.snapshotId);
+        return tick.cityNormalized || tick.city || snap?.cityNormalized || snap?.city;
+      },
+      cityInit: (tick, cityKey) => {
+        const snap = snapshotById.get(tick.snapshotId);
+        return {
+          cityNormalized: cityKey,
+          forecastMean: snap?.forecastMean ?? null,
+          forecastStdDev: snap?.forecastStdDev ?? null,
+          bucketCount: 0,
+          firstRecordedAt: toIso(tick.recordedAt) ?? '',
+          lastRecordedAt: toIso(tick.recordedAt) ?? '',
+          buckets: [],
         };
-        cityMap.set(cityKey, acc);
-      }
-
-      // Ticks triés par recordedAt ASC : chaque tick est plus récent ou égal
-      // au précédent, donc on écrase lastRecordedAt et forecastMean à chaque
-      // tick (le dernier tick de la boucle = le plus récent).
-      acc.city.lastRecordedAt = toIso(tick.recordedAt) ?? acc.city.lastRecordedAt;
-      acc.city.forecastMean = snap?.forecastMean ?? acc.city.forecastMean;
-      acc.city.forecastStdDev = snap?.forecastStdDev ?? acc.city.forecastStdDev;
-
-      const ts = toIso(tick.recordedAt);
-      const point: BucketTimelineSeriesPoint = {
-        recordedAt: ts ?? '',
-        yesPrice: tick.yesPrice,
-      };
-
-      let bucket = acc.bucketMap.get(tick.conditionId);
-      if (!bucket) {
+      },
+      cityUpdate: (city, tick) => {
+        const snap = snapshotById.get(tick.snapshotId);
+        // Ticks triés par recordedAt ASC : le dernier tick de la boucle = le
+        // plus récent, donc on écrase lastRecordedAt et forecastMean/StdDev.
+        city.lastRecordedAt = toIso(tick.recordedAt) ?? city.lastRecordedAt;
+        city.forecastMean = snap?.forecastMean ?? city.forecastMean;
+        city.forecastStdDev = snap?.forecastStdDev ?? city.forecastStdDev;
+      },
+      bucketInit: (tick) => {
         const parsed = tick.question ? parseWeatherQuestion(tick.question) : null;
-        bucket = {
+        return {
           conditionId: tick.conditionId,
           bucketComparison: tick.bucketComparison,
           bucketTarget: tick.bucketTarget,
@@ -517,19 +588,12 @@ export class WeatherAlgoDataService {
           unit: parsed?.unit ?? null,
           series: [],
         };
-        acc.bucketMap.set(tick.conditionId, bucket);
-      }
-      bucket.series.push(point);
-    }
-
-    // Projection : Map → tableau, bucketCount = taille réelle de la Map.
-    const cities = [...cityMap.values()]
-      .map((acc) => {
-        acc.city.buckets = [...acc.bucketMap.values()];
-        acc.city.bucketCount = acc.bucketMap.size;
-        return acc.city;
-      })
-      .sort((a, b) => a.cityNormalized.localeCompare(b.cityNormalized));
+      },
+      point: (tick) => ({
+        recordedAt: toIso(tick.recordedAt) ?? '',
+        yesPrice: tick.yesPrice,
+      }),
+    });
 
     return { dates: [{ targetDateIso: target, cities }] };
   }
@@ -611,44 +675,29 @@ export class WeatherAlgoDataService {
       return { dates: [] };
     }
 
-    interface CityAccumulator {
-      city: ClobTimelineCity;
-      bucketMap: Map<string, ClobTimelineBucket>;
-    }
-    const cityMap = new Map<string, CityAccumulator>();
-
-    for (const row of rows) {
-      const cityKey = row.city;
-
-      let acc = cityMap.get(cityKey);
-      if (!acc) {
-        acc = {
-          city: {
-            cityNormalized: cityKey,
-            bucketCount: 0,
-            firstRecordedAt: toIso(row.recordedAt) ?? '',
-            lastRecordedAt: toIso(row.recordedAt) ?? '',
-            buckets: [],
-          },
-          bucketMap: new Map(),
-        };
-        cityMap.set(cityKey, acc);
-      }
-
-      // Rows triées par recordedAt ASC : chaque ligne est plus récente ou égale
-      // à la précédente, donc on écrase lastRecordedAt à chaque itération.
-      acc.city.lastRecordedAt = toIso(row.recordedAt) ?? acc.city.lastRecordedAt;
-
-      const point: ClobTimelineSeriesPoint = {
-        recordedAt: toIso(row.recordedAt) ?? '',
-        price: row.price,
-        side: row.side,
-      };
-
-      let bucket = acc.bucketMap.get(row.conditionId);
-      if (!bucket) {
+    // Accumulation + projection via l'agrégateur commun (R1).
+    const cities = buildTimelineCities<
+      WeatherClobPriceHistory,
+      ClobTimelineCity,
+      ClobTimelineBucket,
+      ClobTimelineSeriesPoint
+    >(rows, {
+      cityKey: (row) => row.city,
+      cityInit: (row, cityKey) => ({
+        cityNormalized: cityKey,
+        bucketCount: 0,
+        firstRecordedAt: toIso(row.recordedAt) ?? '',
+        lastRecordedAt: toIso(row.recordedAt) ?? '',
+        buckets: [],
+      }),
+      cityUpdate: (city, row) => {
+        // Rows triées par recordedAt ASC : on écrase lastRecordedAt à chaque
+        // itération (la dernière ligne = la plus récente).
+        city.lastRecordedAt = toIso(row.recordedAt) ?? city.lastRecordedAt;
+      },
+      bucketInit: (row) => {
         const parsed = row.question ? parseWeatherQuestion(row.question) : null;
-        bucket = {
+        return {
           conditionId: row.conditionId,
           bucketComparison: row.bucketComparison,
           bucketTarget: row.bucketTarget,
@@ -657,18 +706,13 @@ export class WeatherAlgoDataService {
           unit: parsed?.unit ?? null,
           series: [],
         };
-        acc.bucketMap.set(row.conditionId, bucket);
-      }
-      bucket.series.push(point);
-    }
-
-    const cities = [...cityMap.values()]
-      .map((acc) => {
-        acc.city.buckets = [...acc.bucketMap.values()];
-        acc.city.bucketCount = acc.bucketMap.size;
-        return acc.city;
-      })
-      .sort((a, b) => a.cityNormalized.localeCompare(b.cityNormalized));
+      },
+      point: (row) => ({
+        recordedAt: toIso(row.recordedAt) ?? '',
+        price: row.price,
+        side: row.side,
+      }),
+    });
 
     return { dates: [{ targetDate: target, cities }] };
   }

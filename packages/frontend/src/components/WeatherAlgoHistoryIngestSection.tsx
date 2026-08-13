@@ -9,6 +9,7 @@ import {
   type WeatherHistoryIngestJob,
 } from '../api';
 import { CollapsibleSection } from './CollapsibleSection';
+import { FIDELITY_OPTIONS } from '../lib/fidelity-options';
 
 export interface WeatherAlgoHistoryIngestSectionProps {
   /** Extra city names from live discovery (merged with API list). */
@@ -16,14 +17,6 @@ export interface WeatherAlgoHistoryIngestSectionProps {
 }
 
 type PeriodPreset = 'yesterday' | '7d' | '30d' | 'custom';
-
-const FIDELITY_OPTIONS = [
-  { value: 1, label: '1 min' },
-  { value: 5, label: '5 min' },
-  { value: 15, label: '15 min' },
-  { value: 60, label: '1 h' },
-  { value: 1440, label: '1 j' },
-] as const;
 
 const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
   { value: 'yesterday', label: 'Hier' },

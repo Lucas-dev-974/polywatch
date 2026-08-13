@@ -16,12 +16,12 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 24 |
+| **applied** | 25 |
 | **partial** (racine) | 3 |
 | **not_implemented** (racine) | 3 |
 | **reference** | 7 |
 | **archived** | 5 |
-| **Total** | **42** |
+| **Total** | **43** |
 
 ---
 
@@ -55,6 +55,7 @@
 | [applied/2026-08-08_IMPL-weather-market-data-persistence.md](applied/2026-08-08_IMPL-weather-market-data-persistence.md) | Persistance snapshots/ticks/eval/forecast history + onglet Données / purge | `weather-algo-data.service.ts`, recorders, `WeatherAlgoDataTab.tsx`, migration `0100` |
 | [applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) | Patch audit backtest weather (B1–B9, F1–F6) → `engineVersion` 0.2.0 + follow-up R1–R3 (§7) | `exit-manager.ts`, `weather-adapter.ts`, `market-active.ts`, `WeatherAlgoBacktestTab.tsx` |
 | [applied/2026-08-13_PLAN-purge-dead-code-weather-algo.md](applied/2026-08-13_PLAN-purge-dead-code-weather-algo.md) | Partie 2 : purge dead code D1–D11 (8 suppressions + inline + D11 scopé ; D7/D12/D13 conservés) | `WeatherCityGroup.tsx` (suppr), `weather-grouping.ts` (suppr), `api.ts`, `clocked-weather-strategy.ts`, `backtest/src/index.ts`, `context-builder.ts`, `events.ts`, `question-builder.ts`, `strategy-catalog.ts`, `weather-algo-markets.ts`, `weather-auto-track.service.ts`, `auto-track-janitor.ts` (suppr), `index.ts` |
+| [applied/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md](applied/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md) | Partie 4 : refactors R1–R10 (R4 déjà fait via C2) — agrégateur timeline, split DataTab/BacktestTab, `EXIT_REASON_LABEL` typeorm-free, helpers routes, watched-table, formatters, `FIDELITY_OPTIONS`, split `evaluateExits` | `weather-algo-data.service.ts`, `weather-market-discovery.ts`, `query-params.ts`, `backtest-exit-reasons.ts`, `weather-adapter.ts`, `format.ts`, `fidelity-options.ts`, `Pagination.tsx`, `WeatherWatchedTable.tsx`, `WeatherAlgoDataTab.tsx`, `WeatherAlgoBacktestTab.tsx`, `vite.config.ts` |
 
 ---
 

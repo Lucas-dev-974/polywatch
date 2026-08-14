@@ -5,9 +5,33 @@ import {
   validateWeatherStrategyParamsUpdate,
   parseWeatherAlgoStrategies,
   WEATHER_FORECAST_STRATEGY_ID,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
+  WEATHER_STRATEGY_IDS,
+  isKnownWeatherStrategyId,
 } from './strategy-catalog.js';
 
 describe('strategy-catalog', () => {
+  it('registers weather-highest-yes in WEATHER_STRATEGY_IDS and isKnownWeatherStrategyId', () => {
+    expect(WEATHER_STRATEGY_IDS).toContain(WEATHER_HIGHEST_YES_STRATEGY_ID);
+    expect(isKnownWeatherStrategyId(WEATHER_HIGHEST_YES_STRATEGY_ID)).toBe(true);
+  });
+
+  it('getStrategyParams returns minYesPrice default for highest-yes', () => {
+    const params = getStrategyParams({}, WEATHER_HIGHEST_YES_STRATEGY_ID);
+    expect(params.minYesPrice).toBe(0.5);
+  });
+
+  it('getStrategyParams overlays stored minYesPrice for highest-yes', () => {
+    const params = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          [WEATHER_HIGHEST_YES_STRATEGY_ID]: { minYesPrice: 0.7 },
+        }),
+      },
+      WEATHER_HIGHEST_YES_STRATEGY_ID,
+    );
+    expect(params.minYesPrice).toBe(0.7);
+  });
   it('parseWeatherAlgoStrategies falls back to default on invalid JSON', () => {
     expect(parseWeatherAlgoStrategies('not-json')).toEqual([WEATHER_FORECAST_STRATEGY_ID]);
   });

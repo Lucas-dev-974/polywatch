@@ -159,7 +159,8 @@ l'idempotence. `eventType` dans `OPENED|INCREASED|DECREASED|CLOSED`,
 Coeur du domaine. Champs notables :
 - Identite : `watchlistId`, `conditionId`, `assetId`, `outcome`, `side`, `mode`,
   `strategyId` (weather-algo uniquement, nullable — backfill `'weather-forecast'`
-  pour legacy ; index `IDX_copied_positions_strategy_id`).
+  pour legacy ; index `IDX_copied_positions_strategy_id`). Les positions issues
+  de `weather-highest-yes` portent leur propre `strategyId` (`weather-highest-yes`).
 - Entree : `quantity`, `entryPrice`, `entryBidVwap`, `entryFees`,
   `entryQuantityRemaining`, `entryFeesRemaining`.
 - Valorisation : `executableBidVwap`, `unrealizedPnl`, `realizedPnl`,

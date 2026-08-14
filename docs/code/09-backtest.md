@@ -19,7 +19,7 @@ packages/backtest/src/
 │       ├── weather-adapter.ts     orchestration entrées/sorties (+ kill-switch, lifecycle)
 │       ├── context-builder.ts     MarketListItemDto + ForecastRevisionStore
 │       ├── question-builder.ts    synthèse question (entiers °C) pour parseWeatherQuestion
-│       ├── resolution.ts          résolution par proxy forecast
+│       ├── resolution.ts          résolution par proxy forecast ; `weather-highest-yes` par prix YES final ; `weather-highest-yes` par prix YES final ; `weather-highest-yes` par prix YES final ; `weather-highest-yes` par prix YES final
 │       ├── clocked-weather-strategy.ts  factory createWeatherStrategy + clock
 │       ├── runner-sim.ts                mode runner-sim (proche live)
 │       └── weather-adapter.test.ts
@@ -88,7 +88,8 @@ Pagination : chunks de 5000, `ORDER BY <timestamp> ASC, id ASC`, curseur
 `(lastAt, lastId)` via `applyTimeIdCursor`. **Ne jamais paginer par `id` seul**.
 
 En replay : filtre SQL `decision = 'signal'` et `strategyId = params.strategyId`
-(défaut `weather-forecast`).
+(défaut `weather-forecast`). En `reevaluate`, `strategyId` peut être n'importe
+quel ID du catalogue (dont `weather-highest-yes`, instancié sans forecast).
 
 Les streams sont fusionnés par `mergeEventStreams` avant consommation par le runner.
 
@@ -118,10 +119,15 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
 - À l’entrée : `resolveWeatherEntryExitParams` → `meta.slBidPoints` / `tp*` / `trailing*`.
 - **Sorties** : évaluées pour **toutes** les positions ouvertes à chaque
   `book_tick`, via `lastTickByCondition` (+ `at` pour warning `exit_stale_tick`).
+  `evaluateExits` n'opère **pas de distinction de stratégie** : drift/bucket-exit
+  sont appliqués à `weather-highest-yes` aussi (divergence avec le live, où ils
+  sont désactivés).
 - Résolution sans `endDate` : fallback
   `new Date(\`${targetDateIso}T23:59:59Z\`) + 24h`
   (`resolution_no_endate_fallback`). Si forecast absent →
-  `resolution_no_forecast` (position laissée ouverte).
+  `resolution_no_forecast` (position laissée ouverte) — **sauf** pour
+  `weather-highest-yes`, résolu via le prix YES final (`yesPrice > 0.5` → YES,
+  warnings `resolution_no_yes_price` / `resolution_proxy_yes_price`).
 
 ### `index.ts` — `configOverrides`
 `runBacktest` fusionne `params.configOverrides` (`z.record(z.unknown())`, shallow
@@ -134,8 +140,8 @@ néanmoins `configSnapshotJson` / fingerprint **avant** overrides (config live).
 | Raison | Condition | Throttle re-entry |
 |--------|-----------|-------------------|
 | `WEATHER_PRE_CLOSE` | `hoursToEnd <= closeBeforeResolutionHours` (prioritaire) | Non |
-| `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > threshold` | **Oui** |
-| `WEATHER_BUCKET_EXIT` | hors palier + `close_and_reenter` après `hysteresisPolls` avancées espacées de `weatherAlgoPollMs` | **Oui** |
+| `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > threshold` | **Oui** — *non applicable à `weather-highest-yes` en live (évalué en backtest)* |
+| `WEATHER_BUCKET_EXIT` | hors palier + `close_and_reenter` après `hysteresisPolls` avancées espacées de `weatherAlgoPollMs` | **Oui** — *non applicable à `weather-highest-yes` en live (évalué en backtest)* |
 | `SL` / `TP` / `TRAILING` | seuils résolus à l’entrée (`meta.*BidPoints`) ; `peakBid` pour trailing | Non |
 | `KILL_SWITCH` | géré dans l’adapter (daily loss + `force_close_all`) | Non |
 | `RESOLUTION` | marché résolu (adapter, pas ExitManager) | Non |
@@ -156,7 +162,8 @@ néanmoins `configSnapshotJson` / fingerprint **avant** overrides (config live).
 
 `@polywatch/core` (entités, services, fees, `resolveWeatherEntryExitParams`,
 `isMarketActiveForWeather`), `@polywatch/weather-algo`
-(`WeatherForecastStrategy` via `public-api.ts`). Le live ne dépend jamais du backtest.
+(`WeatherForecastStrategy`, `WeatherHighestYesStrategy` via `public-api.ts`).
+Le live ne dépend jamais du backtest.
 
 ## 7. Tests
 

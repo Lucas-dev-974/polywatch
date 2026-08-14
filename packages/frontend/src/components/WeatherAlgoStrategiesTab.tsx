@@ -25,7 +25,7 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
   {
     id: 'entry',
     title: 'Entrée',
-    keys: ['minEdge', 'maxForecastStd', 'minForecastProbability', 'entryUsdc', 'sizingMode'],
+    keys: ['minEdge', 'maxForecastStd', 'minForecastProbability', 'minYesPrice', 'entryUsdc', 'sizingMode'],
   },
   {
     id: 'exit',

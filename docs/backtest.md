@@ -3,7 +3,8 @@
 Module de **backtest historique** pour la stratégie météo (`weather-algo`) : rejoue
 les données persistées (`weather_forecast_history`, `weather_market_snapshots`,
 `weather_bucket_ticks`, `weather_evaluation_log`) sur une **horloge virtuelle**
-déterministe, réutilise la logique métier live (`WeatherForecastStrategy`), et
+déterministe, réutilise la logique métier live (stratégie du catalogue via
+`createWeatherStrategy`, dont `weather-highest-yes` sans forecast), et
 produit positions, equity, statistiques et avertissements de fidélité.
 
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
@@ -87,9 +88,11 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `kill_switch_block_entries` | Kill-switch actif sans force-close — entrées bloquées |
 | `exit_stale_tick` | Sortie évaluée avec un tick plus vieux que `pollMs` |
 | `no_events_in_range` | Aucune donnée sur la plage demandée |
-| `resolution_proxy_forecast` | Résolution approximée via forecast (pas température observée) |
+| `resolution_proxy_forecast` | Résolution approximée via forecast (pas température observée) — stratégies forecast |
 | `resolution_no_endate_fallback` | `endDate` absent → fallback `targetDateIso T23:59:59Z + 24h` |
-| `resolution_no_forecast` | Résolution impossible sans forecast — position laissée ouverte |
+| `resolution_no_forecast` | Résolution impossible sans forecast — position laissée ouverte (**sauf** `weather-highest-yes`) |
+| `resolution_proxy_yes_price` | Résolution `weather-highest-yes` approximée par le prix YES final (`yesPrice > 0.5` → YES) |
+| `resolution_no_yes_price` | Résolution `weather-highest-yes` impossible sans prix YES — position laissée ouverte |
 | `resolution_invalid_date` | Date de résolution invalide — skip |
 | `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
 
@@ -105,7 +108,7 @@ one-thesis-per-city, throttle re-entry **uniquement** après
 
 | Mode | Comportement | Usage |
 |------|--------------|-------|
-| `reevaluate` | À chaque `book_tick` : reconstruit le contexte marché + forecast as-of et appelle `WeatherForecastStrategy.evaluate` → décide l'entrée | Tester une stratégie sur données passées |
+| `reevaluate` | À chaque `book_tick` : reconstruit le contexte marché + forecast as-of et appelle la stratégie du catalogue (`createWeatherStrategy(strategyId)`) pour décider l'entrée. Pour `weather-highest-yes`, il n'y a **pas** de forecast as-of : l'évaluation repose sur le prix YES courant. | Tester une stratégie sur données passées |
 | `replay` | Entre sur chaque décision `signal` déjà enregistrée dans `weather_evaluation_log` (pas de re-stratégie) | Simuler l'exécution des décisions passées |
 
 **Filtre par intervalle (`fidelityMinutes`)** : paramètre **optionnel** transmis au
@@ -122,6 +125,14 @@ résolution) sont évaluées en mémoire à chaque `book_tick` pour **toutes** l
 positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 `conditionId` du tick courant). En `reevaluate`, les entrées passent par
 `isMarketActiveForWeather` avant l’appel stratégie.
+
+> **Divergence live ↔ backtest (`weather-highest-yes`)** : en **live**, drift
+> (`WEATHER_FORECAST_CHANGE`) et bucket-exit (`WEATHER_BUCKET_EXIT`) sont
+> **désactivés** pour `weather-highest-yes`. En **backtest**, `evaluateExits`
+> (`weather-adapter.ts`) et `exit-manager.ts` n'opèrent **aucune distinction**
+> de stratégie : ces deux sorties sont évaluées pour **toutes** les positions.
+> Une position `highest-yes` backtestée avec un forecast présent en base peut
+> donc être fermée par drift/bucket avant résolution.
 
 ---
 
@@ -150,7 +161,7 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 | `question-builder.ts` | Synthèse question Polymarket (targets arrondis entiers) pour la stratégie |
 | `clocked-weather-strategy.ts` | Factory `createWeatherStrategy(strategyId)` + wrapper clock |
 | `runner-sim.ts` | Simulation runner live (groupes buckets, dedup, selectionMode) |
-| `resolution.ts` | Résolution par proxy forecast (moyenne dans le bucket → YES/NO) |
+| `resolution.ts` | Résolution par proxy forecast (moyenne dans le bucket → YES/NO) ; `weather-highest-yes` résolu via le prix YES final |
 | `weather-adapter.ts` | Entrées/sorties, filtre lifecycle, kill-switch, résolution |
 
 ### 3.3 Point d'entrée (`src/index.ts`)
@@ -197,8 +208,8 @@ Paramètres lus depuis le bag per-strategy
 | Raison | Déclencheur |
 |--------|-------------|
 | `WEATHER_PRE_CLOSE` | `hoursToEnd <= bag.closeBeforeResolutionHours` (prioritaire) — **pas** de throttle re-entry |
-| `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > bag.forecastChangeThreshold` — **pose** le throttle |
-| `WEATHER_BUCKET_EXIT` | Forecast hors palier + `bag.cityFollowSwitchMode = close_and_reenter` après `bag.bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle |
+| `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > bag.forecastChangeThreshold` — **pose** le throttle — **non applicable à `weather-highest-yes` en live (évalué en backtest)** |
+| `WEATHER_BUCKET_EXIT` | Forecast hors palier + `bag.cityFollowSwitchMode = close_and_reenter` après `bag.bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle — **non applicable à `weather-highest-yes` en live (évalué en backtest)** |
 | `SL` / `TP` / `TRAILING` | Seuils résolus à l’entrée via `resolveWeatherEntryExitParams(risk, mode, interval, strategyId)` (défauts `WEATHER_EXIT_DEFAULTS` si bidPoints null) — **pas** de confirmation ticks, **pas** de throttle |
 | `KILL_SWITCH` | `dailyPnl(strategyId) <= -bag.maxDailyLossUsdc` et `bag.killSwitchAction === 'force_close_all'` — ferme uniquement les positions de la stratégie |
 | `RESOLUTION` | Marché résolu (`endDate` passé, ou fallback `targetDateIso T23:59:59Z + 24h` si `endDate` absent) |

@@ -160,7 +160,7 @@ rejette les champs per-strategy via `.strict()`.
 | `weatherAlgoSelectionMode` | `single` | Mode de selection entre **villes** : `single` (meilleure ville), `multi` (top N villes). Toute valeur non reconnue retombe sur `single`. |
 | `weatherAlgoMaxSignalsPerEvent` | `3` | Max villes en mode `multi` |
 | `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min, min 10_000). Les polls sont **alignés sur une grille horaire UTC** : chaque cycle est planifié sur le prochain multiple de `weatherAlgoPollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de démarrage (ex. 15 min → :00/:15/:30/:45 UTC), stable d'un redémarrage à l'autre. Au boot, une **passe d'exit immédiate** réévalue les positions ouvertes (reprise) mais aucun cycle d'entrée n'est déclenché : le premier cycle complet se fait au prochain créneau aligné. Hot-reload : le timer est recréé à chaud et ré-aligné sur le prochain créneau ; un cycle d'évaluation **immédiat** est quand même lancé sur `config-changed` (`kind` weather/global/absent) pour appliquer la nouvelle config sans attendre. Anti-overlap + pendingRerun si un cycle est déjà en cours. Surcharge aussi via env `WEATHER_ALGO_POLL_MS` au démarrage. |
-| `weatherAlgoStrategies` | `["weather-forecast"]` | Liste des stratégies activées (IDs catalogue). Ordre = priorité first-wins. |
+| `weatherAlgoStrategies` | `["weather-forecast"]` | Liste des stratégies activées (IDs catalogue : `weather-forecast`, `weather-forecast-aligned`, `weather-highest-yes`). Ordre = priorité first-wins. |
 | `weatherAlgoForecastHistoryRecordingEnabled` | `true` | Enregistre `weather_forecast_history` a chaque fetch Open-Meteo reel |
 | `weatherAlgoMarketSnapshotRecordingEnabled` | `true` | Enregistre snapshots + bucket ticks a chaque cycle |
 | `weatherAlgoEvaluationLogRecordingEnabled` | `true` | Enregistre le journal d'evaluation (signal/abstain) |
@@ -185,6 +185,7 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `minEdge` | `0.10` | Edge de base (forecast prob - market price) ; seuil effectif dynamique (`resolveDynamicMinEdge`) |
 | `maxForecastStd` | `null` | Std dev max des modeles (°C, null = illimite) |
 | `minForecastProbability` | `null` | Probabilité forecast min (null = illimité) |
+| `minYesPrice` | `0.5` | Prix YES minimal pour entrer — **stratégie `weather-highest-yes` uniquement** (seuil de consensus) |
 | `sizingMode` | `fixed_usdc` | Mode de sizing (`fixed_usdc` uniquement) |
 | `entryUsdc` | `10` | Montant fixe d'entree USDC |
 | `entryDepthRetryMax` | `3` | Retries profondeur ask insuffisante |
@@ -214,6 +215,13 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `allowedMarketTags` | `[]` | Whitelist de slugs Gamma (vide = tous) |
 | `signalScoreSizingEnabled` | `true` | Ajuste la taille d'entree selon le score de qualité du signal |
 | `minBidToAskRatio` | `0.9` | Ratio bid/ask VWAP minimum pour autoriser une entree |
+
+> **`weather-highest-yes` (sans forecast)** : les knobs forecast sont **inopérants**
+> pour cette stratégie — `minEdge`, `maxForecastStd`, `minForecastProbability`
+> (gates d'entrée), ainsi que `forecastChangeThreshold` et
+> `bucketHysteresisPolls` (drift/bucket-exit désactivés en live). Seule la
+> gate `minYesPrice` s'applique à l'entrée ; pre-close et SL/TP/trailing
+> restent actifs.
 
 UI : onglet **Paramètres** (globaux) + onglet **Stratégies** (activation +
 params per-strategy) + onglet **Donnees** (exploration/purge). Voir

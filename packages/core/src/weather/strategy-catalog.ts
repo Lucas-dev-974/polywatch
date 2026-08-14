@@ -2,10 +2,12 @@ import type { WeatherConfig } from '../entities/WeatherConfig.js';
 
 export const WEATHER_FORECAST_STRATEGY_ID = 'weather-forecast' as const;
 export const WEATHER_FORECAST_ALIGNED_STRATEGY_ID = 'weather-forecast-aligned' as const;
+export const WEATHER_HIGHEST_YES_STRATEGY_ID = 'weather-highest-yes' as const;
 
 export const WEATHER_STRATEGY_IDS = [
   WEATHER_FORECAST_STRATEGY_ID,
   WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
 ] as const;
 
 export type WeatherStrategyId = (typeof WEATHER_STRATEGY_IDS)[number];
@@ -49,6 +51,8 @@ export type WeatherStrategyParamsBag = {
   maxForecastStd: number | null;
   /** Min forecast-implied YES probability; null disables the filter. */
   minForecastProbability: number | null;
+  /** Min YES market price required to emit a signal (highest-yes strategy). */
+  minYesPrice: number;
   // ── Sizing ─────────────────────────────────────────────────────────
   /** Fixed entry notional (USDC). */
   entryUsdc: number;
@@ -104,6 +108,7 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   minEdge: 0.1,
   maxForecastStd: null,
   minForecastProbability: null,
+  minYesPrice: 0.5,
   entryUsdc: 10,
   sizingMode: 'fixed_usdc',
   forecastChangeThreshold: 2,
@@ -197,6 +202,47 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
   ];
 }
 
+/**
+ * UI schemas for the highest-yes strategy (no forecast). Reuses the shared
+ * sizing / exit / risk / SL-TP / kill-switch / pre-close knobs but replaces
+ * the forecast entry gates with a single `minYesPrice` consensus threshold.
+ */
+function highestYesParamsSchemas(): StrategyParamSchema[] {
+  return [
+    // Entry gate
+    { key: 'minYesPrice', label: 'Prix YES minimal', kind: 'number', min: 0.01, max: 1, step: 0.01, default: 0.5, hint: 'Seuil de consensus : n’entre que si le prix YES du bucket est >= ce seuil.' },
+    // Sizing
+    { key: 'entryUsdc', label: 'Taille d’entrée (USDC)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
+    // Exit
+    { key: 'closeBeforeResolutionHours', label: 'Fermeture avant résolution (h)', kind: 'number', min: 0.5, max: 168, step: 0.5, default: 1 },
+    // SL / TP / Trailing
+    { key: 'slEnabled', label: 'Stop-loss actif', kind: 'boolean', default: true },
+    { key: 'tpEnabled', label: 'Take-profit actif', kind: 'boolean', default: true },
+    { key: 'trailingEnabled', label: 'Trailing actif', kind: 'boolean', default: true },
+    { key: 'slBidPoints', label: 'SL (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'tpBidPoints', label: 'TP (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'trailingBidPoints', label: 'Trailing (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'trailingActivationBidPoints', label: 'Trailing activation (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    // Risk limits
+    { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
+    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 100, default: 1000 },
+    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 100 },
+    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 200 },
+    // Depth retry / confirmation
+    { key: 'entryDepthRetryMax', label: 'Retries profondeur', kind: 'number', min: 0, max: 10, step: 1, default: 3 },
+    { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },
+    { key: 'slCloseMaxRetries', label: 'Retries fermeture SL', kind: 'number', min: 0, max: 20, step: 1, default: 5 },
+    { key: 'slConfirmationTicks', label: 'Confirmation SL (ticks)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
+    // Kill switch
+    { key: 'killSwitchAction', label: 'Action kill-switch', kind: 'select', options: KILL_SWITCH_OPTIONS, default: 'block_entries' },
+    // Pre-close
+    { key: 'preCloseEnabled', label: 'Pre-close actif', kind: 'boolean', default: true },
+    { key: 'preCloseSeconds', label: 'Pre-close (secondes)', kind: 'number', min: 0, max: 86_400, step: 30, default: 60 },
+    // Misc
+    { key: 'signalScoreSizingEnabled', label: 'Sizing par score de signal', kind: 'boolean', default: true },
+  ];
+}
+
 export const WEATHER_STRATEGY_CATALOG: WeatherStrategyMeta[] = [
   {
     id: WEATHER_FORECAST_STRATEGY_ID,
@@ -213,6 +259,14 @@ export const WEATHER_STRATEGY_CATALOG: WeatherStrategyMeta[] = [
       'Choisit le palier dont la fourchette contient le forecast mean (selectForecastAlignedBucket), puis applique les gates edge.',
     supportsGroup: true,
     params: sharedParamsSchemas(),
+  },
+  {
+    id: WEATHER_HIGHEST_YES_STRATEGY_ID,
+    label: 'Highest YES (consensus)',
+    description:
+      'Sélectionne le palier au prix YES le plus élevé (consensus marché). Tient jusqu’à résolution, sans forecast.',
+    supportsGroup: true,
+    params: highestYesParamsSchemas(),
   },
 ];
 

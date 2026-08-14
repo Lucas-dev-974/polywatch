@@ -3,6 +3,7 @@ import {
   type WeatherConfig,
   isMarketActiveForWeather,
   resolveEnabledWeatherStrategies,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
 } from '@polywatch/core';
 import type { WeatherSignal } from '@polywatch/weather-algo';
@@ -86,7 +87,16 @@ export async function evaluateRunnerSimGroup(
 ): Promise<WeatherSignal | null> {
   if (activeMarkets.length === 0) return null;
 
+  // forecast-dependent strategies must abstain when the forecast is a null
+  // placeholder (0/0). stdDev=0 makes normalCDF a step function and would
+  // produce phantom signals with edge≈1 on low-target `or_below` buckets,
+  // shadowing highest-yes (edge=0).
+  const forecastAvailable = ctx.forecastMean !== 0 || ctx.forecastStdDev !== 0;
+
   for (const strategy of strategies) {
+    if (!forecastAvailable && strategy.id !== WEATHER_HIGHEST_YES_STRATEGY_ID) {
+      continue;
+    }
     let result;
     if (strategy.evaluateGroup) {
       result = await strategy.evaluateGroup(activeMarkets, ctx, now);

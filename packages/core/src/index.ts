@@ -339,6 +339,7 @@ export {
   WEATHER_STRATEGY_IDS,
   WEATHER_FORECAST_STRATEGY_ID,
   WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
   parseWeatherAlgoStrategies,
   parseWeatherAlgoStrategyParams,
   serializeWeatherAlgoStrategies,

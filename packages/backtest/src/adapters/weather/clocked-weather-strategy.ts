@@ -7,10 +7,12 @@ import type {
 import {
   WeatherForecastStrategy,
   WeatherForecastAlignedStrategy,
+  WeatherHighestYesStrategy,
 } from '@polywatch/weather-algo';
 import {
   WEATHER_FORECAST_STRATEGY_ID,
   WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
 } from '@polywatch/core';
 
@@ -60,6 +62,8 @@ export function createWeatherStrategy(strategyId: WeatherStrategyId): ClockedWea
   switch (strategyId) {
     case WEATHER_FORECAST_ALIGNED_STRATEGY_ID:
       return new ClockedWeatherStrategy(new WeatherForecastAlignedStrategy());
+    case WEATHER_HIGHEST_YES_STRATEGY_ID:
+      return new ClockedWeatherStrategy(new WeatherHighestYesStrategy());
     case WEATHER_FORECAST_STRATEGY_ID:
     default:
       return new ClockedWeatherStrategy(new WeatherForecastStrategy());

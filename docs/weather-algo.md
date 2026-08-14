@@ -1,8 +1,9 @@
 # Package `@polywatch/weather-algo` — Trading algorithmique météo
 
 Module d'automatisation pour les marchés **température** Polymarket : sélection
-par **ville**, prévisions Open-Meteo multi-modèles, BUY YES sur le palier choisi
-par la stratégie active (best-edge ou aligned), sorties drift / bucket / pre-close.
+par **ville**, prévisions Open-Meteo multi-modèles (stratégies forecast) ou
+**consensus marché** (stratégie `weather-highest-yes`, sans forecast), BUY YES
+sur le palier choisi par la stratégie active, sorties drift / bucket / pre-close.
 
 ---
 
@@ -65,11 +66,16 @@ stratégie active choisit son bucket via `evaluateGroup` :
 - **`weather-forecast`** (défaut live) : `pickBestEdgeBucket` — palier à plus
   grand edge YES parmi les buckets actifs ;
 - **`weather-forecast-aligned`** : `selectForecastAlignedBucket` — palier dont
-  la fourchette contient le forecast mean.
+  la fourchette contient le forecast mean ;
+- **`weather-highest-yes`** : bucket au **prix YES le plus élevé**
+  (`yesPrice` ≥ `bag.minYesPrice`, défaut `0.5`) — consensus marché, **sans
+  forecast** ; le signal porte `edge=0` et `confidence = min(1, yesPrice)`.
 
-Puis **BUY YES uniquement** si l'edge dépasse le seuil dynamique. Plusieurs
-stratégies peuvent être activées (ordre catalogue = priorité first-wins). Modes
-`single` / `multi` entre **villes** (`spread` ignoré → traité comme `single`).
+Puis **BUY YES uniquement** si l'edge dépasse le seuil dynamique (stratégies
+forecast) **ou**, pour `weather-highest-yes`, si le prix YES atteint le seuil
+`minYesPrice`. Plusieurs stratégies peuvent être activées (ordre catalogue =
+priorité first-wins). Modes `single` / `multi` entre **villes** (`spread`
+ignoré → traité comme `single`).
 
 **UI** : onglet **Stratégies** (checkboxes d'activation ; priorité first-wins =
 ordre du catalogue, pas l'ordre de cochage). Params JSON
@@ -91,9 +97,15 @@ valeur `0` stockée est coercée à `null` au runtime par `getStrategyParams`.
 `snapshot.strategyId ?? pos.strategyId` ; legacy `null` → fallback
 `resolveEnabledWeatherStrategies(risk)[0] ?? 'weather-forecast'`) :
 - `WEATHER_PRE_CLOSE` (pré-clôture) si `hoursToEnd <= bag.closeBeforeResolutionHours` (prioritaire)
-- `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > bag.forecastChangeThreshold`
-- `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `bag.cityFollowSwitchMode = close_and_reenter` **après** `bag.bucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave
+- `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > bag.forecastChangeThreshold` — **non évaluée pour `weather-highest-yes`**
+- `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `bag.cityFollowSwitchMode = close_and_reenter` **après** `bag.bucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave — **non évaluée pour `weather-highest-yes`**
 - Après close bucket/drift : throttle Redis `weather-reentry:{city}:{mode}` pendant `bag.reentryThrottleMs`
+
+> **`weather-highest-yes`** (sans forecast) : drift (`WEATHER_FORECAST_CHANGE`)
+> et bucket-exit (`WEATHER_BUCKET_EXIT`) sont **désactivés** — la position est
+> tenue jusqu'à résolution. Seuls `WEATHER_PRE_CLOSE` et SL/TP/trailing
+> (worker) s'appliquent. L'exit evaluator skip le fetch forecast pour cette
+> stratégie (évite une fermeture fantôme via `entryForecastMean=0`).
 
 **Kill-switch** : le `bag.killSwitchAction` (`block_entries` | `force_close_all` |
 `block_and_notify`) est évalué **par stratégie** — le PnL journalière est
@@ -116,6 +128,7 @@ Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept 
 |----------|------|
 | Sélection par ville | Actif |
 | BUY YES sur bucket forecast | Actif |
+| BUY YES sur bucket au prix YES max (consensus, sans forecast) | Actif |
 | 1 position max par ville (`pending`/`open`/`closing`) | Actif |
 | Sorties avant entrées (même cycle) | Actif |
 | Close drift forecast | Actif |

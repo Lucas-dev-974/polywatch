@@ -5,7 +5,8 @@ Couche de trading algorithmique sur marchés **température** Polymarket. Sélec
 Open-Meteo → edge YES → pipeline d'entrée (`weather-order-signals`) et sorties
 dédiées (`close-signals`).
 
-> État : **multi-stratégies** (`weather-forecast` + `weather-forecast-aligned`).
+> État : **multi-stratégies** (`weather-forecast` + `weather-forecast-aligned` +
+> `weather-highest-yes`).
 > Catalogue + filtres JSON dans `WeatherConfig.weatherAlgoStrategies`. Config runtime =
 > entité **`WeatherConfig`** (`weather_config`), **pas** `RiskConfig` (purgé).
 > Doc produit synthétique : [`../weather-algo.md`](../weather-algo.md).
@@ -25,6 +26,7 @@ dédiées (`close-signals`).
 | `strategy/registry.ts` | Registre ; `getOrdered(enabledIds)` selon catalogue core |
 | `strategy/weather-forecast.strategy.ts` | Best-edge BUY YES (`evaluateGroup` + `pickBestEdgeBucket`) |
 | `strategy/weather-forecast-aligned.strategy.ts` | Bucket aligné forecast (`selectForecastAlignedBucket`) |
+| `strategy/weather-highest-yes.strategy.ts` | Bucket au prix YES max (consensus marché, sans forecast) |
 | `strategy/evaluate-bucket-gate.ts` | Gates edge/probabilité partagés |
 | `strategy/bucket-selection.ts` | `pickBestEdgeBucket`, `bucketCentre` |
 | `strategy/strategy-runner-selection.ts` | `dedupSignalsByCity`, `applySelectionMode` |
@@ -103,13 +105,22 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
 |---|---|---|
 | `weather-forecast` | `pickBestEdgeBucket` (max edge YES) | oui |
 | `weather-forecast-aligned` | `selectForecastAlignedBucket` | non |
+| `weather-highest-yes` | bucket au max `yesPrice` (≥ `bag.minYesPrice`) | non |
 
 - **BUY YES uniquement** (même si le type autorise NO).
-- Edge = `forecastYesProb − marketYesPrice` (`core` `weather-edge.ts`).
-- Seuil dynamique : `resolveDynamicMinEdge(stdDev, hoursToResolution, minEdge)`.
+- Edge = `forecastYesProb − marketYesPrice` (`core` `weather-edge.ts`) — pour
+  `weather-highest-yes`, `edge=0` (pas de forecast) : le signal porte
+  `confidence = min(1, yesPrice)` et `marketPrice = yesPrice`.
+- Seuil dynamique : `resolveDynamicMinEdge(stdDev, hoursToResolution, minEdge)`
+  (stratégies forecast uniquement).
+- **Forecast optionnel** : `weather-highest-yes` s'évalue **sans** forecast. Si
+  le forecast est indisponible dans le runner, les stratégies forecast
+  s'abstiennent (`forecast_unavailable`) et seule `weather-highest-yes` est
+  évaluée (ctx placeholder).
 - **Tunables per-strategy** : `bag.minEdge`, `bag.maxForecastStd`,
-  `bag.minForecastProbability` (lus via `getStrategyParams(weatherCfg,
-  strategyId)`). Les colonnes `weatherAlgoMinEdge` / `maxForecastStd` /
+  `bag.minForecastProbability` (stratégies forecast) + `bag.minYesPrice`
+  (`weather-highest-yes`), lus via `getStrategyParams(weatherCfg,
+  strategyId)`. Les colonnes `weatherAlgoMinEdge` / `maxForecastStd` /
   `minForecastProbability` ne sont plus lues au runtime — elles servent
   uniquement de source au backfill (migrations `0107`/`0108`).
 - Knobs nullables (`maxForecastStd`, `minForecastProbability`,
@@ -119,7 +130,8 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
 - Abstentions typiques : `no_question`, `unrecognized_question`,
   `zero_forecast_probability`, `forecast_probability_below_min`,
   `forecast_too_uncertain`, `no_market_prices`, `insufficient_edge`,
-  `missing_token`, `no_aligned_bucket`.
+  `missing_token`, `no_aligned_bucket`, `yes_price_below_min`,
+  `no_high_yes_bucket`.
 
 Modes `single` / `multi` : appliqués dans le **runner**
 (`applySelectionMode` / `dedupSignalsByCity`), pas dans la stratégie.
@@ -167,11 +179,18 @@ Priorité :
 
 1. `WEATHER_PRE_CLOSE` — `hoursToEnd ≤ bag.closeBeforeResolutionHours`
 2. `WEATHER_FORECAST_CHANGE` — `|mean_now − mean_entry| >
-   bag.forecastChangeThreshold`
+   bag.forecastChangeThreshold` — **non évaluée pour `weather-highest-yes`**
 3. `WEATHER_BUCKET_EXIT` — forecast hors palier **et** hysteresis
    (`bag.bucketHysteresisPolls`) **et** mode
    `bag.cityFollowSwitchMode = close_and_reenter` (`hold` = pas de close
-   bucket ; `add_position` coercé → `close_and_reenter`)
+   bucket ; `add_position` coercé → `close_and_reenter`) — **non évaluée pour
+   `weather-highest-yes`**
+
+> **`weather-highest-yes`** (sans forecast) : drift + bucket-exit désactivés.
+> La position est tenue jusqu'à résolution — seuls pre-close
+> (`WEATHER_PRE_CLOSE`) et SL/TP/trailing (worker) s'appliquent. L'exit
+> evaluator skip le fetch forecast pour cette stratégie (évite une fermeture
+> fantôme via `entryForecastMean=0`).
 
 Redis :
 
@@ -196,7 +215,7 @@ pas dans ce package) : `bag.slBidPoints` / `bag.tpBidPoints` /
 |---|---|
 | Watchlist sentinelle + seed | Adresse `'weather-algo'` |
 | Redis ×3, heartbeat, runtime-status | TTL status 300 s ; pas de `wsConnected` |
-| Registry + stratégies catalogue | `weather-forecast` + `weather-forecast-aligned` |
+| Registry + stratégies catalogue | `weather-forecast` + `weather-forecast-aligned` + `weather-highest-yes` |
 | Entry pipeline sizing/MOS/reserve | File `weather-order-signals`, reason `WEATHER_OPEN` |
 | `config-changed` reload | Ignore kinds copy/crypto ; `WeatherConfig` |
 | — | Exit evaluator **in-package** (crypto délègue SL/TP au worker) |

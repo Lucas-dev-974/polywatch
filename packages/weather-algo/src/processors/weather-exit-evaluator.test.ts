@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
     buildCloseOrderSignal: vi.fn(() => ({ id: 'close-signal-1' })),
     resolveEnabledWeatherStrategies: vi.fn(() => ['weather-forecast']),
     WEATHER_FORECAST_STRATEGY_ID: 'weather-forecast',
+    WEATHER_HIGHEST_YES_STRATEGY_ID: 'weather-highest-yes',
     getStrategyParams: vi.fn(() => ({
       minEdge: null,
       maxForecastStd: null,
@@ -50,6 +51,7 @@ vi.mock('@polywatch/core', () => ({
   buildCloseOrderSignal: mocks.buildCloseOrderSignal,
   resolveEnabledWeatherStrategies: mocks.resolveEnabledWeatherStrategies,
   WEATHER_FORECAST_STRATEGY_ID: mocks.WEATHER_FORECAST_STRATEGY_ID,
+  WEATHER_HIGHEST_YES_STRATEGY_ID: mocks.WEATHER_HIGHEST_YES_STRATEGY_ID,
   getStrategyParams: mocks.getStrategyParams,
   isWeatherMetric: mocks.isWeatherMetric,
 }));
@@ -87,7 +89,7 @@ function basePos(overrides: Partial<CopiedPosition> = {}): CopiedPosition {
 
 function buildEvaluator(overrides: {
   positions?: CopiedPosition[];
-  snapshot?: { city: string; targetDate: Date; metric: string; entryForecastMean: number; entryBucketComparison: string | null; entryBucketBounds: string | null } | null;
+  snapshot?: { city: string; targetDate: Date; metric: string; entryForecastMean: number; entryBucketComparison: string | null; entryBucketBounds: string | null; strategyId?: string | null } | null;
   forecastMean?: number;
   marketEndDate?: Date | null;
   bidVwap?: number;
@@ -313,5 +315,46 @@ describe('WeatherExitEvaluator', () => {
     (forecastService.getOrFetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
     await evaluator.evaluateOpenPositions();
     expect(closeQueue.enqueueUnique).not.toHaveBeenCalled();
+  });
+
+  it('highest-yes: skips drift and bucket-exit, never fetches forecast, no close', async () => {
+    mocks.shouldCloseBeforeResolution.mockReturnValueOnce(false);
+    const { evaluator, closeQueue, forecastService } = buildEvaluator({
+      snapshot: {
+        city: 'Paris',
+        targetDate: new Date('2026-08-02T12:00:00Z'),
+        metric: 'highest_temp',
+        entryForecastMean: 0,
+        entryBucketComparison: 'exact',
+        entryBucketBounds: JSON.stringify({ target: 33 }),
+        strategyId: 'weather-highest-yes',
+      },
+    });
+    await evaluator.evaluateOpenPositions();
+    // No drift / bucket-exit close for highest-yes.
+    expect(closeQueue.enqueueUnique).not.toHaveBeenCalled();
+    // The forecast must not be fetched (no forecast dependency).
+    expect(forecastService.getOrFetch).not.toHaveBeenCalled();
+    // Drift / bucket-exit helpers must not be consulted.
+    expect(mocks.shouldCloseForForecastDrift).not.toHaveBeenCalled();
+    expect(mocks.shouldCloseForBucketExit).not.toHaveBeenCalled();
+  });
+
+  it('highest-yes: still enqueues WEATHER_PRE_CLOSE when closeBeforeResolutionHours reached', async () => {
+    mocks.shouldCloseBeforeResolution.mockReturnValueOnce(true);
+    const { evaluator, closeQueue } = buildEvaluator({
+      snapshot: {
+        city: 'Paris',
+        targetDate: new Date('2026-08-02T12:00:00Z'),
+        metric: 'highest_temp',
+        entryForecastMean: 0,
+        entryBucketComparison: 'exact',
+        entryBucketBounds: JSON.stringify({ target: 33 }),
+        strategyId: 'weather-highest-yes',
+      },
+      marketEndDate: new Date(Date.now() + 30 * 60 * 1000),
+    });
+    await evaluator.evaluateOpenPositions();
+    expect(closeQueue.enqueueUnique).toHaveBeenCalledTimes(1);
   });
 });

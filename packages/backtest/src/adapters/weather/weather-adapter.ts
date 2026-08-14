@@ -6,6 +6,7 @@ import {
   getStrategyParams,
   type WeatherStrategyParamsBag,
   WEATHER_FORECAST_STRATEGY_ID,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
 } from '@polywatch/core';
 import type { BacktestEvent, BookTickEventData, SignalEventData } from '../../engine/events.js';
@@ -622,6 +623,36 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           'Résolution sans endDate: fallback targetDate+24h',
         );
       }
+      const isHighestYes = pos.meta?.strategyId === WEATHER_HIGHEST_YES_STRATEGY_ID;
+      if (isHighestYes) {
+        // highest-yes n'a pas de forecast : on résout via le prix YES final
+        // (consensus marché). yesPrice > 0.50 → YES, sinon NO.
+        const yesPrice = tick.yesPrice;
+        if (yesPrice == null) {
+          this.warnOnce(
+            ctx,
+            'resolution_no_yes_price',
+            'Résolution highest-yes impossible sans prix YES — position laissée ouverte',
+          );
+          return 'skip';
+        }
+        const winningOutcome = yesPrice > 0.5 ? 'YES' : 'NO';
+        const exitPrice = winningOutcome === 'YES' ? 1 : 0;
+        ctx.ledger.closePosition({
+          conditionId: pos.conditionId,
+          exitPrice,
+          exitAt: ctx.clock.now(),
+          exitReason: 'RESOLUTION',
+          fees: 0,
+        });
+        this.warnOnce(
+          ctx,
+          'resolution_proxy_yes_price',
+          'Résolution highest-yes approximée par le prix YES final',
+        );
+        return 'resolved';
+      }
+
       const res = resolveWeatherBucket({
         forecastMean: this.currentForecastMean(ctx, tick),
         bucketComparison: tick.bucketComparison,

@@ -23,6 +23,7 @@ import {
   getStrategyParams,
   resolveEnabledWeatherStrategies,
   WEATHER_FORECAST_STRATEGY_ID,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
   isWeatherMetric,
   type WeatherMetric,
   type BucketBounds,
@@ -115,9 +116,14 @@ export class WeatherExitEvaluator {
     const closeBeforeHours = bag.closeBeforeResolutionHours;
     const preClose = shouldCloseBeforeResolution(hoursToEnd, closeBeforeHours);
 
+    // highest-yes holds until resolution: no forecast drift and no bucket-exit.
+    // Skipping the forecast fetch also avoids a phantom close caused by the
+    // persisted entryForecastMean=0 placeholder (drift would read 0 and fire).
+    const isHighestYes = strategyId === WEATHER_HIGHEST_YES_STRATEGY_ID;
+
     let drift = false;
     let bucketExit = false;
-    if (!preClose) {
+    if (!preClose && !isHighestYes) {
       if (!isWeatherMetric(snapshot.metric)) {
         log.warn(
           { positionId: pos.id, city: snapshot.city, metric: snapshot.metric },

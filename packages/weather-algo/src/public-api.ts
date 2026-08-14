@@ -1,5 +1,6 @@
 export { WeatherForecastStrategy } from './strategy/weather-forecast.strategy.js';
 export { WeatherForecastAlignedStrategy } from './strategy/weather-forecast-aligned.strategy.js';
+export { WeatherHighestYesStrategy } from './strategy/weather-highest-yes.strategy.js';
 export {
   WeatherStrategyRegistry,
   type WeatherStrategy,

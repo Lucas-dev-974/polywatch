@@ -255,6 +255,7 @@ const weatherStrategyParamsBagSchema = z
     minEdge: z.number().finite().min(0.01).max(0.5),
     maxForecastStd: nullableNumber,
     minForecastProbability: nullableNumber,
+    minYesPrice: z.number().finite().min(0).max(1),
     // Sizing
     entryUsdc: z.number().finite().min(1).max(10000),
     sizingMode: weatherSizingMode,

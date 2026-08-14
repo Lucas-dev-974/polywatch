@@ -29,6 +29,7 @@ import {
   WeatherStrategyRegistry,
   WeatherForecastStrategy,
   WeatherForecastAlignedStrategy,
+  WeatherHighestYesStrategy,
   type WeatherSignal,
 } from './strategy/registry.js';
 import { WeatherStrategyRunner } from './strategy/strategy-runner.js';
@@ -69,6 +70,7 @@ async function main() {
   const registry = new WeatherStrategyRegistry();
   registry.register(new WeatherForecastStrategy());
   registry.register(new WeatherForecastAlignedStrategy());
+  registry.register(new WeatherHighestYesStrategy());
 
   const connectionManager = new PolymarketConnectionManager({
     wsUrl: config.wsUrl,

@@ -28,6 +28,7 @@ import {
   type BucketCandidate,
   resolveEnabledWeatherStrategies,
   getStrategyParams,
+  WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
 } from '@polywatch/core';
 import type { WeatherStrategyRegistry } from './registry.js';
@@ -690,8 +691,13 @@ export class WeatherStrategyRunner {
     }
 
     if (!forecast) {
-      log.warn({ city, dateKey, metric }, 'city-follow: forecast unavailable — skipping evaluate');
-      return null;
+      const hasHighestYes = strategies.some((s) => s.id === WEATHER_HIGHEST_YES_STRATEGY_ID);
+      if (!hasHighestYes) {
+        log.warn({ city, dateKey, metric }, 'city-follow: forecast unavailable — skipping evaluate');
+        return null;
+      }
+      // highest-yes activée : procéder avec un ctx placeholder, les stratégies
+      // forecast-dépendantes s'abstiendront (proba forecast nulle → edge nul).
     }
     if (activeBuckets.length === 0) {
       log.debug({ city, dateKey, marketCount: markets.length }, 'city-follow: no active markets');
@@ -699,8 +705,8 @@ export class WeatherStrategyRunner {
     }
 
     const ctx = {
-      forecastMean: forecast.forecastMean,
-      forecastStdDev: forecast.forecastStdDev,
+      forecastMean: forecast?.forecastMean ?? 0,
+      forecastStdDev: forecast?.forecastStdDev ?? 0,
     };
 
     const evaluationInputs: EvaluationLogInput[] = [];
@@ -709,6 +715,34 @@ export class WeatherStrategyRunner {
 
     for (const strategy of strategies) {
       let result: WeatherEvaluationResult = { kind: 'abstain', reason: 'no_signal' };
+      // forecast-dependent strategies must abstain when the forecast is null.
+      // Passing a ctx placeholder {0,0} would make normalCDF a step function
+      // (stdDev=0) and produce phantom signals with edge≈1 on low-target
+      // `or_below` buckets, which would then shadow highest-yes (edge=0).
+      if (!forecast && strategy.id !== WEATHER_HIGHEST_YES_STRATEGY_ID) {
+        abstainReasons.push(`${strategy.id}:forecast_unavailable`);
+        if (evalLogEnabled && this.evaluationRecorder) {
+          for (const bucket of activeBuckets) {
+            const prices = resolveBucketPrices(bucket.market);
+            evaluationInputs.push({
+              snapshotId,
+              conditionId: bucket.conditionId,
+              bucketComparison: bucket.parsed.comparison,
+              bucketTarget: bucket.parsed.targetValue,
+              bucketLow: bucket.parsed.targetValueLow,
+              bucketHigh: bucket.parsed.targetValueHigh,
+              strategyId: strategy.id,
+              yesPrice: prices.yesPrice,
+              forecastProb: null,
+              edge: null,
+              dynamicMinEdge: null,
+              decision: 'abstain',
+              reason: 'forecast_unavailable',
+            });
+          }
+        }
+        continue;
+      }
       if (strategy.evaluateGroup) {
         result = await strategy.evaluateGroup(activeMarkets, ctx);
         if (evalLogEnabled && this.evaluationRecorder) {
@@ -789,7 +823,7 @@ export class WeatherStrategyRunner {
             city,
             dateKey,
             strategyId: strategy.id,
-            forecastMean: forecast.forecastMean,
+            forecastMean: forecast?.forecastMean,
             conditionId: result.signal.conditionId,
             edge: result.signal.edge,
           },

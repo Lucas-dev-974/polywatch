@@ -1,6 +1,7 @@
 import type { WeatherStrategy } from './strategy.js';
 import { WeatherForecastStrategy } from './weather-forecast.strategy.js';
 import { WeatherForecastAlignedStrategy } from './weather-forecast-aligned.strategy.js';
+import { WeatherHighestYesStrategy } from './weather-highest-yes.strategy.js';
 import {
   WEATHER_STRATEGY_CATALOG,
   type WeatherStrategyId,
@@ -36,4 +37,4 @@ export class WeatherStrategyRegistry {
   }
 }
 
-export { WeatherForecastStrategy, WeatherForecastAlignedStrategy };
+export { WeatherForecastStrategy, WeatherForecastAlignedStrategy, WeatherHighestYesStrategy };

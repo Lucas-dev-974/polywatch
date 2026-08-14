@@ -541,4 +541,65 @@ describe('runBacktest (weather replay)', () => {
     expect(positions.items.length).toBe(1);
     expect(positions.items[0]!.conditionId).toBe('cond-a');
   });
+
+  it('resolves a highest-yes position via the final YES price (no forecast)', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const evalRepo = ds.getRepository(WeatherEvaluationLog);
+
+    const snap = await snapRepo.save(snapRepo.create({
+      city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02',
+      metric: 'highest_temp', forecastMean: 20, forecastStdDev: 1,
+      bucketCount: 1, totalBucketCount: 3, recordedAt: now,
+    }));
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-hy', eventSlug: 'e',
+      question: 'Will the highest temperature in paris be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.6, noPrice: 0.4, yesTokenId: 'y', noTokenId: 'n',
+      volume: 1, volume24hr: 1, liquidityClob: 1,
+      acceptingOrders: true, closed: false, endDate: null,
+      recordedAt: now,
+      city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+    // Final tick after resolution time with a YES price > 0.5 → resolves YES.
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-hy', eventSlug: 'e',
+      question: 'Will the highest temperature in paris be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.7, noPrice: 0.3, yesTokenId: 'y', noTokenId: 'n',
+      volume: 1, volume24hr: 1, liquidityClob: 1,
+      acceptingOrders: false, closed: true, endDate: null,
+      recordedAt: new Date('2026-01-04T00:00:00.000Z'),
+      city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+    await evalRepo.save(evalRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-hy', bucketComparison: 'or_above',
+      bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      strategyId: 'weather-highest-yes', yesPrice: 0.6, forecastProb: 0,
+      edge: 0, dynamicMinEdge: 0, decision: 'signal', reason: 'test',
+      evaluatedAt: now,
+    }));
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'replay', paramsJson: '{}' });
+    await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'replay',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-05T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        strategyId: 'weather-highest-yes',
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+    const positions = await service.listPositions(run.id, {});
+    const pos = positions.items[0]!;
+    expect(pos.exitReason).toBe('RESOLUTION');
+    expect(pos.exitPrice).toBe(1); // final YES price 0.7 > 0.5 → YES wins
+  });
 });

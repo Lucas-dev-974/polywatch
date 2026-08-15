@@ -4,6 +4,7 @@ import type { BacktestExitReason } from '@polywatch/core';
 export interface LedgerPosition {
   conditionId: string;
   city: string | null;
+  targetDateIso: string | null;
   side: 'YES';
   qty: number;
   entryPrice: number;
@@ -20,6 +21,7 @@ export interface LedgerPosition {
 export interface ClosedLedgerPosition {
   conditionId: string;
   city: string | null;
+  targetDateIso: string | null;
   side: 'YES';
   qty: number;
   entryPrice: number;
@@ -92,6 +94,7 @@ export class Ledger {
   openPosition(input: {
     conditionId: string;
     city?: string | null;
+    targetDateIso?: string | null;
     qty: number;
     entryPrice: number;
     entryAt: Date;
@@ -106,6 +109,7 @@ export class Ledger {
     this.open.set(input.conditionId, {
       conditionId: input.conditionId,
       city: input.city ?? null,
+      targetDateIso: input.targetDateIso ?? null,
       side: 'YES',
       qty: input.qty,
       entryPrice: input.entryPrice,
@@ -153,6 +157,7 @@ export class Ledger {
     const closed: ClosedLedgerPosition = {
       conditionId: pos.conditionId,
       city: pos.city,
+      targetDateIso: pos.targetDateIso,
       side: 'YES',
       qty: pos.qty,
       entryPrice: pos.entryPrice,

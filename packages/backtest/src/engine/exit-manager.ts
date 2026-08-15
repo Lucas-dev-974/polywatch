@@ -39,7 +39,7 @@ export class WeatherExitManager {
   private bucketHysteresis = new Map<string, number>();
   /** positionId -> last virtual time hysteresis was advanced. */
   private lastHysteresisAdvanceAt = new Map<string, number>();
-  /** city -> last close timestamp (re-entry throttle). */
+  /** `city|dateIso` -> last close timestamp (re-entry throttle). */
   private reentryThrottle = new Map<string, number>();
   private readonly bag: WeatherStrategyParamsBag;
 
@@ -49,15 +49,17 @@ export class WeatherExitManager {
       : DEFAULT_WEATHER_STRATEGY_PARAMS;
   }
 
-  isReentryBlocked(city: string, now: Date): boolean {
-    const last = this.reentryThrottle.get(city);
+  isReentryBlocked(city: string, targetDateIso: string | null, now: Date): boolean {
+    if (!targetDateIso) return false;
+    const last = this.reentryThrottle.get(`${city}|${targetDateIso}`);
     if (last == null) return false;
     const throttleMs = this.bag.reentryThrottleMs;
     return now.getTime() - last < throttleMs;
   }
 
-  private markClosed(city: string, now: Date): void {
-    this.reentryThrottle.set(city, now.getTime());
+  private markClosed(city: string, targetDateIso: string | null, now: Date): void {
+    if (!targetDateIso) return;
+    this.reentryThrottle.set(`${city}|${targetDateIso}`, now.getTime());
   }
 
   /**
@@ -149,7 +151,7 @@ export class WeatherExitManager {
       slippageBps: input.slippageBps,
     });
     if (pos.city) {
-      this.markClosed(pos.city, now);
+      this.markClosed(pos.city, pos.targetDateIso, now);
     }
     this.bucketHysteresis.delete(pos.conditionId);
     this.lastHysteresisAdvanceAt.delete(pos.conditionId);

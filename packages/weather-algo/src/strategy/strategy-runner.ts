@@ -34,7 +34,7 @@ import {
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherSignal, WeatherStrategy, WeatherEvaluationResult } from './strategy.js';
 import { resolveBucketPrices } from './runner-bucket-helpers.js';
-import { dedupSignalsByCity, applySelectionMode } from './strategy-runner-selection.js';
+import { dedupSignalsByCityDate, applySelectionMode } from './strategy-runner-selection.js';
 import { WeatherAlgoRuntimeStatusPublisher } from '../runtime-status.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import { WEATHER_FORECAST_CACHE_TTL_MS_DEFAULT } from '../config.js';
@@ -290,7 +290,7 @@ export class WeatherStrategyRunner {
         targetDates: discoveryTargetDates,
       });
       const minHoursToClose = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
-      const openCities = await this.loadOpenWeatherCities();
+      const openCityDates = await this.loadOpenWeatherCityDates();
 
       // Fix B: fetch resolved (closed) weather markets for snapshot recording only.
       // Targets a rolling past-day window since resolved markets only concern past dates.
@@ -313,7 +313,7 @@ export class WeatherStrategyRunner {
       log.info(
         {
           ruleCount: cityFollowRules.length,
-          openCities: [...openCities],
+          openCityDates: [...openCityDates.keys()],
           maxLookAhead,
           activeStrategies: enabledStrategyIds,
           targetDates: discoveryTargetDates.map((d) => d.toISOString().slice(0, 10)),
@@ -327,30 +327,36 @@ export class WeatherStrategyRunner {
         discovery.temperatureMarkets,
         resolvedMarkets,
         minHoursToClose,
-        openCities,
+        openCityDates,
         strategies,
       );
 
-      const dedupedSignals = dedupSignalsByCity(allSignals);
+      const dedupedSignals = dedupSignalsByCityDate(allSignals);
       const selectedSignals = applySelectionMode(dedupedSignals, risk);
 
-      // Safety guard: enforce one open position per city across the emitted
-      // batch. dedupedSignals already carries at most one signal per city, but
-      // seenCities also blocks cities that already have an open/pending position
-      // (defensive against any upstream regression in the open-city filter).
-      const seenCities = new Set<string>(openCities);
+      // Safety guard: enforce max open positions per (city, target date, strategy)
+      // across the emitted batch. dedupedSignals already carries at most one
+      // signal per (city, date, strategy) lane, but seenCityDates also counts
+      // pairs that already have an open/pending position (defensive against any
+      // upstream regression in the open city+date filter).
+      const seenCityDates = new Map<string, number>(openCityDates);
       for (const signal of selectedSignals) {
-        const cityKey = normalizeWeatherCity(signal.city);
-        if (seenCities.has(cityKey)) {
-          log.debug({ city: signal.city, conditionId: signal.conditionId }, 'skip signal — city already has open/pending position');
+        const cityDateKey = `${normalizeWeatherCity(signal.city)}|${signal.targetDate.toISOString().slice(0, 10)}|${signal.strategyId}`;
+        const maxForStrategy = Math.max(
+          1,
+          getStrategyParams(risk, signal.strategyId).maxPositionsPerCityDate,
+        );
+        const current = seenCityDates.get(cityDateKey) ?? 0;
+        if (current >= maxForStrategy) {
+          log.debug({ city: signal.city, dateKey: cityDateKey, strategyId: signal.strategyId, conditionId: signal.conditionId }, 'skip signal — city+date+strategy already at capacity');
           continue;
         }
         try {
           const accepted = await this.onSignal(signal);
           if (accepted) {
-            seenCities.add(cityKey);
+            seenCityDates.set(cityDateKey, current + 1);
             log.info(
-              { conditionId: signal.conditionId, eventSlug: signal.eventSlug, edge: signal.edge, city: signal.city },
+              { conditionId: signal.conditionId, eventSlug: signal.eventSlug, edge: signal.edge, city: signal.city, dateKey: cityDateKey },
               'weather signal accepted',
             );
           }
@@ -370,34 +376,39 @@ export class WeatherStrategyRunner {
   }
 
   /**
-   * Cities that already have a WEATHER_OPEN position in flight or open.
+   * Open WEATHER_OPEN positions keyed by `(normalizedCity|targetDateIso)` with a
+   * count of how many positions are active for each (city, target date) pair.
    * Includes pending (reserved, not filled) and closing (exit enqueued / in progress)
-   * so we never open a second thesis for the same city.
+   * so we never exceed `maxPositionsPerCityDate` for the same city+date+strategy.
    *
    * A pending position with quantity 0 is only considered active when it has a
    * non-expired reservation. Otherwise it is a stale zombie left by an earlier
-   * failed entry and must not block the city.
+   * failed entry and must not block the city+date.
    */
-  private async loadOpenWeatherCities(): Promise<Set<string>> {
+  private async loadOpenWeatherCityDates(): Promise<Map<string, number>> {
     const positions = await this.ds.getRepository(CopiedPosition).find({
       where: {
         reason: 'WEATHER_OPEN',
         status: In(['pending', 'open', 'closing']),
       },
     });
-    if (positions.length === 0) return new Set();
+    if (positions.length === 0) return new Map();
 
     const activeIds = await this.resolveActiveWeatherPositionIds(positions);
-    if (activeIds.size === 0) return new Set();
+    if (activeIds.size === 0) return new Map();
 
-    const cities = new Set<string>();
+    const posById = new Map(positions.map((p) => [p.id, p]));
+    const cityDates = new Map<string, number>();
     const snaps = await this.ds.getRepository(WeatherPositionForecast).find({
       where: { copiedPositionId: In([...activeIds]) },
     });
     for (const snap of snaps) {
-      if (snap.city) cities.add(normalizeWeatherCity(snap.city));
+      if (!snap.city) continue;
+      const strategyId = posById.get(snap.copiedPositionId)?.strategyId ?? 'weather-forecast';
+      const key = `${normalizeWeatherCity(snap.city)}|${snap.targetDate.toISOString().slice(0, 10)}|${strategyId}`;
+      cityDates.set(key, (cityDates.get(key) ?? 0) + 1);
     }
-    return cities;
+    return cityDates;
   }
 
   /**
@@ -438,7 +449,7 @@ export class WeatherStrategyRunner {
     temperatureMarkets: MarketListItemDto[],
     resolvedMarkets: MarketListItemDto[],
     minHoursToClose: number,
-    openCities: Set<string>,
+    openCityDates: Map<string, number>,
     strategies: WeatherStrategy[],
   ): Promise<WeatherSignal[]> {
     const signals: WeatherSignal[] = [];
@@ -460,7 +471,6 @@ export class WeatherStrategyRunner {
 
     for (const rule of rules) {
       const cityKey = normalizeWeatherCity(rule.city);
-      const cityHasOpenPosition = openCities.has(cityKey);
 
       const targetDates = buildLookAheadTargetDates(rule.lookAheadDays ?? 1);
       const targetDateStrs = new Set(
@@ -532,7 +542,7 @@ export class WeatherStrategyRunner {
             resolvedForDate,
             strategies,
             minHoursToClose,
-            cityHasOpenPosition,
+            openCityDates,
           );
           if (signal) citySignals.push(signal);
         } catch (err) {
@@ -540,17 +550,13 @@ export class WeatherStrategyRunner {
         }
       }
 
-      // Snapshot has already been recorded above regardless of open position.
-      // Only the signal emission is skipped when the city has an open position.
-      if (cityHasOpenPosition) {
-        log.debug({ city: rule.city }, 'city-follow: skip signal — open position exists for city (snapshot still recorded)');
-        continue;
-      }
-
-      // At most one candidate per city (best YES edge among look-ahead dates)
-      if (citySignals.length > 0) {
-        const best = citySignals.reduce((a, b) => (b.edge > a.edge ? b : a));
-        signals.push(best);
+      // Snapshot has already been recorded above regardless of open capacity.
+      // Capacity is enforced per (city, date, strategy) inside
+      // evaluateCityFollowDateGroup. Push one candidate per date:
+      // evaluateCityFollowDateGroup returns at most one signal per date, so
+      // multiple dates of the same city can coexist when each lane has capacity.
+      for (const signal of citySignals) {
+        signals.push(signal);
       }
     }
 
@@ -566,7 +572,7 @@ export class WeatherStrategyRunner {
     resolvedMarkets: MarketListItemDto[],
     strategies: WeatherStrategy[],
     minHoursToClose: number,
-    cityHasOpenPosition: boolean,
+    openCityDateCounts: Map<string, number>,
   ): Promise<WeatherSignal | null> {
     const targetDate = new Date(`${dateKey}T12:00:00Z`);
     if (Number.isNaN(targetDate.getTime())) {
@@ -683,13 +689,6 @@ export class WeatherStrategyRunner {
       }
     }
 
-    if (cityHasOpenPosition) {
-      // Snapshot already recorded above. Skip strategy evaluation entirely so we
-      // never open a second thesis for the same city, but keep recording ticks.
-      log.debug({ city, dateKey }, 'city-follow: skip strategy evaluation — open position exists for city');
-      return null;
-    }
-
     if (!forecast) {
       const hasHighestYes = strategies.some((s) => s.id === WEATHER_HIGHEST_YES_STRATEGY_ID);
       if (!hasHighestYes) {
@@ -714,6 +713,20 @@ export class WeatherStrategyRunner {
     const activeMarkets = activeBuckets.map((b) => b.market);
 
     for (const strategy of strategies) {
+      const risk = this.risk;
+      if (risk) {
+        const laneKey = `${normalizeWeatherCity(city)}|${dateKey}|${strategy.id}`;
+        const openCount = openCityDateCounts.get(laneKey) ?? 0;
+        const maxForStrategy = Math.max(
+          1,
+          getStrategyParams(risk, strategy.id).maxPositionsPerCityDate,
+        );
+        if (openCount >= maxForStrategy) {
+          abstainReasons.push(`${strategy.id}:city_date_at_capacity`);
+          continue;
+        }
+      }
+
       let result: WeatherEvaluationResult = { kind: 'abstain', reason: 'no_signal' };
       // forecast-dependent strategies must abstain when the forecast is null.
       // Passing a ctx placeholder {0,0} would make normalCDF a step function
@@ -865,6 +878,8 @@ export class WeatherStrategyRunner {
     }
   }
 }
+
+
 
 /**
  * Merge active and resolved buckets into the set to persist in a market snapshot.

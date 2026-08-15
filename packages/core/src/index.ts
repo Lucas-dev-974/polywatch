@@ -356,6 +356,7 @@ export {
   type WeatherStrategyParamsBag,
   type WeatherStrategyParamsMap,
   type StrategyParamSchema,
+  type WeatherComparison,
 } from './weather/strategy-catalog.js';
 export { seedDefaults } from './seed/defaults.js';
 export { SYSTEM_CONFIG_DEFAULTS } from './seed/system-config-defaults.js';

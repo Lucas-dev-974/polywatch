@@ -64,22 +64,26 @@ describe('purgeSimExecutionRedisState — copy phantom re-entry', () => {
     const redis = makeRedis(
       {},
       {
-        'weather-reentry:paris:sim': '1',
-        'weather-reentry:paris:real': '1',
+        'weather-reentry:paris:2026-08-15:sim': '1',
+        'weather-reentry:paris:2026-08-15:real': '1',
         'weather-bucket-hysteresis:42': '3',
       },
     );
 
     const result = await purgeSimExecutionRedisState(
       redis as never,
-      { ...baseHints, weatherCities: ['Paris'], copiedPositionIds: [42] },
+      {
+        ...baseHints,
+        weatherCityDates: [{ city: 'paris', dateIso: '2026-08-15' }],
+        copiedPositionIds: [42],
+      },
       'weather',
     );
 
     expect(result.weatherReentryKeysRemoved).toBe(1);
     expect(result.weatherHysteresisKeysRemoved).toBe(1);
-    expect(redis._store.has('weather-reentry:paris:sim')).toBe(false);
-    expect(redis._store.has('weather-reentry:paris:real')).toBe(true);
+    expect(redis._store.has('weather-reentry:paris:2026-08-15:sim')).toBe(false);
+    expect(redis._store.has('weather-reentry:paris:2026-08-15:real')).toBe(true);
     expect(redis._store.has('weather-bucket-hysteresis:42')).toBe(false);
   });
 

@@ -8,7 +8,7 @@ import {
 } from '@polywatch/core';
 import type { WeatherSignal } from '@polywatch/weather-algo';
 import {
-  dedupSignalsByCity,
+  dedupSignalsByCityDate,
   applySelectionMode,
 } from '@polywatch/weather-algo';
 import type { BookTickEventData } from '../../engine/events.js';
@@ -119,5 +119,5 @@ export function selectRunnerSimSignals(
   signals: WeatherSignal[],
   risk: WeatherConfig,
 ): WeatherSignal[] {
-  return applySelectionMode(dedupSignalsByCity(signals), risk);
+  return applySelectionMode(dedupSignalsByCityDate(signals), risk);
 }

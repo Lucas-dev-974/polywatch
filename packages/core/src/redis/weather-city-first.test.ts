@@ -13,7 +13,7 @@ import {
 
 describe('weather-reentry-throttle', () => {
   it('builds normalized key', () => {
-    expect(weatherReentryThrottleKey(' Paris ', 'sim')).toBe('weather-reentry:paris:sim');
+    expect(weatherReentryThrottleKey(' Paris ', '2026-08-15', 'sim')).toBe('weather-reentry:paris:2026-08-15:sim');
   });
 
   it('set/has round-trip', async () => {
@@ -25,9 +25,11 @@ describe('weather-reentry-throttle', () => {
       }),
       exists: vi.fn(async (key: string) => (store.has(key) ? 1 : 0)),
     };
-    await setWeatherReentryThrottle(redis, 'Paris', 'sim', 60_000);
-    expect(await hasWeatherReentryThrottle(redis, 'Paris', 'sim')).toBe(true);
-    expect(await hasWeatherReentryThrottle(redis, 'Lyon', 'sim')).toBe(false);
+    await setWeatherReentryThrottle(redis, 'Paris', '2026-08-15', 'sim', 60_000);
+    expect(await hasWeatherReentryThrottle(redis, 'Paris', '2026-08-15', 'sim')).toBe(true);
+    expect(await hasWeatherReentryThrottle(redis, 'Lyon', '2026-08-15', 'sim')).toBe(false);
+    // A different date for the same city is a distinct throttle bucket.
+    expect(await hasWeatherReentryThrottle(redis, 'Paris', '2026-08-16', 'sim')).toBe(false);
   });
 });
 

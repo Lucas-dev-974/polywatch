@@ -166,7 +166,7 @@ Process sans serveur HTTP — trading météo **par ville**. Détail :
 [`weather-algo.md`](./weather-algo.md) · [`docs/code/08-weather-algo.md`](code/08-weather-algo.md).
 
 - Sélection : `WeatherAutoTrackRule` (ville + `highest_temp` + horizon).
-- Cycle : **sorties d'abord**, puis entrées ; max **1 position ouverte / ville**.
+- Cycle : **sorties d'abord**, puis entrées ; max **`maxPositionsPerCityDate` positions ouvertes / ville+date** (défaut 1).
 - Entrées : discovery → bucket forecast-aligné → **BUY YES** si edge OK → `WEATHER_OPEN`.
 - Sorties : `WEATHER_PRE_CLOSE` / `WEATHER_FORECAST_CHANGE` / `WEATHER_BUCKET_EXIT` (`close_and_reenter` + hysteresis, ou `hold`).
 - Snapshot forecast à l'ouverture (`WeatherPositionForecast`) ; throttle re-entry Redis après close bucket/drift.

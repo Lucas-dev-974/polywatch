@@ -114,8 +114,9 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
   Les events `forecast` mettent à jour le store (pas d'évaluation stratégie).
 - Mode `replay` : entre sur les décisions `signal` de `weather_evaluation_log`.
 - **Garde-fous** (les deux modes) : `maxExposure`, `maxDailyLoss` (+
-  `force_close_all` → clôture `KILL_SWITCH`), cash insuffisant, one-thesis-per-city,
-  throttle re-entry (bucket/drift seulement).
+  `force_close_all` → clôture `KILL_SWITCH`), cash insuffisant,
+  capacité `maxPositionsPerCityDate` par ville+date (`targetDateIso` sur le ledger),
+  throttle re-entry ville+date (bucket/drift seulement).
 - À l’entrée : `resolveWeatherEntryExitParams` → `meta.slBidPoints` / `tp*` / `trailing*`.
 - **Sorties** : évaluées pour **toutes** les positions ouvertes à chaque
   `book_tick`, via `lastTickByCondition` (+ `at` pour warning `exit_stale_tick`).
@@ -171,7 +172,7 @@ Le live ne dépend jamais du backtest.
 - `engine/exit-manager.test.ts` — défauts SL/TP, throttle restreint, hystérésis `pollMs`.
 - `engine/merge-event-streams.test.ts` — ordre temporel, régression heap init.
 - `adapters/weather/weather-adapter.test.ts` — replay, meta persisté, limite
-  positions, one-thesis-per-city, résolution fallback, metric non supporté, hors plage.
+  positions, capacité ville+date, résolution fallback, metric non supporté, hors plage.
 - `packages/core/src/services/backtest-run.service.test.ts` — verrou singleton.
 
 Lancement : `npm run test -w @polywatch/backtest` (**24** tests).

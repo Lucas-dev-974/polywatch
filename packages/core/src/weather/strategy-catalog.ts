@@ -14,6 +14,9 @@ export type WeatherStrategyId = (typeof WEATHER_STRATEGY_IDS)[number];
 
 export type StrategyParamKind = 'number' | 'boolean' | 'select';
 
+/** Bucket comparison types a weather market can express. */
+export type WeatherComparison = 'exact' | 'or_below' | 'or_above' | 'between';
+
 export type StrategyParamSchema = {
   key: string;
   label: string;
@@ -53,6 +56,15 @@ export type WeatherStrategyParamsBag = {
   minForecastProbability: number | null;
   /** Min YES market price required to emit a signal (highest-yes strategy). */
   minYesPrice: number;
+  /**
+   * Bucket comparisons eligible for the highest-yes strategy. Empty array or
+   * null = all comparisons accepted (default). Use to exclude cumulative
+   * buckets (or_above / or_below) whose YES price is mechanically inflated
+   * by P(T ≥ threshold) and would dominate the "highest YES" selection.
+   */
+  allowedComparisons: WeatherComparison[] | null;
+  /** Max simultaneous open positions for a single (city, target date) pair. */
+  maxPositionsPerCityDate: number;
   // ── Sizing ─────────────────────────────────────────────────────────
   /** Fixed entry notional (USDC). */
   entryUsdc: number;
@@ -109,6 +121,8 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   maxForecastStd: null,
   minForecastProbability: null,
   minYesPrice: 0.5,
+  allowedComparisons: null,
+  maxPositionsPerCityDate: 1,
   entryUsdc: 10,
   sizingMode: 'fixed_usdc',
   forecastChangeThreshold: 2,
@@ -182,6 +196,7 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'trailingActivationBidPoints', label: 'Trailing activation (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
+    { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
     { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 100, default: 1000 },
     { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 100 },
     { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 200 },
@@ -208,9 +223,23 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
  * the forecast entry gates with a single `minYesPrice` consensus threshold.
  */
 function highestYesParamsSchemas(): StrategyParamSchema[] {
+  const COMPARISON_OPTIONS = [
+    { value: 'exact', label: 'Exact (=)' },
+    { value: 'between', label: 'Entre (between)' },
+    { value: 'or_above', label: 'Ou au-dessus (≥)' },
+    { value: 'or_below', label: 'Ou en-dessous (≤)' },
+  ];
   return [
     // Entry gate
     { key: 'minYesPrice', label: 'Prix YES minimal', kind: 'number', min: 0.01, max: 1, step: 0.01, default: 0.5, hint: 'Seuil de consensus : n’entre que si le prix YES du bucket est >= ce seuil.' },
+    {
+      key: 'allowedComparisons',
+      label: 'Comparaisons éligibles',
+      kind: 'select',
+      options: COMPARISON_OPTIONS,
+      default: 'exact',
+      hint: 'Restreint les types de paliers. Les paliers « or above / or below » ont un prix YES cumulatif mécaniquement gonflé — les exclure évite le biais de sur-achat.',
+    },
     // Sizing
     { key: 'entryUsdc', label: 'Taille d’entrée (USDC)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
     // Exit
@@ -225,6 +254,7 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     { key: 'trailingActivationBidPoints', label: 'Trailing activation (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
+    { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
     { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 100, default: 1000 },
     { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 100 },
     { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 200 },
@@ -264,7 +294,7 @@ export const WEATHER_STRATEGY_CATALOG: WeatherStrategyMeta[] = [
     id: WEATHER_HIGHEST_YES_STRATEGY_ID,
     label: 'Highest YES (consensus)',
     description:
-      'Sélectionne le palier au prix YES le plus élevé (consensus marché). Tient jusqu’à résolution, sans forecast.',
+      'Filet de sécurité sans forecast : sélectionne le palier au prix YES le plus élevé (consensus marché). edge=0 — ne gagne qu’en l’absence de signal forecast. Tient jusqu’à résolution. Utiliser allowedComparisons pour exclure les paliers cumulatifs (or_above/or_below).',
     supportsGroup: true,
     params: highestYesParamsSchemas(),
   },

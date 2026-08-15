@@ -29,7 +29,7 @@ dédiées (`close-signals`).
 | `strategy/weather-highest-yes.strategy.ts` | Bucket au prix YES max (consensus marché, sans forecast) |
 | `strategy/evaluate-bucket-gate.ts` | Gates edge/probabilité partagés |
 | `strategy/bucket-selection.ts` | `pickBestEdgeBucket`, `bucketCentre` |
-| `strategy/strategy-runner-selection.ts` | `dedupSignalsByCity`, `applySelectionMode` |
+| `strategy/strategy-runner-selection.ts` | `dedupSignalsByCityDate`, `applySelectionMode` |
 | `strategy/strategy-runner.ts` | Boucle poll : exits puis entrées city-follow ; filtre `isMarketActiveForWeather` (core, partagé backtest) ; recorders data |
 | `strategy/runner-bucket-helpers.ts` | Prix YES/NO buckets via `binaryPricesFromParsed` / `binaryPricesToUpDown` |
 | `processors/weather-entry-pipeline.ts` | Sizing / MOS / reserve / enqueue |
@@ -134,7 +134,7 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
   `no_high_yes_bucket`.
 
 Modes `single` / `multi` : appliqués dans le **runner**
-(`applySelectionMode` / `dedupSignalsByCity`), pas dans la stratégie.
+(`applySelectionMode` / `dedupSignalsByCityDate`), pas dans la stratégie.
 `spread` / inconnu → traité comme `single`.
 
 **Safe reload** : `weatherAlgoStrategies` snapshot au début de chaque cycle ;
@@ -160,13 +160,13 @@ Reason : `WEATHER_OPEN`. Interval hash logique : `'weather'`.
 Gates (ordre) : enabled → marché tradable → pre-close hours (`bag.closeBeforeResolutionHours`) → liquidité ask →
 modes sim/real (`weatherAlgoSimEnabled` / `weatherAlgoRealEnabled` +
 `globalConfig.realTradingEnabled`) → cooldown post-exec → throttle re-entry
-ville → **kill-switch gate** (`RiskService.checkKillSwitch('weather', mode,
+ville+date → **kill-switch gate** (`RiskService.checkKillSwitch('weather', mode,
 signal.strategyId)` ; si `blockEntries` → skip `'Kill-switch actif
 (block_entries)'`) → resume réservation → cash réel → sizing `fixed_usdc`
 (`bag.entryUsdc`) + MOS / depth retry (`bag.entryDepthRetryMax` /
 `bag.entryDepthRetryDelayMs`) → reserve (`strategyId` persisté sur
 `CopiedPosition`) + enqueue → snapshot
-forecast ASAP (1 position max / ville, `strategyId` persisté sur
+forecast ASAP (`maxPositionsPerCityDate` par ville+date, `strategyId` persisté sur
 `WeatherPositionForecast`).
 
 ## Sorties (`weather-exit-evaluator.ts`)
@@ -196,7 +196,7 @@ Redis :
 
 - Hysteresis : `weather-bucket-hysteresis:{copiedPositionId}`
 - Re-entry throttle (après bucket/drift) :
-  `weather-reentry:{cityNormalized}:{mode}` TTL `bag.reentryThrottleMs`
+  `weather-reentry:{cityNormalized}:{dateIso}:{mode}` TTL `bag.reentryThrottleMs`
 - Dedupe close : `weather-close:{posId}:{reason}` (TTL 120 s)
 
 File close : `close-signals` (partagée worker). Bid ≤ 0 → exit **différé**.
@@ -219,7 +219,7 @@ pas dans ce package) : `bag.slBidPoints` / `bag.tpBidPoints` /
 | Entry pipeline sizing/MOS/reserve | File `weather-order-signals`, reason `WEATHER_OPEN` |
 | `config-changed` reload | Ignore kinds copy/crypto ; `WeatherConfig` |
 | — | Exit evaluator **in-package** (crypto délègue SL/TP au worker) |
-| — | Forecast + city-follow + hysteresis + reentry ville |
+| — | Forecast + city-follow + hysteresis + reentry ville+date |
 | — | Metrics parse questions |
 | — | Poll-driven (pas price-feed / mid-history / curve gate) |
 

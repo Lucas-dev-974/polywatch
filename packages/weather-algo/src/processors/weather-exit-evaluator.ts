@@ -250,6 +250,7 @@ export class WeatherExitEvaluator {
       await setWeatherReentryThrottle(
         this.params.redisCmd,
         snapshot.city,
+        snapshot.targetDate.toISOString().slice(0, 10),
         fresh.mode as 'sim' | 'real',
         throttleMs,
       );

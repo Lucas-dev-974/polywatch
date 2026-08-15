@@ -215,9 +215,9 @@ async function runMode(args: {
     return 'Cooldown exécution actif';
   }
 
-  if (await hasWeatherReentryThrottle(redisCmd, signal.city, mode)) {
-    log.debug({ city: signal.city, mode }, 'entry skipped — city re-entry throttle active');
-    return 'Throttle re-entry ville actif';
+  if (await hasWeatherReentryThrottle(redisCmd, signal.city, signal.targetDate.toISOString().slice(0, 10), mode)) {
+    log.debug({ city: signal.city, targetDateIso: signal.targetDate.toISOString().slice(0, 10), mode }, 'entry skipped — city+date re-entry throttle active');
+    return 'Throttle re-entry ville+date actif';
   }
 
   // Kill-switch gate: block entries when the per-strategy daily loss limit is

@@ -9,5 +9,5 @@ export {
   type WeatherEvaluationResult,
 } from './strategy/registry.js';
 export { pickBestEdgeBucket, bucketCentre } from './strategy/bucket-selection.js';
-export { dedupSignalsByCity, applySelectionMode } from './strategy/strategy-runner-selection.js';
+export { dedupSignalsByCityDate, applySelectionMode } from './strategy/strategy-runner-selection.js';
 export { DEFAULT_MIN_EDGE, DEFAULT_HOURS_TO_RESOLUTION_FALLBACK } from './constants.js';

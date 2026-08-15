@@ -98,7 +98,7 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 
 Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
 `maxExposure`, `maxDailyLoss` (+ `force_close_all` → `KILL_SWITCH`), cash insuffisant,
-one-thesis-per-city, throttle re-entry **uniquement** après
+one-thesis-per-city-date (`maxPositionsPerCityDate`), throttle re-entry **ville+date** **uniquement** après
 `WEATHER_BUCKET_EXIT` / `WEATHER_FORECAST_CHANGE`, filtre cycle de vie marché
 (`isMarketActiveForWeather`), hystérésis bucket calée sur `weatherAlgoPollMs`.
 
@@ -272,7 +272,7 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 - `src/engine/merge-event-streams.test.ts` : merge k-way, régression heap init
   (stream 0 plus tardif que stream 1).
 - `src/adapters/weather/weather-adapter.test.ts` : run replay (entrée + résolution),
-  meta persisté, limite positions, one-thesis-per-city replay, résolution fallback,
+  meta persisté, limite positions, capacité ville+date replay, résolution fallback,
   metric non supporté, hors plage.
 - `packages/core/src/services/backtest-run.service.test.ts` : verrou singleton.
 

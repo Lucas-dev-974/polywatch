@@ -93,6 +93,7 @@ describe('computeStats', () => {
     return {
       conditionId: pos.reason + pos.pnl,
       city: pos.city ?? 'london',
+      targetDateIso: pos.city ? '2026-01-01' : null,
       side: 'YES' as const,
       qty: 1,
       entryPrice: 0.5,

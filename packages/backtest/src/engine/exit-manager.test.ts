@@ -28,6 +28,7 @@ function pos(meta: Record<string, unknown> = {}): LedgerPosition {
   return {
     conditionId: 'c1',
     city: 'london',
+    targetDateIso: '2026-01-01',
     side: 'YES',
     qty: 10,
     entryPrice: 0.5,
@@ -91,7 +92,7 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
       slippageBps: 0,
     });
     // evaluateSlTpTrailing no longer calls markClosed — throttle stays clear
-    expect(mgr.isReentryBlocked('london', now)).toBe(false);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now)).toBe(false);
   });
 
   it('throttles after forecast drift exit', () => {
@@ -108,9 +109,9 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
       entryBucketBounds: { target: 12 },
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('london', now)).toBe(true);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now)).toBe(true);
     expect(
-      mgr.isReentryBlocked('london', new Date(now.getTime() + 1_800_000)),
+      mgr.isReentryBlocked('london', '2026-01-01', new Date(now.getTime() + 1_800_000)),
     ).toBe(false);
   });
 });
@@ -132,7 +133,7 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       entryBucketBounds: { target: 12 },
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('', now)).toBe(false);
+    expect(mgr.isReentryBlocked('', null, now)).toBe(false);
   });
 
   it('still throttles for city position (regression)', () => {
@@ -149,7 +150,7 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       entryBucketBounds: { target: 12 },
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('london', now)).toBe(true);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now)).toBe(true);
   });
 });
 

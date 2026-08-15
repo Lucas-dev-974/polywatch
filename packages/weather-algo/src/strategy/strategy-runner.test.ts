@@ -5,7 +5,7 @@ import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherExitEvaluator } from '../processors/weather-exit-evaluator.js';
 import type { WeatherSignal, WeatherStrategy } from './strategy.js';
 import { pickBestEdgeBucket, bucketCentre } from './bucket-selection.js';
-import { dedupSignalsByCity, applySelectionMode } from './strategy-runner-selection.js';
+import { dedupSignalsByCityDate, applySelectionMode } from './strategy-runner-selection.js';
 
 function minimalRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
   return {
@@ -374,7 +374,7 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       [],
       [strategy],
       1,
-      false,
+      new Map(),
     );
 
     expect(result).not.toBeNull();
@@ -411,10 +411,65 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       [],
       [strategy],
       1,
-      false,
+      new Map(),
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe('city+date gating', () => {
+  function sig(overrides: Partial<WeatherSignal> & { conditionId: string }): WeatherSignal {
+    return {
+      assetId: 'a1',
+      outcome: 'YES',
+      side: 'BUY',
+      confidence: 0.2,
+      reasons: [],
+      strategyId: 'weather-highest-yes',
+      eventSlug: 'slug',
+      city: 'Paris',
+      metric: 'highest_temp',
+      targetDate: new Date('2026-08-02T12:00:00Z'),
+      forecastMean: 0,
+      forecastStdDev: 0,
+      forecastProbability: 0,
+      marketPrice: 0,
+      edge: 0,
+      dynamicMinEdge: 0,
+      entryBucketComparison: 'exact',
+      entryBucketBounds: { target: 33 },
+      ...overrides,
+    };
+  }
+
+  it('dedupSignalsByCityDate keeps distinct dates of the same city', () => {
+    const out = dedupSignalsByCityDate([
+      sig({ conditionId: 'd1', city: 'Paris', targetDate: new Date('2026-08-02T12:00:00Z'), marketPrice: 0.55, edge: 0 }),
+      sig({ conditionId: 'd2', city: 'Paris', targetDate: new Date('2026-08-03T12:00:00Z'), marketPrice: 0.80, edge: 0 }),
+    ]);
+    expect(out.map((s) => s.conditionId).sort()).toEqual(['d1', 'd2']);
+  });
+
+  it('dedupSignalsByCityDate collapses same city+date to the highest edge', () => {
+    const out = dedupSignalsByCityDate([
+      sig({ conditionId: 'low', city: 'Paris', targetDate: new Date('2026-08-02T12:00:00Z'), edge: 0.1, strategyId: 'weather-forecast' }),
+      sig({ conditionId: 'high', city: 'Paris', targetDate: new Date('2026-08-02T12:00:00Z'), edge: 0.25, strategyId: 'weather-forecast' }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].conditionId).toBe('high');
+  });
+
+  it('dedupSignalsByCityDate keeps one signal per (city, date, strategy) lane', () => {
+    const out = dedupSignalsByCityDate([
+      sig({ conditionId: 'hy', city: 'Paris', targetDate: new Date('2026-08-02T12:00:00Z'), edge: 0, strategyId: 'weather-highest-yes' }),
+      sig({ conditionId: 'fc', city: 'Paris', targetDate: new Date('2026-08-02T12:00:00Z'), edge: 0.2, strategyId: 'weather-forecast' }),
+    ]);
+    expect(out.map((s) => s.conditionId).sort()).toEqual(['fc', 'hy']);
+  });
+
+  it('dedupSignalsByCityDate returns empty for empty input', () => {
+    expect(dedupSignalsByCityDate([])).toEqual([]);
   });
 });
 
@@ -479,7 +534,7 @@ describe('evaluateCityFollowDateGroup with open position', () => {
     } as MarketListItemDto;
   }
 
-  it('records snapshot but skips signal emission when the city has an open position', async () => {
+  it('records snapshot but skips signal emission when the city+date is at capacity', async () => {
     const strategy = {
       id: 'weather-forecast',
       evaluate: vi.fn(async () => ({ kind: 'signal' as const, reason: undefined })),
@@ -516,7 +571,7 @@ describe('evaluateCityFollowDateGroup with open position', () => {
       [],
       [strategy],
       1,
-      true,
+      new Map([['paris|2026-08-02|weather-forecast', 1]]),
     );
 
     expect(recordSnapshot).toHaveBeenCalledTimes(1);
@@ -636,7 +691,7 @@ describe('applySelectionMode', () => {
   });
 });
 
-describe('dedupSignalsByCity', () => {
+describe('dedupSignalsByCityDate', () => {
   function sig(edge: number, conditionId: string, city: string): WeatherSignal {
     return {
       conditionId,
@@ -662,7 +717,7 @@ describe('dedupSignalsByCity', () => {
   }
 
   it('keeps only the highest-edge signal per city', () => {
-    const result = dedupSignalsByCity([
+    const result = dedupSignalsByCityDate([
       sig(0.30, 'paris-hi', 'Paris'),
       sig(0.25, 'paris-lo', 'paris'), // same normalized city, lower edge → dropped
       sig(0.28, 'lyon', 'Lyon'),
@@ -674,7 +729,7 @@ describe('dedupSignalsByCity', () => {
   });
 
   it('preserves all signals when cities are distinct', () => {
-    const result = dedupSignalsByCity([
+    const result = dedupSignalsByCityDate([
       sig(0.10, 'a', 'Paris'),
       sig(0.20, 'b', 'Lyon'),
       sig(0.30, 'c', 'Marseille'),
@@ -683,14 +738,14 @@ describe('dedupSignalsByCity', () => {
   });
 
   it('returns empty array for empty input', () => {
-    expect(dedupSignalsByCity([])).toEqual([]);
+    expect(dedupSignalsByCityDate([])).toEqual([]);
   });
 
   it('regression C1: two rules same city do not starve a third city slot', () => {
     // Reproduces the bug fixed by deduping before applySelectionMode:
     // Paris(0.30), Paris(0.29), Lyon(0.28) with maxN=2 must yield Paris + Lyon,
     // not Paris only.
-    const deduped = dedupSignalsByCity([
+    const deduped = dedupSignalsByCityDate([
       sig(0.30, 'paris-1', 'Paris'),
       sig(0.29, 'paris-2', 'Paris'),
       sig(0.28, 'lyon-1', 'Lyon'),

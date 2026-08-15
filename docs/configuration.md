@@ -191,6 +191,7 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `entryDepthRetryMax` | `3` | Retries profondeur ask insuffisante |
 | `entryDepthRetryDelayMs` | `1000` | Délai entre retries (ms) |
 | `maxOpenPositions` | `10` | Max positions ouvertes (par stratégie) |
+| `maxPositionsPerCityDate` | `1` | Max positions ouvertes simultanément pour un même couple (ville, date cible) |
 | `maxPositionSizeUsdc` | `200` | Taille max par position (par stratégie) |
 | `maxExposureUsdc` | `1000` | Plafond exposition stratégie |
 | `maxDailyLossUsdc` | `100` | Perte journalière max (par stratégie) |
@@ -210,7 +211,7 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `preCloseSeconds` | `60` | Fenêtre pre-close en secondes (par stratégie) |
 | `cityFollowSwitchMode` | `close_and_reenter` | `close_and_reenter` \| `hold` (`add_position` coercé) |
 | `bucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
-| `reentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree ville |
+| `reentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree sur le même couple (ville, date cible) |
 | `minTimeToClose` | `0` | Secondes minimum avant cloture pour autoriser une entree |
 | `allowedMarketTags` | `[]` | Whitelist de slugs Gamma (vide = tous) |
 | `signalScoreSizingEnabled` | `true` | Ajuste la taille d'entree selon le score de qualité du signal |

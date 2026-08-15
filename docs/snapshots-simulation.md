@@ -95,7 +95,7 @@ Après le commit transactionnel du reset, le backend appelle
 1. **Avant** delete DB : `collectSimRedisPurgeHints(ds, algoKind)` —
    réservations + **toutes** les positions sim du kind (tous statuts) →
    `copiedPositionIds` / `copySignalIds` / clés logiques ; + traders watchlist
-   sim (copy) et villes weather avec positions wipees (weather).
+   sim (copy) et couples ville+date weather avec positions wipees (weather).
 2. **Après** commit :
    - queues d'**entrée** dédiées uniquement (`algo-order-signals` /
      `weather-order-signals` / `order-signals` + `:processing`) : jobs `mode:sim`
@@ -103,7 +103,7 @@ Après le commit transactionnel du reset, le backend appelle
    - **copy** : drain `move-events` (+ `:processing`) pour les jobs des traders
      watchlist **sim** et suppression de leurs marqueurs dedupe
      `move-events:enqueued:{id}` — anti re-entrée phantom ;
-   - **weather** : suppression `weather-reentry:{city}:sim` (villes wipees) et
+   - **weather** : suppression `weather-reentry:{city}:{dateIso}:sim` (couples ville+date wipees, via `weatherCityDates` dans les hints) et
      `weather-bucket-hysteresis:{positionId}` — évite throttle/hystérésis orphelins ;
    - **`close-signals`** : jobs `mode:sim` dont `copiedPositionId ∈ hints.copiedPositionIds`
      (jamais classer un `SL`/`TP` via `algoKindFromReason` — ces raisons retombent

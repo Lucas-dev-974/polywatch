@@ -65,12 +65,14 @@ describe('runner-sim helpers', () => {
       {
         conditionId: 'a',
         city: 'paris',
+        targetDate: new Date('2026-08-02T12:00:00Z'),
         edge: 0.2,
         strategyId: 'weather-forecast',
       } as WeatherSignal,
       {
         conditionId: 'b',
         city: 'paris',
+        targetDate: new Date('2026-08-02T12:00:00Z'),
         edge: 0.3,
         strategyId: 'weather-forecast',
       } as WeatherSignal,

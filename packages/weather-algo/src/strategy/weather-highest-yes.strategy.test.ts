@@ -162,4 +162,118 @@ describe('WeatherHighestYesStrategy', () => {
       expect(result.reason).toBe('missing_token');
     }
   });
+
+  describe('allowedComparisons filter', () => {
+    it('regression #2: excludes or_above buckets when allowedComparisons = [exact, between]', async () => {
+      const strategy = new WeatherHighestYesStrategy();
+      strategy.setRiskConfig({
+        minYesPrice: 0.5,
+        allowedComparisons: ['exact', 'between'],
+      } as never);
+
+      // or_above bucket has a mechanically higher YES price (P(T >= 24)) but
+      // is excluded by the filter → the exact bucket wins despite a lower price.
+      const result = await strategy.evaluateGroup(
+        [
+          market({
+            conditionId: 'exact-24',
+            question: 'Will the highest temperature in Paris be 24°C on July 30?',
+            outcomePrices: [
+              { outcome: 'Yes', price: 0.60 },
+              { outcome: 'No', price: 0.40 },
+            ],
+          }),
+          market({
+            conditionId: 'or-above-24',
+            question: 'Will the highest temperature in Paris be 24°C or above on July 30?',
+            outcomePrices: [
+              { outcome: 'Yes', price: 0.80 },
+              { outcome: 'No', price: 0.20 },
+            ],
+          }),
+        ],
+        { forecastMean: 0, forecastStdDev: 0 },
+      );
+
+      expect(result.kind).toBe('signal');
+      if (result.kind === 'signal') {
+        expect(result.signal.conditionId).toBe('exact-24');
+      }
+    });
+
+    it('abstains when all buckets are filtered out', async () => {
+      const strategy = new WeatherHighestYesStrategy();
+      strategy.setRiskConfig({
+        minYesPrice: 0.5,
+        allowedComparisons: ['between'],
+      } as never);
+
+      const result = await strategy.evaluateGroup(
+        [
+          market({
+            conditionId: 'exact-24',
+            question: 'Will the highest temperature in Paris be 24°C on July 30?',
+            outcomePrices: [
+              { outcome: 'Yes', price: 0.80 },
+              { outcome: 'No', price: 0.20 },
+            ],
+          }),
+        ],
+        { forecastMean: 0, forecastStdDev: 0 },
+      );
+
+      expect(result.kind).toBe('abstain');
+      if (result.kind === 'abstain') {
+        expect(result.reason).toBe('no_high_yes_bucket');
+      }
+    });
+
+    it('null/empty allowedComparisons accepts all (backward compatible)', async () => {
+      const strategy = new WeatherHighestYesStrategy();
+      strategy.setRiskConfig({ minYesPrice: 0.5, allowedComparisons: null } as never);
+
+      const result = await strategy.evaluateGroup(
+        [
+          market({
+            conditionId: 'or-above-24',
+            question: 'Will the highest temperature in Paris be 24°C or above on July 30?',
+            outcomePrices: [
+              { outcome: 'Yes', price: 0.80 },
+              { outcome: 'No', price: 0.20 },
+            ],
+          }),
+        ],
+        { forecastMean: 0, forecastStdDev: 0 },
+      );
+
+      expect(result.kind).toBe('signal');
+      if (result.kind === 'signal') {
+        expect(result.signal.conditionId).toBe('or-above-24');
+      }
+    });
+
+    it('evaluate abstains with comparison_not_allowed when the bucket is filtered', async () => {
+      const strategy = new WeatherHighestYesStrategy();
+      strategy.setRiskConfig({
+        minYesPrice: 0.5,
+        allowedComparisons: ['exact'],
+      } as never);
+
+      const result = await strategy.evaluate(
+        market({
+          question: 'Will the highest temperature in Paris be 24°C or above on July 30?',
+          outcomePrices: [
+            { outcome: 'Yes', price: 0.80 },
+            { outcome: 'No', price: 0.20 },
+          ],
+        }),
+        { forecastMean: 0, forecastStdDev: 0 },
+      );
+
+      expect(result.kind).toBe('abstain');
+      if (result.kind === 'abstain') {
+        expect(result.reason).toBe('comparison_not_allowed');
+      }
+    });
+  });
 });

@@ -12,6 +12,7 @@ import { deadLetterQueueKey, WORKER_QUEUES } from '../queue/worker-queues.js';
 import { algoEntryCooldownKey } from './algo-entry-cooldown.js';
 import { weatherReentryThrottleKey } from './weather-reentry-throttle.js';
 import { weatherBucketHysteresisKey } from './weather-bucket-hysteresis.js';
+import { normalizeWeatherCity } from '../weather/weather-exit-helpers.js';
 import type { ExecutionResult, OrderSignal } from '../types/index.js';
 import { algoKindFromReason, type SimAlgoKind } from '../simulation/algo-kind.js';
 import { RiskService } from '../services/risk.service.js';
@@ -42,8 +43,8 @@ export interface SimRedisPurgeHints {
   conditionIds?: string[];
   /** Watchlist sim traders — used to drain `move-events` for sim copy reset. */
   simWatchlistTraders?: string[];
-  /** Weather cities with wiped positions — used to clear reentry throttles. */
-  weatherCities?: string[];
+  /** Weather (city, targetDate) pairs with wiped positions — used to clear reentry throttles. */
+  weatherCityDates?: Array<{ city: string; dateIso: string }>;
 }
 
 export interface SimResetRedisPurgeResult {
@@ -231,12 +232,20 @@ export async function collectSimRedisPurgeHints(
         ).map((t) => t.traderAddress)
       : [];
 
-  let weatherCities: string[] = [];
+  let weatherCityDates: Array<{ city: string; dateIso: string }> = [];
   if (algoKind === 'weather' && copiedPositionIds.length > 0) {
     const forecasts = await ds.getRepository(WeatherPositionForecast).find({
       where: { copiedPositionId: In(copiedPositionIds) },
     });
-    weatherCities = [...new Set(forecasts.map((f) => f.city))];
+    const seen = new Set<string>();
+    for (const f of forecasts) {
+      if (!f.city) continue;
+      const dateIso = f.targetDate.toISOString().slice(0, 10);
+      const key = `${normalizeWeatherCity(f.city)}|${dateIso}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      weatherCityDates.push({ city: normalizeWeatherCity(f.city), dateIso });
+    }
   }
 
   return {
@@ -246,7 +255,7 @@ export async function collectSimRedisPurgeHints(
     copiedPositionIds,
     conditionIds,
     simWatchlistTraders,
-    weatherCities,
+    weatherCityDates,
   };
 }
 
@@ -606,8 +615,8 @@ export async function purgeSimExecutionRedisState(
   let weatherHysteresisKeysRemoved = 0;
   if (algoKind === 'weather') {
     const keysToDelete: string[] = [];
-    for (const city of hints.weatherCities ?? []) {
-      keysToDelete.push(weatherReentryThrottleKey(city, 'sim'));
+    for (const { city, dateIso } of hints.weatherCityDates ?? []) {
+      keysToDelete.push(weatherReentryThrottleKey(city, dateIso, 'sim'));
     }
     for (const id of hints.copiedPositionIds) {
       keysToDelete.push(weatherBucketHysteresisKey(id));

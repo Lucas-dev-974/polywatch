@@ -17,7 +17,7 @@ StrategyRunner (poll weatherAlgoPollMs)
         │  1. ExitEvaluator (sorties d'abord)
         │  2. discoverWeatherMarkets + forecast
         │  3. evaluateGroup par stratégie active (catalogue, first-wins)
-        │  4. dedupSignalsByCity + applySelectionMode
+        │  4. dedupSignalsByCityDate + applySelectionMode
         ▼
 runWeatherEntryPipeline → weather-order-signals
         │
@@ -25,8 +25,8 @@ runWeatherEntryPipeline → weather-order-signals
 worker Executor
 ```
 
-**Unité de sélection** = ville (+ horizon). **Unité d'exécution** = sous-marché
-(palier) choisi automatiquement. **Au plus une position ouverte par ville.**
+**Unité de sélection** = ville + date cible (+ horizon). **Unité d'exécution** = sous-marché
+(palier) choisi automatiquement. **Au plus `maxPositionsPerCityDate` positions ouvertes par couple (ville, date cible)** (défaut 1).
 
 Positions rattachées à une watchlist sentinelle weather-algo. Snapshot forecast
 d'entrée dans `WeatherPositionForecast`. Comme `crypto-algo`, l'adresse
@@ -77,6 +77,16 @@ forecast) **ou**, pour `weather-highest-yes`, si le prix YES atteint le seuil
 priorité first-wins). Modes `single` / `multi` entre **villes** (`spread`
 ignoré → traité comme `single`).
 
+**Mode `single` (défaut)** : sélectionne **une seule paire (ville, date cible)** —
+celle dont le signal a l'`edge` maximal — puis émet **tous les lanes gagnants**
+(stratégies) pour cette paire. Cela permet à `weather-highest-yes` (edge=0)
+d'être sélectionné comme fallback sur une date où aucune stratégie forecast
+n'a de signal, au lieu d'être masqué par un signal forecast sur une *autre*
+date de la même ville.
+
+**Mode `multi`** : garantit au moins un signal par stratégie émettrice, puis
+remplit les slots restants par edge descendant (max `weatherAlgoMaxSignalsPerEvent`).
+
 **UI** : onglet **Stratégies** (checkboxes d'activation ; priorité first-wins =
 ordre du catalogue, pas l'ordre de cochage). Params JSON
 `weatherAlgoStrategies` / `weatherAlgoStrategyParams` — catalogue partagé dans
@@ -99,7 +109,7 @@ valeur `0` stockée est coercée à `null` au runtime par `getStrategyParams`.
 - `WEATHER_PRE_CLOSE` (pré-clôture) si `hoursToEnd <= bag.closeBeforeResolutionHours` (prioritaire)
 - `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > bag.forecastChangeThreshold` — **non évaluée pour `weather-highest-yes`**
 - `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `bag.cityFollowSwitchMode = close_and_reenter` **après** `bag.bucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave — **non évaluée pour `weather-highest-yes`**
-- Après close bucket/drift : throttle Redis `weather-reentry:{city}:{mode}` pendant `bag.reentryThrottleMs`
+- Après close bucket/drift : throttle Redis `weather-reentry:{city}:{dateIso}:{mode}` pendant `bag.reentryThrottleMs`
 
 > **`weather-highest-yes`** (sans forecast) : drift (`WEATHER_FORECAST_CHANGE`)
 > et bucket-exit (`WEATHER_BUCKET_EXIT`) sont **désactivés** — la position est
@@ -129,13 +139,13 @@ Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept 
 | Sélection par ville | Actif |
 | BUY YES sur bucket forecast | Actif |
 | BUY YES sur bucket au prix YES max (consensus, sans forecast) | Actif |
-| 1 position max par ville (`pending`/`open`/`closing`) | Actif |
+| Max positions par ville+date (`maxPositionsPerCityDate`, défaut 1 ; `pending`/`open`/`closing`) | Actif |
 | Sorties avant entrées (même cycle) | Actif |
 | Close drift forecast | Actif |
 | Auto-close / pré-clôture avant résolution | Actif |
 | Bucket-exit `close_and_reenter` / `hold` | Actif |
 | Hysteresis Redis `weather-bucket-hysteresis:{positionId}` | Actif |
-| Re-entry throttle `weather-reentry:{city}:{mode}` | Actif |
+| Re-entry throttle `weather-reentry:{city}:{dateIso}:{mode}` | Actif |
 | Métrique forcée `highest_temp` | Actif |
 | Expand / follow par `conditionId` | Retiré |
 | `add_position` | Hors scope (coercé → `close_and_reenter`) |
@@ -176,6 +186,8 @@ Depuis l'onglet **Villes**, la section **Données télécharger** permet de char
 - **Marge de résolution** : la fenêtre de fetch est étendue de `48 h` au-delà de `endDate` (`RESOLUTION_MARGIN_SEC`), car les marchés météo ne se règlent qu'après publication du résultat officiel — sans cette marge, le point de résolution serait coupé.
 - **Affichage timeline** : les vues timeline (`getClobPriceHistoryTimeline` / `getBucketTicksTimeline`) récupèrent les `maxTicks` points **les plus récents** (tri DESC) puis les re-trient chronologiquement, pour ne jamais tronquer la queue de résolution.
 - **Filtrage / suppression par intervalle — `weather_bucket_ticks`** : comme pour le CLOB, la timeline bucket accepte un filtre `fidelityMinutes` (sélecteur « Intervalle » **obligatoire** dans l'UI, pas d'option « Tous »), et la suppression ciblée **ville × intervalle** est possible via `deleteBucketTickCityInterval(city, fidelityMinutes)` (route `DELETE /api/weather-algo-data/bucket-ticks/interval?city=&fidelityMinutes=`). En backtest, `fidelityMinutes` (paramètre optionnel) filtre les `book_tick` en mode `reevaluate` uniquement ; en `replay` il est ignoré avec un warning `replay_fidelity_filter_unsupported` (`weather_evaluation_log` ne porte pas `fidelity_minutes`) — cf. [`backtest.md`](./backtest.md).
+
+**Résolution `weather-highest-yes` en backtest (fix 2026-08-15)** : la stratégie `weather-highest-yes` n'utilise pas de forecast — elle résout via le prix YES final du marché. Si le tick de résolution n'a pas de `yesPrice` (données incomplètes), l'adapter backtest applique une chaîne de fallback : `tick.yesPrice` → `pos.markPrice` (mis à jour à chaque book_tick) → `pos.entryPrice`. Cela évite les positions "zombies" non résolues qui faussaient le PnL.
 
 Doc API : [`api.md`](./api.md) § Weather Algo history. Modèle : [`modele-donnees.md`](./modele-donnees.md).
 

@@ -163,12 +163,20 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     }
   }
 
-  private hasOpenCity(ctx: RunContext, city: string | null | undefined): boolean {
-    if (!city) return false;
+  private openCountForCityDate(
+    ctx: RunContext,
+    city: string | null | undefined,
+    targetDateIso: string | null | undefined,
+  ): number {
+    if (!city || !targetDateIso) return 0;
     const normalized = city.toLowerCase();
     return ctx.ledger
       .openPositions()
-      .some((p) => (p.city ?? '').toLowerCase() === normalized);
+      .filter(
+        (p) =>
+          (p.city ?? '').toLowerCase() === normalized &&
+          p.targetDateIso === targetDateIso,
+      ).length;
   }
 
   private isDailyLossBreached(ctx: RunContext): boolean {
@@ -294,17 +302,25 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const selected = selectRunnerSimSignals(this.pendingRunnerSimSignals, risk);
     this.pendingRunnerSimSignals = [];
 
-    const seenCities = new Set<string>();
+    const seenCityDates = new Map<string, number>();
     for (const pos of ctx.ledger.openPositions()) {
-      if (pos.city) seenCities.add(pos.city.toLowerCase());
+      if (pos.city && pos.targetDateIso) {
+        const key = `${pos.city.toLowerCase()}|${pos.targetDateIso}`;
+        seenCityDates.set(key, (seenCityDates.get(key) ?? 0) + 1);
+      }
     }
+    const maxPerCityDate = Math.max(1, this.bag.maxPositionsPerCityDate ?? 1);
 
     for (const signal of selected) {
       const cityKey = (signal.city ?? '').toLowerCase();
-      if (cityKey && seenCities.has(cityKey)) continue;
+      const cityDateKey =
+        cityKey && signal.targetDate
+          ? `${cityKey}|${signal.targetDate.toISOString().slice(0, 10)}`
+          : null;
+      if (cityDateKey && (seenCityDates.get(cityDateKey) ?? 0) >= maxPerCityDate) continue;
       if (ctx.ledger.isDuplicateOpen(signal.conditionId)) continue;
       if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) break;
-      if (signal.city && this.exitManager.isReentryBlocked(signal.city, ctx.clock.now())) continue;
+      if (signal.city && this.exitManager.isReentryBlocked(signal.city, signal.targetDate.toISOString().slice(0, 10), ctx.clock.now())) continue;
 
       const cached = this.lastTickByCondition.get(signal.conditionId);
       const yesPrice = cached?.tick.yesPrice;
@@ -322,6 +338,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       ctx.ledger.openPosition({
         conditionId: signal.conditionId,
         city: signal.city,
+        targetDateIso: signal.targetDate ? signal.targetDate.toISOString().slice(0, 10) : null,
         qty: fill.qty,
         entryPrice: fill.entryPrice,
         entryAt: ctx.clock.now(),
@@ -339,7 +356,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         },
       });
 
-      if (cityKey) seenCities.add(cityKey);
+      if (cityDateKey) seenCityDates.set(cityDateKey, (seenCityDates.get(cityDateKey) ?? 0) + 1);
     }
   }
 
@@ -400,7 +417,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const maxPos = ctx.params.maxConcurrentPositions;
     if (ctx.ledger.openCount() >= maxPos) return;
 
-    if (this.exitManager.isReentryBlocked(data.snapshotCity, ctx.clock.now())) return;
+    if (data.snapshotTargetDateIso && this.exitManager.isReentryBlocked(data.snapshotCity, data.snapshotTargetDateIso, ctx.clock.now())) return;
 
     if (ctx.params.mode === 'replay') {
       return;
@@ -451,7 +468,10 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const result = await this.strategy.evaluateAt(market, ctxWeather, ctx.clock.now());
     if (result.kind !== 'signal') return;
 
-    if (this.hasOpenCity(ctx, data.snapshotCity)) return;
+    if (
+      this.openCountForCityDate(ctx, data.snapshotCity, data.snapshotTargetDateIso) >=
+      Math.max(1, this.bag.maxPositionsPerCityDate ?? 1)
+    ) return;
 
     if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice)) return;
 
@@ -466,6 +486,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     ctx.ledger.openPosition({
       conditionId: data.conditionId,
       city: data.snapshotCity,
+      targetDateIso: data.snapshotTargetDateIso ?? null,
       qty: fill.qty,
       entryPrice: fill.entryPrice,
       entryAt: ctx.clock.now(),
@@ -492,8 +513,15 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
     if (ctx.ledger.isDuplicateOpen(data.conditionId)) return;
     if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) return;
-    if (data.city && this.exitManager.isReentryBlocked(data.city, ctx.clock.now())) return;
-    if (this.hasOpenCity(ctx, data.city)) return;
+
+    const cached = this.lastTickByCondition.get(data.conditionId);
+    const targetDateIso = cached?.tick.snapshotTargetDateIso ?? null;
+
+    if (data.city && targetDateIso && this.exitManager.isReentryBlocked(data.city, targetDateIso, ctx.clock.now())) return;
+    if (
+      this.openCountForCityDate(ctx, data.city, targetDateIso) >=
+      Math.max(1, this.bag.maxPositionsPerCityDate ?? 1)
+    ) return;
 
     if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice)) return;
 
@@ -508,6 +536,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     ctx.ledger.openPosition({
       conditionId: data.conditionId,
       city: data.city,
+      targetDateIso,
       qty: fill.qty,
       entryPrice: fill.entryPrice,
       entryAt: ctx.clock.now(),
@@ -555,14 +584,22 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   private async evaluateExits(ctx: RunContext): Promise<void> {
     for (const pos of ctx.ledger.openPositions()) {
       const cached = this.lastTickByCondition.get(pos.conditionId);
-      if (!cached || cached.tick.yesPrice == null) continue;
+      if (!cached) continue;
       const { tick, at: tickAt } = cached;
-      const yesPrice = cached.tick.yesPrice;
+      const yesPrice = tick.yesPrice;
 
-      ctx.ledger.updateMark(pos.conditionId, yesPrice);
+      // For highest-yes positions, we can resolve even without current yesPrice
+      // using markPrice/entryPrice fallbacks. Don't skip resolution check.
+      const isHighestYes = pos.meta?.strategyId === WEATHER_HIGHEST_YES_STRATEGY_ID;
+      if (yesPrice != null) {
+        ctx.ledger.updateMark(pos.conditionId, yesPrice);
+      }
 
       const outcome = this.tryResolvePosition(ctx, pos, tick);
       if (outcome === 'resolved' || outcome === 'skip') continue;
+
+      // For non-resolution exits (drift, bucket, SL/TP), we need a current yesPrice
+      if (yesPrice == null) continue;
 
       const currentMean = this.currentForecastMean(ctx, tick);
       if (this.tryExitByDecision(ctx, pos, tick, tickAt, yesPrice, currentMean)) continue;
@@ -627,14 +664,24 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       if (isHighestYes) {
         // highest-yes n'a pas de forecast : on résout via le prix YES final
         // (consensus marché). yesPrice > 0.50 → YES, sinon NO.
-        const yesPrice = tick.yesPrice;
+        // Fallback chain: tick.yesPrice → pos.markPrice (updated each book_tick) → pos.entryPrice
+        const yesPrice = tick.yesPrice ?? pos.markPrice ?? pos.entryPrice;
         if (yesPrice == null) {
+          // Should be unreachable with entryPrice fallback, but guard anyway
           this.warnOnce(
             ctx,
-            'resolution_no_yes_price',
-            'Résolution highest-yes impossible sans prix YES — position laissée ouverte',
+            'resolution_no_price_whatsoever',
+            'Résolution highest-yes impossible — aucun prix disponible (tick, mark, entry)',
           );
           return 'skip';
+        }
+        if (tick.yesPrice == null) {
+          const fallbackSource = pos.markPrice != null ? 'markPrice' : 'entryPrice';
+          this.warnOnce(
+            ctx,
+            'resolution_highest_yes_fallback',
+            `Résolution highest-yes via fallback ${fallbackSource}=${yesPrice.toFixed(4)} (tick.yesPrice absent)`,
+          );
         }
         const winningOutcome = yesPrice > 0.5 ? 'YES' : 'NO';
         const exitPrice = winningOutcome === 'YES' ? 1 : 0;

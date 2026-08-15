@@ -7,16 +7,19 @@ import pino from 'pino';
 const log = pino({ name: 'weather-algo:strategy-runner' });
 
 /**
- * Deduplicate weather signals by (normalized city, strategy) lane, keeping the
- * highest-edge signal per lane. This yields at most one signal per city per
- * strategy, so a forecast-less strategy (e.g. highest-yes, edge=0) is never
- * silently discarded by a higher-edge forecast strategy on the same city.
+ * Deduplicate weather signals by (normalized city, target date, strategy) lane,
+ * keeping the highest-edge signal per lane. This yields at most one signal per
+ * city+date per strategy, so a forecast-less strategy (e.g. highest-yes, edge=0)
+ * is never silently discarded by a higher-edge forecast strategy on the same
+ * city+date. Distinct dates of the same city form distinct lanes, allowing
+ * multiple open positions across different target dates.
  */
-export function dedupSignalsByCity(signals: WeatherSignal[]): WeatherSignal[] {
+export function dedupSignalsByCityDate(signals: WeatherSignal[]): WeatherSignal[] {
   const bestPerLane = new Map<string, WeatherSignal>();
   for (const signal of signals) {
     const cityKey = normalizeWeatherCity(signal.city);
-    const laneKey = `${cityKey}::${signal.strategyId}`;
+    const dateIso = signal.targetDate.toISOString().slice(0, 10);
+    const laneKey = `${cityKey}|${dateIso}::${signal.strategyId}`;
     const prev = bestPerLane.get(laneKey);
     if (!prev || signal.edge > prev.edge) {
       bestPerLane.set(laneKey, signal);
@@ -54,10 +57,18 @@ export function applySelectionMode(
       'weather selection mode unknown — falling back to single',
     );
   }
-  // Single mode: keep one signal per (city, strategy) lane. The runner's
-  // per-city gate enforces the single-position-per-city business constraint,
-  // so a forecast-less strategy remains a candidate and wins cities where the
-  // forecast strategies abstained. Sorted by descending edge for a deterministic
-  // order (forecast strategies with positive edge take precedence on ties).
-  return [...signals].sort((a, b) => b.edge - a.edge);
+  // Single mode: pick the (city, targetDate) pair with the highest-edge signal,
+  // then return all lane winners for that pair (multiple strategies).
+  // This allows highest-yes (edge=0) to win as fallback on dates where
+  // forecast strategies have no signal, instead of being shadowed by a
+  // forecast signal on a different date of the same city.
+  const sorted = [...signals].sort((a, b) => b.edge - a.edge);
+  const best = sorted[0]!;
+  const bestCity = normalizeWeatherCity(best.city);
+  const bestDateIso = best.targetDate.toISOString().slice(0, 10);
+  return sorted.filter(
+    (s) =>
+      normalizeWeatherCity(s.city) === bestCity &&
+      s.targetDate.toISOString().slice(0, 10) === bestDateIso,
+  );
 }

@@ -1,5 +1,23 @@
 # Change History
 
+## 2026-08-15 — Weather-algo highest-yes edge cases : backtest resolution fallback + single mode city+date selection
+
+### Fixed
+- Backtest adapter (`packages/backtest/src/adapters/weather/weather-adapter.ts`) : résolution `weather-highest-yes` applique une chaîne de fallback `tick.yesPrice` → `pos.markPrice` (mis à jour à chaque book_tick) → `pos.entryPrice` au lieu de laisser la position ouverte indéfiniment quand `tick.yesPrice` est null. `evaluateExits` ne skip plus la résolution pour cette stratégie quand `yesPrice` est absent.
+
+### Changed
+- Strategy runner selection (`packages/weather-algo/src/strategy/strategy-runner-selection.ts`) : mode `single` sélectionne maintenant par **paire (ville, date cible)** au lieu de **ville seule**. Le signal au `edge` maximal détermine la paire gagnante ; tous les lanes (stratégies) pour cette paire sont émis. Cela permet à `weather-highest-yes` (edge=0) d'agir comme fallback par date quand aucune stratégie forecast n'a de signal sur cette date, au lieu d'être masqué par un signal forecast sur une autre date de la même ville.
+- Propagation automatique : `runner-sim.ts::selectRunnerSimSignals` appelle `applySelectionMode` → bénéficie du nouveau comportement sans modification.
+
+### Tests Added
+- `packages/backtest/src/adapters/weather/weather-adapter.test.ts` : 2 tests — fallback markPrice + fallback entryPrice pour résolution `highest-yes`.
+- `packages/weather-algo/src/strategy/strategy-runner-selection.test.ts` : 2 nouveaux tests — `single picks best city+date pair` + `single returns all lanes for best city+date` ; test existant mis à jour.
+
+### Notes
+- Guard post-sélection `maxPositionsPerCityDate` dans `strategy-runner.ts` conservé comme defense-in-depth (positions DB vs cycle courant).
+- Tests validés : `weather-algo` 81/81, `backtest` 33/33.
+- Doc mise à jour : `docs/weather-algo.md` (unité de sélection, modes single/multi, backtest fallback note).
+
 ## 2026-08-12 — Fix C3/C4/C5 weather-algo : source de vérité unique pour table ids, metric, exit reasons
 
 ### Added

@@ -176,28 +176,12 @@ async function main() {
   strategyRunner.start();
   metricsPublisher.start();
 
-  const dataPurgeTimer = safeInterval(
-    async () => {
-      const cfg = await weatherConfigService.getConfig();
-      try {
-        const fhMs = cfg.weatherAlgoForecastHistoryRetentionDays * 86_400_000;
-        const snapMs = cfg.weatherAlgoMarketSnapshotRetentionDays * 86_400_000;
-        const evalMs = cfg.weatherAlgoEvaluationLogRetentionDays * 86_400_000;
-        const fhDeleted = await forecastHistoryRecorder.purgeOlderThan(fhMs);
-        if (fhDeleted > 0) log.info({ deleted: fhDeleted }, 'purged weather_forecast_history');
-        const snapDeleted = await marketSnapshotRecorder.purgeOlderThan(snapMs);
-        if (snapDeleted > 0) {
-          log.info({ deleted: snapDeleted }, 'purged weather_market_snapshots (cascade bucket_ticks)');
-        }
-        const evalDeleted = await evaluationRecorder.purgeOlderThan(evalMs);
-        if (evalDeleted > 0) log.info({ deleted: evalDeleted }, 'purged weather_evaluation_log');
-      } catch (err) {
-        log.error({ err }, 'weather data purge failed');
-      }
-    },
-    60 * 60 * 1000,
-    'weather-algo:data-purge',
-  );
+  // NOTE: Automatic weather data purge disabled per user request.
+  // Previously: weather-algo:data-purge ran hourly and purged:
+  // - weather_forecast_history (retention: weatherAlgoForecastHistoryRetentionDays)
+  // - weather_market_snapshots (retention: weatherAlgoMarketSnapshotRetentionDays) + cascade bucket_ticks
+  // - weather_evaluation_log (retention: weatherAlgoEvaluationLogRetentionDays)
+  // Manual cleanup still available via UI (WeatherAlgoDataTab) and API if needed.
 
   const heartbeatTimer = safeInterval(
     async () => {
@@ -263,7 +247,7 @@ async function main() {
     strategyRunner.stop();
     metricsPublisher.stop();
     clearInterval(heartbeatTimer);
-    clearInterval(dataPurgeTimer);
+    // NOTE: dataPurgeTimer removed (auto purge disabled)
     try {
       await connectionManager.getWsClient().disconnect();
     } catch {

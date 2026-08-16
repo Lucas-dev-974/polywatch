@@ -419,23 +419,9 @@ async function main() {
     marketPriceHistorySyncer.bootstrapTrackedPositions(openPositionTracker);
   }, BOOK_SUBSCRIPTION_SYNC_MS, 'open-position-tracker-refresh');
 
-  // Purge old market ticks once an hour.
-  const marketTickPurgeTimer = safeInterval(async () => {
-    const retentionDays = Math.max(1, config.marketTickRetentionDays);
-    const retentionMs = retentionDays * 24 * 60 * 60 * 1000;
-    await tickService.purgeOlderThan(retentionMs);
-  }, 60 * 60 * 1000, 'market-tick-purge');
-
-  // Purge old market price ticks (from Polymarket sync) once an hour.
-  const marketPriceTickPurgeTimer = safeInterval(async () => {
-    const retentionDays = config.marketPriceTickRetentionDays;
-    if (retentionDays <= 0) return;
-    const retentionMs = retentionDays * 24 * 60 * 60 * 1000;
-    const deleted = await marketPriceTickService.deleteOlderThan(retentionMs);
-    if (deleted > 0) {
-      log.info({ deleted }, 'purged old market price ticks');
-    }
-  }, 60 * 60 * 1000, 'market-price-tick-purge');
+  // NOTE: Automatic tick purge disabled per user request.
+    // Previously: market-tick-purge (market_position_ticks) and market-price-tick-purge (market_price_ticks)
+    // were purged hourly. Manual cleanup still available via API if needed.
 
   // Replace REST polling with periodic WebSocket subscription maintenance
   const subscriptionTimer = safeInterval(async () => {
@@ -473,18 +459,17 @@ async function main() {
   log.info('Polywatch worker started');
 
   // Graceful shutdown
-  const shutdown = async () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    log.info('shutting down...');
-    if (algoSelectionsSyncTimer) clearTimeout(algoSelectionsSyncTimer);
-    if (backendReadyDebounceTimer) clearTimeout(backendReadyDebounceTimer);
-    if (marketResolvedDebounce) clearTimeout(marketResolvedDebounce);
-    clearInterval(subscriptionTimer);
-    clearInterval(openPositionRefreshTimer);
-    clearInterval(marketTickPurgeTimer);
-    clearInterval(marketPriceTickPurgeTimer);
-    marketPriceHistorySyncer.stop();
+    const shutdown = async () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      log.info('shutting down...');
+      if (algoSelectionsSyncTimer) clearTimeout(algoSelectionsSyncTimer);
+      if (backendReadyDebounceTimer) clearTimeout(backendReadyDebounceTimer);
+      if (marketResolvedDebounce) clearTimeout(marketResolvedDebounce);
+      clearInterval(subscriptionTimer);
+      clearInterval(openPositionRefreshTimer);
+      // NOTE: marketTickPurgeTimer and marketPriceTickPurgeTimer removed (auto purge disabled)
+      marketPriceHistorySyncer.stop();
     wsClient.disconnect();
     userChannel.disconnect();
     const safeQuit = (r: typeof redisCmd) => r.quit().catch(() => {});

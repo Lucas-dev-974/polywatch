@@ -153,6 +153,8 @@ export function useWeatherAlgoPositions() {
   onMount(() => {
     void refresh();
     if (posTab() === 'history') {
+      // Reset pagination on mount if history tab was persisted
+      if (historyPage() !== 0) setHistoryPage(0);
       void refreshHistory();
     }
     const poll = setInterval(() => void refresh(), POLL_MS);

@@ -6,6 +6,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 @Index(['status', 'closingStartedAt'])
 @Index(['watchlistId', 'conditionId', 'assetId', 'mode', 'status'])
 @Index(['strategyId'])
+@Index(['closeReason'])
 export class CopiedPosition {
   @PrimaryGeneratedColumn()
   id!: number;

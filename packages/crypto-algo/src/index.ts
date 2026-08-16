@@ -400,7 +400,6 @@ async function main() {
     // Previously: if (cryptoConfig.cryptoAlgoPriceTickCleanupEnabled) { ... }
     // Manual cleanup still available via API if needed.
     let shuttingDown = false;
-    const priceTickCleanupTimer: NodeJS.Timeout | null = null;
 
     const positionContextRefreshTimer = safeInterval(
     async () => {
@@ -566,38 +565,13 @@ async function main() {
         );
 
         await applyCryptoAlgoRiskTunables(
-          refreshed,
-          strategyRunner,
-          priceFeed,
-          priceTickRecorder,
-        );
+                  refreshed,
+                  strategyRunner,
+                  priceFeed,
+                  priceTickRecorder,
+                );
 
-        // Reconfigure price tick cleanup timer if settings changed
-                // NOTE: auto purge disabled per user request — skip reconfiguration
-                /*
-                if (shuttingDown) {
-                  log.info('config-changed during shutdown — skipping price tick cleanup reconfiguration');
-                  return;
-                }
-                if (priceTickCleanupTimer) {
-                  clearInterval(priceTickCleanupTimer);
-                  priceTickCleanupTimer = null;
-                }
-                if (refreshed.cryptoAlgoPriceTickCleanupEnabled) {
-                  const intervalMs = (refreshed.cryptoAlgoPriceTickCleanupIntervalMinutes ?? 60) * 60 * 1000;
-                  priceTickCleanupTimer = safeInterval(
-                    () => priceTickRecorder.cleanupOldTicks(),
-                    intervalMs,
-                    'crypto-algo:price-tick-cleanup',
-                  );
-                  log.info(
-                    { intervalMinutes: refreshed.cryptoAlgoPriceTickCleanupIntervalMinutes ?? 60 },
-                    'price tick cleanup reconfigured',
-                  );
-                } else {
-                  log.info('price tick cleanup disabled via config-changed');
-                }
-                */
+                // NOTE: price tick cleanup auto-purge disabled per user request — no reconfiguration needed
               } catch (err) {
         log.warn({ err }, 'failed to reload crypto config on config-changed');
       }

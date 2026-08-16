@@ -141,8 +141,12 @@ export function useWeatherAlgoPositions() {
   /** Switch tab, lazily loading closed-position history on first visit. */
   function selectPosTab(tab: WeatherPosTab) {
     setPosTab(tab);
-    if (tab === 'history' && !historyLoaded() && !loadingHistory()) {
-      void refreshHistory();
+    if (tab === 'history') {
+      // Reset pagination when entering history tab to avoid stale page from previous session
+      if (historyPage() !== 0) setHistoryPage(0);
+      if (!historyLoaded() && !loadingHistory()) {
+        void refreshHistory();
+      }
     }
   }
 

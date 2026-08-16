@@ -199,6 +199,12 @@ function WeatherHistoryPositionItem(props: { pos: WeatherPosition }) {
             {pos.closedAt ? formatShortDateTime(pos.closedAt) : '—'}
           </span>
         </span>
+        <Show when={pos.closeReason}>
+          <span class="weather-history-pos-item__metric">
+            <span class="weather-history-pos-item__label">Raison</span>
+            <span class="text-mono text-sm badge badge-close-reason">{pos.closeReason}</span>
+          </span>
+        </Show>
       </div>
       <Show when={pos.marketUrl}>
         <a

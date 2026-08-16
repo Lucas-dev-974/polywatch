@@ -10968,6 +10968,16 @@ body.is-resizing-columns .position-market-split-handle::after {
   color: #60a5fa;
 }
 
+.badge-close-reason {
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: .125rem .375rem;
+  border-radius: .25rem;
+  background: var(--warning-muted, #fff3cd);
+  color: var(--warning, #ffc107);
+}
+
 .weather-pnl-badge {
   font-size: .8125rem;
   font-weight: 600;

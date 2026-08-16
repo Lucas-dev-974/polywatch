@@ -9,7 +9,6 @@ import {
   ExitAttemptEventService,
   EXIT_ATTEMPT_LIST_MAX_LIMIT,
   MarketPositionTickService,
-  SimulationSessionService,
   algoKindLikePattern,
 } from '@polywatch/core';
 import { requireJwt, type AuthRequest } from '../middleware/auth.js';
@@ -88,16 +87,6 @@ export function createPositionsRouter(ds: DataSource): Router {
         qb.orderBy('p.closed_at', 'DESC');
       }
       const isClosed = req.query.status === 'closed';
-      const isWeatherClosed = isClosed && req.query.reason === 'weather';
-
-      if (isWeatherClosed) {
-        const session = await new SimulationSessionService(ds).getActiveSession('weather');
-        if (!session) {
-          res.json({ items: [], total: 0 });
-          return;
-        }
-        qb.andWhere('p.closedAt >= :sessionStart', { sessionStart: session.startedAt });
-      }
 
       if (isClosed) {
         const limit = Math.max(1, Math.min(Number(req.query.limit ?? 20), 200));

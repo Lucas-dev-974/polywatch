@@ -8,7 +8,6 @@ import {
   extractRealConfigSnapshotFromIsolated,
   REAL_RISK_CONFIG_KEYS,
   SIM_RISK_CONFIG_KEYS,
-  realRotationChangedFromIsolated,
 } from '../risk/sim-mode-fields.js';
 
 function baseGlobal(): GlobalConfig {
@@ -152,21 +151,5 @@ describe('extractRealConfigSnapshotFromIsolated', () => {
     }
     expect(snapshot.realAllowedMarketTags).toEqual(['crypto']);
     expect(snapshot.realCashOverride).toBe(250);
-  });
-});
-
-describe('realRotationChangedFromIsolated', () => {
-  it('detects real rotation key changes', () => {
-    const before = {
-      global: baseGlobal(),
-      copy: { ...baseCopy(), realCopyRatio: 0.5 } as CopyConfig,
-      crypto: { ...baseCrypto(), cryptoAlgoEnabled: true } as CryptoConfig,
-    };
-    const after = {
-      ...before,
-      copy: { ...before.copy, realCopyRatio: 0.8 } as CopyConfig,
-    };
-    expect(realRotationChangedFromIsolated(before, after)).toBe(true);
-    expect(realRotationChangedFromIsolated(before, before)).toBe(false);
   });
 });

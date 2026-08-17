@@ -159,7 +159,7 @@ Source de vérité config = 4 tables isolées (`GlobalConfig` / `CopyConfig` /
   interval helpers.
 - `crypto-algo-tunables.ts` / `crypto-algo-strategy-params.ts` / `crypto-config-api.ts`
 - `weather-exit-params.ts` / `weather-config-api.ts`
-- `sim-execution-tunables.ts` / `sim-mode-fields.ts` / `sim-rotation-targets.ts`
+- `sim-execution-tunables.ts` / `sim-mode-fields.ts`
 
 ## Sizing (`sizing/`)
 

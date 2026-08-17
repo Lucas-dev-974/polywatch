@@ -83,9 +83,6 @@ export * from './risk/crypto-config-api.js';
 export * from './risk/weather-config-api.js';
 export * from './risk/sim-mode-fields.js';
 export {
-  resolveSimRotationTargetsFromConfigs,
-} from './risk/sim-rotation-targets.js';
-export {
   getSimInitialCapital,
 } from './simulation/sim-initial-capital.js';
 export * from './risk/crypto-algo-helpers.js';

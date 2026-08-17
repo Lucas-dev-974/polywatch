@@ -10,8 +10,6 @@ import {
   RiskService,
   computeCryptoAlgoConfigFingerprint,
   canEnableRealTrading,
-  resolveSimRotationTargetsFromConfigs,
-  realRotationChangedFromIsolated,
   presentCryptoConfigForApi,
   toCryptoConfigEntityUpdate,
   presentWeatherConfigForApi,
@@ -19,14 +17,9 @@ import {
   WEATHER_STRATEGY_IDS,
   sanitizeWeatherStrategyParams,
   validateWeatherStrategyParamsUpdate,
-  type GlobalConfig,
-  type CopyConfig,
-  type CryptoConfig,
-  type WeatherConfig,
 } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 import { publishConfigChanged } from '../redis.js';
-import { SessionRotationService } from '../services/session-rotation.service.js';
 
 // ─── Shared helpers ──────────────────────────────────────────────────
 
@@ -330,29 +323,14 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
   const cryptoService = new CryptoConfigService(ds);
   const weatherService = new WeatherConfigService(ds);
   const revisionService = new RiskConfigRevisionService(ds);
-  const rotationService = new SessionRotationService(ds);
 
-  async function loadAllConfigs(): Promise<{ global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig }> {
-    const [global, copy, crypto, weather] = await Promise.all([
-      globalService.getConfig(),
-      copyService.getConfig(),
-      cryptoService.getConfig(),
-      weatherService.getConfig(),
-    ]);
-    return { global, copy, crypto, weather };
-  }
-
-  async function handleConfigRotation(
-    before: { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
-    after: { global: GlobalConfig; copy: CopyConfig; crypto: CryptoConfig; weather: WeatherConfig },
-  ): Promise<{ simTargets: string[]; realRotated: boolean }> {
-    const simTargets = resolveSimRotationTargetsFromConfigs(before, after);
-    const realRotated = realRotationChangedFromIsolated(before, after);
-
-    if (simTargets.length > 0 || realRotated) {
-      await rotationService.rotateOnConfigChange(before, after);
-    }
-    return { simTargets, realRotated };
+  /**
+   * Session rotation on config change is disabled (product decision).
+   * Config still applies via publishConfigChanged; no session is closed/reopened
+   * and no "Avant changement de config" snapshot is created.
+   */
+  async function handleConfigRotation(): Promise<{ simTargets: string[]; realRotated: boolean }> {
+    return { simTargets: [], realRotated: false };
   }
 
   // ─── /api/config/global ──────────────────────────────────────────────
@@ -372,11 +350,9 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
       return;
     }
     try {
-      const before = await loadAllConfigs();
       const updated = await globalService.updateConfig(parsed.data as any);
       RiskService.invalidateConfigCache();
-      const after = await loadAllConfigs();
-      const rotation = await handleConfigRotation(before, after);
+      const rotation = await handleConfigRotation();
       await revisionService.recordRevision(updated, { source: 'api', patch: parsed.data, kind: 'global' });
       await publishConfigChanged('global');
       res.json({ ...updated, sessionRotation: rotation });
@@ -405,11 +381,9 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
       });
       return;
     }
-    const before = await loadAllConfigs();
     const updated = await copyService.updateConfig(parsed.data as any);
     RiskService.invalidateConfigCache();
-    const after = await loadAllConfigs();
-    const rotation = await handleConfigRotation(before, after);
+    const rotation = await handleConfigRotation();
     await revisionService.recordRevision(updated, { source: 'api', patch: parsed.data, kind: 'copy' });
     await publishConfigChanged('copy');
     res.json({ ...updated, sessionRotation: rotation });
@@ -453,13 +427,11 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
     const revisionSource = typeof raw.revisionSource === 'string' &&
       (raw.revisionSource === 'api' || raw.revisionSource === 'report_apply' || raw.revisionSource === 'system')
       ? raw.revisionSource : 'api';
-    const before = await loadAllConfigs();
     const updated = await cryptoService.updateConfig(
       toCryptoConfigEntityUpdate(parsed.data),
     );
     RiskService.invalidateConfigCache();
-    const after = await loadAllConfigs();
-    const rotation = await handleConfigRotation(before, after);
+    const rotation = await handleConfigRotation();
     await revisionService.recordRevision(updated, { source: revisionSource, patch: parsed.data, kind: 'crypto' });
     await publishConfigChanged('crypto');
     res.json({
@@ -505,13 +477,11 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
       // Persist sanitized map so retired catalogue keys (e.g. useGlobalMinEdge) are dropped.
       parsed.data.weatherAlgoStrategyParams = nextParams;
     }
-    const before = await loadAllConfigs();
     const updated = await weatherService.updateConfig(
       toWeatherConfigEntityUpdate(parsed.data),
     );
     RiskService.invalidateConfigCache();
-    const after = await loadAllConfigs();
-    const rotation = await handleConfigRotation(before, after);
+    const rotation = await handleConfigRotation();
     await revisionService.recordRevision(updated, { source: 'api', patch: parsed.data, kind: 'weather' });
     await publishConfigChanged('weather');
     res.json({ ...presentWeatherConfigForApi(updated), sessionRotation: rotation });

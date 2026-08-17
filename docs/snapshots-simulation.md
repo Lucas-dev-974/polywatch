@@ -395,6 +395,16 @@ Page nav **Snapshots** → onglet **Simulation** (`SnapshotsPage.tsx` → `Simul
    prochains resets de ce kind uniquement). Les autres kinds et le reste de la
    config **ne sont pas** modifiés.
 
+> **Changement de config ≠ reset.** Un `PUT /api/config/{global,copy,crypto,weather}`
+> applique la config (via `config-changed` → rechargement worker) mais **ne
+> déclenche plus aucune rotation de session** (ni sim, ni real) : aucune session
+> n'est fermée/rouverte et aucun snapshot « Avant changement de config » n'est
+> créé. La rotation de session n'a lieu que sur reset manuel
+> (`POST /api/simulation-balance/reset`) ou clôture de période real
+> (`POST /api/real-sessions/rotate`). Conséquence : modifier
+> `simInitialCapital*` n'affecte pas le solde courant — un reset manuel est
+> nécessaire pour réappliquer le nouveau capital.
+
 ## Déploiement
 
 Appliquer les migrations avant d'utiliser les sessions et le journal décisionnel :
@@ -428,7 +438,7 @@ Migrations concernées :
 | Auto-loop | `packages/backend/src/simulation/auto-snapshot-loop.ts` |
 | Timing | `packages/core/src/simulation/auto-snapshot-timing.ts` |
 | Migration | `packages/core/src/migrations/AddSnapshotSystemV2170000000045.ts`, `AddSimulationSessions1700000000046.ts`, `SimSessionsPerAlgoKind1700000000085.ts`, `AddSimInitialCapitalPerAlgoKind1700000000086.ts` |
-| Capital / rotation | `packages/core/src/simulation/sim-initial-capital.ts`, `packages/core/src/risk/sim-rotation-targets.ts` |
+| Capital / rotation | `packages/core/src/simulation/sim-initial-capital.ts` |
 | Redis hygiene | `packages/core/src/redis/sim-reset-redis-hygiene.ts` |
 | API client | `packages/frontend/src/lib/simulation-snapshots.ts`, `simulation-sessions.ts` |
 | Compare snapshots | `packages/frontend/src/lib/sim-snapshot-compare.ts` |

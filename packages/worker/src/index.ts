@@ -420,8 +420,8 @@ async function main() {
   }, BOOK_SUBSCRIPTION_SYNC_MS, 'open-position-tracker-refresh');
 
   // NOTE: Automatic tick purge disabled per user request.
-    // Previously: market-tick-purge (market_position_ticks) and market-price-tick-purge (market_price_ticks)
-    // were purged hourly. Manual cleanup still available via API if needed.
+  // Previously: market-tick-purge (market_position_ticks) and market-price-tick-purge (market_price_ticks)
+  // were purged hourly. Manual cleanup still available via API if needed.
 
   // Replace REST polling with periodic WebSocket subscription maintenance
   const subscriptionTimer = safeInterval(async () => {
@@ -459,17 +459,17 @@ async function main() {
   log.info('Polywatch worker started');
 
   // Graceful shutdown
-    const shutdown = async () => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      log.info('shutting down...');
-      if (algoSelectionsSyncTimer) clearTimeout(algoSelectionsSyncTimer);
-      if (backendReadyDebounceTimer) clearTimeout(backendReadyDebounceTimer);
-      if (marketResolvedDebounce) clearTimeout(marketResolvedDebounce);
-      clearInterval(subscriptionTimer);
-      clearInterval(openPositionRefreshTimer);
-      // NOTE: marketTickPurgeTimer and marketPriceTickPurgeTimer removed (auto purge disabled)
-      marketPriceHistorySyncer.stop();
+  const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log.info('shutting down...');
+    if (algoSelectionsSyncTimer) clearTimeout(algoSelectionsSyncTimer);
+    if (backendReadyDebounceTimer) clearTimeout(backendReadyDebounceTimer);
+    if (marketResolvedDebounce) clearTimeout(marketResolvedDebounce);
+    clearInterval(subscriptionTimer);
+    clearInterval(openPositionRefreshTimer);
+    // NOTE: marketTickPurgeTimer and marketPriceTickPurgeTimer removed (auto purge disabled)
+    marketPriceHistorySyncer.stop();
     wsClient.disconnect();
     userChannel.disconnect();
     const safeQuit = (r: typeof redisCmd) => r.quit().catch(() => {});

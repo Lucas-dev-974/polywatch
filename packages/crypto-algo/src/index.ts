@@ -397,11 +397,11 @@ async function main() {
   const stopSurveillanceJanitor = startSurveillanceJanitor(ds);
 
   // 19c. Price tick cleanup: DISABLED per user request (was configurable via CryptoConfig)
-    // Previously: if (cryptoConfig.cryptoAlgoPriceTickCleanupEnabled) { ... }
-    // Manual cleanup still available via API if needed.
-    let shuttingDown = false;
+  // Previously: if (cryptoConfig.cryptoAlgoPriceTickCleanupEnabled) { ... }
+  // Manual cleanup still available via API if needed.
+  let shuttingDown = false;
 
-    const positionContextRefreshTimer = safeInterval(
+  const positionContextRefreshTimer = safeInterval(
     async () => {
       await positionCache.refresh(priceTickRecorder.getActiveConditionIds());
     },
@@ -565,14 +565,14 @@ async function main() {
         );
 
         await applyCryptoAlgoRiskTunables(
-                  refreshed,
-                  strategyRunner,
-                  priceFeed,
-                  priceTickRecorder,
-                );
+          refreshed,
+          strategyRunner,
+          priceFeed,
+          priceTickRecorder,
+        );
 
-                // NOTE: price tick cleanup auto-purge disabled per user request — no reconfiguration needed
-              } catch (err) {
+        // NOTE: price tick cleanup auto-purge disabled per user request — no reconfiguration needed
+      } catch (err) {
         log.warn({ err }, 'failed to reload crypto config on config-changed');
       }
     })();
@@ -591,8 +591,8 @@ async function main() {
       stopSurveillanceJanitor();
       clearPostEntryMidTimers();
       priceTickRecorder.shutdown();
-            // NOTE: priceTickCleanupTimer removed (auto purge disabled)
-            clearInterval(positionContextRefreshTimer);
+      // NOTE: priceTickCleanupTimer removed (auto purge disabled)
+      clearInterval(positionContextRefreshTimer);
       clearInterval(postEntryMidCleanupTimer);
       positionCache.clear();
       signalRegistry.clear();

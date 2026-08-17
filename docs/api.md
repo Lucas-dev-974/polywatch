@@ -400,7 +400,7 @@ Doc : [`weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistenc
 | GET | `/api/weather-algo-data/clob-price-history` | Liste (`city`, `from`, `to`, `limit`≤500) |
 | GET | `/api/weather-algo-data/clob-price-history/dates` | Liste des dates distinctes de prix CLOB |
 | GET | `/api/weather-algo-data/clob-price-history/timeline` | Timeline prix CLOB (`targetDate`, `city?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle |
-| GET | `/api/weather-algo-data/bucket-ticks/timeline` | Timeline bucket ticks (`targetDateIso`, `city?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle |
+| GET | `/api/weather-algo-data/bucket-ticks/timeline` | Timeline bucket ticks (`targetDateIso`, `city?`, `conditionId?`, `from?`, `to?`, `maxTicks?`, `fidelityMinutes?`) — filtre par intervalle et par marché (`conditionId`) |
 | DELETE | `/api/weather-algo-data/bucket-ticks/interval?city=&fidelityMinutes=` | Supprime tous les ticks d'une ville à un intervalle donné → `{ city, fidelityMinutes, deleted }` |
 | GET | `/api/weather-algo-data/coverage` | Agrégat legacy (période snapshots + totaux) — UI Paramètres retirée |
 

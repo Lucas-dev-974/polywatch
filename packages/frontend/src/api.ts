@@ -934,11 +934,17 @@ export async function fetchBucketTickDates(): Promise<{ dates: BucketTickDateEnt
 
 export async function fetchBucketTickTimeline(
   targetDateIso: string,
-  params?: { city?: string; maxTicks?: number; fidelityMinutes?: number },
+  params?: {
+    city?: string;
+    conditionId?: string;
+    maxTicks?: number;
+    fidelityMinutes?: number;
+  },
 ): Promise<{ dates: BucketTimelineDate[] }> {
   const qs = weatherAlgoDataQuery({
     targetDateIso,
     city: params?.city,
+    conditionId: params?.conditionId,
     maxTicks: params?.maxTicks,
     fidelityMinutes: params?.fidelityMinutes,
   });

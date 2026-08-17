@@ -164,6 +164,25 @@ describe('WeatherAlgoDataService — bucket ticks timeline', () => {
     expect(res.dates).toEqual([]);
   });
 
+  it('filtre la timeline par conditionId (marché)', async () => {
+    const snap = await seedSnapshot();
+    await seedTick(snap.id, { conditionId: 'cond-target', yesPrice: 0.3 });
+    await seedTick(snap.id, { conditionId: 'cond-other', yesPrice: 0.7 });
+
+    const all = await service.getBucketTicksTimeline({ targetDateIso: '2026-01-01' });
+    expect(all.dates[0]!.cities[0]!.buckets).toHaveLength(2);
+
+    const filtered = await service.getBucketTicksTimeline({
+      targetDateIso: '2026-01-01',
+      conditionId: 'cond-target',
+    });
+    const buckets = filtered.dates[0]!.cities[0]!.buckets;
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]!.conditionId).toBe('cond-target');
+    expect(buckets[0]!.series).toHaveLength(1);
+    expect(buckets[0]!.series[0]!.yesPrice).toBeCloseTo(0.3, 5);
+  });
+
   it('filtre la timeline par intervalle (fidelityMinutes)', async () => {
     const snap = await seedSnapshot();
     await seedTick(snap.id, { fidelityMinutes: 15, yesPrice: 0.3, conditionId: 'cond-15' });

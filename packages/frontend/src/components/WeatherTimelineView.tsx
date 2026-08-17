@@ -9,6 +9,7 @@ import { useChartWidth } from '../hooks/useChartWidth';
 import { buildChartXTicks } from '../lib/updown-price-chart';
 import { WeatherSeriesLegend } from './WeatherSeriesLegend';
 import { formatCents } from '../lib/format';
+import { formatShortDateTime } from '../lib/date';
 
 export { UI_KEYS };
 
@@ -155,11 +156,22 @@ interface HoverState {
   svgX: number;
 }
 
-function SeriesChart(props: {
+export interface SeriesChartMarker {
+  /** Timestamp (ms) où placer le marker — aligné sur l'axe temps. */
+  t: number;
+  /** Prix (0–1) où placer le marker — aligné sur l'axe des prix. */
+  y: number;
+  label: string;
+  kind: 'entry' | 'exit';
+}
+
+export function SeriesChart(props: {
   buckets: WeatherTimelineBucketData[];
   renderHeader: (totalPoints: number) => JSX.Element;
   /** Seuil de prix minimum (en dollars) : les buckets dont le prix moyen est < seuil sont masqués. */
   minPrice: number;
+  /** Markers de position (entrée/sortie) superposés sur le graph, alignés sur le temps et le prix. */
+  markers?: SeriesChartMarker[];
 }) {
   /**
    * Prix moyen d'un bucket, en excluant les zéros finaux (effondrement de
@@ -209,6 +221,11 @@ function SeriesChart(props: {
   const visibleFlat = () => visibleSegments().flatMap((s) => s.segments).flat();
   const totalPoints = () => visibleFlat().length;
   const visibleCount = () => visibleSegments().length;
+
+  const visibleMarkers = () =>
+    (props.markers ?? []).filter(
+      (m) => m.t >= minT() && m.t <= maxT() && m.y >= 0 && m.y <= 1,
+    );
 
   const lastPrice = (s: { segments: ChartPoint[][] }): number | null => {
     for (let i = s.segments.length - 1; i >= 0; i--) {
@@ -370,6 +387,29 @@ function SeriesChart(props: {
                 </For>
               )}
             </For>
+            <For each={props.markers ?? []}>
+              {(marker) => {
+                const inRange =
+                  marker.t >= minT() && marker.t <= maxT() && marker.y >= 0 && marker.y <= 1;
+                if (!inRange) return null;
+                const mx = xPos(marker.t);
+                const my = yPos(marker.y);
+                return (
+                  <g
+                    class={`weather-bucket-marker weather-bucket-marker--${marker.kind}`}
+                  >
+                    <line
+                      x1={mx}
+                      y1={CHART_MARGIN.top}
+                      x2={mx}
+                      y2={CHART_MARGIN.top + plotH()}
+                      class="weather-bucket-marker__guide"
+                    />
+                    <circle class="weather-bucket-marker__dot" cx={mx} cy={my} r="4.5" />
+                  </g>
+                );
+              }}
+            </For>
             <Show when={hovered()}>
               <line
                 class="weather-bucket-crosshair"
@@ -427,6 +467,20 @@ function SeriesChart(props: {
         }))}
         onToggle={toggleSeries}
       />
+      <Show when={totalPoints() > 0 && visibleMarkers().length > 0}>
+        <div class="weather-bucket-marker-legend">
+          <For each={visibleMarkers()}>
+            {(m) => (
+              <span class="weather-bucket-marker-legend-item">
+                <span
+                  class={`weather-bucket-marker-legend-swatch weather-bucket-marker-legend-swatch--${m.kind}`}
+                />
+                {m.label} {m.y.toFixed(3)} · {formatShortDateTime(new Date(m.t).toISOString())}
+              </span>
+            )}
+          </For>
+        </div>
+      </Show>
     </div>
   );
 }

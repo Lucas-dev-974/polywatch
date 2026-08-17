@@ -480,6 +480,7 @@ export class WeatherAlgoDataService {
   async getBucketTicksTimeline(options: {
     targetDateIso: string;
     city?: string;
+    conditionId?: string;
     from?: Date;
     to?: Date;
     maxTicks?: number;
@@ -500,6 +501,11 @@ export class WeatherAlgoDataService {
     if (options.city) {
       tickQb.andWhere('t.cityNormalized = :city', {
         city: options.city.trim().toLowerCase(),
+      });
+    }
+    if (options.conditionId) {
+      tickQb.andWhere('t.conditionId = :conditionId', {
+        conditionId: options.conditionId,
       });
     }
     if (options.fidelityMinutes != null) {

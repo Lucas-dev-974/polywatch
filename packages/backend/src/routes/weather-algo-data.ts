@@ -104,6 +104,8 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
     const targetDateIso =
       typeof req.query.targetDateIso === 'string' ? req.query.targetDateIso : '';
     const city = typeof req.query.city === 'string' ? req.query.city : undefined;
+    const conditionId =
+      typeof req.query.conditionId === 'string' ? req.query.conditionId : undefined;
     const from = parseOptionalDate(req.query.from);
     const to = parseOptionalDate(req.query.to);
     const maxTicks = Number(req.query.maxTicks);
@@ -116,6 +118,7 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
       await service.getBucketTicksTimeline({
         targetDateIso,
         city,
+        conditionId,
         from,
         to,
         maxTicks: Number.isFinite(maxTicks) ? maxTicks : undefined,

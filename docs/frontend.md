@@ -127,6 +127,7 @@ src/
 │   │   ├── WeatherAlgoHeader.tsx / WeatherAlgoCapitalHero.tsx
 │   │   ├── WeatherAlgoActiveMarketsPanel.tsx / WeatherAlgoDiscoverPanel.tsx
 │   │   ├── WeatherAlgoPositionsPanel.tsx / WeatherAlgoExecutionsPanel.tsx
+│   │   │   └── WeatherPositionGroupedList.tsx  positions groupées (ville → date) ; bouton « Voir graph » → WeatherPositionMarketChartDialog.tsx (graphique de marché avec markers entrée/sortie)
 │   │   ├── WeatherAlgoAutoTrackTab.tsx
 │   │   ├── WeatherAlgoHistoryIngestSection.tsx  Villes → Données télécharger : ingestion historique CLOB (période, intervalle, Charger, statut job, couverture)
 │   │   ├── WeatherAlgoDataTab.tsx      Données : cards tables, drill-down, purge

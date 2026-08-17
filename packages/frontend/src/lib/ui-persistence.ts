@@ -93,6 +93,23 @@ export const WEATHER_ALGO_DATA_VIEWS = ['grid', 'detail'] as const;
 export type WeatherAlgoDataDetailMode = 'list' | 'timeline';
 export const WEATHER_ALGO_DATA_DETAIL_MODES = ['list', 'timeline'] as const;
 
+export type CryptoAlgoPageTab = 'overview' | 'data';
+export const CRYPTO_ALGO_PAGE_TABS = ['overview', 'data'] as const;
+
+export type CryptoAlgoDataView = 'grid' | 'detail';
+export const CRYPTO_ALGO_DATA_VIEWS = ['grid', 'detail'] as const;
+
+export const CRYPTO_ALGO_DATA_TABLE_IDS = [
+  'price_ticks',
+  'surveillance_snapshots',
+  'post_entry_mid_samples',
+  'market_selections',
+  'auto_track_rules',
+  'executions',
+  'positions',
+] as const;
+export type CryptoAlgoDataTableId = (typeof CRYPTO_ALGO_DATA_TABLE_IDS)[number];
+
 export const WEATHER_ALGO_DATA_TABLE_IDS = [
   'forecast_history',
   'market_snapshots',
@@ -119,6 +136,15 @@ export const UI_KEYS = {
   simTab: 'polywatch_sim_tab',
   snapshotsMode: 'polywatch_snapshots_mode',
   weatherAlgoTab: 'polywatch_weather_algo_tab',
+  cryptoAlgoTab: 'polywatch_crypto_algo_tab',
+  cryptoAlgoDataView: 'polywatch_crypto_algo_data_view',
+  cryptoAlgoDataTableId: 'polywatch_crypto_algo_data_table_id',
+  cryptoAlgoDataConditionId: 'polywatch_crypto_algo_data_condition_id',
+  cryptoAlgoDataFrom: 'polywatch_crypto_algo_data_from',
+  cryptoAlgoDataTo: 'polywatch_crypto_algo_data_to',
+  cryptoAlgoDataPage: 'polywatch_crypto_algo_data_page',
+  cryptoAlgoDataMode: 'polywatch_crypto_algo_data_mode',
+  cryptoAlgoDataStatus: 'polywatch_crypto_algo_data_status',
   weatherAlgoPosTab: 'polywatch_weather_algo_pos_tab',
   weatherAlgoPosModeFilter: 'polywatch_weather_algo_pos_mode_filter',
   weatherAlgoPosOpenSubTab: 'polywatch_weather_algo_pos_open_sub_tab',

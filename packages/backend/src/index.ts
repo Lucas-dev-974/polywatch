@@ -54,6 +54,7 @@ import { createSystemConfigRouter } from './routes/system-config.js';
 import { createSystemOverviewRouter } from './routes/system-overview.js';
 import { createSystemAuditRouter } from './routes/system-audit.js';
 import { createCryptoAlgoMonitorRouter } from './routes/crypto-algo-monitor.js';
+import { createCryptoAlgoDataRouter } from './routes/crypto-algo-data.js';
 import { createWeatherAlgoMarketsRouter } from './routes/weather-algo-markets.js';
 import { createWeatherAlgoDiscoverRouter } from './routes/weather-algo-discover.js';
 import { createWeatherAlgoForecastsRouter } from './routes/weather-algo-forecasts.js';
@@ -206,6 +207,7 @@ async function main() {
   app.use('/api/system', jwtLimiter, createSystemOverviewRouter(ds));
   app.use('/api/system', jwtLimiter, createSystemAuditRouter());
   app.use('/api/system/crypto-algo-monitor', jwtLimiter, createCryptoAlgoMonitorRouter());
+  app.use('/api/crypto-algo-data', jwtLimiter, createCryptoAlgoDataRouter(ds));
   app.use('/api/weather-algo-markets', jwtLimiter, createWeatherAlgoMarketsRouter(ds));
   app.use('/api/weather-algo-discover', jwtLimiter, createWeatherAlgoDiscoverRouter(ds));
   app.use('/api/weather-algo-forecasts', jwtLimiter, createWeatherAlgoForecastsRouter(ds));

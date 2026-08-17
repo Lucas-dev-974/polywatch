@@ -175,6 +175,16 @@ export {
   type EvaluationLogInput,
 } from './weather-evaluation-recorder.js';
 export {
+  CryptoAlgoDataService,
+  CRYPTO_ALGO_DATA_TABLE_IDS,
+  type CryptoAlgoDataCoverage,
+  type CryptoAlgoDataTableId,
+  type CryptoAlgoDataTableSummary,
+  type CryptoAlgoDataTablesResponse,
+  type CryptoAlgoDataDeleteAllResponse,
+  type CryptoAlgoDataDeleteTableResponse,
+} from './crypto-algo-data.service.js';
+export {
   WeatherAlgoDataService,
   WEATHER_ALGO_DATA_TABLE_IDS,
   type WeatherAlgoDataCoverage,

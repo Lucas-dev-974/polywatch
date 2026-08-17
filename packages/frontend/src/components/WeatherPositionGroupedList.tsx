@@ -230,7 +230,7 @@ function WeatherPositionCityCard(props: {
             <div class="weather-history-date-tile">
               <WeatherPositionDateDropdown
                 group={date}
-                defaultOpen={i() === 0}
+                defaultOpen={true}
                 onOpenChart={props.onOpenChart}
                 onClose={props.onClose}
               />

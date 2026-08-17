@@ -1,11 +1,13 @@
-import { onCleanup, onMount } from 'solid-js';
+import { For, onCleanup, onMount, Show } from 'solid-js';
 import { useCryptoAlgoDashboard } from '../hooks/useCryptoAlgoDashboard';
 import { useCryptoAlgoExecutions } from '../hooks/useCryptoAlgoExecutions';
 import { useCryptoAlgoPositions } from '../hooks/useCryptoAlgoPositions';
 import { useCryptoAlgoSurveillance } from '../hooks/useCryptoAlgoSurveillance';
 import { useAlgoWorkerQueueStatus } from '../hooks/useAlgoWorkerQueueStatus';
 import { onGlobalRefresh } from '../socket';
+import { CRYPTO_ALGO_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../lib/ui-persistence';
 import { CryptoAlgoCapitalDashboard } from './CryptoAlgoCapitalDashboard';
+import { CryptoAlgoDataTab } from './CryptoAlgoDataTab';
 import { CryptoAlgoExecutionsPanel } from './CryptoAlgoExecutionsPanel';
 import { CryptoAlgoFutureMarketsPanel } from './CryptoAlgoFutureMarketsPanel';
 import { CryptoAlgoHeader } from './CryptoAlgoHeader';
@@ -27,6 +29,11 @@ export function CryptoAlgoPage(props: CryptoAlgoPageProps = {}) {
   const queueStatus = useAlgoWorkerQueueStatus();
   const executions = useCryptoAlgoExecutions();
   const positions = useCryptoAlgoPositions();
+  const [tab, setTab] = usePersistedEnum(
+    UI_KEYS.cryptoAlgoTab,
+    'overview',
+    CRYPTO_ALGO_PAGE_TABS,
+  );
   const dashboard = useCryptoAlgoDashboard({
     onMarketsChanged: () => {
       surveillance.refresh();
@@ -80,24 +87,47 @@ export function CryptoAlgoPage(props: CryptoAlgoPageProps = {}) {
         creds={dashboard.creds}
         onToggleRealTrading={() => void dashboard.toggleRealTrading()}
       />
-      <div class="algo-two-col">
-        <CryptoAlgoLiveMarketsPanel
-          markets={dashboard.liveMarkets()}
-          now={dashboard.now}
-        />
-        <CryptoAlgoFutureMarketsPanel
-          markets={dashboard.futureMarkets()}
-          now={dashboard.now}
-        />
+      <div class="weather-algo-segmented" role="tablist">
+        <For each={[
+          { id: 'overview' as const, label: 'Vue d’ensemble' },
+          { id: 'data' as const, label: 'Données' },
+        ]}>
+          {(item) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab() === item.id}
+              class={`weather-algo-segmented-btn${tab() === item.id ? ' active' : ''}`}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          )}
+        </For>
       </div>
-      <CryptoAlgoInactiveMarketsPanel markets={dashboard.inactiveMarkets()} />
-      <CryptoAlgoSurveillancePanel
-        surveillance={surveillance}
-        queueStatus={queueStatus}
-        now={dashboard.now}
-      />
-      <CryptoAlgoExecutionsPanel executions={executions} />
-      <CryptoAlgoPositionsPanel positions={positions} />
+      <Show when={tab() === 'overview'}>
+        <div class="algo-two-col">
+          <CryptoAlgoLiveMarketsPanel
+            markets={dashboard.liveMarkets()}
+            now={dashboard.now}
+          />
+          <CryptoAlgoFutureMarketsPanel
+            markets={dashboard.futureMarkets()}
+            now={dashboard.now}
+          />
+        </div>
+        <CryptoAlgoInactiveMarketsPanel markets={dashboard.inactiveMarkets()} />
+        <CryptoAlgoSurveillancePanel
+          surveillance={surveillance}
+          queueStatus={queueStatus}
+          now={dashboard.now}
+        />
+        <CryptoAlgoExecutionsPanel executions={executions} />
+        <CryptoAlgoPositionsPanel positions={positions} />
+      </Show>
+      <Show when={tab() === 'data'}>
+        <CryptoAlgoDataTab />
+      </Show>
     </div>
   );
 }

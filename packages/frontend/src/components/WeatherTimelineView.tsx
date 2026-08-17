@@ -389,24 +389,25 @@ export function SeriesChart(props: {
             </For>
             <For each={props.markers ?? []}>
               {(marker) => {
-                const inRange =
+                const inRange = () =>
                   marker.t >= minT() && marker.t <= maxT() && marker.y >= 0 && marker.y <= 1;
-                if (!inRange) return null;
-                const mx = xPos(marker.t);
-                const my = yPos(marker.y);
+                const mx = () => xPos(marker.t);
+                const my = () => yPos(marker.y);
                 return (
-                  <g
-                    class={`weather-bucket-marker weather-bucket-marker--${marker.kind}`}
-                  >
-                    <line
-                      x1={mx}
-                      y1={CHART_MARGIN.top}
-                      x2={mx}
-                      y2={CHART_MARGIN.top + plotH()}
-                      class="weather-bucket-marker__guide"
-                    />
-                    <circle class="weather-bucket-marker__dot" cx={mx} cy={my} r="4.5" />
-                  </g>
+                  <Show when={inRange()}>
+                    <g
+                      class={`weather-bucket-marker weather-bucket-marker--${marker.kind}`}
+                    >
+                      <line
+                        x1={mx()}
+                        y1={CHART_MARGIN.top}
+                        x2={mx()}
+                        y2={CHART_MARGIN.top + plotH()}
+                        class="weather-bucket-marker__guide"
+                      />
+                      <circle class="weather-bucket-marker__dot" cx={mx()} cy={my()} r="4.5" />
+                    </g>
+                  </Show>
                 );
               }}
             </For>

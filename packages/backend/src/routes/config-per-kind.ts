@@ -238,7 +238,7 @@ const weatherSelectionMode = z.enum(['single', 'multi']);
 
 const weatherStrategyId = z.enum(WEATHER_STRATEGY_IDS);
 
-const weatherSizingMode = z.enum(['fixed_usdc']);
+const weatherSizingMode = z.enum(['fixed_usdc', 'fixed_shares']);
 const weatherCityFollowSwitchMode = z.enum(['close_and_reenter', 'hold']);
 const weatherKillSwitchAction = z.enum(['block_entries', 'force_close_all', 'block_and_notify']);
 
@@ -259,6 +259,7 @@ const weatherStrategyParamsBagSchema = z
     // Sizing
     entryUsdc: z.number().finite().min(1).max(10000),
     sizingMode: weatherSizingMode,
+    fixedShareCount: z.number().int().min(1).max(10_000_000).optional(),
     // Exit
     forecastChangeThreshold: z.number().finite().min(0.5).max(20),
     closeBeforeResolutionHours: z.number().finite().min(0.5).max(168),

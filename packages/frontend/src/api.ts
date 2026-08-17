@@ -584,6 +584,7 @@ export interface WeatherConfig {
   weatherAlgoMaxForecastStd: number | null;
   weatherAlgoSizingMode: string;
   weatherAlgoEntryUsdc: number;
+  weatherAlgoEntryShareCount: number;
   weatherAlgoSelectionMode: string;
   weatherAlgoMaxSignalsPerEvent: number;
   weatherAlgoForecastChangeThreshold: number;

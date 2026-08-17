@@ -69,7 +69,9 @@ export type WeatherStrategyParamsBag = {
   /** Fixed entry notional (USDC). */
   entryUsdc: number;
   /** Sizing mode. Currently only fixed_usdc is wired to the runtime. */
-  sizingMode: 'fixed_usdc';
+  sizingMode: 'fixed_usdc' | 'fixed_shares';
+  /** Fixed share count for 'fixed_shares' sizing mode. */
+  fixedShareCount: number;
   // ── Exit ───────────────────────────────────────────────────────────
   /** Forecast mean change (delta °C) triggering WEATHER_FORECAST_CHANGE. */
   forecastChangeThreshold: number;
@@ -125,6 +127,7 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   maxPositionsPerCityDate: 1,
   entryUsdc: 10,
   sizingMode: 'fixed_usdc',
+  fixedShareCount: 100,
   forecastChangeThreshold: 2,
   closeBeforeResolutionHours: 1,
   bucketHysteresisPolls: 2,
@@ -154,7 +157,10 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   minTimeToClose: 0,
 };
 
-const SIZING_MODE_OPTIONS = [{ value: 'fixed_usdc', label: 'Fixed USDC' }];
+const SIZING_MODE_OPTIONS = [
+  { value: 'fixed_usdc', label: 'Fixed USDC' },
+  { value: 'fixed_shares', label: 'Fixed Shares' },
+];
 
 const CITY_FOLLOW_OPTIONS = [
   { value: 'close_and_reenter', label: 'Fermer et rouvrir' },
@@ -180,6 +186,7 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     // Sizing
     { key: 'entryUsdc', label: 'Taille d’entrée (USDC)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
     { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_usdc' },
+    { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_usdc.' },
     // Exit
     { key: 'forecastChangeThreshold', label: 'Seuil de dérive forecast (°C)', kind: 'number', min: 0.5, max: 20, step: 0.5, default: 2, hint: 'Déclenche WEATHER_FORECAST_CHANGE.' },
     { key: 'closeBeforeResolutionHours', label: 'Fermeture avant résolution (h)', kind: 'number', min: 0.5, max: 168, step: 0.5, default: 1 },
@@ -242,6 +249,8 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     },
     // Sizing
     { key: 'entryUsdc', label: 'Taille d’entrée (USDC)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
+    { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_usdc' },
+    { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_usdc.' },
     // Exit
     { key: 'closeBeforeResolutionHours', label: 'Fermeture avant résolution (h)', kind: 'number', min: 0.5, max: 168, step: 0.5, default: 1 },
     // SL / TP / Trailing

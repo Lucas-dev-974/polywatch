@@ -134,6 +134,9 @@ export class WeatherConfig {
   @Column({ type: 'real', name: 'weather_algo_entry_usdc', default: 10 })
   weatherAlgoEntryUsdc!: number;
 
+  @Column({ type: 'integer', name: 'weather_algo_entry_share_count', default: 100 })
+  weatherAlgoEntryShareCount!: number;
+
   // ── Selection ──────────────────────────────────────────────────────
 
   @Column({ type: 'text', name: 'weather_algo_selection_mode', default: 'single' })

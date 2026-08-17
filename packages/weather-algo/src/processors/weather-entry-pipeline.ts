@@ -304,10 +304,10 @@ async function runMode(args: {
 
   // --- Sizing ---------------------------------------------------------------
   const sizing: import('@polywatch/core').ModeSizingParams = {
-    sizingMode: 'fixed_usdc',
+    sizingMode: bag.sizingMode,
     copyRatio: 1,
     fixedUsdcAmount: bag.entryUsdc,
-    fixedShareCount: 0,
+    fixedShareCount: bag.fixedShareCount ?? 0,
     signalScoreSizingEnabled: bag.signalScoreSizingEnabled,
   };
 

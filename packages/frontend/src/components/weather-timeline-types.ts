@@ -66,5 +66,5 @@ export interface WeatherTimelineSource<TCity extends object> {
     side: string | null,
     totalPoints: number,
   ) => JSX.Element;
-  renderDialogSummary: (city: TCity, side: string | null) => JSX.Element;
+  renderDialogSummary?: (city: TCity, side: string | null) => JSX.Element;
 }

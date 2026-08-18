@@ -85,8 +85,6 @@ const source: WeatherTimelineSource<BucketTimelineCity> = {
 
   renderDialogSummary: (city) => (
     <p class="form-hint">
-      Forecast : {city.forecastMean != null ? `${city.forecastMean.toFixed(1)}°` : '—'}
-      {city.forecastStdDev != null ? ` ± ${city.forecastStdDev.toFixed(1)}°` : ''} ·{' '}
       {city.bucketCount} buckets
     </p>
   ),

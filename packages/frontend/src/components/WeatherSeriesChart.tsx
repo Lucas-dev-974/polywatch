@@ -1,83 +1,32 @@
 import { createSignal, For, Show, type JSX } from 'solid-js';
 import { useChartWidth } from '../hooks/useChartWidth';
-import { buildChartXTicks } from '../lib/updown-price-chart';
 import { WeatherSeriesLegend } from './WeatherSeriesLegend';
-import { formatCents } from '../lib/format';
-import { formatShortDateTime } from '../lib/date';
 import type {
   WeatherTimelineBucketData,
-  WeatherTimelineSeriesPoint,
 } from './weather-timeline-types';
+import { splitSegments } from './weather-series-chart/segments';
+import {
+  boundsOf,
+  filterBucketsByMinPrice,
+  lastPriceOf,
+} from './weather-series-chart/compute';
+import { buildChartScale, buildXTicks, CHART_H, CHART_MARGIN } from './weather-series-chart/scale';
+import { seriesColor } from './weather-series-chart/palette';
+import { ChartGrid } from './weather-series-chart/ChartGrid';
+import { SeriesLines } from './weather-series-chart/SeriesLines';
+import { PositionMarkers } from './weather-series-chart/PositionMarkers';
+import { Crosshair } from './weather-series-chart/Crosshair';
+import { ChartTooltip } from './weather-series-chart/ChartTooltip';
+import { MarkerLegend } from './weather-series-chart/MarkerLegend';
+import type {
+  ChartPoint,
+  HoverState,
+  SegmentedBucket,
+  SeriesChartMarker,
+  TooltipRow,
+} from './weather-series-chart/types';
 
-export const SERIES_PALETTE = [
-  '#3b82f6',
-  '#22c55e',
-  '#f59e0b',
-  '#ef4444',
-  '#a855f7',
-  '#06b6d4',
-  '#ec4899',
-  '#84cc16',
-  '#f97316',
-  '#8b5cf6',
-];
-
-interface ChartPoint {
-  t: number;
-  y: number;
-}
-
-/** Convertit une série (avec éventuels trous y null) en segments continus de points. */
-function splitSegments(series: WeatherTimelineSeriesPoint[]): ChartPoint[][] {
-  const segments: ChartPoint[][] = [];
-  let current: ChartPoint[] = [];
-  for (const p of series) {
-    if (p.y == null) {
-      if (current.length) segments.push(current);
-      current = [];
-      continue;
-    }
-    current.push({ t: p.t, y: p.y });
-  }
-  if (current.length) segments.push(current);
-  return segments;
-}
-
-const CHART_H = 220;
-const CHART_MARGIN = { top: 12, right: 16, bottom: 26, left: 44 };
-const Y_TICKS = Array.from({ length: 7 }, (_, i) => i * 0.15);
-
-interface HoverState {
-  t: number;
-  svgX: number;
-}
-
-export interface SeriesChartMarker {
-  /** Timestamp (ms) où placer le marker — aligné sur l'axe temps. */
-  t: number;
-  /** Prix (0–1) où placer le marker — aligné sur l'axe des prix. */
-  y: number;
-  label: string;
-  kind: 'entry' | 'exit';
-}
-
-/**
- * Formate toujours la date ET l'heure pour le tooltip crosshair.
- * Inclut les secondes uniquement pour les spans très courts (≤ 15min).
- */
-function formatChartTooltipDateTime(t: number, spanMs: number): string {
-  const d = new Date(t);
-  const baseOptions: Intl.DateTimeFormatOptions = {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  };
-  if (spanMs > 0 && spanMs <= 15 * 60_000) {
-    baseOptions.second = '2-digit';
-  }
-  return d.toLocaleString('fr-FR', baseOptions);
-}
+export type { SeriesChartMarker };
 
 export function SeriesChart(props: {
   buckets: WeatherTimelineBucketData[];
@@ -87,34 +36,11 @@ export function SeriesChart(props: {
   /** Markers de position (entrée/sortie) superposés sur le graph, alignés sur le temps et le prix. */
   markers?: SeriesChartMarker[];
 }) {
-  /**
-   * Prix moyen d'un bucket, en excluant les zéros finaux (effondrement de
-   * résolution en fin de vie). Sans cette exclusion, un bucket perdant qui
-   * résout à 0 ferait chuter sa moyenne à 0 malgré une cotation significative
-   * pendant sa vie.
-   */
-  const averagePriceOf = (b: WeatherTimelineBucketData): number | null => {
-    const prices = b.series
-      .map((p) => p.y)
-      .filter((y): y is number => y != null);
-    if (prices.length === 0) return null;
-    let end = prices.length;
-    while (end > 0 && prices[end - 1] === 0) end--;
-    const meaningful = prices.slice(0, end);
-    if (meaningful.length === 0) return null;
-    return meaningful.reduce((a, c) => a + c, 0) / meaningful.length;
-  };
+  const filteredBuckets = () => filterBucketsByMinPrice(props.buckets, props.minPrice);
 
-  const filteredBuckets = () =>
-    props.minPrice > 0
-      ? props.buckets.filter((b) => {
-          const avg = averagePriceOf(b);
-          return avg != null && avg >= props.minPrice;
-        })
-      : props.buckets;
-
-  const segments = () =>
+  const segments = (): SegmentedBucket[] =>
     filteredBuckets().map((b) => ({ bucket: b, segments: splitSegments(b.series) }));
+
   const [wrapEl, setWrapEl] = createSignal<HTMLDivElement>();
   const width = useChartWidth(wrapEl);
 
@@ -132,42 +58,19 @@ export function SeriesChart(props: {
   };
 
   const visibleSegments = () => segments().filter((_, i) => !hiddenSeries().has(i));
-  const visibleFlat = () => visibleSegments().flatMap((s) => s.segments).flat();
+  const visibleFlat = (): ChartPoint[] => visibleSegments().flatMap((s) => s.segments).flat();
   const totalPoints = () => visibleFlat().length;
   const visibleCount = () => visibleSegments().length;
 
+  const { minT, maxT } = boundsOf(visibleFlat());
+  const scale = () => buildChartScale(width(), minT, maxT);
+
   const visibleMarkers = () =>
     (props.markers ?? []).filter(
-      (m) => m.t >= minT() && m.t <= maxT() && m.y >= 0 && m.y <= 1,
+      (m) => m.t >= minT && m.t <= maxT && m.y >= 0 && m.y <= 1,
     );
 
-  const lastPrice = (s: { segments: ChartPoint[][] }): number | null => {
-    for (let i = s.segments.length - 1; i >= 0; i--) {
-      const seg = s.segments[i]!;
-      if (seg.length > 0) return seg[seg.length - 1]!.y;
-    }
-    return null;
-  };
-
-  const minT = () => {
-    const flat = visibleFlat();
-    if (flat.length === 0) return 0;
-    return Math.min(...flat.map((p) => p.t));
-  };
-  const maxT = () => {
-    const flat = visibleFlat();
-    if (flat.length === 0) return 1;
-    return Math.max(...flat.map((p) => p.t));
-  };
-
-  const plotW = () => Math.max(0, width() - CHART_MARGIN.left - CHART_MARGIN.right);
-  const plotH = () => Math.max(0, CHART_H - CHART_MARGIN.top - CHART_MARGIN.bottom);
-  const spanT = () => maxT() - minT() || 1;
-  const xPos = (t: number) => CHART_MARGIN.left + ((t - minT()) / spanT()) * plotW();
-  const yPos = (p: number) => CHART_MARGIN.top + (1 - p) * plotH();
-
-  const xTicks = () => buildChartXTicks(minT(), maxT(), undefined, plotW());
-  const yTicks = () => Y_TICKS;
+  const xTicks = () => buildXTicks(minT, maxT, scale().plotW);
 
   const onMouseMove = (e: MouseEvent) => {
     const svg = e.currentTarget as SVGSVGElement;
@@ -178,7 +81,8 @@ export function SeriesChart(props: {
       setHovered(null);
       return;
     }
-    const t = minT() + ((svgX - CHART_MARGIN.left) / plotW()) * spanT();
+    const s = scale();
+    const t = s.minT + ((svgX - CHART_MARGIN.left) / s.plotW) * s.spanT;
     let best: ChartPoint | null = null;
     let bestDist = Infinity;
     for (const p of flat) {
@@ -189,24 +93,24 @@ export function SeriesChart(props: {
       }
     }
     if (best) {
-      setHovered({ t: best.t, svgX: xPos(best.t) });
+      setHovered({ t: best.t, svgX: s.xPos(best.t) });
     }
   };
 
   const onMouseLeave = () => setHovered(null);
 
-  const hoveredBuckets = () => {
+  const hoveredBuckets = (): TooltipRow[] => {
     const h = hovered();
     if (!h) return [];
-    const threshold = spanT() * 0.02;
-    const out: Array<{ label: string; color: string; price: number }> = [];
+    const threshold = scale().spanT * 0.02;
+    const out: TooltipRow[] = [];
     visibleSegments().forEach((s, i) => {
       for (const seg of s.segments) {
         for (const p of seg) {
           if (Math.abs(p.t - h.t) <= threshold) {
             out.push({
               label: s.bucket.fullLabel,
-              color: SERIES_PALETTE[i % SERIES_PALETTE.length],
+              color: seriesColor(i),
               price: p.y,
             });
             break;
@@ -236,104 +140,10 @@ export function SeriesChart(props: {
           onMouseLeave={onMouseLeave}
         >
           <Show when={totalPoints() > 0}>
-            <For each={xTicks()}>
-              {(tick) => (
-                <line
-                  class="weather-bucket-chart-grid-x"
-                  x1={xPos(tick.t)}
-                  y1={CHART_MARGIN.top}
-                  x2={xPos(tick.t)}
-                  y2={CHART_MARGIN.top + plotH()}
-                />
-              )}
-            </For>
-            <For each={yTicks()}>
-              {(tick) => (
-                <g class="weather-bucket-chart-grid-y">
-                  <line
-                    x1={CHART_MARGIN.left}
-                    y1={yPos(tick)}
-                    x2={CHART_MARGIN.left + plotW()}
-                    y2={yPos(tick)}
-                  />
-                  <text
-                    class="weather-bucket-chart-axis-y"
-                    x={CHART_MARGIN.left - 8}
-                    y={yPos(tick)}
-                    text-anchor="end"
-                    dominant-baseline="middle"
-                  >
-                    {formatCents(tick)}
-                  </text>
-                </g>
-              )}
-            </For>
-            <For each={xTicks()}>
-              {(tick) => (
-                <text
-                  class="weather-bucket-chart-axis-x"
-                  x={xPos(tick.t)}
-                  y={CHART_H - 6}
-                  text-anchor="middle"
-                >
-                  {tick.label}
-                </text>
-              )}
-            </For>
-            <For each={visibleSegments()}>
-              {(s, i) => (
-                <For each={s.segments}>
-                  {(seg) => (
-                    <path
-                      d={seg
-                        .map(
-                          (p, idx) =>
-                            `${idx === 0 ? 'M' : 'L'}${xPos(p.t).toFixed(1)},${yPos(p.y).toFixed(1)}`,
-                        )
-                        .join(' ')}
-                      fill="none"
-                      stroke={SERIES_PALETTE[i() % SERIES_PALETTE.length]}
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  )}
-                </For>
-              )}
-            </For>
-            <For each={props.markers ?? []}>
-              {(marker) => {
-                const inRange = () =>
-                  marker.t >= minT() && marker.t <= maxT() && marker.y >= 0 && marker.y <= 1;
-                const mx = () => xPos(marker.t);
-                const my = () => yPos(marker.y);
-                return (
-                  <Show when={inRange()}>
-                    <g
-                      class={`weather-bucket-marker weather-bucket-marker--${marker.kind}`}
-                    >
-                      <line
-                        x1={mx()}
-                        y1={CHART_MARGIN.top}
-                        x2={mx()}
-                        y2={CHART_MARGIN.top + plotH()}
-                        class="weather-bucket-marker__guide"
-                      />
-                      <circle class="weather-bucket-marker__dot" cx={mx()} cy={my()} r="4.5" />
-                    </g>
-                  </Show>
-                );
-              }}
-            </For>
-            <Show when={hovered()}>
-              <line
-                class="weather-bucket-crosshair"
-                x1={hovered()!.svgX}
-                y1={CHART_MARGIN.top}
-                x2={hovered()!.svgX}
-                y2={CHART_MARGIN.top + plotH()}
-              />
-            </Show>
+            <ChartGrid scale={scale()} xTicks={xTicks()} />
+            <SeriesLines buckets={visibleSegments()} scale={scale()} />
+            <PositionMarkers markers={props.markers ?? []} scale={scale()} />
+            <Crosshair hovered={hovered()} scale={scale()} />
           </Show>
           <Show when={totalPoints() === 0}>
             <text
@@ -346,29 +156,7 @@ export function SeriesChart(props: {
             </text>
           </Show>
         </svg>
-        <Show when={hovered() && hoveredBuckets().length > 0}>
-          <div
-            class="weather-bucket-tooltip"
-            style={{
-              left: `${hovered()!.svgX}px`,
-              top: `${CHART_MARGIN.top}px`,
-            }}
-          >
-            <strong>{formatChartTooltipDateTime(hovered()!.t, spanT())}</strong>
-            <For each={hoveredBuckets()}>
-              {(b) => (
-                <div class="weather-bucket-tooltip-row">
-                  <span
-                    class="weather-bucket-legend-swatch"
-                    style={{ background: b.color }}
-                  />
-                  <span class="weather-bucket-tooltip-label">{b.label}</span>
-                  <span class="weather-bucket-tooltip-price">{formatCents(b.price)}</span>
-                </div>
-              )}
-            </For>
-          </div>
-        </Show>
+        <ChartTooltip hovered={hovered()} rows={hoveredBuckets()} spanMs={scale().spanT} />
       </div>
       <WeatherSeriesLegend
         visibleCount={visibleCount()}
@@ -376,25 +164,14 @@ export function SeriesChart(props: {
         items={segments().map((s, i) => ({
           key: i,
           label: s.bucket.label,
-          price: lastPrice(s),
-          color: SERIES_PALETTE[i % SERIES_PALETTE.length],
+          price: lastPriceOf(s),
+          color: seriesColor(i),
           hidden: hiddenSeries().has(i),
         }))}
         onToggle={toggleSeries}
       />
       <Show when={totalPoints() > 0 && visibleMarkers().length > 0}>
-        <div class="weather-bucket-marker-legend">
-          <For each={visibleMarkers()}>
-            {(m) => (
-              <span class="weather-bucket-marker-legend-item">
-                <span
-                  class={`weather-bucket-marker-legend-swatch weather-bucket-marker-legend-swatch--${m.kind}`}
-                />
-                {m.label} {m.y.toFixed(3)} · {formatShortDateTime(new Date(m.t).toISOString())}
-              </span>
-            )}
-          </For>
-        </div>
+        <MarkerLegend markers={visibleMarkers()} />
       </Show>
     </div>
   );

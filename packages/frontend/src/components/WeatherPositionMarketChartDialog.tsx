@@ -127,14 +127,21 @@ export function WeatherPositionMarketChartDialog(
           const p = pos();
           return (
             <>
-              <Show when={data.forecastMean != null}>
-                <p class="form-hint">
-                  Forecast : {data.forecastMean!.toFixed(1)}°
-                  {data.forecastStdDev != null
-                    ? ` ± ${data.forecastStdDev.toFixed(1)}°`
-                    : ''} · {data.bucketCount} bucket{data.bucketCount > 1 ? 's' : ''}
-                </p>
-              </Show>
+              <SeriesChart
+                buckets={buckets()}
+                minPrice={minPrice()}
+                markers={markers()}
+                renderHeader={() => (
+                  <Show when={data.forecastMean != null}>
+                    <span class="weather-bucket-forecast-annot">
+                      Forecast {data.forecastMean!.toFixed(1)}° ±{' '}
+                      {data.forecastStdDev != null
+                        ? `${data.forecastStdDev.toFixed(1)}°`
+                        : '?'}
+                    </span>
+                  </Show>
+                )}
+              />
               <div class="weather-position-chart-summary">
                 <span>
                   Outcome : <strong>{p.outcome}</strong>
@@ -180,21 +187,6 @@ export function WeatherPositionMarketChartDialog(
                   title="N’afficher que les buckets dont le prix moyen (hors zéros de fin de vie) dépasse ce seuil (0 à 1)"
                 />
               </label>
-              <SeriesChart
-                buckets={buckets()}
-                minPrice={minPrice()}
-                markers={markers()}
-                renderHeader={() => (
-                  <Show when={data.forecastMean != null}>
-                    <span class="weather-bucket-forecast-annot">
-                      Forecast {data.forecastMean!.toFixed(1)}° ±{' '}
-                      {data.forecastStdDev != null
-                        ? `${data.forecastStdDev.toFixed(1)}°`
-                        : '?'}
-                    </span>
-                  </Show>
-                )}
-              />
             </>
           );
         }}

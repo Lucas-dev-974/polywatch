@@ -104,6 +104,7 @@ export interface EnvSettings {
   realSnapshotDecisionWindowHours: number;
   realCashOverride: number | null;
   cryptoAlgoEnabled: boolean;
+  cryptoAlgoRecordingEnabled: boolean;
   cryptoAlgoPriceTickCleanupEnabled: boolean;
   cryptoAlgoPriceTickCleanupIntervalMinutes: number;
   cryptoAlgoStrategies: string[];

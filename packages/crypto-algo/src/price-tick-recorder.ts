@@ -164,6 +164,19 @@ export class PriceTickRecorder {
     }
   }
 
+  /** Halt periodic recording without clearing active markets or cached mids. */
+  pause(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+
+  /** Resume periodic recording for still-active markets. */
+  resume(): void {
+    this.ensureTimerRunning();
+  }
+
   private reconcileTimer(): void {
     if (this.activeMarkets.size > 0) {
       this.ensureTimerRunning();

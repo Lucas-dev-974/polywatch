@@ -161,6 +161,7 @@ const cryptoAlgoExitDefaultsMap = z.record(cryptoAlgoIntervalKey, z.object({
 
 const cryptoConfigUpdateSchema = z.object({
   cryptoAlgoEnabled: z.boolean(),
+  cryptoAlgoRecordingEnabled: z.boolean(),
   cryptoAlgoMaxOpenPositions: nonNegInt,
   cryptoAlgoMaxExposureUsdc: nonNegNumber,
   cryptoAlgoMaxDailyLossUsdc: nonNegNumber,

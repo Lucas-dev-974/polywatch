@@ -384,7 +384,8 @@ async function main() {
   void runMarketJanitorTick();
   await refreshSurveillanceTargets();
 
-  const surveillanceRefreshTimer = safeInterval(
+  let surveillanceRefreshTimer: NodeJS.Timeout | null = null;
+  surveillanceRefreshTimer = safeInterval(
     async () => {
       await refreshSurveillanceTargets();
     },
@@ -401,13 +402,82 @@ async function main() {
   // Manual cleanup still available via API if needed.
   let shuttingDown = false;
 
-  const positionContextRefreshTimer = safeInterval(
+  let positionContextRefreshTimer: NodeJS.Timeout | null = null;
+  positionContextRefreshTimer = safeInterval(
     async () => {
       await positionCache.refresh(priceTickRecorder.getActiveConditionIds());
     },
     5_000,
     'crypto-algo:position-context-refresh',
   );
+
+  /**
+   * Master toggle for market recording & listening (cryptoAlgoRecordingEnabled).
+   * When disabled: stop WebSocket subscription, polling evaluation, price tick
+   * recording and surveillance open/close capture. When enabled: resume all of
+   * them on the currently active markets. Existing data is never purged.
+   */
+  const setRecordingAndListening = async (enabled: boolean): Promise<void> => {
+    if (enabled) {
+      try {
+        if (!strategyRunner.isWsConnected()) {
+          await connectionManager.getWsClient().connect();
+          const activeConditionIds = selectionLoader
+            .getActiveSelections()
+            .filter((s) => s.enabled)
+            .map((s) => s.conditionId);
+          await strategyRunner.connectWebSocket(connectionManager, activeConditionIds);
+        }
+      } catch (err) {
+        log.warn({ err }, 'failed to resume WS on recording toggle — polling continues');
+      }
+      strategyRunner.start(resolvePollMs(cryptoConfig, config.pollMs));
+      priceTickRecorder.resume();
+      surveillanceRecorder.resume();
+      if (!surveillanceRefreshTimer) {
+        surveillanceRefreshTimer = safeInterval(
+          async () => {
+            await refreshSurveillanceTargets();
+          },
+          60_000,
+          'crypto-algo:surveillance-refresh',
+        );
+      }
+      if (!positionContextRefreshTimer) {
+        positionContextRefreshTimer = safeInterval(
+          async () => {
+            await positionCache.refresh(priceTickRecorder.getActiveConditionIds());
+          },
+          5_000,
+          'crypto-algo:position-context-refresh',
+        );
+      }
+      await scheduleMarketJanitor();
+      await refreshSurveillanceTargets();
+      log.info('crypto-algo recording & listening resumed');
+    } else {
+      strategyRunner.stop();
+      priceTickRecorder.pause();
+      surveillanceRecorder.pause();
+      if (marketJanitorTimer) {
+        clearInterval(marketJanitorTimer);
+        marketJanitorTimer = null;
+      }
+      if (surveillanceRefreshTimer) {
+        clearInterval(surveillanceRefreshTimer);
+        surveillanceRefreshTimer = null;
+      }
+      if (positionContextRefreshTimer) {
+        clearInterval(positionContextRefreshTimer);
+        positionContextRefreshTimer = null;
+      }
+      log.info('crypto-algo recording & listening paused');
+    }
+  };
+
+  if (!cryptoConfig.cryptoAlgoRecordingEnabled) {
+    await setRecordingAndListening(false);
+  }
 
   // Retention: drop post-entry mid samples older than 14 days (hourly).
   const postEntryMidCleanupTimer = safeInterval(
@@ -571,6 +641,8 @@ async function main() {
           priceTickRecorder,
         );
 
+        await setRecordingAndListening(refreshed.cryptoAlgoRecordingEnabled);
+
         // NOTE: price tick cleanup auto-purge disabled per user request — no reconfiguration needed
       } catch (err) {
         log.warn({ err }, 'failed to reload crypto config on config-changed');
@@ -587,12 +659,12 @@ async function main() {
       shuttingDown = true;
       if (marketJanitorTimer) clearInterval(marketJanitorTimer);
       clearInterval(heartbeatTimer);
-      clearInterval(surveillanceRefreshTimer);
+      if (surveillanceRefreshTimer) clearInterval(surveillanceRefreshTimer);
       stopSurveillanceJanitor();
       clearPostEntryMidTimers();
       priceTickRecorder.shutdown();
       // NOTE: priceTickCleanupTimer removed (auto purge disabled)
-      clearInterval(positionContextRefreshTimer);
+      if (positionContextRefreshTimer) clearInterval(positionContextRefreshTimer);
       clearInterval(postEntryMidCleanupTimer);
       positionCache.clear();
       signalRegistry.clear();

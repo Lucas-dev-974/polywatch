@@ -68,6 +68,15 @@ export class CryptoConfig {
   @Column({ type: 'boolean', name: 'crypto_algo_enabled', default: false })
   cryptoAlgoEnabled!: boolean;
 
+  // ── Market recording & listening toggle ───────────────────────────
+
+  @Column({
+    type: 'boolean',
+    name: 'crypto_algo_recording_enabled',
+    default: true,
+  })
+  cryptoAlgoRecordingEnabled!: boolean;
+
   // ── Price tick cleanup ────────────────────────────────────────────
 
   @Column({ type: 'boolean', name: 'crypto_algo_price_tick_cleanup_enabled', default: false })

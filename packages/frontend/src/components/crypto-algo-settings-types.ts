@@ -10,6 +10,7 @@ export type CryptoAlgoIntervalExitDefaults = {
 export type CryptoAlgoSettings = Pick<
   EnvSettings,
   | 'cryptoAlgoEnabled'
+  | 'cryptoAlgoRecordingEnabled'
   | 'cryptoAlgoPriceTickCleanupEnabled'
   | 'cryptoAlgoPriceTickCleanupIntervalMinutes'
   | 'cryptoAlgoStrategies'
@@ -65,6 +66,7 @@ export type CryptoAlgoSettings = Pick<
 export function pickCryptoAlgoFields(config: EnvSettings): CryptoAlgoSettings {
   return {
     cryptoAlgoEnabled: config.cryptoAlgoEnabled,
+    cryptoAlgoRecordingEnabled: config.cryptoAlgoRecordingEnabled,
     cryptoAlgoPriceTickCleanupEnabled: config.cryptoAlgoPriceTickCleanupEnabled,
     cryptoAlgoPriceTickCleanupIntervalMinutes: config.cryptoAlgoPriceTickCleanupIntervalMinutes,
     cryptoAlgoStrategies: config.cryptoAlgoStrategies,

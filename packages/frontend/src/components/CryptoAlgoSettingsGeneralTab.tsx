@@ -25,6 +25,14 @@ export function CryptoAlgoSettingsGeneralTab(props: CryptoAlgoSettingsGeneralTab
         hint="Active ou désactive globalement le worker de trading algorithmique crypto."
         onChange={(checked) => props.onChange({ cryptoAlgoEnabled: checked })}
       />
+      <ToggleField
+        label="Enregistrer & écouter les marchés"
+        checked={props.config.cryptoAlgoRecordingEnabled}
+        hint="OFF : coupe l'abonnement temps réel et tout enregistrement (ticks, surveillance) sur les marchés crypto-algo. Les données existantes sont conservées."
+        onChange={(checked) =>
+          props.onChange({ cryptoAlgoRecordingEnabled: checked })
+        }
+      />
       <div class="form-field">
         <label>Stratégies activées (catalogue)</label>
         <p class="form-hint">

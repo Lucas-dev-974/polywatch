@@ -53,6 +53,8 @@ export class MarketSurveillanceRecorder {
   private readonly surveillanceService: AlgoSurveillanceService;
   /** Set by shutdown() to abort in-flight captureClose loops. */
   private aborted = false;
+  /** When true, no new capture is scheduled or run (recording toggle OFF). */
+  private paused = false;
 
   constructor(
     dataSource: DataSource,
@@ -64,6 +66,14 @@ export class MarketSurveillanceRecorder {
 
   async refresh(markets: WatchedMarketInput[]): Promise<void> {
     await this.repairStaleCloseSnapshots();
+
+    if (this.paused) {
+      // Keep no pending capture timers while the recording toggle is OFF.
+      for (const entry of this.scheduled.values()) {
+        this.clearTimers(entry);
+      }
+      return;
+    }
 
     const activeIds = new Set(markets.map((m) => m.conditionId));
     for (const [conditionId, entry] of this.scheduled) {
@@ -138,6 +148,19 @@ export class MarketSurveillanceRecorder {
     this.closeInFlight.clear();
   }
 
+  /** Halt scheduling/running of open/close snapshots while keeping state. */
+  pause(): void {
+    this.paused = true;
+    for (const entry of this.scheduled.values()) {
+      this.clearTimers(entry);
+    }
+  }
+
+  /** Resume scheduling of snapshots (replanned by the next refresh()). */
+  resume(): void {
+    this.paused = false;
+  }
+
   private async repairStaleCloseSnapshots(): Promise<void> {
     const stale = await this.surveillanceService.findNonRedemptionCloseSnapshots();
     for (const row of stale) {
@@ -188,6 +211,7 @@ export class MarketSurveillanceRecorder {
   }
 
   private async scheduleMarket(market: WatchedMarketInput): Promise<void> {
+    if (this.paused) return;
     let gamma: GammaMarket | null = null;
     try {
       gamma = await fetchGammaMarket(market.conditionId);
@@ -255,7 +279,7 @@ export class MarketSurveillanceRecorder {
   }
 
   private async captureOpen(conditionId: string): Promise<void> {
-    if (this.aborted) return;
+    if (this.aborted || this.paused) return;
     try {
       const prices = await this.resolveOpenPrices(conditionId);
       const saved = await this.surveillanceService.recordOpenSnapshot(conditionId, prices);
@@ -269,7 +293,7 @@ export class MarketSurveillanceRecorder {
   }
 
   private async captureClose(conditionId: string): Promise<void> {
-    if (this.aborted) return;
+    if (this.aborted || this.paused) return;
     if (this.closeInFlight.has(conditionId)) return;
 
     this.closeInFlight.add(conditionId);

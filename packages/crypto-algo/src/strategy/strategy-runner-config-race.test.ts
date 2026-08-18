@@ -10,6 +10,7 @@ import {
 function minimalCryptoConfig(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
   return {
     cryptoAlgoEnabled: true,
+    cryptoAlgoRecordingEnabled: true,
     cryptoAlgoStrategies: '["naive-momentum"]',
     cryptoAlgoGammaCacheTtlShortMs: 10_000,
     cryptoAlgoGammaCacheTtlDefaultMs: 30_000,

@@ -504,6 +504,7 @@ export interface CopyConfig {
 
 export interface CryptoConfig {
   cryptoAlgoEnabled: boolean;
+  cryptoAlgoRecordingEnabled: boolean;
   cryptoAlgoMaxOpenPositions: number;
   cryptoAlgoMaxExposureUsdc: number;
   cryptoAlgoMaxDailyLossUsdc: number;

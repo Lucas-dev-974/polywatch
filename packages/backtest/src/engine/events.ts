@@ -53,6 +53,12 @@ export interface SignalEventData {
   bucketHigh: number | null;
   /** City resolved from the parent snapshot, if any. */
   city: string | null;
+  /** Forecast mean from the parent snapshot (used to populate entryMean in replay). */
+  snapshotForecastMean: number | null;
+  /** Target date from the parent snapshot (fallback when no tick precedes the signal). */
+  snapshotTargetDateIso: string | null;
+  /** Metric from the parent snapshot. */
+  snapshotMetric: string | null;
 }
 
 export type BacktestEvent =

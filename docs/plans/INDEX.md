@@ -1,6 +1,6 @@
 # Inventaire des plans — Polywatch
 
-> Dernière mise à jour : 2026-08-13  
+> Dernière mise à jour : 2026-08-18  
 > Critère `applied/` : plan d'implémentation dont les livrables concrets sont présents dans le code (vérification codebase, pas seulement les cases `[x]` du markdown).
 
 ## Structure des dossiers
@@ -16,12 +16,12 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 27 |
+| **applied** | 28 |
 | **partial** (racine) | 3 |
 | **not_implemented** (racine) | 2 |
 | **reference** | 7 |
 | **archived** | 5 |
-| **Total** | **44** |
+| **Total** | **45** |
 
 ---
 
@@ -58,6 +58,7 @@
 | [../weather-algo-audits-plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md](../weather-algo-audits-plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md) | Partie 4 : refactors R1–R10 (R4 déjà fait via C2) — agrégateur timeline, split DataTab/BacktestTab, `EXIT_REASON_LABEL` typeorm-free, helpers routes, watched-table, formatters, `FIDELITY_OPTIONS`, split `evaluateExits` | `weather-algo-data.service.ts`, `weather-market-discovery.ts`, `query-params.ts`, `backtest-exit-reasons.ts`, `weather-adapter.ts`, `format.ts`, `fidelity-options.ts`, `Pagination.tsx`, `WeatherWatchedTable.tsx`, `WeatherAlgoDataTab.tsx`, `WeatherAlgoBacktestTab.tsx`, `vite.config.ts` |
 | [../weather-algo-audits-plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md) | Partie 5 : fix Doc vs code F1–F8 (routes manquantes, `fidelityMinutes`, warning `kill_switch_partial_close`, retrait janitor auto-track, wording « 6 tables ») | `api.md`, `backtest.md`, `weather-algo.md`, `code/08-weather-algo.md`, `plans/applied/2026-08-08_IMPL-...`, `plans/2026-08-08_PLAN-...` |
 | [../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md) | Fix C7 (proxyFallback), C10 (asymétrie CDF), C11 (tolérance bucket), C12 (clé unique metric) | `resolution.ts`, `forecast-distribution.ts`, `weather-exit-helpers.ts`, `WeatherClobPriceHistory.ts`, `weather-history-ingest.service.ts`, migration `AddMetricToClobHistoryUniqueKey1700000000110` |
+| [applied/2026-08-18_PLAN-fix-weather-backtest-audit.md](applied/2026-08-18_PLAN-fix-weather-backtest-audit.md) | Audit weather backtest fidélité/correctude (11 findings) → `engineVersion` 0.3.0 : fallback résolution minuit lendemain, params sortie par-stratégie, `entryMean` replay, carry-forward `markPrice`, résolution forcée ghost positions (`BACKTEST_INCOMPLETE_DATA`), garde `isHighestYes` drift/bucket, cleanup `proxyFallback` | `weather-adapter.ts`, `exit-manager.ts`, `events.ts`, `data-loader.ts`, `resolution.ts`, `backtest-exit-reasons.ts`, `engine-version.ts`, `backtest.md` |
 
 ---
 

@@ -315,6 +315,9 @@ async function* loadSignalEvents(
         'e.bucketHigh',
         'e.evaluatedAt',
         's.city',
+        's.forecastMean',
+        's.targetDateIso',
+        's.metric',
       ])
       .where('e.evaluatedAt >= :from', { from })
       .andWhere('e.evaluatedAt <= :to', { to })
@@ -346,6 +349,9 @@ async function* loadSignalEvents(
           bucketLow: row.e_bucket_low,
           bucketHigh: row.e_bucket_high,
           city: row.s_city ?? null,
+          snapshotForecastMean: row.s_forecast_mean ?? null,
+          snapshotTargetDateIso: row.s_target_date_iso ?? null,
+          snapshotMetric: row.s_metric ?? null,
         },
       };
     }

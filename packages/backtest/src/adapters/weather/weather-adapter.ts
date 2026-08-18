@@ -88,12 +88,35 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     for (const s of this.runnerSimStrategies.length > 0 ? this.runnerSimStrategies : [this.strategy]) {
       s.setRiskConfig(getStrategyParams(ctx.configSnapshot, s.id));
     }
-    this.exitManager = new WeatherExitManager(ctx.configSnapshot, strategyId);
+    this.exitManager = new WeatherExitManager();
   }
 
   async finish(ctx: RunContext): Promise<void> {
     if (ctx.params.backtestExecutionMode === 'runner-sim') {
       await this.flushPendingRunnerSimSignals(ctx);
+    }
+
+    // Ghost positions : positions encore ouvertes à la fin du run (aucun tick
+    // de résolution reçu). On les force à la résolution pour ne pas fausser
+    // l'équité finale / les stats. On utilise le dernier markPrice connu, sinon
+    // entryPrice (coût neutre), et on marque la raison BACKTEST_INCOMPLETE_DATA.
+    const open = ctx.ledger.openPositions();
+    if (open.length > 0) {
+      this.warnOnce(
+        ctx,
+        'ghost_positions_forced_resolution',
+        `${open.length} position(s) encore ouverte(s) en fin de run — résolution forcée (données incomplètes)`,
+      );
+      for (const pos of open) {
+        const exitPrice = pos.markPrice > 0 ? pos.markPrice : pos.entryPrice;
+        ctx.ledger.closePosition({
+          conditionId: pos.conditionId,
+          exitPrice,
+          exitAt: ctx.clock.now(),
+          exitReason: 'BACKTEST_INCOMPLETE_DATA',
+          fees: 0,
+        });
+      }
     }
   }
 
@@ -167,6 +190,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     ctx: RunContext,
     city: string | null | undefined,
     targetDateIso: string | null | undefined,
+    strategyId?: string | null,
   ): number {
     if (!city || !targetDateIso) return 0;
     const normalized = city.toLowerCase();
@@ -175,7 +199,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       .filter(
         (p) =>
           (p.city ?? '').toLowerCase() === normalized &&
-          p.targetDateIso === targetDateIso,
+          p.targetDateIso === targetDateIso &&
+          (p.meta?.strategyId ?? null) === strategyId,
       ).length;
   }
 
@@ -192,7 +217,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     yesPrice: number,
   ): boolean {
     this.emitStaticFidelityWarnings(ctx);
-    const risk = ctx.configSnapshot;
     const slippage = ctx.params.slippageBps;
     const entryPrice = yesPrice * (1 + slippage / 10_000);
     const qty = entryUsdc / entryPrice;
@@ -305,7 +329,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const seenCityDates = new Map<string, number>();
     for (const pos of ctx.ledger.openPositions()) {
       if (pos.city && pos.targetDateIso) {
-        const key = `${pos.city.toLowerCase()}|${pos.targetDateIso}`;
+        const key = `${pos.city.toLowerCase()}|${pos.targetDateIso}|${pos.meta?.strategyId ?? ''}`;
         seenCityDates.set(key, (seenCityDates.get(key) ?? 0) + 1);
       }
     }
@@ -315,12 +339,12 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       const cityKey = (signal.city ?? '').toLowerCase();
       const cityDateKey =
         cityKey && signal.targetDate
-          ? `${cityKey}|${signal.targetDate.toISOString().slice(0, 10)}`
+          ? `${cityKey}|${signal.targetDate.toISOString().slice(0, 10)}|${signal.strategyId}`
           : null;
       if (cityDateKey && (seenCityDates.get(cityDateKey) ?? 0) >= maxPerCityDate) continue;
       if (ctx.ledger.isDuplicateOpen(signal.conditionId)) continue;
       if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) break;
-      if (signal.city && this.exitManager.isReentryBlocked(signal.city, signal.targetDate.toISOString().slice(0, 10), ctx.clock.now())) continue;
+      if (signal.city && this.exitManager.isReentryBlocked(signal.city, signal.targetDate.toISOString().slice(0, 10), ctx.clock.now(), risk, signal.strategyId)) continue;
 
       const cached = this.lastTickByCondition.get(signal.conditionId);
       const yesPrice = cached?.tick.yesPrice;
@@ -352,7 +376,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           entryBucketComparison: signal.entryBucketComparison ?? null,
           entryBucketBounds: signal.entryBucketBounds ?? null,
           detailReasons: signal.reasons.join(' | '),
-          ...resolvedExitMeta(risk, this.strategyId),
+          ...resolvedExitMeta(risk, signal.strategyId),
         },
       });
 
@@ -417,7 +441,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const maxPos = ctx.params.maxConcurrentPositions;
     if (ctx.ledger.openCount() >= maxPos) return;
 
-    if (data.snapshotTargetDateIso && this.exitManager.isReentryBlocked(data.snapshotCity, data.snapshotTargetDateIso, ctx.clock.now())) return;
+    if (data.snapshotTargetDateIso && this.exitManager.isReentryBlocked(data.snapshotCity, data.snapshotTargetDateIso, ctx.clock.now(), risk, this.strategyId)) return;
 
     if (ctx.params.mode === 'replay') {
       return;
@@ -469,7 +493,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     if (result.kind !== 'signal') return;
 
     if (
-      this.openCountForCityDate(ctx, data.snapshotCity, data.snapshotTargetDateIso) >=
+      this.openCountForCityDate(ctx, data.snapshotCity, data.snapshotTargetDateIso, this.strategyId) >=
       Math.max(1, this.bag.maxPositionsPerCityDate ?? 1)
     ) return;
 
@@ -509,17 +533,19 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     if (data.decision !== 'signal') return;
     if (data.yesPrice == null) return;
 
+    const risk = ctx.configSnapshot;
+
     this.maybeForceCloseAll(ctx);
 
     if (ctx.ledger.isDuplicateOpen(data.conditionId)) return;
     if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) return;
 
     const cached = this.lastTickByCondition.get(data.conditionId);
-    const targetDateIso = cached?.tick.snapshotTargetDateIso ?? null;
+    const targetDateIso = cached?.tick.snapshotTargetDateIso ?? data.snapshotTargetDateIso ?? null;
 
-    if (data.city && targetDateIso && this.exitManager.isReentryBlocked(data.city, targetDateIso, ctx.clock.now())) return;
+    if (data.city && targetDateIso && this.exitManager.isReentryBlocked(data.city, targetDateIso, ctx.clock.now(), risk, data.strategyId)) return;
     if (
-      this.openCountForCityDate(ctx, data.city, targetDateIso) >=
+      this.openCountForCityDate(ctx, data.city, targetDateIso, data.strategyId) >=
       Math.max(1, this.bag.maxPositionsPerCityDate ?? 1)
     ) return;
 
@@ -547,13 +573,14 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         edge: data.edge ?? 0,
         dynamicMinEdge: data.dynamicMinEdge ?? 0,
         forecastProb: data.forecastProb ?? 0,
+        entryMean: data.snapshotForecastMean ?? null,
         entryBucketComparison: data.bucketComparison ?? null,
         entryBucketBounds: {
           low: data.bucketLow,
           high: data.bucketHigh,
           target: data.bucketTarget,
         },
-        ...resolvedExitMeta(ctx.configSnapshot, this.strategyId),
+        ...resolvedExitMeta(ctx.configSnapshot, data.strategyId),
       },
     });
   }
@@ -563,8 +590,9 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       return tick.endDate.getTime();
     }
     if (tick.snapshotTargetDateIso) {
-      const parsed = new Date(`${tick.snapshotTargetDateIso}T23:59:59Z`).getTime();
-      return Number.isNaN(parsed) ? null : parsed + 86_400_000;
+      const parsed = new Date(`${tick.snapshotTargetDateIso}T00:00:00Z`).getTime();
+      if (Number.isNaN(parsed)) return null;
+      return parsed + 86_400_000; // minuit du lendemain (targetDate + 1 jour)
     }
     return null;
   }
@@ -590,9 +618,22 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
       // For highest-yes positions, we can resolve even without current yesPrice
       // using markPrice/entryPrice fallbacks. Don't skip resolution check.
-      const isHighestYes = pos.meta?.strategyId === WEATHER_HIGHEST_YES_STRATEGY_ID;
       if (yesPrice != null) {
         ctx.ledger.updateMark(pos.conditionId, yesPrice);
+      } else {
+        // Garde défensive : markPrice conserve déjà la dernière valeur connue
+        // (updateMark est sticky), mais on confirme explicitement pour éviter
+        // qu'un markPrice somehow à 0 fausse l'equity/drawdown. peakBid n'est
+        // pas touché (invariant fallbackPrice <= peakBid).
+        const fallbackPrice = pos.markPrice > 0 ? pos.markPrice : pos.entryPrice;
+        if (fallbackPrice > 0) {
+          ctx.ledger.updateMark(pos.conditionId, fallbackPrice);
+          this.warnOnce(
+            ctx,
+            'markprice_stale_carry_forward',
+            `markPrice confirmé à la dernière valeur connue (${fallbackPrice.toFixed(4)}) car tick.yesPrice est null`,
+          );
+        }
       }
 
       const outcome = this.tryResolvePosition(ctx, pos, tick);
@@ -602,7 +643,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       if (yesPrice == null) continue;
 
       const currentMean = this.currentForecastMean(ctx, tick);
-      if (this.tryExitByDecision(ctx, pos, tick, tickAt, yesPrice, currentMean)) continue;
+      const isHighestYes = pos.meta?.strategyId === WEATHER_HIGHEST_YES_STRATEGY_ID;
+      if (!isHighestYes && this.tryExitByDecision(ctx, pos, tick, tickAt, yesPrice, currentMean)) continue;
 
       const slTp = this.exitManager.evaluateSlTpTrailing(pos, {
         yesPrice,
@@ -725,8 +767,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       });
       this.warnOnce(
         ctx,
-        'resolution_proxy_forecast',
-        'Résolution approximée par forecast final',
+        'resolution_via_forecast',
+        'Résolution via forecast final (pas de température observée stockée)',
       );
       return 'resolved';
     }
@@ -769,6 +811,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           high?: number | null;
           target?: number | null;
         } | null | undefined) ?? null,
+      risk: ctx.configSnapshot,
     });
     if (!decision) return false;
     this.noteStaleTickIfNeeded(ctx, tickAt);

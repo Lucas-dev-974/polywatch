@@ -14,6 +14,7 @@ export const BACKTEST_EXIT_REASONS = [
   'WEATHER_PRE_CLOSE',
   'WEATHER_FORECAST_CHANGE',
   'WEATHER_BUCKET_EXIT',
+  'BACKTEST_INCOMPLETE_DATA',
 ] as const;
 
 export type BacktestExitReason = (typeof BACKTEST_EXIT_REASONS)[number];
@@ -30,4 +31,5 @@ export const EXIT_REASON_LABEL: Record<string, string> = {
   WEATHER_BUCKET_EXIT: 'Sortie de bucket',
   STRATEGY_FLIP: 'Flip stratégie',
   WINDOW_CLOSE: 'Fenêtre',
+  BACKTEST_INCOMPLETE_DATA: 'Données incomplètes',
 };

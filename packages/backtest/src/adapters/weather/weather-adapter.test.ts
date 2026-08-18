@@ -190,7 +190,7 @@ describe('runBacktest (weather replay)', () => {
       paramsJson: JSON.stringify({}),
     });
 
-    const result = await runBacktest({
+    await runBacktest({
       runId: run.id,
       ds,
       params: {
@@ -730,5 +730,120 @@ describe('runBacktest (weather replay)', () => {
     expect(pos.exitReason).toBe('RESOLUTION');
     // Falls back to entryPrice (0.4) → 0.4 <= 0.5 → NO wins → exitPrice = 0
     expect(pos.exitPrice).toBe(0);
+  });
+
+  it('force-closes ghost positions at finish with BACKTEST_INCOMPLETE_DATA', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const evalRepo = ds.getRepository(WeatherEvaluationLog);
+
+    const snap = await snapRepo.save(snapRepo.create({
+      city: 'nantes', cityNormalized: 'nantes', targetDateIso: '2026-01-02',
+      metric: 'highest_temp', forecastMean: 20, forecastStdDev: 1,
+      bucketCount: 1, totalBucketCount: 3, recordedAt: now,
+    }));
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-ghost', eventSlug: 'e',
+      question: 'Will the highest temperature in nantes be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.4, noPrice: 0.6, yesTokenId: 'y', noTokenId: 'n',
+      volume: 1, volume24hr: 1, liquidityClob: 1,
+      acceptingOrders: true, closed: false, endDate: new Date('2026-01-10T00:00:00.000Z'),
+      recordedAt: now,
+      city: 'nantes', cityNormalized: 'nantes', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+    await evalRepo.save(evalRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-ghost', bucketComparison: 'or_above',
+      bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      strategyId: 'weather-forecast', yesPrice: 0.4, forecastProb: 0.7,
+      edge: 0.4, dynamicMinEdge: 0.1, decision: 'signal', reason: 'test',
+      evaluatedAt: now,
+    }));
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'replay', paramsJson: '{}' });
+    const result = await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'replay',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-02T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10, detectionDelayMs: 0,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    const positions = await service.listPositions(run.id, {});
+    expect(positions.items.length).toBe(1);
+    const pos = positions.items[0]!;
+    expect(pos.exitReason).toBe('BACKTEST_INCOMPLETE_DATA');
+    expect(pos.exitPrice).toBeGreaterThan(0);
+    expect(result.fidelityWarnings.some((w) => w.startsWith('ghost_positions_forced_resolution'))).toBe(true);
+  });
+
+  it('does not close highest-yes position by drift/bucket exit (guard §6)', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const evalRepo = ds.getRepository(WeatherEvaluationLog);
+
+    const snap = await snapRepo.save(snapRepo.create({
+      city: 'bordeaux', cityNormalized: 'bordeaux', targetDateIso: '2026-01-02',
+      metric: 'highest_temp', forecastMean: 20, forecastStdDev: 1,
+      bucketCount: 1, totalBucketCount: 3, recordedAt: now,
+    }));
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-hy-guard', eventSlug: 'e',
+      question: 'Will the highest temperature in bordeaux be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.6, noPrice: 0.4, yesTokenId: 'y', noTokenId: 'n',
+      volume: 1, volume24hr: 1, liquidityClob: 1,
+      acceptingOrders: true, closed: false, endDate: new Date('2026-01-10T00:00:00.000Z'),
+      recordedAt: now,
+      city: 'bordeaux', cityNormalized: 'bordeaux', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-hy-guard', eventSlug: 'e',
+      question: 'Will the highest temperature in bordeaux be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.55, noPrice: 0.45, yesTokenId: 'y', noTokenId: 'n',
+      volume: 1, volume24hr: 1, liquidityClob: 1,
+      acceptingOrders: true, closed: false, endDate: new Date('2026-01-10T00:00:00.000Z'),
+      recordedAt: new Date('2026-01-01T06:00:00.000Z'),
+      city: 'bordeaux', cityNormalized: 'bordeaux', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+    await evalRepo.save(evalRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-hy-guard', bucketComparison: 'or_above',
+      bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      strategyId: 'weather-highest-yes', yesPrice: 0.6, forecastProb: 0,
+      edge: 0, dynamicMinEdge: 0, decision: 'signal', reason: 'test',
+      evaluatedAt: now,
+    }));
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'replay', paramsJson: '{}' });
+    await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'replay',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-02T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        strategyId: 'weather-highest-yes',
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    const positions = await service.listPositions(run.id, {});
+    expect(positions.items.length).toBe(1);
+    const pos = positions.items[0]!;
+    expect(pos.exitReason).toBe('BACKTEST_INCOMPLETE_DATA');
+    expect(pos.exitReason).not.toBe('WEATHER_FORECAST_CHANGE');
+    expect(pos.exitReason).not.toBe('WEATHER_BUCKET_EXIT');
   });
 });

@@ -38,6 +38,7 @@ function pos(meta: Record<string, unknown> = {}): LedgerPosition {
     fees: 0,
     entryReason: 'signal',
     meta: {
+      strategyId: 'weather-forecast',
       entryMean: 12,
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12, low: null, high: null },
@@ -52,7 +53,7 @@ function pos(meta: Record<string, unknown> = {}): LedgerPosition {
 
 describe('WeatherExitManager SL/TP defaults (B1)', () => {
   it('applies WEATHER_EXIT_DEFAULTS when bidPoints are null and flags true', () => {
-    const mgr = new WeatherExitManager(risk());
+    const mgr = new WeatherExitManager();
     const p = pos();
     expect(p.meta.slBidPoints).toBe(WEATHER_EXIT_DEFAULTS.slBidPoints);
     const sl = mgr.evaluateSlTpTrailing(p, {
@@ -71,7 +72,7 @@ describe('WeatherExitManager SL/TP defaults (B1)', () => {
     });
     const resolved = resolveWeatherEntryExitParams(cfg, 'sim', null, 'weather-forecast');
     expect(resolved.slBidPoints).toBeNull();
-    const mgr = new WeatherExitManager(cfg, 'weather-forecast');
+    const mgr = new WeatherExitManager();
     const p = pos({ slBidPoints: resolved.slBidPoints });
     const sl = mgr.evaluateSlTpTrailing(p, {
       yesPrice: 0.1,
@@ -84,7 +85,7 @@ describe('WeatherExitManager SL/TP defaults (B1)', () => {
 
 describe('WeatherExitManager re-entry throttle (B3)', () => {
   it('does not throttle after SL', () => {
-    const mgr = new WeatherExitManager(risk());
+    const mgr = new WeatherExitManager();
     const now = new Date('2026-01-01T01:00:00Z');
     mgr.evaluateSlTpTrailing(pos(), {
       yesPrice: 0.5 - WEATHER_EXIT_DEFAULTS.slBidPoints!,
@@ -92,11 +93,11 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
       slippageBps: 0,
     });
     // evaluateSlTpTrailing no longer calls markClosed — throttle stays clear
-    expect(mgr.isReentryBlocked('london', '2026-01-01', now)).toBe(false);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now, risk(), null)).toBe(false);
   });
 
   it('throttles after forecast drift exit', () => {
-    const mgr = new WeatherExitManager(risk());
+    const mgr = new WeatherExitManager();
     const now = new Date('2026-01-01T12:00:00Z');
     const decision = mgr.evaluate(pos(), {
       yesPrice: 0.5,
@@ -107,18 +108,19 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
       entryMean: 12,
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12 },
+      risk: risk(),
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('london', '2026-01-01', now)).toBe(true);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now, risk(), null)).toBe(true);
     expect(
-      mgr.isReentryBlocked('london', '2026-01-01', new Date(now.getTime() + 1_800_000)),
+      mgr.isReentryBlocked('london', '2026-01-01', new Date(now.getTime() + 1_800_000), risk(), null),
     ).toBe(false);
   });
 });
 
 describe('WeatherExitManager null-city throttle (T7)', () => {
   it('does not mark throttle for null-city position', () => {
-    const mgr = new WeatherExitManager(risk());
+    const mgr = new WeatherExitManager();
     const p = pos();
     p.city = null;
     const now = new Date('2026-01-01T12:00:00Z');
@@ -131,13 +133,14 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       entryMean: 12,
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12 },
+      risk: risk(),
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('', null, now)).toBe(false);
+    expect(mgr.isReentryBlocked('', null, now, risk(), null)).toBe(false);
   });
 
   it('still throttles for city position (regression)', () => {
-    const mgr = new WeatherExitManager(risk());
+    const mgr = new WeatherExitManager();
     const now = new Date('2026-01-01T12:00:00Z');
     const decision = mgr.evaluate(pos(), {
       yesPrice: 0.5,
@@ -148,17 +151,22 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       entryMean: 12,
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12 },
+      risk: risk(),
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('london', '2026-01-01', now)).toBe(true);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now, risk(), null)).toBe(true);
   });
 });
 
 describe('WeatherExitManager hysteresis poll window (F1)', () => {
   it('requires pollMs between hysteresis advances', () => {
-    const mgr = new WeatherExitManager(
-      risk({ weatherAlgoBucketHysteresisPolls: 2, weatherAlgoPollMs: 1_800_000 }),
-    );
+    const cfg = risk({
+      weatherAlgoStrategyParams: JSON.stringify({
+        'weather-forecast': { bucketHysteresisPolls: 2 },
+      }),
+      weatherAlgoPollMs: 1_800_000,
+    });
+    const mgr = new WeatherExitManager();
     const base = new Date('2026-01-01T00:00:00Z');
     const input = {
       yesPrice: 0.5,
@@ -168,6 +176,7 @@ describe('WeatherExitManager hysteresis poll window (F1)', () => {
       entryMean: 12,
       entryBucketComparison: 'or_above' as const,
       entryBucketBounds: { target: 12 },
+      risk: cfg,
     };
 
     // First advance at t0 — consecutive=1, no exit yet

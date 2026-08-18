@@ -9,9 +9,9 @@ produit positions, equity, statistiques et avertissements de fidélité.
 
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
 > Prometheus et Socket.IO décrits dans le plan d'origine ne sont **pas** implémentés.  
-> **Moteur** : `engineVersion` **`0.2.0`** (patch fidélité audit —
-> [`weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](./weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)).  
-> Runs `< 0.2.0` non comparables.
+> **Moteur** : `engineVersion` **`0.3.0`** (audit fidélité/correctude —
+> [`audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](./audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md)).  
+> Runs `< 0.3.0` non comparables.
 
 ---
 
@@ -88,12 +88,15 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `kill_switch_block_entries` | Kill-switch actif sans force-close — entrées bloquées |
 | `exit_stale_tick` | Sortie évaluée avec un tick plus vieux que `pollMs` |
 | `no_events_in_range` | Aucune donnée sur la plage demandée |
-| `resolution_proxy_forecast` | Résolution approximée via forecast (pas température observée) — stratégies forecast |
-| `resolution_no_endate_fallback` | `endDate` absent → fallback `targetDateIso T23:59:59Z + 24h` |
+| `resolution_via_forecast` | Résolution via forecast final (pas de température observée stockée) — stratégies forecast |
+| `resolution_no_endate_fallback` | `endDate` absent → fallback `targetDateIso T00:00:00Z + 24h` (minuit du lendemain) |
 | `resolution_no_forecast` | Résolution impossible sans forecast — position laissée ouverte (**sauf** `weather-highest-yes`) |
 | `resolution_proxy_yes_price` | Résolution `weather-highest-yes` approximée par le prix YES final (`yesPrice > 0.5` → YES) |
-| `resolution_no_yes_price` | Résolution `weather-highest-yes` impossible sans prix YES — position laissée ouverte |
+| `resolution_highest_yes_fallback` | Résolution `weather-highest-yes` via fallback `markPrice`/`entryPrice` (`tick.yesPrice` absent) |
+| `resolution_no_price_whatsoever` | Résolution `weather-highest-yes` impossible — aucun prix disponible (tick, mark, entry) — position laissée ouverte |
 | `resolution_invalid_date` | Date de résolution invalide — skip |
+| `markprice_stale_carry_forward` | `markPrice` confirmé à la dernière valeur connue car `tick.yesPrice` est null (garde défensive) |
+| `ghost_positions_forced_resolution` | Position(s) encore ouverte(s) en fin de run — résolution forcée (`BACKTEST_INCOMPLETE_DATA`) |
 | `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
 
 Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
@@ -129,10 +132,9 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 > **Divergence live ↔ backtest (`weather-highest-yes`)** : en **live**, drift
 > (`WEATHER_FORECAST_CHANGE`) et bucket-exit (`WEATHER_BUCKET_EXIT`) sont
 > **désactivés** pour `weather-highest-yes`. En **backtest**, `evaluateExits`
-> (`weather-adapter.ts`) et `exit-manager.ts` n'opèrent **aucune distinction**
-> de stratégie : ces deux sorties sont évaluées pour **toutes** les positions.
-> Une position `highest-yes` backtestée avec un forecast présent en base peut
-> donc être fermée par drift/bucket avant résolution.
+> (`weather-adapter.ts`) et `exit-manager.ts` opèrent une **garde explicite**
+> `isHighestYes` : ces deux sorties ne sont **pas** évaluées pour les positions
+> `weather-highest-yes` (aligné sur le live).
 
 ---
 
@@ -203,7 +205,8 @@ un run `running` **ou** `queued` → la route `POST /runs` renvoie `409`.
 Paramètres lus depuis le bag per-strategy
 (`getStrategyParams(cfgSnapshot, strategyId)` → `WeatherStrategyParamsBag`).
 `strategyId` attaché à chaque position/snapshot ; legacy `null` → fallback
-`'weather-forecast'`.
+`'weather-forecast'`. En `runner-sim` multi-stratégies, chaque position utilise
+**son propre** bag (résolu via `pos.meta.strategyId`), pas un bag global.
 
 | Raison | Déclencheur |
 |--------|-------------|
@@ -212,10 +215,11 @@ Paramètres lus depuis le bag per-strategy
 | `WEATHER_BUCKET_EXIT` | Forecast hors palier + `bag.cityFollowSwitchMode = close_and_reenter` après `bag.bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle — **non applicable à `weather-highest-yes` en live (évalué en backtest)** |
 | `SL` / `TP` / `TRAILING` | Seuils résolus à l’entrée via `resolveWeatherEntryExitParams(risk, mode, interval, strategyId)` (défauts `WEATHER_EXIT_DEFAULTS` si bidPoints null) — **pas** de confirmation ticks, **pas** de throttle |
 | `KILL_SWITCH` | `dailyPnl(strategyId) <= -bag.maxDailyLossUsdc` et `bag.killSwitchAction === 'force_close_all'` — ferme uniquement les positions de la stratégie |
-| `RESOLUTION` | Marché résolu (`endDate` passé, ou fallback `targetDateIso T23:59:59Z + 24h` si `endDate` absent) |
+| `RESOLUTION` | Marché résolu (`endDate` passé, ou fallback `targetDateIso T00:00:00Z + 24h` si `endDate` absent) |
+| `BACKTEST_INCOMPLETE_DATA` | Position encore ouverte en fin de run (aucun tick de résolution reçu) — résolution forcée au dernier `markPrice` (ou `entryPrice` si aucun) |
 
-> **Note** : les runs avec `engineVersion < 0.2.0` ont été produits avant l’alignement
-> SL/TP/throttle/filtres — **non comparables** aux runs ≥ `0.2.0`.
+> **Note** : les runs avec `engineVersion < 0.3.0` ont été produits avant l’alignement
+> SL/TP/throttle/filtres/résolution forcée — **non comparables** aux runs ≥ `0.3.0`.
 
 ---
 
@@ -273,10 +277,11 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   (stream 0 plus tardif que stream 1).
 - `src/adapters/weather/weather-adapter.test.ts` : run replay (entrée + résolution),
   meta persisté, limite positions, capacité ville+date replay, résolution fallback,
-  metric non supporté, hors plage.
+  metric non supporté, hors plage, résolution forcée ghost positions, carry-forward markPrice,
+  garde highest-yes drift/bucket.
 - `packages/core/src/services/backtest-run.service.test.ts` : verrou singleton.
 
-Lancement : `npm run test -w @polywatch/backtest` (**24** tests).
+Lancement : `npm run test -w @polywatch/backtest` (**35** tests).
 
 ---
 
@@ -290,8 +295,6 @@ Lancement : `npm run test -w @polywatch/backtest` (**24** tests).
 | `run_still_active` (409) sur DELETE | Tentative de suppression d’un run `running`/`queued` | `POST …/cancel` puis DELETE |
 | Progression à 0 % longtemps | `countWeatherEvents` retourne 0 ou run très volumineux | Vérifier couverture `/api/backtest/data-coverage` et plage `from`/`to` |
 | Positions ouvertes avec `exitPrice = null` | Comportement normal en fin de run | Positions encore ouvertes à la fin de la plage ; persistées avec PnL null |
-
----
 
 ## 11. Hors scope v1
 

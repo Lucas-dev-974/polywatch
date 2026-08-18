@@ -11,8 +11,6 @@ export interface ResolutionInput {
 export interface ResolutionResult {
   /** True when the YES side wins (i.e. forecast mean falls in bucket). */
   winningOutcome: 'YES' | 'NO' | null;
-  /** Whether the resolution used a proxy forecast fallback. */
-  proxyFallback: boolean;
 }
 
 /**
@@ -22,7 +20,7 @@ export interface ResolutionResult {
  */
 export function resolveWeatherBucket(input: ResolutionInput): ResolutionResult {
   if (input.forecastMean == null) {
-    return { winningOutcome: null, proxyFallback: true };
+    return { winningOutcome: null };
   }
   const comparison = input.bucketComparison as 'exact' | 'between' | 'or_below' | 'or_above';
   const bounds: BucketBounds = {
@@ -32,5 +30,5 @@ export function resolveWeatherBucket(input: ResolutionInput): ResolutionResult {
   };
   const inBucket = isForecastInBucket(input.forecastMean, comparison, bounds);
   // Forecast réel utilisé : pas de proxy.
-  return { winningOutcome: inBucket ? 'YES' : 'NO', proxyFallback: false };
+  return { winningOutcome: inBucket ? 'YES' : 'NO' };
 }

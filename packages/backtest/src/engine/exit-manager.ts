@@ -7,7 +7,6 @@ import {
   resolveCityFollowSwitchMode,
   getStrategyParams,
   DEFAULT_WEATHER_STRATEGY_PARAMS,
-  type WeatherStrategyParamsBag,
   type BacktestExitReason,
 } from '@polywatch/core';
 import { type LedgerPosition } from './ledger.js';
@@ -41,20 +40,23 @@ export class WeatherExitManager {
   private lastHysteresisAdvanceAt = new Map<string, number>();
   /** `city|dateIso` -> last close timestamp (re-entry throttle). */
   private reentryThrottle = new Map<string, number>();
-  private readonly bag: WeatherStrategyParamsBag;
 
-  constructor(private readonly risk: WeatherConfig, strategyId?: string | null) {
-    this.bag = strategyId
-      ? getStrategyParams(risk, strategyId)
-      : DEFAULT_WEATHER_STRATEGY_PARAMS;
-  }
+  constructor() {}
 
-  isReentryBlocked(city: string, targetDateIso: string | null, now: Date): boolean {
+  isReentryBlocked(
+    city: string,
+    targetDateIso: string | null,
+    now: Date,
+    risk: WeatherConfig,
+    strategyId: string | null,
+  ): boolean {
     if (!targetDateIso) return false;
     const last = this.reentryThrottle.get(`${city}|${targetDateIso}`);
     if (last == null) return false;
-    const throttleMs = this.bag.reentryThrottleMs;
-    return now.getTime() - last < throttleMs;
+    const bag = strategyId
+      ? getStrategyParams(risk, strategyId)
+      : DEFAULT_WEATHER_STRATEGY_PARAMS;
+    return now.getTime() - last < bag.reentryThrottleMs;
   }
 
   private markClosed(city: string, targetDateIso: string | null, now: Date): void {
@@ -65,6 +67,9 @@ export class WeatherExitManager {
   /**
    * Evaluate exit conditions for an open position against the current
    * market state. Returns null when no exit should occur.
+   *
+   * The strategy params bag is resolved per-position from `pos.meta.strategyId`
+   * so runner-sim multi-strategy runs use each position's own exit config.
    */
   evaluate(
     pos: LedgerPosition,
@@ -77,11 +82,16 @@ export class WeatherExitManager {
       entryMean: number | null;
       entryBucketComparison: string | null;
       entryBucketBounds: { low?: number | null; high?: number | null; target?: number | null } | null;
+      risk: WeatherConfig;
     },
   ): ExitDecision | null {
     const now = input.now;
+    const strategyId = (pos.meta.strategyId as string | undefined) ?? null;
+    const bag = strategyId
+      ? getStrategyParams(input.risk, strategyId)
+      : DEFAULT_WEATHER_STRATEGY_PARAMS;
 
-    const closeBeforeHours = this.bag.closeBeforeResolutionHours;
+    const closeBeforeHours = bag.closeBeforeResolutionHours;
     // Negative hoursToEnd (endDate already past) is intentional: the helper
     // treats hoursToEnd <= closeBeforeHours as pre-close (see R3 follow-up).
     let hoursToEnd = Number.POSITIVE_INFINITY;
@@ -103,7 +113,7 @@ export class WeatherExitManager {
       drift = shouldCloseForForecastDrift(
         input.entryMean,
         input.currentMean,
-        this.bag.forecastChangeThreshold,
+        bag.forecastChangeThreshold,
       );
     }
 
@@ -113,9 +123,9 @@ export class WeatherExitManager {
         input.entryBucketBounds,
         input.currentMean ?? Number.NaN,
       );
-      const switchMode = resolveCityFollowSwitchMode(this.bag.cityFollowSwitchMode);
-      const hysteresisPolls = this.bag.bucketHysteresisPolls;
-      const pollMs = this.risk.weatherAlgoPollMs;
+      const switchMode = resolveCityFollowSwitchMode(bag.cityFollowSwitchMode);
+      const hysteresisPolls = bag.bucketHysteresisPolls;
+      const pollMs = input.risk.weatherAlgoPollMs;
 
       if (!leftBucket) {
         this.bucketHysteresis.delete(pos.conditionId);

@@ -196,7 +196,7 @@ Le **backtest** supporte deux modes d'exécution (`backtestExecutionMode`) :
 - **`runner-sim`** : regroupe les buckets par ville/date, `evaluateGroup`, dedup
   et selectionMode comme le runner live.
 
-Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.2.0` …).
+Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.3.0` …).
 
 ---
 

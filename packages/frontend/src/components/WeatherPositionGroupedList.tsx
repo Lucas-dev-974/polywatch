@@ -117,6 +117,14 @@ function WeatherPositionRow(props: {
           <span class="weather-history-pos-item__label">Prix entrée</span>
           <span class="text-mono">{pos.entryPrice.toFixed(3)}</span>
         </span>
+        <Show when={isOpen && pos.executableBidVwap != null && pos.executableBidVwap > 0 ? pos.executableBidVwap : undefined}>
+          {(bid) => (
+            <span class="weather-history-pos-item__metric">
+              <span class="weather-history-pos-item__label">Bid actuel</span>
+              <span class="text-mono">{bid().toFixed(3)}</span>
+            </span>
+          )}
+        </Show>
         <span class="weather-history-pos-item__metric">
           <span class="weather-history-pos-item__label">{dateLabel}</span>
           <span class="text-mono text-sm">

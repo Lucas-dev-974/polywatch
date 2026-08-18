@@ -45,6 +45,8 @@ export interface WeatherPosition {
   entryInvestedAmount?: number | null;
   /** Fill price of the last successful SELL execution (exit price). */
   exitBidVwap?: number | null;
+  /** Current executable bid (mark price used for unrealized PnL on open positions). */
+  executableBidVwap?: number | null;
   weatherForecast: WeatherForecastSnapshot | null;
 }
 

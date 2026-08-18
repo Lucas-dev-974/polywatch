@@ -150,6 +150,12 @@ export function WeatherPositionMarketChartDialog(
                   Entrée : <strong>{p.entryPrice.toFixed(3)}</strong> USDC
                   {p.openedAt ? ` · ${formatShortDateTime(p.openedAt)}` : ''}
                 </span>
+                <Show when={p.status === 'open' && p.executableBidVwap != null && p.executableBidVwap > 0}>
+                  <span>
+                    Bid actuel :{' '}
+                    <strong>{(p.executableBidVwap as number).toFixed(3)}</strong> USDC
+                  </span>
+                </Show>
                 <Show when={p.status === 'closed'}>
                   <span>
                     Sortie :{' '}

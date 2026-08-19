@@ -62,15 +62,24 @@ export function SeriesChart(props: {
   const totalPoints = () => visibleFlat().length;
   const visibleCount = () => visibleSegments().length;
 
-  const { minT, maxT } = boundsOf(visibleFlat());
-  const scale = () => buildChartScale(width(), minT, maxT);
+  // Bornes temporelles réactives : si on déstructure ici (non réactif), les
+  // données asynchrones (dialog Positions) résolvent APRÈS le mount et la
+  // borne reste figée à {0,1} → lignes/labels/markers écrasés à gauche. On
+  // recalcule donc les bornes dans un accessor lu à chaque rendu.
+  const bounds = () => boundsOf(visibleFlat());
+  const scale = () => buildChartScale(width(), bounds().minT, bounds().maxT);
 
-  const visibleMarkers = () =>
-    (props.markers ?? []).filter(
+  const visibleMarkers = () => {
+    const { minT, maxT } = bounds();
+    return (props.markers ?? []).filter(
       (m) => m.t >= minT && m.t <= maxT && m.y >= 0 && m.y <= 1,
     );
+  };
 
-  const xTicks = () => buildXTicks(minT, maxT, scale().plotW);
+  const xTicks = () => {
+    const { minT, maxT } = bounds();
+    return buildXTicks(minT, maxT, scale().plotW);
+  };
 
   const onMouseMove = (e: MouseEvent) => {
     const svg = e.currentTarget as SVGSVGElement;

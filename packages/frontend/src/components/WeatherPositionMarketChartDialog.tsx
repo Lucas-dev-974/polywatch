@@ -1,6 +1,7 @@
 import { createEffect, createSignal, Show } from 'solid-js';
 import {
   fetchBucketTickTimeline,
+  fetchWeatherConfig,
   type BucketTimelineCity,
 } from '../api';
 import type { WeatherPosition } from '../hooks/useWeatherAlgoPositions';
@@ -45,6 +46,25 @@ export function WeatherPositionMarketChartDialog(
   const conditionId = () => pos().conditionId;
   const targetDateIso = () => wf()?.targetDate?.slice(0, 10) ?? '';
 
+  /**
+   * Filtre les ticks sur la cadence d'écriture réelle du runner (weatherAlgoPollMs).
+   * Sans ce filtre, la requête renvoie tous les intervalles mélangés (1/5/15/60 min),
+   * ce qui effondre l'écart médian et coupe abusivement les lignes sur les trous de
+   * données (voir splitSegments : seuil = 3× l'écart médian).
+   */
+  async function resolveFidelityMinutes(): Promise<number | undefined> {
+    try {
+      const cfg = await fetchWeatherConfig();
+      const pollMs = cfg.weatherAlgoPollMs;
+      if (Number.isFinite(pollMs) && pollMs > 0) {
+        return Math.max(1, Math.round(pollMs / 60_000));
+      }
+    } catch {
+      /* config indisponible : on laisse undefined (toutes cadences) */
+    }
+    return undefined;
+  }
+
   async function load() {
     if (!conditionId() || !targetDateIso()) {
       setError('Position sans conditionId ou date cible.');
@@ -54,9 +74,11 @@ export function WeatherPositionMarketChartDialog(
     setError(null);
     setCity(null);
     try {
+      const fidelityMinutes = await resolveFidelityMinutes();
       const res = await fetchBucketTickTimeline(targetDateIso(), {
         conditionId: conditionId(),
         maxTicks: 2000,
+        fidelityMinutes,
       });
       const match = res.dates[0]?.cities?.[0];
       if (!match || match.buckets.length === 0) {

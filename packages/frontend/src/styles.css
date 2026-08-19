@@ -11962,6 +11962,7 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 /* Market ridge plot (courbes de prix par marché, pan/zoom interactif) */
 .backtest-ridge-plot {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -12055,10 +12056,15 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 .backtest-ridge-corner {
   grid-area: corner;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg, var(--surface));
 }
 
 .backtest-ridge-axis-x {
   grid-area: axis-x;
+  position: sticky;
+  bottom: 0;
   overflow: hidden;
   background: var(--bg, var(--surface));
   border-bottom-right-radius: var(--radius-sm, 0.25rem);
@@ -12106,6 +12112,21 @@ body.is-resizing-columns .position-market-split-handle::after {
   fill: var(--text-secondary, var(--text-muted));
 }
 
+/* Indicateur "fin des données" (marque la dernière donnée du run sur l'axe X) */
+.backtest-ridge-now {
+  stroke: var(--violet, #8b5cf6);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+.backtest-ridge-now-label {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  fill: #8b5cf6;
+  pointer-events: none;
+}
+
 .backtest-ridge-marker-entry {
   stroke: var(--success, #2ecc71);
   stroke-width: 2;
@@ -12125,8 +12146,9 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 .backtest-ridge-tooltip {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+  top: 3rem;
+  right: 0.75rem;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

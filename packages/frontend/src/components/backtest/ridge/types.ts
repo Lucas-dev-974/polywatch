@@ -12,6 +12,8 @@ export interface VoieGroup {
   city: string | null;
   date: string;
   buckets: BucketLine[];
+  /** Buckets ayant une position, précalculés pour éviter un .filter() à chaque rendu. */
+  positionBuckets: BucketLine[];
 }
 
 /** Géométrie pure (pixels) dérivée du viewport et de la largeur du plot. */

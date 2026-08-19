@@ -7,17 +7,21 @@ export function RidgeLines(props: {
   voies: VoieGroup[];
   scale: RidgeScale;
   hoveredVoieIndex: () => number | null;
+  hoveredBucketKey: () => string | null;
+  maxTicks?: number | null;
+  cutGaps?: boolean;
 }) {
   return (
     <For each={props.voies}>
       {(voie, i) => {
-        const voieTop = props.scale.top(i());
-        const isHovered = () => props.hoveredVoieIndex() === i();
+        const voieTop = createMemo(() => props.scale.top(i()));
         return (
           <g>
             <For each={voie.buckets}>
-              {(bucket) => {
-                const path = createMemo(() => buildPath(bucket.series, voieTop, props.scale));
+              {(bucket, bi) => {
+                const path = createMemo(() => buildPath(bucket.series, voieTop(), props.scale, props.maxTicks, props.cutGaps));
+                const bucketKey = () => `${i()}:${bi()}`;
+                const isHovered = () => props.hoveredBucketKey() === bucketKey();
                 return (
                   <g>
                     <Show when={path()}>
@@ -25,7 +29,7 @@ export function RidgeLines(props: {
                         d={path()}
                         fill="none"
                         stroke={bucket.color}
-                        stroke-width="1.5"
+                        stroke-width={isHovered() ? '2.5' : '1.5'}
                         class={isHovered() ? 'backtest-ridge-line backtest-ridge-line-focused' : 'backtest-ridge-line'}
                       />
                     </Show>
@@ -33,17 +37,17 @@ export function RidgeLines(props: {
                 );
               }}
             </For>
-            <Show when={isHovered()}>
-              <For each={voie.buckets.filter((b) => b.position)}>
+            <Show when={props.hoveredVoieIndex() === i()}>
+              <For each={voie.positionBuckets}>
                 {(bucket) => {
                   const pos = bucket.position!;
                   const entryX = createMemo(() => props.scale.xPos(Date.parse(pos.entryAt)));
                   const exitX = createMemo(() => pos.exitAt ? props.scale.xPos(Date.parse(pos.exitAt)) : null);
                   return (
                     <g>
-                      <line x1={entryX()} y1={voieTop + 4} x2={entryX()} y2={voieTop + VOIE_H - 4} class="backtest-ridge-marker-entry" />
+                      <line x1={entryX()} y1={voieTop() + 4} x2={entryX()} y2={voieTop() + VOIE_H - 4} class="backtest-ridge-marker-entry" />
                       <Show when={exitX() != null}>
-                        <line x1={exitX()!} y1={voieTop + 4} x2={exitX()!} y2={voieTop + VOIE_H - 4} class="backtest-ridge-marker-exit" />
+                        <line x1={exitX()!} y1={voieTop() + 4} x2={exitX()!} y2={voieTop() + VOIE_H - 4} class="backtest-ridge-marker-exit" />
                       </Show>
                     </g>
                   );

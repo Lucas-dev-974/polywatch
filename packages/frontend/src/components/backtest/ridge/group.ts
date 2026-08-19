@@ -55,14 +55,16 @@ export function groupVoies(
     const key = `${city}|${date}`;
     let group = map.get(key);
     if (!group) {
-      group = { city: s.city ?? null, date, buckets: [] };
+      group = { city: s.city ?? null, date, buckets: [], positionBuckets: [] };
       map.set(key, group);
     }
-    group.buckets.push({
+    const bucketLine = {
       series: s,
       color: seriesColor(group.buckets.length),
       position: posByCondition.get(s.conditionId) ?? null,
-    });
+    };
+    group.buckets.push(bucketLine);
+    if (bucketLine.position) group.positionBuckets.push(bucketLine);
   }
   const result = [...map.values()];
   for (const g of result) {

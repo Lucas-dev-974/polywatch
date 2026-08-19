@@ -48,6 +48,9 @@ export class WeatherBucketTick {
   @Column({ type: 'real', name: 'bucket_high', nullable: true })
   bucketHigh!: number | null;
 
+  @Column({ type: 'text', nullable: true })
+  unit!: string | null;
+
   @Column({ type: 'real', name: 'yes_price', nullable: true })
   yesPrice!: number | null;
 

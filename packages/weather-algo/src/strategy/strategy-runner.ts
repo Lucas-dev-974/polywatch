@@ -656,6 +656,7 @@ export class WeatherStrategyRunner {
           bucketTarget: b.parsed.targetValue,
           bucketLow: b.parsed.targetValueLow,
           bucketHigh: b.parsed.targetValueHigh,
+          unit: b.parsed.unit ?? null,
           yesPrice: prices.yesPrice,
           noPrice: prices.noPrice,
           yesTokenId: prices.yesTokenId,

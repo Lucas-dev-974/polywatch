@@ -4,6 +4,7 @@ import {
   deleteBacktestRun,
   fetchBacktestDataCoverage,
   fetchBacktestEquity,
+  fetchBacktestMarketSeries,
   fetchBacktestPositions,
   fetchBacktestRun,
   fetchBacktestRuns,
@@ -11,6 +12,7 @@ import {
   launchBacktestRun,
   type BacktestDataCoverage,
   type BacktestEquityPointDto,
+  type BacktestMarketSeriesDto,
   type BacktestPositionDto,
   type BacktestRunDto,
   type BacktestRunParamsInput,
@@ -79,6 +81,7 @@ export function WeatherAlgoBacktestTab() {
   const [detail, setDetail] = createSignal<BacktestRunDto | null>(null);
   const [equity, setEquity] = createSignal<BacktestEquityPointDto[]>([]);
   const [positions, setPositions] = createSignal<BacktestPositionDto[]>([]);
+  const [marketSeries, setMarketSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
   const [detailLoading, setDetailLoading] = createSignal(false);
   const [detailError, setDetailError] = createSignal<string | null>(null);
 
@@ -122,15 +125,18 @@ export function WeatherAlgoBacktestTab() {
       const run = await fetchBacktestRun(id);
       setDetail(run);
       if (run.status === 'completed') {
-        const [eq, pos] = await Promise.all([
+        const [eq, pos, mkt] = await Promise.all([
           fetchBacktestEquity(id),
           fetchBacktestPositions(id, { limit: 200 }),
+          fetchBacktestMarketSeries(id),
         ]);
         setEquity(eq.points);
         setPositions(pos.items);
+        setMarketSeries(mkt.items);
       } else {
         setEquity([]);
         setPositions([]);
+        setMarketSeries([]);
       }
       setDetailError(null);
     } catch (err) {
@@ -200,6 +206,7 @@ export function WeatherAlgoBacktestTab() {
     setDetail(null);
     setEquity([]);
     setPositions([]);
+    setMarketSeries([]);
     void refreshDetail(id);
     startPolling();
   }
@@ -209,6 +216,7 @@ export function WeatherAlgoBacktestTab() {
     setDetail(null);
     setEquity([]);
     setPositions([]);
+    setMarketSeries([]);
     stopPolling();
   }
 
@@ -298,6 +306,7 @@ export function WeatherAlgoBacktestTab() {
           run={selectedRun()!}
           equity={equity()}
           positions={positions()}
+          marketSeries={marketSeries()}
           loading={detailLoading()}
           error={detailError()}
           capital={resolveRunCapital(selectedRun()!.params)}

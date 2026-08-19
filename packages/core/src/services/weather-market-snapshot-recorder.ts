@@ -10,6 +10,7 @@ export interface BucketTickInput {
   bucketTarget: number | null;
   bucketLow: number | null;
   bucketHigh: number | null;
+  unit: string | null;
   yesPrice: number | null;
   noPrice: number | null;
   yesTokenId: string | null;
@@ -68,6 +69,7 @@ export class WeatherMarketSnapshotRecorder {
             bucketTarget: b.bucketTarget,
             bucketLow: b.bucketLow,
             bucketHigh: b.bucketHigh,
+            unit: b.unit,
             yesPrice: b.yesPrice,
             noPrice: b.noPrice,
             yesTokenId: b.yesTokenId,

@@ -144,6 +144,7 @@ import { AddMetricToClobHistoryUniqueKey1700000000110 } from '../migrations/AddM
 import { AddWeatherAlgoEntryShareCount1700000000111 } from '../migrations/AddWeatherAlgoEntryShareCount1700000000111.js';
 import { AddCloseReasonIndex1700000000112 } from '../migrations/AddCloseReasonIndex1700000000112.js';
 import { AddCryptoAlgoRecordingToggle1700000000113 } from '../migrations/AddCryptoAlgoRecordingToggle1700000000113.js';
+import { AddUnitToWeatherBucketTick1700000000114 } from '../migrations/AddUnitToWeatherBucketTick1700000000114.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -252,6 +253,7 @@ export const migrations = [
   AddWeatherAlgoEntryShareCount1700000000111,
   AddCloseReasonIndex1700000000112,
   AddCryptoAlgoRecordingToggle1700000000113,
+  AddUnitToWeatherBucketTick1700000000114,
 ];
 
 export const entities = [

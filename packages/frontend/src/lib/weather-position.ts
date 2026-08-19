@@ -11,7 +11,9 @@ export interface WeatherBucketBounds {
 export type WeatherUnit = 'celsius' | 'fahrenheit' | null;
 
 function unitSuffix(unit: WeatherUnit): string {
-  return unit === 'fahrenheit' ? '°F' : '°C';
+  if (unit === 'fahrenheit') return '°F';
+  if (unit === 'celsius') return '°C';
+  return '';
 }
 
 export function formatWeatherDate(iso: string): string {
@@ -66,9 +68,9 @@ export function formatTimelineBucketLabel(
   return formatBucketLabel(
     bucket.bucketComparison,
     {
-      target: bucket.bucketTarget,
-      low: bucket.bucketLow,
-      high: bucket.bucketHigh,
+      target: bucket.bucketTarget ?? undefined,
+      low: bucket.bucketLow ?? undefined,
+      high: bucket.bucketHigh ?? undefined,
     },
     unit,
   );

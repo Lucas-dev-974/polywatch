@@ -260,6 +260,12 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   `status === 'completed'` (un run `cancelled` peut avoir des rows en DB mais
   l'UI ne les fetch pas). Axe X du chart = champ `t` (timestamp ISO des
   `backtest_equity_points`), pas un index.
+- **Timeline des marchés parcourus** (`BacktestMarketRidgeChart`, ridge plot) :
+  une voie par marché (ville + date cible), courbe du prix YES au fil du temps,
+  marqueurs vert/rouge pour les entrées/sorties des positions tradées. Données
+  dérivées de `weather_bucket_ticks` via `GET /runs/:id/markets-series` (même
+  filtre `fidelityMinutes` que le moteur) — chargées **uniquement** si
+  `status === 'completed'` et que `dataRangeFrom`/`dataRangeTo` sont renseignés.
 
 ---
 

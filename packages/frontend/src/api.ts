@@ -1195,6 +1195,24 @@ export interface BacktestEquityPointDto {
   openPositions: number;
 }
 
+export interface BacktestMarketSeriesPoint {
+  t: string;
+  yesPrice: number | null;
+}
+
+export interface BacktestMarketSeriesDto {
+  conditionId: string;
+  city: string | null;
+  targetDateIso: string | null;
+  metric: string | null;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  unit: 'celsius' | 'fahrenheit' | null;
+  points: BacktestMarketSeriesPoint[];
+}
+
 export interface BacktestListResponse {
   items: BacktestRunDto[];
   total: number;
@@ -1253,6 +1271,12 @@ export async function fetchBacktestPositions(
 
 export async function fetchBacktestEquity(id: number): Promise<{ points: BacktestEquityPointDto[] }> {
   return api(`/backtest/runs/${id}/equity`);
+}
+
+export async function fetchBacktestMarketSeries(
+  id: number,
+): Promise<{ items: BacktestMarketSeriesDto[]; truncated: boolean }> {
+  return api(`/backtest/runs/${id}/markets-series`);
 }
 
 export interface WeatherHistoryIngestJob {

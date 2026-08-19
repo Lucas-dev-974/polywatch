@@ -11960,6 +11960,267 @@ body.is-resizing-columns .position-market-split-handle::after {
   color: var(--text, var(--text-primary));
 }
 
+/* Market ridge plot (courbes de prix par marché, pan/zoom interactif) */
+.backtest-ridge-plot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bg-elevated, var(--surface));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 0.5rem);
+}
+
+.backtest-ridge-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.backtest-ridge-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.backtest-ridge-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.625rem;
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.backtest-ridge-filter select {
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--bg, var(--surface));
+  color: var(--text, var(--text-primary));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm, 0.25rem);
+}
+
+.backtest-ridge-hint {
+  font-size: 0.625rem;
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.backtest-ridge-scroll {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 480px;
+}
+
+.backtest-ridge-grid {
+  display: grid;
+  grid-template-columns: 148px 1fr;
+  grid-template-rows: auto 40px;
+  grid-template-areas:
+    'axis-y plot'
+    'corner axis-x';
+  gap: 0;
+  width: 100%;
+  min-width: 480px;
+}
+
+.backtest-ridge-axis-y {
+  grid-area: axis-y;
+  overflow: hidden;
+  background: var(--bg, var(--surface));
+  border-top-left-radius: var(--radius-sm, 0.25rem);
+  border-bottom-left-radius: var(--radius-sm, 0.25rem);
+}
+
+.backtest-ridge-axis-y svg {
+  display: block;
+}
+
+.backtest-ridge-plot-main {
+  grid-area: plot;
+  position: relative;
+  min-width: 0;
+}
+
+.backtest-ridge-plot-main svg {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.backtest-ridge-plot-main svg:active {
+  cursor: grabbing;
+}
+
+.backtest-ridge-corner {
+  grid-area: corner;
+}
+
+.backtest-ridge-axis-x {
+  grid-area: axis-x;
+  overflow: hidden;
+  background: var(--bg, var(--surface));
+  border-bottom-right-radius: var(--radius-sm, 0.25rem);
+}
+
+.backtest-ridge-axis-x svg {
+  display: block;
+}
+
+.backtest-ridge-label {
+  font-size: 0.625rem;
+  fill: var(--text-secondary, var(--text-muted));
+  transition: fill 0.12s ease, font-weight 0.12s ease;
+}
+
+.backtest-ridge-label-focused {
+  fill: var(--text, var(--text-primary));
+  font-weight: 600;
+}
+
+.backtest-ridge-line {
+  transition: stroke 0.12s ease, stroke-width 0.12s ease, opacity 0.12s ease;
+}
+
+.backtest-ridge-line-focused {
+  stroke: var(--accent-strong, #8ab4ff);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 3px rgba(79, 140, 255, 0.6));
+}
+
+.backtest-ridge-grid-line {
+  stroke: var(--border, rgba(255, 255, 255, 0.08));
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.backtest-ridge-axis-label {
+  font-size: 0.625rem;
+  fill: var(--text-muted, var(--text-secondary));
+}
+
+.backtest-ridge-axis-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  fill: var(--text-secondary, var(--text-muted));
+}
+
+.backtest-ridge-marker-entry {
+  stroke: var(--success, #2ecc71);
+  stroke-width: 2;
+}
+
+.backtest-ridge-marker-exit {
+  stroke: var(--danger, #e74c3c);
+  stroke-width: 2;
+}
+
+.backtest-ridge-crosshair {
+  stroke: var(--text-muted, var(--text-secondary));
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
+.backtest-ridge-tooltip {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--bg-elevated, var(--surface));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 0.5rem);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  font-size: 0.625rem;
+  color: var(--text-secondary, var(--text-muted));
+  max-width: 280px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.backtest-ridge-tooltip-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text, var(--text-primary));
+}
+
+.backtest-ridge-tooltip-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.125rem 0.625rem;
+  margin: 0;
+}
+
+.backtest-ridge-tooltip-grid dt {
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.backtest-ridge-tooltip-grid dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, var(--text-primary));
+}
+
+.backtest-ridge-tooltip-pos {
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  padding-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.backtest-ridge-tooltip-pos-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.backtest-ridge-tooltip-pnl-pos {
+  color: var(--success, #2ecc71);
+}
+
+.backtest-ridge-tooltip-pnl-neg {
+  color: var(--danger, #e74c3c);
+}
+
+.backtest-ridge-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.backtest-ridge-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.625rem;
+}
+
+.backtest-ridge-legend-swatch {
+  flex: 0 0 auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 0.125rem;
+  background: var(--ridge-color, var(--accent-strong, #8ab4ff));
+}
+
+.backtest-ridge-legend-label {
+  flex: 1 1 auto;
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.backtest-ridge-legend-price {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, var(--text-primary));
+}
+
 
 /* ── Backtest tab ─────────────────────────────────────────────── */
 

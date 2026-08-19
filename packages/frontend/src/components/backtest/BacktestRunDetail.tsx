@@ -1,10 +1,12 @@
 import { For, Show } from 'solid-js';
 import type {
   BacktestEquityPointDto,
+  BacktestMarketSeriesDto,
   BacktestPositionDto,
   BacktestRunDto,
 } from '../../api';
 import { BacktestEquityChart } from '../BacktestEquityChart';
+import { BacktestMarketRidgeChart } from './BacktestMarketRidgeChart';
 import { EXIT_REASON_LABEL } from '@polywatch/core/backtest/exit-reasons';
 import { fmtHolding, fmtPct, fmtUsd, formatNum, formatTs } from './format';
 
@@ -12,6 +14,7 @@ interface BacktestRunDetailProps {
   run: BacktestRunDto;
   equity: BacktestEquityPointDto[];
   positions: BacktestPositionDto[];
+  marketSeries: BacktestMarketSeriesDto[];
   loading: boolean;
   error: string | null;
   capital: number;
@@ -85,6 +88,18 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
         <div class="backtest-section">
           <h4 class="settings-subheading">Courbe d’equity</h4>
           <BacktestEquityChart points={props.equity} capital={props.capital} />
+        </div>
+      </Show>
+
+      <Show when={props.marketSeries.length > 0 && props.run.dataRangeFrom && props.run.dataRangeTo}>
+        <div class="backtest-section">
+          <h4 class="settings-subheading">Marchés parcourus ({props.marketSeries.length})</h4>
+          <BacktestMarketRidgeChart
+            series={props.marketSeries}
+            positions={props.positions}
+            from={props.run.dataRangeFrom!}
+            to={props.run.dataRangeTo!}
+          />
         </div>
       </Show>
 

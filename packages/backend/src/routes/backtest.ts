@@ -6,6 +6,7 @@ import {
   WeatherBucketTick,
   WeatherMarketSnapshot,
   BACKTEST_EXIT_REASONS,
+  parseWeatherQuestion,
   type BacktestRun,
   type BacktestExitReason,
 } from '@polywatch/core';
@@ -228,7 +229,159 @@ export function createBacktestRouter(ds: DataSource): Router {
     });
   });
 
+  // ── Market price series traversed by a run (ridge plot) ────────────────
+  // Dérive les séries de prix YES par marché (conditionId) depuis
+  // weather_bucket_ticks sur la plage du run. On applique le même filtre
+  // fidelityMinutes que le data-loader du moteur (data-loader.ts) : sans lui,
+  // on remonterait des marchés à toutes les cadences, y compris ceux que le
+  // moteur n'a pas réellement évalués.
+  //
+  // Deux requêtes bornées (pas de LIMIT global trompeur) :
+  //   1. SELECT DISTINCT condition_id, city, target_date_iso (borné par la plage)
+  //   2. ticks par batch de conditionId, triés par recorded_at, agrégés en code.
+  router.get('/runs/:id/markets-series', requireJwt, async (req, res) => {
+    const id = Number(req.params.id);
+    const run = await service.getById(id);
+    if (!run) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    if (!run.dataRangeFrom || !run.dataRangeTo) {
+      res.json({ items: [], truncated: false });
+      return;
+    }
+
+    const params = safeParseJson(run.paramsJson) as Record<string, unknown> | null;
+    const cities = Array.isArray(params?.cities)
+      ? (params.cities as unknown[]).filter((c): c is string => typeof c === 'string')
+      : null;
+    const fidelityMinutesRaw = Number(params?.fidelityMinutes);
+    const fidelityMinutes =
+      Number.isFinite(fidelityMinutesRaw) && fidelityMinutesRaw > 0
+        ? Math.floor(fidelityMinutesRaw)
+        : undefined;
+
+    const from = run.dataRangeFrom;
+    const to = run.dataRangeTo;
+
+    // 1. Marchés distincts sur la plage (borné par la plage + filtres).
+    const marketQb = ds
+      .getRepository(WeatherBucketTick)
+      .createQueryBuilder('t')
+      .select('t.conditionId', 'conditionId')
+      .addSelect('t.city', 'city')
+      .addSelect('t.targetDateIso', 'targetDateIso')
+      .addSelect('t.metric', 'metric')
+      .addSelect('t.bucketComparison', 'bucketComparison')
+      .addSelect('t.bucketTarget', 'bucketTarget')
+      .addSelect('t.bucketLow', 'bucketLow')
+      .addSelect('t.bucketHigh', 'bucketHigh')
+      .addSelect('t.question', 'question')
+      .where('t.recordedAt >= :from', { from })
+      .andWhere('t.recordedAt <= :to', { to })
+      .groupBy('t.conditionId')
+      .addGroupBy('t.city')
+      .addGroupBy('t.targetDateIso')
+      .addGroupBy('t.metric')
+      .addGroupBy('t.bucketComparison')
+      .addGroupBy('t.bucketTarget')
+      .addGroupBy('t.bucketLow')
+      .addGroupBy('t.bucketHigh')
+      .addGroupBy('t.question')
+      .orderBy('MIN(t.recordedAt)', 'ASC');
+    if (fidelityMinutes != null) {
+      marketQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+    }
+    if (cities && cities.length > 0) {
+      marketQb.andWhere('LOWER(t.city) IN (:...cities)', {
+        cities: cities.map((c) => c.toLowerCase()),
+      });
+    }
+    const markets = await marketQb.getRawMany<{
+      conditionId: string;
+      city: string | null;
+      targetDateIso: string | null;
+      metric: string | null;
+      bucketComparison: string | null;
+      bucketTarget: number | null;
+      bucketLow: number | null;
+      bucketHigh: number | null;
+      question: string | null;
+    }>();
+
+    // 2. Ticks par batch de conditionId, triés par recorded_at.
+    const BATCH = 200;
+    const series = new Map<string, {
+      conditionId: string;
+      city: string | null;
+      targetDateIso: string | null;
+      metric: string | null;
+      bucketComparison: string | null;
+      bucketTarget: number | null;
+      bucketLow: number | null;
+      bucketHigh: number | null;
+      unit: string | null;
+      points: { t: string; yesPrice: number | null }[];
+    }>();
+    for (let i = 0; i < markets.length; i += BATCH) {
+      const batch = markets.slice(i, i + BATCH).map((m) => m.conditionId);
+      const tickQb = ds
+        .getRepository(WeatherBucketTick)
+        .createQueryBuilder('t')
+        .select('t.conditionId', 'conditionId')
+        .addSelect('t.recordedAt', 'recordedAt')
+        .addSelect('t.yesPrice', 'yesPrice')
+        .where('t.conditionId IN (:...ids)', { ids: batch })
+        .andWhere('t.recordedAt >= :from', { from })
+        .andWhere('t.recordedAt <= :to', { to })
+        .orderBy('t.recordedAt', 'ASC')
+        .addOrderBy('t.id', 'ASC');
+      if (fidelityMinutes != null) {
+        tickQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+      }
+      const ticks = await tickQb.getRawMany<{
+        conditionId: string;
+        recordedAt: Date;
+        yesPrice: number | null;
+      }>();
+      for (const t of ticks) {
+        let entry = series.get(t.conditionId);
+        if (!entry) {
+          const meta = markets.find((m) => m.conditionId === t.conditionId);
+          entry = {
+            conditionId: t.conditionId,
+            city: meta?.city ?? null,
+            targetDateIso: meta?.targetDateIso ?? null,
+            metric: meta?.metric ?? null,
+            bucketComparison: meta?.bucketComparison ?? null,
+            bucketTarget: meta?.bucketTarget ?? null,
+            bucketLow: meta?.bucketLow ?? null,
+            bucketHigh: meta?.bucketHigh ?? null,
+            unit: meta?.question ? (parseWeatherQuestion(meta.question)?.unit ?? null) : null,
+            points: [],
+          };
+          series.set(t.conditionId, entry);
+        }
+        entry.points.push({ t: new Date(t.recordedAt).toISOString(), yesPrice: t.yesPrice });
+      }
+    }
+
+    res.json({
+      items: [...series.values()],
+      truncated: false,
+    });
+  });
+
   return router;
+}
+
+function safeParseJson(raw: string | null): unknown {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 /** Orphan recovery: mark runs stuck in running/queued as failed on boot. */

@@ -8,7 +8,6 @@ import {
   BACKTEST_EXIT_REASONS,
   type BacktestRun,
   type BacktestExitReason,
-  type WeatherConfig,
 } from '@polywatch/core';
 import {
   runBacktest,
@@ -17,32 +16,13 @@ import {
   type BacktestRunParams,
 } from '@polywatch/backtest';
 import { requireJwt } from '../middleware/auth.js';
-import { parseLimit, parseOffset, parseOptionalDate } from './lib/query-params.js';
+import { parseLimit, parseOffset } from './lib/query-params.js';
+import { toRunDto } from './lib/backtest-dto.js';
+import { computeConfigFingerprint } from './lib/config-fingerprint.js';
+import { backtestRunTracker } from './lib/backtest-run-tracker.js';
 import pino from 'pino';
 
 const log = pino({ name: 'backend:backtest' });
-
-const BACKTEST_TIMEOUT_MS = Number(process.env.BACKTEST_TIMEOUT_MS ?? 30 * 60 * 1000);
-
-interface RunTracker {
-  cancelled: boolean;
-  timedOut: boolean;
-  timeoutId?: ReturnType<typeof setTimeout>;
-}
-
-/**
- * In-process backtest job registry. A single run per domain can be active at
- * a time (singleton lock enforced by BacktestRunService.hasActiveRun).
- */
-const activeRuns = new Map<number, RunTracker>();
-
-/** Best-effort cancel of all in-flight runs (graceful shutdown). */
-export function cancelAllActiveBacktestRuns(): void {
-  for (const tracker of activeRuns.values()) {
-    tracker.cancelled = true;
-    if (tracker.timeoutId) clearTimeout(tracker.timeoutId);
-  }
-}
 
 function parseExitReason(value: unknown): BacktestExitReason | null {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -55,6 +35,7 @@ export function createBacktestRouter(ds: DataSource): Router {
   const router = Router();
   const service = new BacktestRunService(ds);
   const weatherConfigService = new WeatherConfigService(ds);
+  const tracker = backtestRunTracker;
 
   // ── Data coverage ──────────────────────────────────────────────────────
   router.get('/data-coverage', requireJwt, async (req, res) => {
@@ -115,12 +96,7 @@ export function createBacktestRouter(ds: DataSource): Router {
       label: params.label ?? null,
     });
 
-    const tracker: RunTracker = { cancelled: false, timedOut: false };
-    activeRuns.set(run.id, tracker);
-
-    tracker.timeoutId = setTimeout(() => {
-      tracker.timedOut = true;
-    }, BACKTEST_TIMEOUT_MS);
+    tracker.track(run.id);
 
     void (async () => {
       try {
@@ -130,18 +106,13 @@ export function createBacktestRouter(ds: DataSource): Router {
           params,
           configSnapshot: config,
           service,
-          getAbortReason: () => {
-            if (tracker.timedOut) return 'timeout';
-            if (tracker.cancelled) return 'cancelled';
-            return null;
-          },
+          getAbortReason: () => tracker.getAbortReason(run.id),
         });
       } catch (err) {
         log.error({ runId: run.id, err }, 'backtest run failed');
         await service.markFailed(run.id, (err as Error).message ?? String(err));
       } finally {
-        if (tracker.timeoutId) clearTimeout(tracker.timeoutId);
-        activeRuns.delete(run.id);
+        tracker.release(run.id);
       }
     })();
 
@@ -187,10 +158,7 @@ export function createBacktestRouter(ds: DataSource): Router {
       return;
     }
     if (run.status === 'running' || run.status === 'queued') {
-      const tracker = activeRuns.get(id);
-      if (tracker) {
-        tracker.cancelled = true;
-      }
+      tracker.cancel(id);
       res.json({ id, status: 'cancelling' });
     } else {
       res.status(400).json({ error: 'not_cancellable', status: run.status });
@@ -210,7 +178,7 @@ export function createBacktestRouter(ds: DataSource): Router {
       return;
     }
     await service.delete(id);
-    activeRuns.delete(id);
+    tracker.release(id);
     res.json({ id, deleted: true });
   });
 
@@ -256,65 +224,7 @@ export async function recoverOrphanedBacktestRuns(ds: DataSource): Promise<void>
   await new BacktestRunService(ds).markOrphanedRunningAsFailed();
 }
 
-function computeConfigFingerprint(config: WeatherConfig): string {
-  const relevant = Object.keys(config as unknown as Record<string, unknown>)
-    .filter((k) => k.startsWith('weatherAlgo'))
-    .sort()
-    .map((k) => `${k}=${String((config as unknown as Record<string, unknown>)[k])}`)
-    .join('|');
-  let hash = 0;
-  for (let i = 0; i < relevant.length; i++) {
-    hash = (hash << 5) - hash + relevant.charCodeAt(i);
-    hash |= 0;
-  }
-  return `cfg:${Math.abs(hash).toString(36)}`;
-}
-
-interface RunDto {
-  id: number;
-  createdAt: string;
-  startedAt: string | null;
-  finishedAt: string | null;
-  status: string;
-  progressPct: number;
-  domain: string;
-  mode: string;
-  label: string | null;
-  params: unknown;
-  dataRangeFrom: string | null;
-  dataRangeTo: string | null;
-  stats: unknown;
-  fidelityWarnings: unknown;
-  engineVersion: string | null;
-  error: string | null;
-}
-
-function toRunDto(run: BacktestRun): RunDto {
-  return {
-    id: run.id,
-    createdAt: run.createdAt.toISOString(),
-    startedAt: run.startedAt ? run.startedAt.toISOString() : null,
-    finishedAt: run.finishedAt ? run.finishedAt.toISOString() : null,
-    status: run.status,
-    progressPct: run.progressPct,
-    domain: run.domain,
-    mode: run.mode,
-    label: run.label,
-    params: safeParseJson(run.paramsJson),
-    dataRangeFrom: run.dataRangeFrom ? run.dataRangeFrom.toISOString() : null,
-    dataRangeTo: run.dataRangeTo ? run.dataRangeTo.toISOString() : null,
-    stats: safeParseJson(run.statsJson),
-    fidelityWarnings: safeParseJson(run.fidelityWarningsJson),
-    engineVersion: run.engineVersion,
-    error: run.error,
-  };
-}
-
-function safeParseJson(raw: string | null): unknown {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+/** Best-effort cancel of all in-flight runs (graceful shutdown). */
+export function cancelAllActiveBacktestRuns(): void {
+  backtestRunTracker.cancelAll();
 }

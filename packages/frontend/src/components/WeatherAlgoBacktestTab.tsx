@@ -1,4 +1,4 @@
-import { createSignal, For, Show, onMount, onCleanup } from 'solid-js';
+import { createSignal, Show, onMount } from 'solid-js';
 import {
   cancelBacktestRun,
   deleteBacktestRun,
@@ -13,51 +13,17 @@ import {
   type BacktestEquityPointDto,
   type BacktestPositionDto,
   type BacktestRunDto,
+  type BacktestRunParamsInput,
   type WeatherStrategyMeta,
 } from '../api';
 import { UI_KEYS, usePersistedSignal } from '../lib/ui-persistence';
-import { BacktestEquityChart } from './BacktestEquityChart';
-import { Pagination } from './Pagination';
-import { formatNum, formatTs } from '../lib/format';
-import { EXIT_REASON_LABEL } from '@polywatch/core/backtest/exit-reasons';
+import { toDateInputValue, resolveRunCapital } from './backtest/format';
+import { LaunchBacktestForm } from './backtest/LaunchBacktestForm';
+import { BacktestRunList } from './backtest/BacktestRunList';
+import { BacktestRunDetail } from './backtest/BacktestRunDetail';
+import { useBacktestPolling } from './backtest/useBacktestPolling';
 
 const PAGE_SIZE = 20;
-const POLL_MS = 4000;
-
-/** Stratégies affichées quand le catalogue n'est pas encore chargé (R3). */
-const FALLBACK_STRATEGIES = [
-  { id: 'weather-forecast', label: 'Forecast (best edge)' },
-  { id: 'weather-forecast-aligned', label: 'Forecast (aligned)' },
-];
-
-function fmtPct(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-function fmtUsd(value: number | null | undefined): string {
-  return formatNum(value, 2);
-}
-
-/** Capital from a completed/selected run — never trust form state for the equity chart. */
-function resolveRunCapital(params: Record<string, unknown> | null | undefined): number {
-  const n = Number(params?.capital);
-  return Number.isFinite(n) && n > 0 ? n : 1000;
-}
-
-function toDateInputValue(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
-}
-
-function fmtHolding(ms: number | null | undefined): string {
-  if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
-  const h = ms / 3_600_000;
-  if (h >= 1) return `${h.toFixed(1)} h`;
-  const m = ms / 60_000;
-  return `${m.toFixed(0)} min`;
-}
 
 export function WeatherAlgoBacktestTab() {
   // ── Coverage (disponibilité des données) ─────────────────────────
@@ -116,7 +82,11 @@ export function WeatherAlgoBacktestTab() {
   const [detailLoading, setDetailLoading] = createSignal(false);
   const [detailError, setDetailError] = createSignal<string | null>(null);
 
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  const polling = useBacktestPolling(() => {
+    const id = selectedId();
+    if (id != null) void refreshDetail(id);
+    void refreshList();
+  });
 
   async function refreshCoverage() {
     try {
@@ -171,19 +141,11 @@ export function WeatherAlgoBacktestTab() {
   }
 
   function startPolling() {
-    stopPolling();
-    pollTimer = setInterval(() => {
-      const id = selectedId();
-      if (id != null) void refreshDetail(id);
-      void refreshList();
-    }, POLL_MS);
+    polling.start();
   }
 
   function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
+    polling.stop();
   }
 
   onMount(() => {
@@ -198,10 +160,6 @@ export function WeatherAlgoBacktestTab() {
     }
   });
 
-  onCleanup(() => {
-    stopPolling();
-  });
-
   async function submit(e: Event) {
     e.preventDefault();
     if (!from() || !to()) {
@@ -211,7 +169,7 @@ export function WeatherAlgoBacktestTab() {
     setLaunching(true);
     setLaunchError(null);
     try {
-      const res = await launchBacktestRun({
+      const body: BacktestRunParamsInput = {
         mode: mode(),
         from: new Date(`${from()}T00:00:00.000Z`).toISOString(),
         to: new Date(`${to()}T23:59:59.999Z`).toISOString(),
@@ -224,7 +182,8 @@ export function WeatherAlgoBacktestTab() {
         maxConcurrentPositions: Number(maxPos()) || 10,
         fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
         label: label().trim() || undefined,
-      });
+      };
+      const res = await launchBacktestRun(body);
       setPage(0);
       setSelectedId(res.id);
       await refreshList(0);
@@ -290,155 +249,52 @@ export function WeatherAlgoBacktestTab() {
   return (
     <div class="backtest-tab">
       <Show when={selectedRun() == null}>
-        {/* ── Formulaire de lancement ── */}
-        <form class="backtest-form" onSubmit={submit}>
-          <h3 class="settings-subheading">Lancer un backtest</h3>
-          <Show when={coverage()}>
-            <div class="backtest-coverage">
-              <span>
-                Données dispo : <strong>{coverage()?.from ? formatTs(coverage()!.from) : '—'}</strong> →{' '}
-                <strong>{coverage()?.to ? formatTs(coverage()!.to) : '—'}</strong>
-              </span>
-              <span>
-                Ticks : <strong>{(coverage()?.totalTicks ?? 0).toLocaleString()}</strong>
-              </span>
-              <span>Villes : <strong>{coverage()?.cities.join(', ') || '—'}</strong></span>
-            </div>
-          </Show>
-          <Show when={coverageLoading()}>
-            <p class="form-hint">Chargement de la couverture de données…</p>
-          </Show>
-
-          <div class="backtest-form-grid">
-            <label class="backtest-field">
-              <span>Mode</span>
-              <select
-                value={mode()}
-                onChange={(e) => setMode(e.currentTarget.value as 'reevaluate' | 'replay')}
-              >
-                <option value="reevaluate">Re-évaluer (relance la stratégie)</option>
-                <option value="replay">Rejouer (décisions enregistrées)</option>
-              </select>
-            </label>
-            <label class="backtest-field">
-              <span>Du</span>
-              <input type="date" value={from()} onInput={(e) => setFrom(e.currentTarget.value)} />
-            </label>
-            <label class="backtest-field">
-              <span>Au</span>
-              <input type="date" value={to()} onInput={(e) => setTo(e.currentTarget.value)} />
-            </label>
-            <label class="backtest-field">
-              <span>Villes (séparées par virgule, optionnel)</span>
-              <input
-                type="text"
-                value={cities()}
-                onInput={(e) => setCities(e.currentTarget.value)}
-                placeholder="ex. london, paris"
-              />
-            </label>
-            <label class="backtest-field">
-              <span>Stratégie</span>
-              <select
-                value={strategyId()}
-                onChange={(e) => setStrategyId(e.currentTarget.value)}
-              >
-                <For each={catalog()}>
-                  {(s) => <option value={s.id}>{s.label}</option>}
-                </For>
-                <Show when={catalog().length === 0}>
-                  <For each={FALLBACK_STRATEGIES}>
-                    {(s) => <option value={s.id}>{s.label}</option>}
-                  </For>
-                </Show>
-              </select>
-            </label>
-            <label class="backtest-field">
-              <span>Exécution backtest</span>
-              <select
-                value={executionMode()}
-                onChange={(e) =>
-                  setExecutionMode(e.currentTarget.value as 'strategy' | 'runner-sim')
-                }
-              >
-                <option value="strategy">Strategy (tick par bucket, rapide)</option>
-                <option value="runner-sim">Runner-sim (groupe + dedup, proche live)</option>
-              </select>
-            </label>
-            <label class="backtest-field">
-              <span>Capital initial (USDC)</span>
-              <input type="number" min="1" value={capital()} onInput={(e) => setCapital(e.currentTarget.value)} />
-            </label>
-            <label class="backtest-field">
-              <span>Entry / position (USDC)</span>
-              <input type="number" min="0" value={entryUsdc()} onInput={(e) => setEntryUsdc(e.currentTarget.value)} />
-            </label>
-            <label class="backtest-field">
-              <span>Slippage (bps)</span>
-              <input type="number" min="0" value={slippageBps()} onInput={(e) => setSlippageBps(e.currentTarget.value)} />
-            </label>
-            <label class="backtest-field">
-              <span>Max positions concurrentes</span>
-              <input type="number" min="1" value={maxPos()} onInput={(e) => setMaxPos(e.currentTarget.value)} />
-            </label>
-            <label class="backtest-field">
-              <span>Intervalle (min, optionnel)</span>
-              <input
-                type="number"
-                min="1"
-                placeholder="vide = tous"
-                value={fidelityMinutes()}
-                onInput={(e) => {
-                  setFidelityMinutes(e.currentTarget.value);
-                  void refreshCoverage();
-                }}
-                title="Filtre les ticks par intervalle de fidelity (15 = 15 min). Vide = tous les intervalles."
-              />
-            </label>
-            <label class="backtest-field backtest-field-wide">
-              <span>Libellé (optionnel)</span>
-              <input type="text" value={label()} onInput={(e) => setLabel(e.currentTarget.value)} />
-            </label>
-          </div>
-          <Show when={launchError()}>
-            <p class="form-hint weather-settings-error">{launchError()}</p>
-          </Show>
-          <div class="backtest-form-actions">
-            <button type="submit" class="btn btn-sm btn-primary" disabled={launching()}>
-              {launching() ? 'Lancement…' : 'Lancer le backtest'}
-            </button>
-          </div>
-        </form>
-
-        {/* ── Liste des runs ── */}
-        <div class="backtest-list">
-          <div class="backtest-list-header">
-            <h3 class="settings-subheading">Runs</h3>
-            <span class="algo-panel-count">{listTotal().toLocaleString()} run(s)</span>
-          </div>
-          <Show when={listLoading() && runs().length === 0}>
-            <p class="form-hint">Chargement…</p>
-          </Show>
-          <Show when={runs().length === 0 && !listLoading()}>
-            <p class="form-hint">Aucun backtest pour l’instant.</p>
-          </Show>
-          <div class="backtest-run-cards">
-            <For each={runs()}>
-              {(run) => <RunCard run={run} onOpen={() => openRun(run.id)} />}
-            </For>
-          </div>
-          <Show when={listTotal() > PAGE_SIZE}>
-            <Pagination
-              page={page()}
-              pageCount={pageCount()}
-              onPage={goToPage}
-            />
-          </Show>
-        </div>
+        <LaunchBacktestForm
+          coverage={coverage}
+          coverageLoading={coverageLoading}
+          catalog={catalog}
+          mode={mode}
+          setMode={setMode}
+          from={from}
+          setFrom={setFrom}
+          to={to}
+          setTo={setTo}
+          cities={cities}
+          setCities={setCities}
+          capital={capital}
+          setCapital={setCapital}
+          entryUsdc={entryUsdc}
+          setEntryUsdc={setEntryUsdc}
+          slippageBps={slippageBps}
+          setSlippageBps={setSlippageBps}
+          maxPos={maxPos}
+          setMaxPos={setMaxPos}
+          fidelityMinutes={fidelityMinutes}
+          setFidelityMinutes={setFidelityMinutes}
+          label={label}
+          setLabel={setLabel}
+          strategyId={strategyId}
+          setStrategyId={setStrategyId}
+          executionMode={executionMode}
+          setExecutionMode={setExecutionMode}
+          launching={launching}
+          launchError={launchError}
+          onFidelityChange={() => void refreshCoverage()}
+          onSubmit={submit}
+        />
+        <BacktestRunList
+          runs={runs()}
+          total={listTotal()}
+          loading={listLoading()}
+          page={page()}
+          pageCount={pageCount()}
+          onOpen={openRun}
+          onPage={goToPage}
+        />
       </Show>
 
       <Show when={selectedRun() != null}>
-        <RunDetail
+        <BacktestRunDetail
           run={selectedRun()!}
           equity={equity()}
           positions={positions()}
@@ -449,249 +305,6 @@ export function WeatherAlgoBacktestTab() {
           onCancel={() => void doCancel(selectedRun()!.id)}
           onDelete={() => void doDelete(selectedRun()!.id)}
         />
-      </Show>
-    </div>
-  );
-}
-
-function RunCard(props: { run: BacktestRunDto; onOpen: () => void }) {
-  const run = props.run;
-  const statusLabel: Record<string, string> = {
-    queued: 'File',
-    running: 'En cours',
-    completed: 'Terminé',
-    failed: 'Échec',
-    cancelled: 'Annulé',
-  };
-  return (
-    <button type="button" class="backtest-run-card" onClick={props.onOpen}>
-      <div class="backtest-run-card-top">
-        <span class="backtest-run-id">#{run.id}</span>
-        <span class={`backtest-status backtest-status--${run.status}`}>
-          {statusLabel[run.status] ?? run.status}
-        </span>
-      </div>
-      <div class="backtest-run-card-meta">
-        <span>{run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</span>
-        {run.label ? <span>{run.label}</span> : null}
-        <span>{formatTs(run.createdAt)}</span>
-      </div>
-      <Show when={run.status === 'running' || run.status === 'queued'}>
-        <div class="backtest-progress">
-          <div class="backtest-progress-track">
-            <div class="backtest-progress-fill" style={{ width: `${run.progressPct}%` }} />
-          </div>
-          <span>{run.progressPct}%</span>
-        </div>
-      </Show>
-      <Show when={run.stats && run.status === 'completed'}>
-        <div class="backtest-run-card-stats">
-          <span>
-            P&L <strong>{fmtUsd(run.stats?.totalPnl)}</strong>
-          </span>
-          <span>
-            Trades <strong>{run.stats?.totalTrades ?? 0}</strong>
-          </span>
-          <span>
-            Winrate <strong>{fmtPct(run.stats?.winRate)}</strong>
-          </span>
-        </div>
-      </Show>
-    </button>
-  );
-}
-
-function RunDetail(props: {
-  run: BacktestRunDto;
-  equity: BacktestEquityPointDto[];
-  positions: BacktestPositionDto[];
-  loading: boolean;
-  error: string | null;
-  capital: number;
-  onBack: () => void;
-  onCancel: () => void;
-  onDelete: () => void;
-}) {
-  const run = () => props.run;
-  const stats = () => props.run.stats;
-  const isRunning = () => props.run.status === 'running' || props.run.status === 'queued';
-
-  return (
-    <div class="backtest-detail">
-      <div class="backtest-toolbar">
-        <div class="backtest-toolbar-left">
-          <button type="button" class="btn btn-sm btn-ghost" onClick={props.onBack}>
-            ← Retour
-          </button>
-          <h3 class="settings-subheading">Backtest #{props.run.id}</h3>
-        </div>
-        <div class="backtest-toolbar-actions">
-          <Show when={isRunning()}>
-            <button type="button" class="btn btn-sm btn-secondary" onClick={props.onCancel}>
-              Annuler
-            </button>
-          </Show>
-          <button type="button" class="btn btn-sm btn-danger" onClick={props.onDelete}>
-            Supprimer
-          </button>
-        </div>
-      </div>
-
-      <Show when={props.error}>
-        <p class="form-hint weather-settings-error">{props.error}</p>
-      </Show>
-
-      <div class="backtest-detail-meta">
-        <span>
-          Statut : <strong>{props.run.status}</strong>
-        </span>
-        <span>
-          Mode : <strong>{props.run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</strong>
-        </span>
-        <span>Lancé : {formatTs(props.run.startedAt)}</span>
-        <span>Fini : {formatTs(props.run.finishedAt)}</span>
-        <span>Plage : {formatTs(props.run.dataRangeFrom)} → {formatTs(props.run.dataRangeTo)}</span>
-      </div>
-
-      <Show when={isRunning()}>
-        <div class="backtest-progress backtest-progress--wide">
-          <div class="backtest-progress-track">
-            <div class="backtest-progress-fill" style={{ width: `${props.run.progressPct}%` }} />
-          </div>
-          <span>{props.run.progressPct}%</span>
-        </div>
-      </Show>
-
-      <Show when={props.run.status === 'failed' && props.run.error}>
-        <p class="form-hint weather-settings-error">
-          Erreur : <code>{props.run.error}</code>
-        </p>
-      </Show>
-
-      <Show when={stats() != null}>
-        <MetricGrid stats={stats()!} capital={props.capital} />
-      </Show>
-
-      <Show when={props.equity.length > 0}>
-        <div class="backtest-section">
-          <h4 class="settings-subheading">Courbe d’equity</h4>
-          <BacktestEquityChart points={props.equity} capital={props.capital} />
-        </div>
-      </Show>
-
-      <Show when={props.run.fidelityWarnings && props.run.fidelityWarnings.length > 0}>
-        <div class="backtest-fidelity">
-          <h4 class="settings-subheading">Limites de fidélité</h4>
-          <ul>
-            <For each={props.run.fidelityWarnings!}>
-              {(w) => <li>{w}</li>}
-            </For>
-          </ul>
-        </div>
-      </Show>
-
-      <Show when={props.positions.length > 0}>
-        <div class="backtest-section">
-          <h4 class="settings-subheading">Positions ({props.positions.length})</h4>
-          <div class="weather-data-table-wrap">
-            <table class="weather-data-table">
-              <thead>
-                <tr>
-                  <th>Ville</th>
-                  <th>conditionId</th>
-                  <th>Entry</th>
-                  <th>Exit</th>
-                  <th>P&L</th>
-                  <th>Motif exit</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={props.positions}>
-                  {(p) => (
-                    <tr>
-                      <td>{p.city ?? '—'}</td>
-                      <td class="text-mono" title={p.conditionId}>
-                        {p.conditionId.slice(0, 18)}…
-                      </td>
-                      <td>{formatNum(p.entryPrice, 3)}</td>
-                      <td>{p.exitPrice != null ? formatNum(p.exitPrice, 3) : '—'}</td>
-                      <td class={p.pnl != null && p.pnl >= 0 ? 'backtest-pnl-pos' : 'backtest-pnl-neg'}>
-                        {p.pnl != null ? fmtUsd(p.pnl) : '—'}
-                      </td>
-                      <td>{p.exitReason ? (EXIT_REASON_LABEL[p.exitReason] ?? p.exitReason) : 'Ouverte'}</td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Show>
-    </div>
-  );
-}
-
-function MetricGrid(props: { stats: NonNullable<BacktestRunDto['stats']>; capital: number }) {
-  const s = props.stats;
-  return (
-    <div class="backtest-metrics">
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">P&L total</span>
-        <span class="backtest-metric-value">{fmtUsd(s.totalPnl)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">P&L %</span>
-        <span class="backtest-metric-value">{formatNum(s.pnlPct, 1)}%</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Equity finale</span>
-        <span class="backtest-metric-value">{fmtUsd(s.finalEquity)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Drawdown max</span>
-        <span class="backtest-metric-value">{fmtPct(s.maxDrawdown)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Trades</span>
-        <span class="backtest-metric-value">{s.totalTrades}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Winrate</span>
-        <span class="backtest-metric-value">{fmtPct(s.winRate)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Profit factor</span>
-        <span class="backtest-metric-value">
-          {s.profitFactor == null && s.totalTrades > 0 ? '∞' : formatNum(s.profitFactor, 2)}
-        </span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Expectancy</span>
-        <span class="backtest-metric-value">{fmtUsd(s.expectancy)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Durée moy.</span>
-        <span class="backtest-metric-value">{fmtHolding(s.avgHoldingMs)}</span>
-      </div>
-      <Show when={Object.keys(s.byExitReason ?? {}).length > 0}>
-        <div class="backtest-metric backtest-metric--wide">
-          <span class="backtest-metric-label">Par sortie</span>
-          <span class="backtest-metric-value">
-            {Object.entries(s.byExitReason)
-              .map(([k, n]) => `${EXIT_REASON_LABEL[k] ?? k}: ${n}`)
-              .join(' · ')}
-          </span>
-        </div>
-      </Show>
-      <Show when={Object.keys(s.byCity ?? {}).length > 0}>
-        <div class="backtest-metric backtest-metric--wide">
-          <span class="backtest-metric-label">Par ville</span>
-          <span class="backtest-metric-value">
-            {Object.entries(s.byCity)
-              .map(([k, n]) => `${k}: ${n}`)
-              .join(' · ')}
-          </span>
-        </div>
       </Show>
     </div>
   );

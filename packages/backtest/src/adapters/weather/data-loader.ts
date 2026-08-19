@@ -55,6 +55,86 @@ export async function countWeatherEvents(
   return total;
 }
 
+// ── Helpers de pagination keyset et de filtres ─────────────────────────────
+
+type TimeIdCursor = { at: Date; id: number };
+
+/** Type minimal de query builder utilisé par la pagination keyset. */
+interface KeysetQueryBuilder {
+  andWhere(where: string, params?: Record<string, unknown>): this;
+  getRawMany(): Promise<any[]>;
+}
+
+/**
+ * Keyset pagination must follow the same key as the merge (`event.at`).
+ * Ordering only by id is unsafe: inserts can interleave so a higher id has an
+ * earlier timestamp, which then regresses the VirtualClock.
+ */
+function applyTimeIdCursor(
+  qb: KeysetQueryBuilder,
+  alias: string,
+  timeColumn: string,
+  cursor: TimeIdCursor | null,
+): void {
+  if (!cursor) return;
+  qb.andWhere(
+    `(${alias}.${timeColumn} > :lastAt OR (${alias}.${timeColumn} = :lastAt AND ${alias}.id > :lastId))`,
+    { lastAt: cursor.at, lastId: cursor.id },
+  );
+}
+
+function nextTimeIdCursor(
+  rows: Array<Record<string, any>>,
+  timeKey: string,
+  idKey: string,
+): TimeIdCursor {
+  const last = rows[rows.length - 1]!;
+  const id = last[idKey];
+  return {
+    at: new Date(last[timeKey] as string | Date),
+    id: typeof id === 'number' ? id : Number(id ?? 0),
+  };
+}
+
+/** Applique le filtre villes (insensible à la casse) si une liste est fournie. */
+function applyCityFilter(
+  qb: { andWhere(where: string, params?: Record<string, unknown>): unknown },
+  alias: string,
+  column: string,
+  cities: string[] | null,
+): void {
+  if (cities) {
+    qb.andWhere(`LOWER(${alias}.${column}) IN (:...cities)`, {
+      cities: cities.map((c) => c.toLowerCase()),
+    });
+  }
+}
+
+/**
+ * Boucle de pagination keyset générique : construit chaque page via
+ * `buildQuery(cursor)`, mappe les lignes via `mapRow`, et itère jusqu'à
+ * épuisement. Le query builder doit déjà porter where/orderBy/limit.
+ */
+async function* paginateKeyset<T, QB extends KeysetQueryBuilder>(
+  buildQuery: (cursor: TimeIdCursor | null) => QB,
+  mapRow: (row: Record<string, any>) => T,
+  timeKey: string,
+  idKey: string,
+  chunk = 5000,
+): AsyncGenerator<T> {
+  let cursor: TimeIdCursor | null = null;
+  for (;;) {
+    const qb = buildQuery(cursor);
+    const rows = await qb.getRawMany();
+    if (rows.length === 0) break;
+    for (const row of rows) yield mapRow(row);
+    cursor = nextTimeIdCursor(rows, timeKey, idKey);
+    if (rows.length < chunk) break;
+  }
+}
+
+// ── Comptage (progress estimation) ────────────────────────────────────────
+
 async function countForecastEvents(
   ds: DataSource,
   from: Date,
@@ -66,9 +146,7 @@ async function countForecastEvents(
     .createQueryBuilder('f')
     .where('f.fetchedAt >= :from', { from })
     .andWhere('f.fetchedAt <= :to', { to });
-  if (cities) {
-    qb.andWhere('LOWER(f.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
-  }
+  applyCityFilter(qb, 'f', 'city', cities);
   return qb.getCount();
 }
 
@@ -87,9 +165,7 @@ async function countTickEvents(
   if (fidelityMinutes != null) {
     qb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
   }
-  if (cities) {
-    qb.andWhere('LOWER(t.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
-  }
+  applyCityFilter(qb, 't', 'city', cities);
   return qb.getCount();
 }
 
@@ -108,46 +184,11 @@ async function countSignalEvents(
     .andWhere('e.evaluatedAt <= :to', { to })
     .andWhere("e.decision = 'signal'")
     .andWhere('e.strategyId = :strategyId', { strategyId });
-  if (cities) {
-    qb.andWhere('LOWER(s.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
-  }
+  applyCityFilter(qb, 's', 'city', cities);
   return qb.getCount();
 }
 
-type TimeIdCursor = { at: Date; id: number };
-
-/**
- * Keyset pagination must follow the same key as the merge (`event.at`).
- * Ordering only by id is unsafe: inserts can interleave so a higher id has an
- * earlier timestamp, which then regresses the VirtualClock.
- */
-function applyTimeIdCursor(
-  qb: {
-    andWhere: (where: string, params?: Record<string, unknown>) => unknown;
-  },
-  alias: string,
-  timeColumn: string,
-  cursor: TimeIdCursor | null,
-): void {
-  if (!cursor) return;
-  qb.andWhere(
-    `(${alias}.${timeColumn} > :lastAt OR (${alias}.${timeColumn} = :lastAt AND ${alias}.id > :lastId))`,
-    { lastAt: cursor.at, lastId: cursor.id },
-  );
-}
-
-function nextTimeIdCursor(
-  rows: Array<Record<string, unknown>>,
-  timeKey: string,
-  idKey: string,
-): TimeIdCursor {
-  const last = rows[rows.length - 1]!;
-  const id = last[idKey];
-  return {
-    at: new Date(last[timeKey] as string | Date),
-    id: typeof id === 'number' ? id : Number(id ?? 0),
-  };
-}
+// ── Loaders (streams d'événements) ───────────────────────────────────────
 
 async function* loadForecastEvents(
   ds: DataSource,
@@ -155,49 +196,44 @@ async function* loadForecastEvents(
   to: Date,
   cities: string[] | null,
 ): AsyncGenerator<BacktestEvent> {
-  const CHUNK = 5000;
-  let cursor: TimeIdCursor | null = null;
-  for (;;) {
-    const qb = ds
-      .getRepository(WeatherForecastHistory)
-      .createQueryBuilder('f')
-      .select([
-        'f.id',
-        'f.city',
-        'f.forecastDate',
-        'f.metric',
-        'f.forecastMean',
-        'f.forecastStdDev',
-        'f.fetchedAt',
-      ])
-      .where('f.fetchedAt >= :from', { from })
-      .andWhere('f.fetchedAt <= :to', { to })
-      .orderBy('f.fetchedAt', 'ASC')
-      .addOrderBy('f.id', 'ASC')
-      .limit(CHUNK);
-    applyTimeIdCursor(qb, 'f', 'fetchedAt', cursor);
-    if (cities) {
-      qb.andWhere('LOWER(f.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
-    }
-    const rows = await qb.getRawMany();
-    if (rows.length === 0) break;
-    for (const row of rows) {
-      yield {
-        kind: 'forecast',
-        at: new Date(row.f_fetched_at),
-        data: {
-          city: row.f_city,
-          forecastDate: new Date(row.f_forecast_date),
-          metric: row.f_metric,
-          forecastMean: row.f_forecast_mean,
-          forecastStdDev: row.f_forecast_std_dev,
-          fetchedAt: new Date(row.f_fetched_at),
-        },
-      };
-    }
-    cursor = nextTimeIdCursor(rows, 'f_fetched_at', 'f_id');
-    if (rows.length < CHUNK) break;
-  }
+  yield* paginateKeyset(
+    (cursor) => {
+      const qb = ds
+        .getRepository(WeatherForecastHistory)
+        .createQueryBuilder('f')
+        .select([
+          'f.id',
+          'f.city',
+          'f.forecastDate',
+          'f.metric',
+          'f.forecastMean',
+          'f.forecastStdDev',
+          'f.fetchedAt',
+        ])
+        .where('f.fetchedAt >= :from', { from })
+        .andWhere('f.fetchedAt <= :to', { to })
+        .orderBy('f.fetchedAt', 'ASC')
+        .addOrderBy('f.id', 'ASC')
+        .limit(5000);
+      applyTimeIdCursor(qb, 'f', 'fetchedAt', cursor);
+      applyCityFilter(qb, 'f', 'city', cities);
+      return qb;
+    },
+    (row) => ({
+      kind: 'forecast',
+      at: new Date(row.f_fetched_at),
+      data: {
+        city: row.f_city,
+        forecastDate: new Date(row.f_forecast_date),
+        metric: row.f_metric,
+        forecastMean: row.f_forecast_mean,
+        forecastStdDev: row.f_forecast_std_dev,
+        fetchedAt: new Date(row.f_fetched_at),
+      },
+    }),
+    'f_fetched_at',
+    'f_id',
+  );
 }
 
 async function* loadTickEvents(
@@ -207,54 +243,51 @@ async function* loadTickEvents(
   cities: string[] | null,
   fidelityMinutes?: number,
 ): AsyncGenerator<BacktestEvent> {
-  const CHUNK = 5000;
-  let cursor: TimeIdCursor | null = null;
-  for (;;) {
-    const qb = ds
-      .getRepository(WeatherBucketTick)
-      .createQueryBuilder('t')
-      .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
-      .select([
-        't.id',
-        't.conditionId',
-        't.eventSlug',
-        't.question',
-        't.bucketComparison',
-        't.bucketTarget',
-        't.bucketLow',
-        't.bucketHigh',
-        't.yesPrice',
-        't.noPrice',
-        't.volume',
-        't.volume24hr',
-        't.liquidityClob',
-        't.acceptingOrders',
-        't.closed',
-        't.endDate',
-        't.yesTokenId',
-        't.recordedAt',
-        't.city',
-        't.targetDateIso',
-        't.metric',
-        's.forecastMean',
-      ])
-      .where('t.recordedAt >= :from', { from })
-      .andWhere('t.recordedAt <= :to', { to })
-      .orderBy('t.recordedAt', 'ASC')
-      .addOrderBy('t.id', 'ASC')
-      .limit(CHUNK);
-    applyTimeIdCursor(qb, 't', 'recordedAt', cursor);
-    if (fidelityMinutes != null) {
-      qb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
-    }
-    if (cities) {
-      qb.andWhere('LOWER(t.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
-    }
-    const rows = await qb.getRawMany();
-    if (rows.length === 0) break;
-    for (const row of rows) {
+  yield* paginateKeyset(
+    (cursor) => {
+      const qb = ds
+        .getRepository(WeatherBucketTick)
+        .createQueryBuilder('t')
+        .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
+        .select([
+          't.id',
+          't.conditionId',
+          't.eventSlug',
+          't.question',
+          't.bucketComparison',
+          't.bucketTarget',
+          't.bucketLow',
+          't.bucketHigh',
+          't.yesPrice',
+          't.noPrice',
+          't.volume',
+          't.volume24hr',
+          't.liquidityClob',
+          't.acceptingOrders',
+          't.closed',
+          't.endDate',
+          't.yesTokenId',
+          't.recordedAt',
+          't.city',
+          't.targetDateIso',
+          't.metric',
+          's.forecastMean',
+        ])
+        .where('t.recordedAt >= :from', { from })
+        .andWhere('t.recordedAt <= :to', { to })
+        .orderBy('t.recordedAt', 'ASC')
+        .addOrderBy('t.id', 'ASC')
+        .limit(5000);
+      applyTimeIdCursor(qb, 't', 'recordedAt', cursor);
+      if (fidelityMinutes != null) {
+        qb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+      }
+      applyCityFilter(qb, 't', 'city', cities);
+      return qb;
+    },
+    (row) => {
       const endDate = row.t_end_date ? new Date(row.t_end_date) : null;
-      yield {
+      return {
         kind: 'book_tick',
         at: new Date(row.t_recorded_at),
         data: {
@@ -280,10 +313,10 @@ async function* loadTickEvents(
           snapshotForecastMean: row.s_forecast_mean,
         },
       };
-    }
-    cursor = nextTimeIdCursor(rows, 't_recorded_at', 't_id');
-    if (rows.length < CHUNK) break;
-  }
+    },
+    't_recorded_at',
+    't_id',
+  );
 }
 
 async function* loadSignalEvents(
@@ -293,69 +326,64 @@ async function* loadSignalEvents(
   cities: string[] | null,
   strategyId: string,
 ): AsyncGenerator<BacktestEvent> {
-  const CHUNK = 5000;
-  let cursor: TimeIdCursor | null = null;
-  for (;;) {
-    const qb = ds
-      .getRepository(WeatherEvaluationLog)
-      .createQueryBuilder('e')
-      .leftJoin(WeatherMarketSnapshot, 's', 's.id = e.snapshotId')
-      .select([
-        'e.id',
-        'e.conditionId',
-        'e.strategyId',
-        'e.yesPrice',
-        'e.forecastProb',
-        'e.edge',
-        'e.dynamicMinEdge',
-        'e.decision',
-        'e.bucketComparison',
-        'e.bucketTarget',
-        'e.bucketLow',
-        'e.bucketHigh',
-        'e.evaluatedAt',
-        's.city',
-        's.forecastMean',
-        's.targetDateIso',
-        's.metric',
-      ])
-      .where('e.evaluatedAt >= :from', { from })
-      .andWhere('e.evaluatedAt <= :to', { to })
-      .andWhere("e.decision = 'signal'")
-      .andWhere('e.strategyId = :strategyId', { strategyId })
-      .orderBy('e.evaluatedAt', 'ASC')
-      .addOrderBy('e.id', 'ASC')
-      .limit(CHUNK);
-    applyTimeIdCursor(qb, 'e', 'evaluatedAt', cursor);
-    if (cities) {
-      qb.andWhere('LOWER(s.city) IN (:...cities)', { cities: cities.map((c) => c.toLowerCase()) });
-    }
-    const rows = await qb.getRawMany();
-    if (rows.length === 0) break;
-    for (const row of rows) {
-      yield {
-        kind: 'signal',
-        at: new Date(row.e_evaluated_at),
-        data: {
-          conditionId: row.e_condition_id,
-          strategyId: row.e_strategy_id,
-          yesPrice: row.e_yes_price,
-          forecastProb: row.e_forecast_prob,
-          edge: row.e_edge,
-          dynamicMinEdge: row.e_dynamic_min_edge,
-          decision: row.e_decision,
-          bucketComparison: row.e_bucket_comparison,
-          bucketTarget: row.e_bucket_target,
-          bucketLow: row.e_bucket_low,
-          bucketHigh: row.e_bucket_high,
-          city: row.s_city ?? null,
-          snapshotForecastMean: row.s_forecast_mean ?? null,
-          snapshotTargetDateIso: row.s_target_date_iso ?? null,
-          snapshotMetric: row.s_metric ?? null,
-        },
-      };
-    }
-    cursor = nextTimeIdCursor(rows, 'e_evaluated_at', 'e_id');
-    if (rows.length < CHUNK) break;
-  }
+  yield* paginateKeyset(
+    (cursor) => {
+      const qb = ds
+        .getRepository(WeatherEvaluationLog)
+        .createQueryBuilder('e')
+        .leftJoin(WeatherMarketSnapshot, 's', 's.id = e.snapshotId')
+        .select([
+          'e.id',
+          'e.conditionId',
+          'e.strategyId',
+          'e.yesPrice',
+          'e.forecastProb',
+          'e.edge',
+          'e.dynamicMinEdge',
+          'e.decision',
+          'e.bucketComparison',
+          'e.bucketTarget',
+          'e.bucketLow',
+          'e.bucketHigh',
+          'e.evaluatedAt',
+          's.city',
+          's.forecastMean',
+          's.targetDateIso',
+          's.metric',
+        ])
+        .where('e.evaluatedAt >= :from', { from })
+        .andWhere('e.evaluatedAt <= :to', { to })
+        .andWhere("e.decision = 'signal'")
+        .andWhere('e.strategyId = :strategyId', { strategyId })
+        .orderBy('e.evaluatedAt', 'ASC')
+        .addOrderBy('e.id', 'ASC')
+        .limit(5000);
+      applyTimeIdCursor(qb, 'e', 'evaluatedAt', cursor);
+      applyCityFilter(qb, 's', 'city', cities);
+      return qb;
+    },
+    (row) => ({
+      kind: 'signal',
+      at: new Date(row.e_evaluated_at),
+      data: {
+        conditionId: row.e_condition_id,
+        strategyId: row.e_strategy_id,
+        yesPrice: row.e_yes_price,
+        forecastProb: row.e_forecast_prob,
+        edge: row.e_edge,
+        dynamicMinEdge: row.e_dynamic_min_edge,
+        decision: row.e_decision,
+        bucketComparison: row.e_bucket_comparison,
+        bucketTarget: row.e_bucket_target,
+        bucketLow: row.e_bucket_low,
+        bucketHigh: row.e_bucket_high,
+        city: row.s_city ?? null,
+        snapshotForecastMean: row.s_forecast_mean ?? null,
+        snapshotTargetDateIso: row.s_target_date_iso ?? null,
+        snapshotMetric: row.s_metric ?? null,
+      },
+    }),
+    'e_evaluated_at',
+    'e_id',
+  );
 }

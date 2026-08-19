@@ -141,8 +141,8 @@ describe('runBacktest (weather replay)', () => {
         bucketTarget: 12,
         bucketLow: null,
         bucketHigh: null,
-        yesPrice: 0.3,
-        noPrice: 0.7,
+        yesPrice: 0.99,
+        noPrice: 0.01,
         yesTokenId: 'yes',
         noTokenId: 'no',
         volume: 100,
@@ -202,7 +202,6 @@ describe('runBacktest (weather replay)', () => {
         entryUsdc: 10,
         slippageBps: 0,
         maxConcurrentPositions: 10,
-        detectionDelayMs: 0,
       },
       configSnapshot: baseRisk(),
       service,
@@ -244,7 +243,6 @@ describe('runBacktest (weather replay)', () => {
         entryUsdc: 10,
         slippageBps: 0,
         maxConcurrentPositions: 1,
-        detectionDelayMs: 0,
       },
       configSnapshot: baseRisk(),
       service,
@@ -274,7 +272,6 @@ describe('runBacktest (weather replay)', () => {
         entryUsdc: 10,
         slippageBps: 0,
         maxConcurrentPositions: 10,
-        detectionDelayMs: 0,
       },
       configSnapshot: baseRisk(),
       service,
@@ -282,41 +279,6 @@ describe('runBacktest (weather replay)', () => {
     expect(result.fidelityWarnings.some((w) => w.startsWith('no_events_in_range'))).toBe(true);
     const stored = await service.getById(run.id);
     expect(stored?.status).toBe('completed');
-  });
-
-  it('replay mode with fidelityMinutes emits replay_fidelity_filter_unsupported warning', async () => {
-    const now = new Date('2026-01-01T00:00:00.000Z');
-    await seed(now);
-    const service = new BacktestRunService(ds);
-
-    const run = await service.create({
-      domain: 'weather',
-      mode: 'replay',
-      paramsJson: JSON.stringify({}),
-    });
-
-    const result = await runBacktest({
-      runId: run.id,
-      ds,
-      params: {
-        domain: 'weather',
-        mode: 'replay',
-        from: '2026-01-01T00:00:00.000Z',
-        to: '2026-01-04T00:00:00.000Z',
-        capital: 1000,
-        entryUsdc: 10,
-        slippageBps: 0,
-        maxConcurrentPositions: 10,
-        detectionDelayMs: 0,
-        fidelityMinutes: 15,
-      },
-      configSnapshot: baseRisk(),
-      service,
-    });
-
-    expect(
-      result.fidelityWarnings.some((w) => w.startsWith('replay_fidelity_filter_unsupported')),
-    ).toBe(true);
   });
 
   it('persists metaJson on positions (edge/entryMean/bucketBounds)', async () => {
@@ -331,7 +293,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'replay',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
       service,
@@ -344,13 +306,12 @@ describe('runBacktest (weather replay)', () => {
     expect(meta.entryBucketBounds).not.toBeUndefined();
   });
 
-  it('resolves a position when endDate is null via targetDateIso fallback', async () => {
+  it('resolves a position by YES price reaching 0.99 (resolution by price)', async () => {
     const now = new Date('2026-01-01T00:00:00.000Z');
     const snapRepo = ds.getRepository(WeatherMarketSnapshot);
     const tickRepo = ds.getRepository(WeatherBucketTick);
     const evalRepo = ds.getRepository(WeatherEvaluationLog);
 
-    // endDate null + targetDate in the past → must resolve via targetDateIso+24h.
     const snap = await snapRepo.save(snapRepo.create({
       city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02',
       metric: 'highest_temp', forecastMean: 20, forecastStdDev: 1,
@@ -366,13 +327,12 @@ describe('runBacktest (weather replay)', () => {
       recordedAt: now,
       city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02', metric: 'highest_temp',
     }));
-    // A tick after the fallback resolution time (targetDateIso+24h = 2026-01-03)
-    // so the resolution check fires for the open position.
+    // A tick where YES reaches 0.99 → the open position resolves as YES.
     await tickRepo.save(tickRepo.create({
       snapshotId: snap.id, conditionId: 'cond-p1', eventSlug: 'e',
       question: 'Will the highest temperature in paris be 20°C or above on 2026-01-02?',
       bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
-      yesPrice: 0.4, noPrice: 0.6, yesTokenId: 'y', noTokenId: 'n',
+      yesPrice: 0.99, noPrice: 0.01, yesTokenId: 'y', noTokenId: 'n',
       volume: 1, volume24hr: 1, liquidityClob: 1,
       acceptingOrders: false, closed: true, endDate: null,
       recordedAt: new Date('2026-01-04T00:00:00.000Z'),
@@ -395,7 +355,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'replay',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-05T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
       service,
@@ -403,7 +363,7 @@ describe('runBacktest (weather replay)', () => {
     const positions = await service.listPositions(run.id, {});
     const pos = positions.items[0]!;
     expect(pos.exitReason).toBe('RESOLUTION');
-    expect(pos.exitPrice).toBe(1); // forecast mean 20 in bucket → YES wins
+    expect(pos.exitPrice).toBe(1); // YES price 0.99 → YES wins
   });
 
   it('ignores unsupported metrics with a fidelity warning (reevaluate)', async () => {
@@ -435,7 +395,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'reevaluate',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
       service,
@@ -531,7 +491,6 @@ describe('runBacktest (weather replay)', () => {
         entryUsdc: 10,
         slippageBps: 0,
         maxConcurrentPositions: 10,
-        detectionDelayMs: 0,
       },
       configSnapshot: baseRisk(),
       service,
@@ -563,12 +522,12 @@ describe('runBacktest (weather replay)', () => {
       recordedAt: now,
       city: 'paris', cityNormalized: 'paris', targetDateIso: '2026-01-02', metric: 'highest_temp',
     }));
-    // Final tick after resolution time with a YES price > 0.5 → resolves YES.
+    // Final tick with YES price reaching 0.99 → resolves YES.
     await tickRepo.save(tickRepo.create({
       snapshotId: snap.id, conditionId: 'cond-hy', eventSlug: 'e',
       question: 'Will the highest temperature in paris be 20°C or above on 2026-01-02?',
       bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
-      yesPrice: 0.7, noPrice: 0.3, yesTokenId: 'y', noTokenId: 'n',
+      yesPrice: 0.99, noPrice: 0.01, yesTokenId: 'y', noTokenId: 'n',
       volume: 1, volume24hr: 1, liquidityClob: 1,
       acceptingOrders: false, closed: true, endDate: null,
       recordedAt: new Date('2026-01-04T00:00:00.000Z'),
@@ -591,7 +550,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'replay',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-05T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
         strategyId: 'weather-highest-yes',
       },
       configSnapshot: baseRisk(),
@@ -600,7 +559,7 @@ describe('runBacktest (weather replay)', () => {
     const positions = await service.listPositions(run.id, {});
     const pos = positions.items[0]!;
     expect(pos.exitReason).toBe('RESOLUTION');
-    expect(pos.exitPrice).toBe(1); // final YES price 0.7 > 0.5 → YES wins
+    expect(pos.exitPrice).toBe(1); // final YES price 0.99 → YES wins
   });
 
   it('resolves highest-yes via markPrice fallback when tick.yesPrice is null', async () => {
@@ -619,7 +578,7 @@ describe('runBacktest (weather replay)', () => {
       snapshotId: snap.id, conditionId: 'cond-hy-fb1', eventSlug: 'e',
       question: 'Will the highest temperature in paris be 20°C or above on 2026-01-02?',
       bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
-      yesPrice: 0.6, noPrice: 0.4, yesTokenId: 'y', noTokenId: 'n',
+      yesPrice: 0.99, noPrice: 0.01, yesTokenId: 'y', noTokenId: 'n',
       volume: 1, volume24hr: 1, liquidityClob: 1,
       acceptingOrders: true, closed: false, endDate: null,
       recordedAt: now,
@@ -639,7 +598,7 @@ describe('runBacktest (weather replay)', () => {
     await evalRepo.save(evalRepo.create({
       snapshotId: snap.id, conditionId: 'cond-hy-fb1', bucketComparison: 'or_above',
       bucketTarget: 20, bucketLow: null, bucketHigh: null,
-      strategyId: 'weather-highest-yes', yesPrice: 0.6, forecastProb: 0,
+      strategyId: 'weather-highest-yes', yesPrice: 0.99, forecastProb: 0,
       edge: 0, dynamicMinEdge: 0, decision: 'signal', reason: 'test',
       evaluatedAt: now,
     }));
@@ -653,7 +612,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'replay',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-05T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
         strategyId: 'weather-highest-yes',
       },
       configSnapshot: baseRisk(),
@@ -663,7 +622,7 @@ describe('runBacktest (weather replay)', () => {
     const positions = await service.listPositions(run.id, {});
     const pos = positions.items[0]!;
     expect(pos.exitReason).toBe('RESOLUTION');
-    // Should resolve using markPrice (0.6 from entry tick) → YES wins (0.6 > 0.5)
+    // Should resolve using markPrice (0.99 from entry tick) → YES wins (0.99 >= 0.99)
     expect(pos.exitPrice).toBe(1);
   });
 
@@ -683,7 +642,7 @@ describe('runBacktest (weather replay)', () => {
       snapshotId: snap.id, conditionId: 'cond-hy-fb2', eventSlug: 'e',
       question: 'Will the highest temperature in lyon be 20°C or above on 2026-01-02?',
       bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
-      yesPrice: 0.4, noPrice: 0.6, yesTokenId: 'y', noTokenId: 'n',
+      yesPrice: 0.01, noPrice: 0.99, yesTokenId: 'y', noTokenId: 'n',
       volume: 1, volume24hr: 1, liquidityClob: 1,
       acceptingOrders: true, closed: false, endDate: null,
       recordedAt: now,
@@ -704,7 +663,7 @@ describe('runBacktest (weather replay)', () => {
     await evalRepo.save(evalRepo.create({
       snapshotId: snap.id, conditionId: 'cond-hy-fb2', bucketComparison: 'or_above',
       bucketTarget: 20, bucketLow: null, bucketHigh: null,
-      strategyId: 'weather-highest-yes', yesPrice: 0.4, forecastProb: 0,
+      strategyId: 'weather-highest-yes', yesPrice: 0.01, forecastProb: 0,
       edge: 0, dynamicMinEdge: 0, decision: 'signal', reason: 'test',
       evaluatedAt: now,
     }));
@@ -718,7 +677,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'replay',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-05T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
         strategyId: 'weather-highest-yes',
       },
       configSnapshot: baseRisk(),
@@ -728,7 +687,7 @@ describe('runBacktest (weather replay)', () => {
     const positions = await service.listPositions(run.id, {});
     const pos = positions.items[0]!;
     expect(pos.exitReason).toBe('RESOLUTION');
-    // Falls back to entryPrice (0.4) → 0.4 <= 0.5 → NO wins → exitPrice = 0
+    // Falls back to entryPrice (0.01) → 0.01 <= 0.01 → NO wins → exitPrice = 0
     expect(pos.exitPrice).toBe(0);
   });
 
@@ -770,7 +729,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'replay',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-02T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
       service,
@@ -832,7 +791,7 @@ describe('runBacktest (weather replay)', () => {
         domain: 'weather', mode: 'replay',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-02T00:00:00.000Z',
         capital: 1000, entryUsdc: 10, slippageBps: 0,
-        maxConcurrentPositions: 10, detectionDelayMs: 0,
+        maxConcurrentPositions: 10,
         strategyId: 'weather-highest-yes',
       },
       configSnapshot: baseRisk(),

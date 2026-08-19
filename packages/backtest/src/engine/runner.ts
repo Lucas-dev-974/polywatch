@@ -23,7 +23,6 @@ export interface RunContext {
     slippageBps: number;
     maxConcurrentPositions: number;
     entryUsdc: number;
-    detectionDelayMs: number;
     capital: number;
     mode: 'reevaluate' | 'replay';
     strategyId: string;
@@ -57,7 +56,6 @@ export interface RunSpec {
   slippageBps: number;
   maxConcurrentPositions: number;
   entryUsdc: number;
-  detectionDelayMs: number;
   mode: 'reevaluate' | 'replay';
   strategyId: string;
   backtestExecutionMode: 'strategy' | 'runner-sim';
@@ -133,7 +131,6 @@ export class BacktestRunner {
         slippageBps: spec.slippageBps,
         maxConcurrentPositions: spec.maxConcurrentPositions,
         entryUsdc: spec.entryUsdc,
-        detectionDelayMs: spec.detectionDelayMs,
         capital: spec.initialCapital,
         mode: spec.mode,
         strategyId: spec.strategyId,
@@ -156,6 +153,9 @@ export class BacktestRunner {
     let dataRangeFrom: Date | null = null;
     let dataRangeTo: Date | null = null;
     let pendingEquityFlush: EquitySample[] = [];
+    // §5 : nombre de positions fermées au dernier échantillon — pour capturer
+    // un point d'equity à chaque close (drawdown intra-minute).
+    let lastClosedCount = 0;
 
     const recordEquitySample = (t: Date) => {
       const snapshot = ledger.equityAt(clock.now());
@@ -190,6 +190,11 @@ export class BacktestRunner {
     const finishRun = async (
       status: 'cancelled' | 'completed' | 'timeout',
     ): Promise<RunResult> => {
+      // §4 : résoudre les ghost positions même en interruption. Pour
+      // 'completed', adapter.finish a déjà été appelé dans le corps principal.
+      if (status !== 'completed') {
+        await adapter.finish?.(ctx);
+      }
       recordEquitySample(clock.now());
       await persistProgress(status === 'completed' ? 100 : undefined);
 
@@ -247,6 +252,15 @@ export class BacktestRunner {
       await adapter.handle(event, ctx);
       processed++;
 
+      // §5 : échantillon d'équité à chaque close de position pour capturer
+      // les drawdowns intra-minute (en plus de l'échantillon 60s).
+      const closedCount = ledger.closedPositions().length;
+      if (closedCount > lastClosedCount) {
+        lastClosedCount = closedCount;
+        recordEquitySample(clock.now());
+        lastSampleAt = event.at.getTime();
+      }
+
       if (dataRangeFrom === null) dataRangeFrom = event.at;
       dataRangeTo = event.at;
 
@@ -264,6 +278,17 @@ export class BacktestRunner {
       if (processed % 5000 === 0) {
         await new Promise((resolve) => setImmediate(resolve));
       }
+    }
+
+    // §7 : check d'abort final après épuisement des événements. Sans ce check,
+    // un cancel/timeout demandé pendant le dernier événement terminerait le run
+    // en 'completed' alors qu'un abort était en attente.
+    const finalAbort = getAbortReason?.() ?? null;
+    if (finalAbort === 'timeout') {
+      return finishRun('timeout');
+    }
+    if (finalAbort === 'cancelled') {
+      return finishRun('cancelled');
     }
 
     await adapter.finish?.(ctx);

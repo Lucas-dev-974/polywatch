@@ -60,19 +60,5 @@ export class AdapterWarnings {
       'fill_no_book_depth',
       'Pas de profondeur de carnet — fills non plafonnés par la liquidité',
     );
-    if (ctx.params.detectionDelayMs > 0) {
-      this.warnOnce(
-        ctx,
-        'detection_delay_unused',
-        'detectionDelayMs paramétré mais non appliqué au replay',
-      );
-    }
-    if (ctx.params.mode === 'replay' && ctx.params.fidelityMinutes != null) {
-      this.warnOnce(
-        ctx,
-        'replay_fidelity_filter_unsupported',
-        'filtre intervalle ignoré en mode replay (weather_evaluation_log ne porte pas fidelity_minutes)',
-      );
-    }
   }
 }

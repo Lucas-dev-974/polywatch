@@ -61,7 +61,6 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     slippageBps: params.slippageBps,
     maxConcurrentPositions,
     entryUsdc,
-    detectionDelayMs: params.detectionDelayMs,
     mode: params.mode,
     strategyId: params.strategyId,
     backtestExecutionMode: params.backtestExecutionMode,

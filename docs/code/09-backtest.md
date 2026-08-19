@@ -4,6 +4,7 @@
 > **Plan d'origine** : [`../plans/2026-08-05_PLAN-backtest-engine-universel.md`](../plans/2026-08-05_PLAN-backtest-engine-universel.md).  
 > **Patch fidélité 0.2.0** : [`../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md).  
 > **Audit fidélité/correctude 0.3.0** : [`../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md) + [`../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md`](../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md).  
+> **Audit moteur 0.4.0** : [`../audits/2026-08-19_audit-weather-backtest-moteur.md`](../audits/2026-08-19_audit-weather-backtest-moteur.md).  
 > **Périmètre v1** : domaine **weather uniquement** (crypto/copy hors scope).
 
 ## 1. Topologie du package
@@ -12,7 +13,7 @@
 packages/backtest/src/
 ├── index.ts                       runBacktest + parseBacktestParams + BACKTEST_ENGINE_VERSION
 ├── params.ts                      schéma Zod backtestRunParamsSchema (+ configOverrides)
-├── engine-version.ts              semver moteur (`0.3.0`)
+├── engine-version.ts              semver moteur (`0.4.0`)
 ├── adapters/
 │   ├── backtest-domain-adapter.ts interface BacktestDomainAdapter
 │   └── weather/
@@ -20,7 +21,6 @@ packages/backtest/src/
 │       ├── weather-adapter.ts     orchestration entrées/sorties (+ kill-switch, lifecycle)
 │       ├── context-builder.ts     MarketListItemDto + ForecastRevisionStore
 │       ├── question-builder.ts    synthèse question (entiers °C) pour parseWeatherQuestion
-│       ├── resolution.ts          résolution par proxy forecast ; `weather-highest-yes` par prix YES final ; `weather-highest-yes` par prix YES final ; `weather-highest-yes` par prix YES final ; `weather-highest-yes` par prix YES final
 │       ├── clocked-weather-strategy.ts  factory createWeatherStrategy + clock
 │       ├── runner-sim.ts                mode runner-sim (proche live)
 │       └── weather-adapter.test.ts
@@ -128,17 +128,19 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
 - `markPrice` / `peakBid` : si `tick.yesPrice == null`, garde défensive
   `markprice_stale_carry_forward` (confirme la dernière valeur connue, `peakBid`
   non touché — invariant `fallbackPrice <= peakBid`).
-- Résolution sans `endDate` : fallback
-  `new Date(\`${targetDateIso}T00:00:00Z\`) + 24h` (minuit du lendemain)
-  (`resolution_no_endate_fallback`). Si forecast absent →
-  `resolution_no_forecast` (position laissée ouverte) — **sauf** pour
-  `weather-highest-yes`, résolu via le prix YES final (`yesPrice > 0.5` → YES,
-  warnings `resolution_proxy_yes_price` / `resolution_highest_yes_fallback` /
-  `resolution_no_price_whatsoever`).
+- Résolution par prix YES : `yesPrice >= 0.99` → YES (`exitPrice = 1`),
+  `yesPrice <= 0.01` → NO (`exitPrice = 0`), **1 tick suffit** (pas de durée de
+  maintien). Fallback si `tick.yesPrice` absent : `markPrice` → `entryPrice`
+  (warnings `resolution_by_price` / `resolution_price_fallback` /
+  `resolution_no_price_whatsoever`). Le forecast n'est plus utilisé pour la
+  résolution (abandon total).
 - **Ghost positions** : à la fin du run (`finish`), les positions encore ouvertes
   sont fermées au dernier `markPrice` (ou `entryPrice`) avec
   `exitReason = BACKTEST_INCOMPLETE_DATA` + warning
-  `ghost_positions_forced_resolution`.
+  `ghost_positions_forced_resolution`. Depuis 0.4.0, `adapter.finish` est aussi
+  appelé sur les chemins `cancelled`/`timeout` (pas seulement `completed`), et un
+  check d'abort final après épuisement des événements évite de terminer en
+  `completed` alors qu'un cancel/timeout était en attente.
 
 ### `index.ts` — `configOverrides`
 `runBacktest` fusionne `params.configOverrides` (`z.record(z.unknown())`, shallow

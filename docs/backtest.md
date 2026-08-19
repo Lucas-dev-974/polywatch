@@ -9,9 +9,9 @@ produit positions, equity, statistiques et avertissements de fidélité.
 
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
 > Prometheus et Socket.IO décrits dans le plan d'origine ne sont **pas** implémentés.  
-> **Moteur** : `engineVersion` **`0.3.0`** (audit fidélité/correctude —
-> [`audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](./audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md)).  
-> Runs `< 0.3.0` non comparables.
+> **Moteur** : `engineVersion` **`0.4.0`** (audit moteur —
+> [`audits/2026-08-19_audit-weather-backtest-moteur.md`](./audits/2026-08-19_audit-weather-backtest-moteur.md)).  
+> Runs `< 0.4.0` non comparables.
 
 ---
 
@@ -70,7 +70,7 @@ Si l'un de ces invariants est violé, le runner lève
 
 ### Limites de fidélité documentées (warnings)
 
-Les codes statics (`fill_*`, `risk_*`, `detection_delay_*`) sont émis **à la
+Les codes statics (`fill_*`, `risk_*`) sont émis **à la
 première tentative d'entrée** (`canEnter`), pas au démarrage du run. Les codes
 de résolution / metric sont émis quand le cas survient (`warnOnce`).
 
@@ -80,21 +80,15 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `risk_sl_confirmation_ignored` | SL déclenché au 1er tick (pas de confirmation ticks live) |
 | `risk_sizing_simplified_fixed_usdc` | Taille fixe `entryUsdc` (pas de signal-score sizing) |
 | `risk_min_time_to_close_ignored` | `minTimeToClose` non appliqué (`closeBeforeHours` l’est à l’entrée) |
-| `detection_delay_unused` | `detectionDelayMs > 0` paramétré mais non appliqué |
-| `replay_fidelity_filter_unsupported` | `fidelityMinutes` défini mais ignoré en mode `replay` (weather_evaluation_log ne porte pas `fidelity_minutes`) |
 | `market_lifecycle_filtered` | Ticks exclus (`closed` / `acceptingOrders` / token / minHours) — compteur |
 | `kill_switch_force_close` | `force_close_all` a clôturé les positions ouvertes |
 | `kill_switch_partial_close` | `force_close_all` a échoué sur ≥1 position (close en erreur / positions restantes) — retry au prochain tick |
 | `kill_switch_block_entries` | Kill-switch actif sans force-close — entrées bloquées |
 | `exit_stale_tick` | Sortie évaluée avec un tick plus vieux que `pollMs` |
 | `no_events_in_range` | Aucune donnée sur la plage demandée |
-| `resolution_via_forecast` | Résolution via forecast final (pas de température observée stockée) — stratégies forecast |
-| `resolution_no_endate_fallback` | `endDate` absent → fallback `targetDateIso T00:00:00Z + 24h` (minuit du lendemain) |
-| `resolution_no_forecast` | Résolution impossible sans forecast — position laissée ouverte (**sauf** `weather-highest-yes`) |
-| `resolution_proxy_yes_price` | Résolution `weather-highest-yes` approximée par le prix YES final (`yesPrice > 0.5` → YES) |
-| `resolution_highest_yes_fallback` | Résolution `weather-highest-yes` via fallback `markPrice`/`entryPrice` (`tick.yesPrice` absent) |
-| `resolution_no_price_whatsoever` | Résolution `weather-highest-yes` impossible — aucun prix disponible (tick, mark, entry) — position laissée ouverte |
-| `resolution_invalid_date` | Date de résolution invalide — skip |
+| `resolution_by_price` | Résolution par prix YES (`>= 0.99` → YES / `<= 0.01` → NO) — pas de température observée |
+| `resolution_price_fallback` | Résolution via fallback `markPrice`/`entryPrice` (`tick.yesPrice` absent) |
+| `resolution_no_price_whatsoever` | Résolution impossible — aucun prix disponible (tick, mark, entry) — position laissée ouverte |
 | `markprice_stale_carry_forward` | `markPrice` confirmé à la dernière valeur connue car `tick.yesPrice` est null (garde défensive) |
 | `ghost_positions_forced_resolution` | Position(s) encore ouverte(s) en fin de run — résolution forcée (`BACKTEST_INCOMPLETE_DATA`) |
 | `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
@@ -117,9 +111,10 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), throttle re-entry **ville+
 **Filtre par intervalle (`fidelityMinutes`)** : paramètre **optionnel** transmis au
 lancement. En `reevaluate`, seuls les `book_tick` dont `fidelity_minutes` correspond
 sont chargés (`data-loader` filtre `t.fidelityMinutes = :fid`). En `replay`, le
-filtre est **ignoré** et un warning `replay_fidelity_filter_unsupported` est émis,
-car `weather_evaluation_log` (et son snapshot parent) ne portent pas de colonne
-`fidelity_minutes`. Sans `fidelityMinutes`, tous les ticks sont chargés
+filtre est **bloqué** (erreur 400 `replay_fidelity_filter_unsupported`), car
+`weather_evaluation_log` (et son snapshot parent) ne portent pas de colonne
+`fidelity_minutes` — combiner replay + filtre produirait des signaux denses avec
+des ticks filtrés. Sans `fidelityMinutes`, tous les ticks sont chargés
 (comportement historique). Le bandeau de couverture (`GET /backtest/data-coverage`)
 accepte `?fidelityMinutes=` pour afficher un `totalTicks` cohérent avec le filtre choisi.
 
@@ -163,8 +158,7 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 | `question-builder.ts` | Synthèse question Polymarket (targets arrondis entiers) pour la stratégie |
 | `clocked-weather-strategy.ts` | Factory `createWeatherStrategy(strategyId)` + wrapper clock |
 | `runner-sim.ts` | Simulation runner live (groupes buckets, dedup, selectionMode) |
-| `resolution.ts` | Résolution par proxy forecast (moyenne dans le bucket → YES/NO) ; `weather-highest-yes` résolu via le prix YES final |
-| `weather-adapter.ts` | Entrées/sorties, filtre lifecycle, kill-switch, résolution |
+| `weather-adapter.ts` | Entrées/sorties, filtre lifecycle, kill-switch, résolution par prix YES |
 
 ### 3.3 Point d'entrée (`src/index.ts`)
 
@@ -215,11 +209,11 @@ Paramètres lus depuis le bag per-strategy
 | `WEATHER_BUCKET_EXIT` | Forecast hors palier + `bag.cityFollowSwitchMode = close_and_reenter` après `bag.bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle — **non applicable à `weather-highest-yes` en live (évalué en backtest)** |
 | `SL` / `TP` / `TRAILING` | Seuils résolus à l’entrée via `resolveWeatherEntryExitParams(risk, mode, interval, strategyId)` (défauts `WEATHER_EXIT_DEFAULTS` si bidPoints null) — **pas** de confirmation ticks, **pas** de throttle |
 | `KILL_SWITCH` | `dailyPnl(strategyId) <= -bag.maxDailyLossUsdc` et `bag.killSwitchAction === 'force_close_all'` — ferme uniquement les positions de la stratégie |
-| `RESOLUTION` | Marché résolu (`endDate` passé, ou fallback `targetDateIso T00:00:00Z + 24h` si `endDate` absent) |
+| `RESOLUTION` | Marché résolu par prix YES (`>= 0.99` → YES / `<= 0.01` → NO) — 1 tick suffit |
 | `BACKTEST_INCOMPLETE_DATA` | Position encore ouverte en fin de run (aucun tick de résolution reçu) — résolution forcée au dernier `markPrice` (ou `entryPrice` si aucun) |
 
-> **Note** : les runs avec `engineVersion < 0.3.0` ont été produits avant l’alignement
-> SL/TP/throttle/filtres/résolution forcée — **non comparables** aux runs ≥ `0.3.0`.
+> **Note** : les runs avec `engineVersion < 0.4.0` ont été produits avant l’alignement
+> SL/TP/throttle/filtres/résolution forcée/résolution par prix — **non comparables** aux runs ≥ `0.4.0`.
 
 ---
 
@@ -256,7 +250,7 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 
 - **Couverture de données** affichée avant lancement.
 - **Formulaire** : mode, période, villes, capital, slippage, entrée USDC, positions max
-  (pas d'UI pour `configOverrides` / `detectionDelayMs` — disponibles via API).
+  (pas d'UI pour `configOverrides` — disponibles via API).
 - **Liste des runs** : statut, progression, métriques.
 - **Détail** : métriques (PnL, win rate, PF avec `∞` si null, expectancy, durée
   moy., répartition par sortie / ville), avertissements de fidélité, message

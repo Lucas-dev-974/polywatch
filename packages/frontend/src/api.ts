@@ -1168,7 +1168,6 @@ export interface BacktestRunParamsInput {
   slippageBps?: number;
   maxConcurrentPositions?: number;
   fidelityMinutes?: number;
-  detectionDelayMs?: number;
   label?: string;
 }
 

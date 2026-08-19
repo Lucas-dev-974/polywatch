@@ -15,7 +15,6 @@ export const backtestRunParamsSchema = z
     slippageBps: z.number().min(0).default(50),
     maxConcurrentPositions: z.number().int().positive().optional(),
     fidelityMinutes: z.number().int().positive().optional(),
-    detectionDelayMs: z.number().min(0).default(0),
     label: z.string().optional(),
   })
   .refine((p) => new Date(p.to).getTime() > new Date(p.from).getTime(), {

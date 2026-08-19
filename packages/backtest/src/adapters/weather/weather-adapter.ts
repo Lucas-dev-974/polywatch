@@ -25,7 +25,6 @@ import {
   buildMarketListItem,
   ForecastRevisionStore,
 } from './context-builder.js';
-import { resolveWeatherBucket } from './resolution.js';
 import {
   BucketGroupStore,
   buildActiveMarketsForGroup,
@@ -282,7 +281,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         seenCityDates.set(key, (seenCityDates.get(key) ?? 0) + 1);
       }
     }
-    const maxPerCityDate = Math.max(1, this.bag.maxPositionsPerCityDate ?? 1);
 
     for (const signal of selected) {
       const cityKey = (signal.city ?? '').toLowerCase();
@@ -290,6 +288,9 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         cityKey && signal.targetDate
           ? `${cityKey}|${signal.targetDate.toISOString().slice(0, 10)}|${signal.strategyId}`
           : null;
+      // §6 : résoudre maxPositionsPerCityDate par stratégie émettrice (alignement live).
+      const signalBag = getStrategyParams(risk, signal.strategyId);
+      const maxPerCityDate = Math.max(1, signalBag.maxPositionsPerCityDate ?? 1);
       if (cityDateKey && (seenCityDates.get(cityDateKey) ?? 0) >= maxPerCityDate) continue;
       if (ctx.ledger.isDuplicateOpen(signal.conditionId)) continue;
       if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) break;
@@ -534,16 +535,67 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     });
   }
 
-  private resolveResolutionTimeMs(tick: BookTickEventData): number | null {
-    if (tick.endDate) {
-      return tick.endDate.getTime();
+  /**
+   * Résout une position par le prix YES du marché (règle validée) :
+   * - `yesPrice >= 0.99` → YES (exitPrice = 1)
+   * - `yesPrice <= 0.01` → NO (exitPrice = 0)
+   * - 1 seul tick suffit (pas de durée de maintien).
+   * Le forecast n'est plus utilisé pour la résolution (abandon total).
+   * Retourne `true` si la position a été fermée, `false` sinon.
+   */
+  private tryResolveByPrice(
+    ctx: RunContext,
+    pos: LedgerPosition,
+    tick: BookTickEventData,
+  ): boolean {
+    const yesPrice = tick.yesPrice ?? pos.markPrice ?? pos.entryPrice;
+    if (yesPrice == null) {
+      this.warnOnce(
+        ctx,
+        'resolution_no_price_whatsoever',
+        'Résolution impossible — aucun prix disponible (tick, mark, entry)',
+      );
+      return false;
     }
-    if (tick.snapshotTargetDateIso) {
-      const parsed = new Date(`${tick.snapshotTargetDateIso}T00:00:00Z`).getTime();
-      if (Number.isNaN(parsed)) return null;
-      return parsed + 86_400_000; // minuit du lendemain (targetDate + 1 jour)
+
+    if (tick.yesPrice == null) {
+      // markPrice est toujours non-null (initialisé à entryPrice). On ne peut
+      // pas distinguer markPrice mis à jour par un tick antérieur de entryPrice
+      // pur. On indique donc la source réelle via comparaison.
+      const fallbackSource = pos.markPrice !== pos.entryPrice ? 'markPrice' : 'entryPrice';
+      this.warnOnce(
+        ctx,
+        'resolution_price_fallback',
+        `Résolution via fallback ${fallbackSource}=${yesPrice.toFixed(4)} (tick.yesPrice absent)`,
+      );
     }
-    return null;
+
+    let winningOutcome: 'YES' | 'NO' | null = null;
+    if (yesPrice >= 0.99) {
+      winningOutcome = 'YES';
+    } else if (yesPrice <= 0.01) {
+      winningOutcome = 'NO';
+    }
+
+    if (winningOutcome == null) {
+      return false;
+    }
+
+    this.warnOnce(
+      ctx,
+      'resolution_by_price',
+      'Résolution par prix YES (>=0.99 → YES / <=0.01 → NO) — pas de température observée',
+    );
+
+    const exitPrice = winningOutcome === 'YES' ? 1 : 0;
+    ctx.ledger.closePosition({
+      conditionId: pos.conditionId,
+      exitPrice,
+      exitAt: ctx.clock.now(),
+      exitReason: 'RESOLUTION',
+      fees: 0,
+    });
+    return true;
   }
 
   private noteStaleTickIfNeeded(ctx: RunContext, tickAt: Date): void {
@@ -565,15 +617,12 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       const { tick, at: tickAt } = cached;
       const yesPrice = tick.yesPrice;
 
-      // For highest-yes positions, we can resolve even without current yesPrice
-      // using markPrice/entryPrice fallbacks. Don't skip resolution check.
+      // Si tick.yesPrice est présent, on met à jour markPrice (source la plus
+      // fraîche). Sinon, on confirme markPrice à la dernière valeur connue
+      // (garde défensive) pour que tryResolveByPrice et l'equity restent cohérents.
       if (yesPrice != null) {
         ctx.ledger.updateMark(pos.conditionId, yesPrice);
       } else {
-        // Garde défensive : markPrice conserve déjà la dernière valeur connue
-        // (updateMark est sticky), mais on confirme explicitement pour éviter
-        // qu'un markPrice somehow à 0 fausse l'equity/drawdown. peakBid n'est
-        // pas touché (invariant fallbackPrice <= peakBid).
         const fallbackPrice = pos.markPrice > 0 ? pos.markPrice : pos.entryPrice;
         if (fallbackPrice > 0) {
           ctx.ledger.updateMark(pos.conditionId, fallbackPrice);
@@ -585,8 +634,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         }
       }
 
-      const outcome = this.tryResolvePosition(ctx, pos, tick);
-      if (outcome === 'resolved' || outcome === 'skip') continue;
+      const resolved = this.tryResolveByPrice(ctx, pos, tick);
+      if (resolved) continue;
 
       // For non-resolution exits (drift, bucket, SL/TP), we need a current yesPrice
       if (yesPrice == null) continue;
@@ -623,114 +672,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         tick.snapshotMetric,
       )?.forecastMean ?? tick.snapshotForecastMean
     );
-  }
-
-  /**
-   * Tente de résoudre une position arrivée à échéance. Retourne un tri-state :
-   * - `'resolved'` : position fermée (RESOLUTION) → la boucle doit `continue`.
-   * - `'skip'` : résolution impossible sans forecast → la boucle doit `continue`
-   *   (position laissée ouverte, NE PAS évaluer la décision).
-   * - `'fallthrough'` : pas encore résolue (null / NaN / future) → la boucle
-   *   procède à l'évaluation de décision.
-   */
-  private tryResolvePosition(
-    ctx: RunContext,
-    pos: LedgerPosition,
-    tick: BookTickEventData,
-  ): 'resolved' | 'skip' | 'fallthrough' {
-    const resolutionTimeMs = this.resolveResolutionTimeMs(tick);
-    if (
-      resolutionTimeMs != null &&
-      !Number.isNaN(resolutionTimeMs) &&
-      resolutionTimeMs <= ctx.clock.now().getTime()
-    ) {
-      if (!tick.endDate) {
-        this.warnOnce(
-          ctx,
-          'resolution_no_endate_fallback',
-          'Résolution sans endDate: fallback targetDate+24h',
-        );
-      }
-      const isHighestYes = pos.meta?.strategyId === WEATHER_HIGHEST_YES_STRATEGY_ID;
-      if (isHighestYes) {
-        // highest-yes n'a pas de forecast : on résout via le prix YES final
-        // (consensus marché). yesPrice > 0.50 → YES, sinon NO.
-        // Fallback chain: tick.yesPrice → pos.markPrice (updated each book_tick) → pos.entryPrice
-        const yesPrice = tick.yesPrice ?? pos.markPrice ?? pos.entryPrice;
-        if (yesPrice == null) {
-          // Should be unreachable with entryPrice fallback, but guard anyway
-          this.warnOnce(
-            ctx,
-            'resolution_no_price_whatsoever',
-            'Résolution highest-yes impossible — aucun prix disponible (tick, mark, entry)',
-          );
-          return 'skip';
-        }
-        if (tick.yesPrice == null) {
-          const fallbackSource = pos.markPrice != null ? 'markPrice' : 'entryPrice';
-          this.warnOnce(
-            ctx,
-            'resolution_highest_yes_fallback',
-            `Résolution highest-yes via fallback ${fallbackSource}=${yesPrice.toFixed(4)} (tick.yesPrice absent)`,
-          );
-        }
-        const winningOutcome = yesPrice > 0.5 ? 'YES' : 'NO';
-        const exitPrice = winningOutcome === 'YES' ? 1 : 0;
-        ctx.ledger.closePosition({
-          conditionId: pos.conditionId,
-          exitPrice,
-          exitAt: ctx.clock.now(),
-          exitReason: 'RESOLUTION',
-          fees: 0,
-        });
-        this.warnOnce(
-          ctx,
-          'resolution_proxy_yes_price',
-          'Résolution highest-yes approximée par le prix YES final',
-        );
-        return 'resolved';
-      }
-
-      const res = resolveWeatherBucket({
-        forecastMean: this.currentForecastMean(ctx, tick),
-        bucketComparison: tick.bucketComparison,
-        bucketTarget: tick.bucketTarget,
-        bucketLow: tick.bucketLow,
-        bucketHigh: tick.bucketHigh,
-      });
-      if (res.winningOutcome == null) {
-        this.warnOnce(
-          ctx,
-          'resolution_no_forecast',
-          'Résolution impossible sans forecast — position laissée ouverte',
-        );
-        return 'skip';
-      }
-      const exitPrice = res.winningOutcome === 'YES' ? 1 : 0;
-      ctx.ledger.closePosition({
-        conditionId: pos.conditionId,
-        exitPrice,
-        exitAt: ctx.clock.now(),
-        exitReason: 'RESOLUTION',
-        fees: 0,
-      });
-      this.warnOnce(
-        ctx,
-        'resolution_via_forecast',
-        'Résolution via forecast final (pas de température observée stockée)',
-      );
-      return 'resolved';
-    }
-
-    if (resolutionTimeMs != null && Number.isNaN(resolutionTimeMs)) {
-      this.warnOnce(
-        ctx,
-        'resolution_invalid_date',
-        'Date de résolution invalide — skip',
-      );
-    }
-
-    return 'fallthrough';
   }
 
   /**

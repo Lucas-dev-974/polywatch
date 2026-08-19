@@ -78,6 +78,18 @@ export function createBacktestRouter(ds: DataSource): Router {
       return;
     }
 
+    // Le filtre fidelityMinutes n'est applicable qu'en mode reevaluate :
+    // weather_evaluation_log (source des signaux replay) ne porte pas de
+    // colonne fidelity_minutes. Bloquer replay+fidelityMinutes pour éviter
+    // des runs incohérents (signaux denses vs ticks filtrés).
+    if (params.mode === 'replay' && params.fidelityMinutes != null) {
+      res.status(400).json({
+        error: 'replay_fidelity_filter_unsupported',
+        detail: 'fidelityMinutes non applicable en mode replay (weather_evaluation_log ne porte pas fidelity_minutes)',
+      });
+      return;
+    }
+
     // Singleton lock: no concurrent run for the same domain.
     const active = await service.hasActiveRun('weather');
     if (active) {

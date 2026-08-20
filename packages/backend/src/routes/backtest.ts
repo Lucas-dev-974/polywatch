@@ -246,11 +246,6 @@ export function createBacktestRouter(ds: DataSource): Router {
       res.status(404).json({ error: 'not_found' });
       return;
     }
-    if (!run.dataRangeFrom || !run.dataRangeTo) {
-      res.json({ items: [], truncated: false });
-      return;
-    }
-
     const params = safeParseJson(run.paramsJson) as Record<string, unknown> | null;
     const cities = Array.isArray(params?.cities)
       ? (params.cities as unknown[]).filter((c): c is string => typeof c === 'string')
@@ -261,8 +256,16 @@ export function createBacktestRouter(ds: DataSource): Router {
         ? Math.floor(fidelityMinutesRaw)
         : undefined;
 
-    const from = run.dataRangeFrom;
-    const to = run.dataRangeTo;
+    // La période paramétrée de la run (params.from/to) définit l'étendue des
+    // marchés à afficher, pas la plage effective des données consommées.
+    const fromIso = typeof params?.from === 'string' ? params.from : null;
+    const toIso = typeof params?.to === 'string' ? params.to : null;
+    const from = fromIso ? new Date(fromIso) : null;
+    const to = toIso ? new Date(toIso) : null;
+    if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      res.json({ items: [], truncated: false });
+      return;
+    }
 
     // 1. Marchés distincts sur la plage (borné par la plage + filtres).
     const marketQb = ds

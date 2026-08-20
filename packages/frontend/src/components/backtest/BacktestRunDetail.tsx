@@ -7,15 +7,15 @@ import type {
 } from '../../api';
 import { BacktestEquityChart } from '../BacktestEquityChart';
 import { BacktestMarketRidgeChart } from './BacktestMarketRidgeChart';
-import { EXIT_REASON_LABEL } from '@polywatch/core/backtest/exit-reasons';
-import { fmtHolding, fmtPct, fmtUsd, formatNum, formatTs } from './format';
+import { BacktestMetrics } from './BacktestMetrics';
+import { BacktestPositionsTable } from './BacktestPositionsTable';
+import { formatTs } from './format';
 
 interface BacktestRunDetailProps {
   run: BacktestRunDto;
   equity: BacktestEquityPointDto[];
   positions: BacktestPositionDto[];
   marketSeries: BacktestMarketSeriesDto[];
-  loading: boolean;
   error: string | null;
   capital: number;
   onBack: () => void;
@@ -24,9 +24,17 @@ interface BacktestRunDetailProps {
 }
 
 export function BacktestRunDetail(props: BacktestRunDetailProps) {
-  const run = () => props.run;
-  const stats = () => props.run.stats;
   const isRunning = () => props.run.status === 'running' || props.run.status === 'queued';
+  // Période paramétrée de la run (params.from/to), source de vérité de l'étendue
+  // des marchés affichés — pas la plage effective des données consommées.
+  const runFrom = () => {
+    const f = props.run.params?.from;
+    return typeof f === 'string' ? f : null;
+  };
+  const runTo = () => {
+    const t = props.run.params?.to;
+    return typeof t === 'string' ? t : null;
+  };
 
   return (
     <div class="backtest-detail">
@@ -80,8 +88,8 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
         </p>
       </Show>
 
-      <Show when={stats() != null}>
-        <MetricGrid stats={stats()!} capital={props.capital} />
+      <Show when={props.run.stats != null}>
+        <BacktestMetrics stats={props.run.stats!} />
       </Show>
 
       <Show when={props.equity.length > 0}>
@@ -91,14 +99,14 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
         </div>
       </Show>
 
-      <Show when={props.marketSeries.length > 0 && props.run.dataRangeFrom && props.run.dataRangeTo}>
+      <Show when={props.marketSeries.length > 0 && runFrom() && runTo()}>
         <div class="backtest-section">
           <h4 class="settings-subheading">Marchés parcourus ({props.marketSeries.length})</h4>
           <BacktestMarketRidgeChart
             series={props.marketSeries}
             positions={props.positions}
-            from={props.run.dataRangeFrom!}
-            to={props.run.dataRangeTo!}
+            from={runFrom()!}
+            to={runTo()!}
           />
         </div>
       </Show>
@@ -114,109 +122,7 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
         </div>
       </Show>
 
-      <Show when={props.positions.length > 0}>
-        <div class="backtest-section">
-          <h4 class="settings-subheading">Positions ({props.positions.length})</h4>
-          <div class="weather-data-table-wrap">
-            <table class="weather-data-table">
-              <thead>
-                <tr>
-                  <th>Ville</th>
-                  <th>conditionId</th>
-                  <th>Entry</th>
-                  <th>Exit</th>
-                  <th>P&L</th>
-                  <th>Motif exit</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={props.positions}>
-                  {(p) => (
-                    <tr>
-                      <td>{p.city ?? '—'}</td>
-                      <td class="text-mono" title={p.conditionId}>
-                        {p.conditionId.slice(0, 18)}…
-                      </td>
-                      <td>{formatNum(p.entryPrice, 3)}</td>
-                      <td>{p.exitPrice != null ? formatNum(p.exitPrice, 3) : '—'}</td>
-                      <td class={p.pnl != null && p.pnl >= 0 ? 'backtest-pnl-pos' : 'backtest-pnl-neg'}>
-                        {p.pnl != null ? fmtUsd(p.pnl) : '—'}
-                      </td>
-                      <td>{p.exitReason ? (EXIT_REASON_LABEL[p.exitReason] ?? p.exitReason) : 'Ouverte'}</td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Show>
-    </div>
-  );
-}
-
-function MetricGrid(props: { stats: NonNullable<BacktestRunDto['stats']>; capital: number }) {
-  const s = props.stats;
-  return (
-    <div class="backtest-metrics">
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">P&L total</span>
-        <span class="backtest-metric-value">{fmtUsd(s.totalPnl)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">P&L %</span>
-        <span class="backtest-metric-value">{formatNum(s.pnlPct, 1)}%</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Equity finale</span>
-        <span class="backtest-metric-value">{fmtUsd(s.finalEquity)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Drawdown max</span>
-        <span class="backtest-metric-value">{fmtPct(s.maxDrawdown)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Trades</span>
-        <span class="backtest-metric-value">{s.totalTrades}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Winrate</span>
-        <span class="backtest-metric-value">{fmtPct(s.winRate)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Profit factor</span>
-        <span class="backtest-metric-value">
-          {s.profitFactor == null && s.totalTrades > 0 ? '∞' : formatNum(s.profitFactor, 2)}
-        </span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Expectancy</span>
-        <span class="backtest-metric-value">{fmtUsd(s.expectancy)}</span>
-      </div>
-      <div class="backtest-metric">
-        <span class="backtest-metric-label">Durée moy.</span>
-        <span class="backtest-metric-value">{fmtHolding(s.avgHoldingMs)}</span>
-      </div>
-      <Show when={Object.keys(s.byExitReason ?? {}).length > 0}>
-        <div class="backtest-metric backtest-metric--wide">
-          <span class="backtest-metric-label">Par sortie</span>
-          <span class="backtest-metric-value">
-            {Object.entries(s.byExitReason)
-              .map(([k, n]) => `${EXIT_REASON_LABEL[k] ?? k}: ${n}`)
-              .join(' · ')}
-          </span>
-        </div>
-      </Show>
-      <Show when={Object.keys(s.byCity ?? {}).length > 0}>
-        <div class="backtest-metric backtest-metric--wide">
-          <span class="backtest-metric-label">Par ville</span>
-          <span class="backtest-metric-value">
-            {Object.entries(s.byCity)
-              .map(([k, n]) => `${k}: ${n}`)
-              .join(' · ')}
-          </span>
-        </div>
-      </Show>
+      <BacktestPositionsTable positions={props.positions} />
     </div>
   );
 }

@@ -82,7 +82,6 @@ export function WeatherAlgoBacktestTab() {
   const [equity, setEquity] = createSignal<BacktestEquityPointDto[]>([]);
   const [positions, setPositions] = createSignal<BacktestPositionDto[]>([]);
   const [marketSeries, setMarketSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
-  const [detailLoading, setDetailLoading] = createSignal(false);
   const [detailError, setDetailError] = createSignal<string | null>(null);
 
   const polling = useBacktestPolling(() => {
@@ -120,7 +119,6 @@ export function WeatherAlgoBacktestTab() {
   }
 
   async function refreshDetail(id: number) {
-    setDetailLoading(true);
     try {
       const run = await fetchBacktestRun(id);
       setDetail(run);
@@ -141,8 +139,6 @@ export function WeatherAlgoBacktestTab() {
       setDetailError(null);
     } catch (err) {
       setDetailError(err instanceof Error ? err.message : 'Détail indisponible');
-    } finally {
-      setDetailLoading(false);
     }
   }
 
@@ -307,7 +303,6 @@ export function WeatherAlgoBacktestTab() {
           equity={equity()}
           positions={positions()}
           marketSeries={marketSeries()}
-          loading={detailLoading()}
           error={detailError()}
           capital={resolveRunCapital(selectedRun()!.params)}
           onBack={closeRun}

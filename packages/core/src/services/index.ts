@@ -214,6 +214,8 @@ export {
   type BacktestRunStats,
   type BacktestPositionInput,
   type BacktestEquityPointInput,
+  type BacktestExcludedReason,
+  type BacktestExcludedTickInput,
   type ListBacktestRunsOptions,
 } from './backtest-run.service.js';
 export {

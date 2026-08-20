@@ -229,6 +229,26 @@ export function createBacktestRouter(ds: DataSource): Router {
     });
   });
 
+  // ── Excluded ticks of a run (tracés orange) ──────────────────────────
+  router.get('/runs/:id/excluded-ticks', requireJwt, async (req, res) => {
+    const id = Number(req.params.id);
+    const run = await service.getById(id);
+    if (!run) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const ticks = await service.listExcludedTicks(id);
+    res.json({
+      ticks: ticks.map((t) => ({
+        t: t.t.toISOString(),
+        reason: t.reason,
+        city: t.city,
+        conditionId: t.conditionId,
+        metric: t.metric,
+      })),
+    });
+  });
+
   // ── Live market price series (ridge plot, toutes les données marché) ──
   // Renvoie les séries de prix YES agrégées depuis weather_bucket_ticks sur
   // toute la plage disponible en base (MIN→MAX recordedAt), indépendamment de

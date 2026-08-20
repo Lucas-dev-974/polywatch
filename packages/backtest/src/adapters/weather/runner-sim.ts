@@ -47,6 +47,10 @@ export function buildActiveMarketsForGroup(
   ticks: BookTickEventData[],
   minHoursToClose: number,
   nowMs: number,
+  onExcluded?: (
+    tick: BookTickEventData,
+    reason: 'unsupported_metric_or_bucket' | 'market_lifecycle_filtered',
+  ) => void,
 ): MarketListItemDto[] {
   const markets: MarketListItemDto[] = [];
   for (const tick of ticks) {
@@ -58,8 +62,14 @@ export function buildActiveMarketsForGroup(
       eventSlug: tick.eventSlug,
       tokenIdYes: tick.tokenIdYes,
     });
-    if (!market) continue;
-    if (!isMarketActiveForWeather(market, minHoursToClose, nowMs)) continue;
+    if (!market) {
+      onExcluded?.(tick, 'unsupported_metric_or_bucket');
+      continue;
+    }
+    if (!isMarketActiveForWeather(market, minHoursToClose, nowMs)) {
+      onExcluded?.(tick, 'market_lifecycle_filtered');
+      continue;
+    }
     markets.push(market);
   }
   return markets;

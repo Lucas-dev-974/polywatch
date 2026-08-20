@@ -1196,6 +1196,14 @@ export interface BacktestEquityPointDto {
   openPositions: number;
 }
 
+export interface BacktestExcludedTickDto {
+  t: string;
+  reason: string;
+  city: string | null;
+  conditionId: string;
+  metric: string | null;
+}
+
 export interface BacktestMarketSeriesPoint {
   t: string;
   yesPrice: number | null;
@@ -1272,6 +1280,12 @@ export async function fetchBacktestPositions(
 
 export async function fetchBacktestEquity(id: number): Promise<{ points: BacktestEquityPointDto[] }> {
   return api(`/backtest/runs/${id}/equity`);
+}
+
+export async function fetchBacktestExcludedTicks(
+  id: number,
+): Promise<{ ticks: BacktestExcludedTickDto[] }> {
+  return api(`/backtest/runs/${id}/excluded-ticks`);
 }
 
 export async function fetchBacktestMarketSeries(

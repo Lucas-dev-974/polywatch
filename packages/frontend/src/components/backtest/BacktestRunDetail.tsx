@@ -1,11 +1,14 @@
-import { For, Show } from 'solid-js';
+import { Show } from 'solid-js';
 import type {
   BacktestEquityPointDto,
+  BacktestExcludedTickDto,
   BacktestMarketSeriesDto,
   BacktestPositionDto,
   BacktestRunDto,
 } from '../../api';
 import { BacktestEquityChart } from '../BacktestEquityChart';
+import { CollapsibleSection } from '../CollapsibleSection';
+import { BacktestFidelityWarnings } from './BacktestFidelityWarnings';
 import { BacktestMarketRidgeChart } from './BacktestMarketRidgeChart';
 import { BacktestMetrics } from './BacktestMetrics';
 import { BacktestPositionsTable } from './BacktestPositionsTable';
@@ -14,6 +17,7 @@ import { formatTs } from './format';
 interface BacktestRunDetailProps {
   run: BacktestRunDto;
   equity: BacktestEquityPointDto[];
+  excludedTicks: BacktestExcludedTickDto[];
   positions: BacktestPositionDto[];
   marketSeries: BacktestMarketSeriesDto[];
   error: string | null;
@@ -88,41 +92,58 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
         </p>
       </Show>
 
-      <Show when={props.run.stats != null}>
-        <BacktestMetrics stats={props.run.stats!} />
-      </Show>
-
-      <Show when={props.equity.length > 0}>
-        <div class="backtest-section">
-          <h4 class="settings-subheading">Courbe d’equity</h4>
-          <BacktestEquityChart points={props.equity} capital={props.capital} />
-        </div>
+      <Show when={props.run.stats != null || props.equity.length > 0}>
+        <CollapsibleSection
+          title="Metrics"
+          defaultCollapsed={false}
+          persistKey="backtest-detail-metrics"
+        >
+          <Show when={props.run.stats != null}>
+            <BacktestMetrics stats={props.run.stats!} />
+          </Show>
+          <Show when={props.equity.length > 0}>
+            <BacktestEquityChart
+              points={props.equity}
+              excludedTicks={props.excludedTicks}
+              capital={props.capital}
+            />
+          </Show>
+        </CollapsibleSection>
       </Show>
 
       <Show when={props.marketSeries.length > 0 && runFrom() && runTo()}>
-        <div class="backtest-section">
-          <h4 class="settings-subheading">Marchés parcourus ({props.marketSeries.length})</h4>
+        <CollapsibleSection
+          title={`Marchés parcourus (${props.marketSeries.length})`}
+          defaultCollapsed={false}
+          persistKey="backtest-detail-markets"
+        >
           <BacktestMarketRidgeChart
             series={props.marketSeries}
             positions={props.positions}
+            excludedTicks={props.excludedTicks}
             from={runFrom()!}
             to={runTo()!}
           />
-        </div>
+        </CollapsibleSection>
       </Show>
 
       <Show when={props.run.fidelityWarnings && props.run.fidelityWarnings.length > 0}>
-        <div class="backtest-fidelity">
-          <h4 class="settings-subheading">Limites de fidélité</h4>
-          <ul>
-            <For each={props.run.fidelityWarnings!}>
-              {(w) => <li>{w}</li>}
-            </For>
-          </ul>
-        </div>
+        <CollapsibleSection
+          title={`Limites de fidélité (${props.run.fidelityWarnings!.length})`}
+          defaultCollapsed={true}
+          persistKey="backtest-detail-fidelity"
+        >
+          <BacktestFidelityWarnings warnings={props.run.fidelityWarnings!} />
+        </CollapsibleSection>
       </Show>
 
-      <BacktestPositionsTable positions={props.positions} />
+      <CollapsibleSection
+        title={`Positions (${props.positions.length})`}
+        defaultCollapsed={false}
+        persistKey="backtest-detail-positions"
+      >
+        <BacktestPositionsTable positions={props.positions} />
+      </CollapsibleSection>
     </div>
   );
 }

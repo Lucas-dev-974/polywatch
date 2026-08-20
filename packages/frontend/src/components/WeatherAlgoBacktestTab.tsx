@@ -4,6 +4,7 @@ import {
   deleteBacktestRun,
   fetchBacktestDataCoverage,
   fetchBacktestEquity,
+  fetchBacktestExcludedTicks,
   fetchBacktestMarketSeries,
   fetchBacktestPositions,
   fetchBacktestRun,
@@ -13,6 +14,7 @@ import {
   launchBacktestRun,
   type BacktestDataCoverage,
   type BacktestEquityPointDto,
+  type BacktestExcludedTickDto,
   type BacktestMarketSeriesDto,
   type BacktestPositionDto,
   type BacktestRunDto,
@@ -82,6 +84,7 @@ export function WeatherAlgoBacktestTab() {
   );
   const [detail, setDetail] = createSignal<BacktestRunDto | null>(null);
   const [equity, setEquity] = createSignal<BacktestEquityPointDto[]>([]);
+  const [excludedTicks, setExcludedTicks] = createSignal<BacktestExcludedTickDto[]>([]);
   const [positions, setPositions] = createSignal<BacktestPositionDto[]>([]);
   const [marketSeries, setMarketSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
   const [detailError, setDetailError] = createSignal<string | null>(null);
@@ -154,18 +157,21 @@ export function WeatherAlgoBacktestTab() {
       const run = await fetchBacktestRun(id);
       setDetail(run);
       if (run.status === 'completed') {
-        const [eq, pos, mkt] = await Promise.all([
+        const [eq, pos, mkt, exc] = await Promise.all([
           fetchBacktestEquity(id),
           fetchBacktestPositions(id, { limit: 200 }),
           fetchBacktestMarketSeries(id),
+          fetchBacktestExcludedTicks(id),
         ]);
         setEquity(eq.points);
         setPositions(pos.items);
         setMarketSeries(mkt.items);
+        setExcludedTicks(exc.ticks);
       } else {
         setEquity([]);
         setPositions([]);
         setMarketSeries([]);
+        setExcludedTicks([]);
       }
       setDetailError(null);
     } catch (err) {
@@ -234,6 +240,7 @@ export function WeatherAlgoBacktestTab() {
     setSelectedId(id);
     setDetail(null);
     setEquity([]);
+    setExcludedTicks([]);
     setPositions([]);
     setMarketSeries([]);
     void refreshDetail(id);
@@ -244,6 +251,7 @@ export function WeatherAlgoBacktestTab() {
     setSelectedId(null);
     setDetail(null);
     setEquity([]);
+    setExcludedTicks([]);
     setPositions([]);
     setMarketSeries([]);
     stopPolling();
@@ -341,6 +349,7 @@ export function WeatherAlgoBacktestTab() {
         <BacktestRunDetail
           run={selectedRun()!}
           equity={equity()}
+          excludedTicks={excludedTicks()}
           positions={positions()}
           marketSeries={marketSeries()}
           error={detailError()}

@@ -8,6 +8,7 @@ import {
 } from '../entities/BacktestRun.js';
 import { BacktestPosition, type BacktestExitReason } from '../entities/BacktestPosition.js';
 import { BacktestEquityPoint } from '../entities/BacktestEquityPoint.js';
+import { BacktestExcludedTick } from '../entities/BacktestExcludedTick.js';
 
 const log = pino({ name: 'core:backtest-run' });
 
@@ -51,6 +52,18 @@ export interface BacktestEquityPointInput {
   openPositions: number;
 }
 
+export type BacktestExcludedReason =
+  | 'market_lifecycle_filtered'
+  | 'unsupported_metric_or_bucket';
+
+export interface BacktestExcludedTickInput {
+  t: Date;
+  reason: BacktestExcludedReason;
+  city: string | null;
+  conditionId: string;
+  metric: string | null;
+}
+
 export interface BacktestRunStats {
   totalPnl: number;
   pnlPct: number;
@@ -79,6 +92,9 @@ export class BacktestRunService {
   }
   get equityRepo() {
     return this.ds.getRepository(BacktestEquityPoint);
+  }
+  get excludedRepo() {
+    return this.ds.getRepository(BacktestExcludedTick);
   }
 
   async create(input: BacktestRunInput): Promise<BacktestRun> {
@@ -257,8 +273,34 @@ export class BacktestRunService {
     await this.equityRepo.save(rows);
   }
 
+  async appendExcludedTicks(
+    runId: number,
+    inputs: BacktestExcludedTickInput[],
+  ): Promise<void> {
+    if (inputs.length === 0) return;
+    const rows = inputs.map((i) =>
+      this.excludedRepo.create({
+        runId,
+        t: i.t,
+        reason: i.reason,
+        city: i.city ?? null,
+        conditionId: i.conditionId,
+        metric: i.metric ?? null,
+      }),
+    );
+    await this.excludedRepo.save(rows);
+  }
+
+  async listExcludedTicks(runId: number): Promise<BacktestExcludedTick[]> {
+    return this.excludedRepo.find({
+      where: { runId },
+      order: { t: 'ASC' },
+    });
+  }
+
   async delete(runId: number): Promise<void> {
-    // Positions/equity cascade on FK; explicit delete is a safety net.
+    // Positions/equity/excluded cascade on FK; explicit delete is a safety net.
+    await this.excludedRepo.delete({ runId });
     await this.equityRepo.delete({ runId });
     await this.positionRepo.delete({ runId });
     await this.runRepo.delete(runId);

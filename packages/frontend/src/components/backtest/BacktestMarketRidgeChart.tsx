@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, onCleanup } from 'solid-js';
-import type { BacktestMarketSeriesDto, BacktestPositionDto } from '../../api';
+import type { BacktestMarketSeriesDto, BacktestPositionDto, BacktestExcludedTickDto } from '../../api';
 import { useChartWidth } from '../../hooks/useChartWidth';
 import { buildChartXTicks } from '../../lib/updown-price-chart';
 import { formatTs } from './format';
@@ -24,6 +24,7 @@ const X_AXIS_H = 40;
 export function BacktestMarketRidgeChart(props: {
   series: BacktestMarketSeriesDto[];
   positions: BacktestPositionDto[];
+  excludedTicks?: BacktestExcludedTickDto[];
   from: string;
   to: string;
   enablePlayer?: boolean;
@@ -43,6 +44,22 @@ export function BacktestMarketRidgeChart(props: {
   const [cutGaps, setCutGaps] = createSignal<boolean>(true);
   // true = points d'entrée/sortie au survol uniquement ; false = en permanence.
   const [showEntryExit, setShowEntryExit] = createSignal<boolean>(true);
+  // Tracer vertical des ticks exclus.
+  const [showExcluded, setShowExcluded] = createSignal<boolean>(true);
+
+  const excludedTs = createMemo<number[]>(() =>
+    (props.excludedTicks ?? [])
+      .map((e) => Date.parse(e.t))
+      .filter((n) => Number.isFinite(n)),
+  );
+
+  const excludedWithinViewport = createMemo<number[]>(() => {
+    const minT = vp().minT;
+    const maxT = vp().maxT;
+    return showExcluded()
+      ? excludedTs().filter((t) => t >= minT && t <= maxT)
+      : [];
+  });
 
   const allGroups = createMemo(() => groupVoies(props.series, props.positions));
 
@@ -425,6 +442,14 @@ export function BacktestMarketRidgeChart(props: {
               onChange={(e) => setShowEntryExit(e.currentTarget.checked)}
             />
           </label>
+          <label class="backtest-ridge-filter">
+            <span>Ticks exclus</span>
+            <input
+              type="checkbox"
+              checked={showExcluded()}
+              onChange={(e) => setShowExcluded(e.currentTarget.checked)}
+            />
+          </label>
           <Show when={enablePlayer()}>
             <label class="backtest-ridge-filter">
               <span>Player</span>
@@ -502,6 +527,19 @@ export function BacktestMarketRidgeChart(props: {
                 <RidgeGrid voies={voies()} xTicks={xTicks()} scale={scale()} />
                 <g clip-path="url(#backtest-ridge-clip)">
                   <RidgeLines voies={voies()} scale={scale()} hoveredVoieIndex={hoveredVoieIndex} hoveredBucketKey={hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} clipUntilT={clipUntilT()} showEntryExit={showEntryExit()} onPositionHover={onPositionHover} />
+                  <Show when={excludedWithinViewport().length > 0}>
+                    <For each={excludedWithinViewport()}>
+                      {(t) => (
+                        <line
+                          x1={scale().xPos(t)}
+                          y1={MARGIN_TOP}
+                          x2={scale().xPos(t)}
+                          y2={MARGIN_TOP + plotH()}
+                          class="backtest-chart-excluded-line"
+                        />
+                      )}
+                    </For>
+                  </Show>
                   <RidgeCrosshair hoveredT={hoveredT()} plotH={plotH()} scale={scale()} />
                   <Show when={playerActive()}>
                     <RidgePlayMarkers

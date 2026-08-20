@@ -126,8 +126,19 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     this.warnings.setOrUpdateWarning(ctx, code, message);
   }
 
-  private noteLifecycleSkip(ctx: RunContext): void {
+  private noteLifecycleSkip(
+    ctx: RunContext,
+    data: BookTickEventData,
+    at: Date,
+  ): void {
     this.warnings.noteLifecycleSkip(ctx);
+    ctx.excludedTicks.push({
+      t: at,
+      reason: 'market_lifecycle_filtered',
+      city: data.snapshotCity ?? null,
+      conditionId: data.conditionId,
+      metric: data.snapshotMetric ?? null,
+    });
   }
 
   private emitStaticFidelityWarnings(ctx: RunContext): void {
@@ -360,7 +371,20 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     };
 
     const ticks = this.bucketGroupStore.ticksForGroup(groupKey);
-    const activeMarkets = buildActiveMarketsForGroup(ticks, minHours, ctx.clock.now().getTime());
+    const activeMarkets = buildActiveMarketsForGroup(
+      ticks,
+      minHours,
+      ctx.clock.now().getTime(),
+      (tick, reason) => {
+        ctx.excludedTicks.push({
+          t: at,
+          reason,
+          city: tick.snapshotCity ?? null,
+          conditionId: tick.conditionId,
+          metric: tick.snapshotMetric ?? null,
+        });
+      },
+    );
     if (activeMarkets.length === 0) return;
 
     const signal = await evaluateRunnerSimGroup(
@@ -423,12 +447,19 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         'unsupported_metric_or_bucket',
         `Marché ignoré (metric=${data.snapshotMetric} non supporté) pour ${data.snapshotCity}`,
       );
+      ctx.excludedTicks.push({
+        t: at,
+        reason: 'unsupported_metric_or_bucket',
+        city: data.snapshotCity ?? null,
+        conditionId: data.conditionId,
+        metric: data.snapshotMetric ?? null,
+      });
       return;
     }
 
     const minHours = this.bag.closeBeforeResolutionHours;
     if (!isMarketActiveForWeather(market, minHours, ctx.clock.now().getTime())) {
-      this.noteLifecycleSkip(ctx);
+      this.noteLifecycleSkip(ctx, data, at);
       return;
     }
 

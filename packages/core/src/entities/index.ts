@@ -80,6 +80,7 @@ export {
   type BacktestExitReason,
 } from './BacktestPosition.js';
 export { BacktestEquityPoint } from './BacktestEquityPoint.js';
+export { BacktestExcludedTick } from './BacktestExcludedTick.js';
 export { WeatherClobPriceHistory } from './WeatherClobPriceHistory.js';
 export {
   WeatherHistoryIngestJob,

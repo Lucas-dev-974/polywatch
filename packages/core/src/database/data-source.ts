@@ -145,6 +145,7 @@ import { AddWeatherAlgoEntryShareCount1700000000111 } from '../migrations/AddWea
 import { AddCloseReasonIndex1700000000112 } from '../migrations/AddCloseReasonIndex1700000000112.js';
 import { AddCryptoAlgoRecordingToggle1700000000113 } from '../migrations/AddCryptoAlgoRecordingToggle1700000000113.js';
 import { AddUnitToWeatherBucketTick1700000000114 } from '../migrations/AddUnitToWeatherBucketTick1700000000114.js';
+import { AddBacktestExcludedTicks1700000000115 } from '../migrations/AddBacktestExcludedTicks1700000000115.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -156,6 +157,7 @@ import { WeatherEvaluationLog } from '../entities/WeatherEvaluationLog.js';
 import { BacktestRun } from '../entities/BacktestRun.js';
 import { BacktestPosition } from '../entities/BacktestPosition.js';
 import { BacktestEquityPoint } from '../entities/BacktestEquityPoint.js';
+import { BacktestExcludedTick } from '../entities/BacktestExcludedTick.js';
 import { WeatherClobPriceHistory } from '../entities/WeatherClobPriceHistory.js';
 import { WeatherHistoryIngestJob } from '../entities/WeatherHistoryIngestJob.js';
 
@@ -254,6 +256,7 @@ export const migrations = [
   AddCloseReasonIndex1700000000112,
   AddCryptoAlgoRecordingToggle1700000000113,
   AddUnitToWeatherBucketTick1700000000114,
+  AddBacktestExcludedTicks1700000000115,
 ];
 
 export const entities = [
@@ -314,6 +317,7 @@ export const entities = [
   BacktestRun,
   BacktestPosition,
   BacktestEquityPoint,
+  BacktestExcludedTick,
   WeatherClobPriceHistory,
   WeatherHistoryIngestJob,
 ];

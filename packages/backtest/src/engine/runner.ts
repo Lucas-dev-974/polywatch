@@ -2,6 +2,7 @@ import pino from 'pino';
 import { VirtualClock } from './virtual-clock.js';
 import {
   BacktestRunService,
+  type BacktestExcludedReason,
   type BacktestPositionInput,
   type BacktestRunStats,
   type WeatherConfig,
@@ -13,12 +14,23 @@ import { Ledger, type ClosedLedgerPosition, type LedgerPosition } from './ledger
 
 const log = pino({ name: 'backtest:runner' });
 
+/** Un tick exclu par le moteur (cycle de marché ou métrique non supportée). */
+export interface BacktestExcludedTick {
+  t: Date;
+  reason: BacktestExcludedReason;
+  city: string | null;
+  conditionId: string;
+  metric: string | null;
+}
+
 export interface RunContext {
   runId: number;
   clock: VirtualClock;
   ledger: Ledger;
   configSnapshot: WeatherConfig;
   fidelityWarnings: string[];
+  /** Ticks book exclus par le moteur pendant le run. */
+  excludedTicks: BacktestExcludedTick[];
   params: {
     slippageBps: number;
     maxConcurrentPositions: number;
@@ -40,6 +52,7 @@ export interface RunResult {
   equitySamplesCount: number;
   stats: BacktestRunStats;
   fidelityWarnings: string[];
+  excludedTicks: BacktestExcludedTick[];
   dataRangeFrom: Date | null;
   dataRangeTo: Date | null;
 }
@@ -119,6 +132,7 @@ export class BacktestRunner {
     const clock = new VirtualClock();
     const ledger = new Ledger(spec.initialCapital);
     const fidelityWarnings: string[] = [];
+    const excludedTicks: BacktestExcludedTick[] = [];
     const allEquitySamples: EquitySample[] = [];
 
     const ctx: RunContext = {
@@ -127,6 +141,7 @@ export class BacktestRunner {
       ledger,
       configSnapshot: spec.configSnapshot,
       fidelityWarnings,
+      excludedTicks,
       params: {
         slippageBps: spec.slippageBps,
         maxConcurrentPositions: spec.maxConcurrentPositions,
@@ -200,6 +215,7 @@ export class BacktestRunner {
 
       const positions = ledger.allPositions();
       await service.appendPositions(runId, positions.map(mapPositionForPersist));
+      await service.appendExcludedTicks(runId, excludedTicks);
 
       const finalSnapshot = ledger.equityAt(clock.now());
       const stats = buildStats(finalSnapshot.equity);
@@ -233,6 +249,7 @@ export class BacktestRunner {
         equitySamplesCount: allEquitySamples.length,
         stats,
         fidelityWarnings,
+        excludedTicks,
         dataRangeFrom,
         dataRangeTo,
       };

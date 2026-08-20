@@ -289,7 +289,6 @@ export class WeatherStrategyRunner {
         limit: 100,
         targetDates: discoveryTargetDates,
       });
-      const minHoursToClose = risk.weatherAlgoCloseBeforeResolutionHours ?? 1;
       const openCityDates = await this.loadOpenWeatherCityDates();
 
       // Fix B: fetch resolved (closed) weather markets for snapshot recording only.
@@ -326,7 +325,6 @@ export class WeatherStrategyRunner {
         cityFollowRules,
         discovery.temperatureMarkets,
         resolvedMarkets,
-        minHoursToClose,
         openCityDates,
         strategies,
       );
@@ -448,7 +446,6 @@ export class WeatherStrategyRunner {
     rules: WeatherAutoTrackRule[],
     temperatureMarkets: MarketListItemDto[],
     resolvedMarkets: MarketListItemDto[],
-    minHoursToClose: number,
     openCityDates: Map<string, number>,
     strategies: WeatherStrategy[],
   ): Promise<WeatherSignal[]> {
@@ -541,7 +538,6 @@ export class WeatherStrategyRunner {
             markets,
             resolvedForDate,
             strategies,
-            minHoursToClose,
             openCityDates,
           );
           if (signal) citySignals.push(signal);
@@ -571,7 +567,6 @@ export class WeatherStrategyRunner {
     markets: MarketListItemDto[],
     resolvedMarkets: MarketListItemDto[],
     strategies: WeatherStrategy[],
-    minHoursToClose: number,
     openCityDateCounts: Map<string, number>,
   ): Promise<WeatherSignal | null> {
     const targetDate = new Date(`${dateKey}T12:00:00Z`);
@@ -589,7 +584,7 @@ export class WeatherStrategyRunner {
       allBuckets.push({ conditionId: market.conditionId, market, parsed });
     }
     const activeBuckets = allBuckets.filter((b) =>
-      isMarketActiveForWeather(b.market, minHoursToClose),
+      isMarketActiveForWeather(b.market),
     );
 
     // Resolved buckets are injected into the snapshot only; they never enter

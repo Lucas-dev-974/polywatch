@@ -28,7 +28,6 @@ const mocks = vi.hoisted(() => {
       minEdge: null,
       maxForecastStd: null,
       minForecastProbability: null,
-      closeBeforeResolutionHours: null,
       entryUsdc: null,
       maxPositionSizeUsdc: null,
       entryDepthRetryMax: null,
@@ -139,7 +138,6 @@ function baseRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
     weatherAlgoMinEdge: 0.1,
     weatherAlgoMaxForecastStd: null,
     weatherAlgoEntryUsdc: 10,
-    weatherAlgoCloseBeforeResolutionHours: 1,
     weatherAlgoSelectionMode: 'single',
     weatherAlgoMaxSignalsPerEvent: 3,
     weatherAlgoPollMs: 60_000,
@@ -279,21 +277,6 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     });
     const result = await runWeatherEntryPipeline(params);
     expect(result).toBe('Marché introuvable');
-  });
-
-  it('returns "Marché se clôture trop tôt" when endDate is within minHoursToClose', async () => {
-    const params = buildParams({
-      marketService: {
-        ensureTradableMarket: vi.fn(async () => ({
-          conditionId: 'cond-1',
-          endDate: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min < 1h
-          tokenIdYes: 'yes-token',
-        })),
-        loadByConditionIds: vi.fn(async () => new Map()),
-      } as never,
-    });
-    const result = await runWeatherEntryPipeline(params);
-    expect(result).toBe('Marché se clôture trop tôt');
   });
 
   it('returns "Pas de liquidité" when rough VWAP is 0', async () => {

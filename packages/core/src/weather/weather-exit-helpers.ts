@@ -19,14 +19,6 @@ export function shouldCloseForForecastDrift(
   return Math.abs(currentMean - entryMean) > threshold;
 }
 
-export function shouldCloseBeforeResolution(
-  hoursToEnd: number,
-  closeBeforeHours: number,
-): boolean {
-  if (!Number.isFinite(hoursToEnd) || closeBeforeHours <= 0) return false;
-  return hoursToEnd <= closeBeforeHours;
-}
-
 /**
  * Check whether a forecast mean falls inside a given temperature bucket.
  */

@@ -13,7 +13,6 @@ function risk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
     weatherAlgoTpBidPoints: null,
     weatherAlgoTrailingBidPoints: null,
     weatherAlgoTrailingActivationBidPoints: null,
-    weatherAlgoCloseBeforeResolutionHours: 1,
     weatherAlgoForecastChangeThreshold: 2,
     weatherAlgoBucketHysteresisPolls: 2,
     weatherAlgoPollMs: 1_800_000,
@@ -101,7 +100,6 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
     const now = new Date('2026-01-01T12:00:00Z');
     const decision = mgr.evaluate(pos(), {
       yesPrice: 0.5,
-      endDate: new Date('2026-01-03T00:00:00Z'),
       currentMean: 20, // drifted from 12
       now,
       slippageBps: 0,
@@ -126,7 +124,6 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
     const now = new Date('2026-01-01T12:00:00Z');
     const decision = mgr.evaluate(p, {
       yesPrice: 0.5,
-      endDate: new Date('2026-01-03T00:00:00Z'),
       currentMean: 20, // drifted from 12
       now,
       slippageBps: 0,
@@ -144,7 +141,6 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
     const now = new Date('2026-01-01T12:00:00Z');
     const decision = mgr.evaluate(pos(), {
       yesPrice: 0.5,
-      endDate: new Date('2026-01-03T00:00:00Z'),
       currentMean: 20, // drifted from 12
       now,
       slippageBps: 0,
@@ -170,7 +166,6 @@ describe('WeatherExitManager hysteresis poll window (F1)', () => {
     const base = new Date('2026-01-01T00:00:00Z');
     const input = {
       yesPrice: 0.5,
-      endDate: new Date('2026-01-05T00:00:00Z'),
       currentMean: 11, // left or_above 12, but within drift threshold (2)
       slippageBps: 0,
       entryMean: 12,

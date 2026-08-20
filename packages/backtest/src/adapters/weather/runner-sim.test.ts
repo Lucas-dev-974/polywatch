@@ -43,7 +43,7 @@ describe('runner-sim helpers', () => {
 
     const t = tick();
     const nowMs = Date.now();
-    const markets = buildActiveMarketsForGroup([t], 1, nowMs);
+    const markets = buildActiveMarketsForGroup([t], nowMs);
     expect(markets.length).toBeGreaterThan(0);
     const signal = await evaluateRunnerSimGroup(
       [forecast, aligned],
@@ -101,7 +101,7 @@ describe('runner-sim helpers', () => {
     });
 
     const nowMs = Date.now();
-    const markets = buildActiveMarketsForGroup([tBetween, tHigh], 1, nowMs);
+    const markets = buildActiveMarketsForGroup([tBetween, tHigh], nowMs);
     const aligned = createWeatherStrategy('weather-forecast-aligned');
     aligned.setRiskConfig({ weatherAlgoMinEdge: 0.05 } as never);
 

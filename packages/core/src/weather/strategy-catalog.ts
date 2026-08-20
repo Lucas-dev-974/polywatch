@@ -75,8 +75,6 @@ export type WeatherStrategyParamsBag = {
   // ── Exit ───────────────────────────────────────────────────────────
   /** Forecast mean change (delta °C) triggering WEATHER_FORECAST_CHANGE. */
   forecastChangeThreshold: number;
-  /** Hours before resolution to pre-close WEATHER_PRE_CLOSE. */
-  closeBeforeResolutionHours: number;
   /** Consecutive out-of-bucket polls before WEATHER_BUCKET_EXIT. */
   bucketHysteresisPolls: number;
   /** Pause after bucket/drift close before re-entering the same city. */
@@ -103,9 +101,6 @@ export type WeatherStrategyParamsBag = {
   slConfirmationTicks: number;
   // ── Kill switch ────────────────────────────────────────────────────
   killSwitchAction: 'block_entries' | 'force_close_all' | 'block_and_notify';
-  // ── Pre-close ──────────────────────────────────────────────────────
-  preCloseEnabled: boolean;
-  preCloseSeconds: number;
   // ── Misc ───────────────────────────────────────────────────────────
   allowedMarketTags: string[];
   signalScoreSizingEnabled: boolean;
@@ -129,7 +124,6 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   sizingMode: 'fixed_usdc',
   fixedShareCount: 100,
   forecastChangeThreshold: 2,
-  closeBeforeResolutionHours: 1,
   bucketHysteresisPolls: 2,
   reentryThrottleMs: 1_800_000,
   cityFollowSwitchMode: 'close_and_reenter',
@@ -149,8 +143,6 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   slCloseMaxRetries: 5,
   slConfirmationTicks: 2,
   killSwitchAction: 'block_entries',
-  preCloseEnabled: true,
-  preCloseSeconds: 60,
   allowedMarketTags: [],
   signalScoreSizingEnabled: true,
   minBidToAskRatio: 0.9,
@@ -189,7 +181,6 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_usdc.' },
     // Exit
     { key: 'forecastChangeThreshold', label: 'Seuil de dérive forecast (°C)', kind: 'number', min: 0.5, max: 20, step: 0.5, default: 2, hint: 'Déclenche WEATHER_FORECAST_CHANGE.' },
-    { key: 'closeBeforeResolutionHours', label: 'Fermeture avant résolution (h)', kind: 'number', min: 0.5, max: 168, step: 0.5, default: 1 },
     { key: 'bucketHysteresisPolls', label: 'Hystérésis bucket (polls)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
     { key: 'reentryThrottleMs', label: 'Ré-entrée ville (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000 },
     { key: 'cityFollowSwitchMode', label: 'Mode suivi ville', kind: 'select', options: CITY_FOLLOW_OPTIONS, default: 'close_and_reenter' },
@@ -214,9 +205,6 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'slConfirmationTicks', label: 'Confirmation SL (ticks)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
     // Kill switch
     { key: 'killSwitchAction', label: 'Action kill-switch', kind: 'select', options: KILL_SWITCH_OPTIONS, default: 'block_entries' },
-    // Pre-close
-    { key: 'preCloseEnabled', label: 'Pre-close actif', kind: 'boolean', default: true },
-    { key: 'preCloseSeconds', label: 'Pre-close (secondes)', kind: 'number', min: 0, max: 86_400, step: 30, default: 60 },
     // Misc
     { key: 'signalScoreSizingEnabled', label: 'Sizing par score de signal', kind: 'boolean', default: true },
     { key: 'minBidToAskRatio', label: 'Ratio bid/ask min', kind: 'number', min: 0, max: 1, step: 0.05, default: 0.9 },
@@ -252,7 +240,6 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_usdc' },
     { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_usdc.' },
     // Exit
-    { key: 'closeBeforeResolutionHours', label: 'Fermeture avant résolution (h)', kind: 'number', min: 0.5, max: 168, step: 0.5, default: 1 },
     // SL / TP / Trailing
     { key: 'slEnabled', label: 'Stop-loss actif', kind: 'boolean', default: true },
     { key: 'tpEnabled', label: 'Take-profit actif', kind: 'boolean', default: true },
@@ -274,9 +261,6 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     { key: 'slConfirmationTicks', label: 'Confirmation SL (ticks)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
     // Kill switch
     { key: 'killSwitchAction', label: 'Action kill-switch', kind: 'select', options: KILL_SWITCH_OPTIONS, default: 'block_entries' },
-    // Pre-close
-    { key: 'preCloseEnabled', label: 'Pre-close actif', kind: 'boolean', default: true },
-    { key: 'preCloseSeconds', label: 'Pre-close (secondes)', kind: 'number', min: 0, max: 86_400, step: 30, default: 60 },
     // Misc
     { key: 'signalScoreSizingEnabled', label: 'Sizing par score de signal', kind: 'boolean', default: true },
   ];

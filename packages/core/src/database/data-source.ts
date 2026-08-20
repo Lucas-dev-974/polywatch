@@ -146,6 +146,7 @@ import { AddCloseReasonIndex1700000000112 } from '../migrations/AddCloseReasonIn
 import { AddCryptoAlgoRecordingToggle1700000000113 } from '../migrations/AddCryptoAlgoRecordingToggle1700000000113.js';
 import { AddUnitToWeatherBucketTick1700000000114 } from '../migrations/AddUnitToWeatherBucketTick1700000000114.js';
 import { AddBacktestExcludedTicks1700000000115 } from '../migrations/AddBacktestExcludedTicks1700000000115.js';
+import { DropWeatherPreClose1700000000116 } from '../migrations/DropWeatherPreClose1700000000116.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -257,6 +258,7 @@ export const migrations = [
   AddCryptoAlgoRecordingToggle1700000000113,
   AddUnitToWeatherBucketTick1700000000114,
   AddBacktestExcludedTicks1700000000115,
+  DropWeatherPreClose1700000000116,
 ];
 
 export const entities = [

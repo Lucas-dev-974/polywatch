@@ -106,20 +106,6 @@ export async function runWeatherEntryPipeline(
     return 'Marché introuvable';
   }
 
-  // --- Pre-close check -----------------------------------------------------
-  const entryBag = getStrategyParams(risk, signal.strategyId);
-  const minHoursToClose = entryBag.closeBeforeResolutionHours ?? 1;
-  if (market.endDate) {
-    const hoursToEnd = (new Date(market.endDate).getTime() - Date.now()) / 3_600_000;
-    if (hoursToEnd <= minHoursToClose) {
-      log.warn(
-        { conditionId: signal.conditionId, hoursToEnd, minHoursToClose },
-        'entry skipped — market closes too soon',
-      );
-      return 'Marché se clôture trop tôt';
-    }
-  }
-
   // --- Rough liquidity probe (qty = 1) -------------------------------------
   const roughPrices = await connectionManager.fetchExecutablePrices(signal.assetId, 1);
   const roughAskVwap = roughPrices.executableAskVwap;

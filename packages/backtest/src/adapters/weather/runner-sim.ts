@@ -45,7 +45,6 @@ export class BucketGroupStore {
 
 export function buildActiveMarketsForGroup(
   ticks: BookTickEventData[],
-  minHoursToClose: number,
   nowMs: number,
   onExcluded?: (
     tick: BookTickEventData,
@@ -66,7 +65,7 @@ export function buildActiveMarketsForGroup(
       onExcluded?.(tick, 'unsupported_metric_or_bucket');
       continue;
     }
-    if (!isMarketActiveForWeather(market, minHoursToClose, nowMs)) {
+    if (!isMarketActiveForWeather(market, nowMs)) {
       onExcluded?.(tick, 'market_lifecycle_filtered');
       continue;
     }

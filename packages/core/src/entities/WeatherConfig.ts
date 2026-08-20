@@ -63,14 +63,6 @@ export class WeatherConfig {
   @Column({ type: 'boolean', name: 'weather_algo_signal_score_sizing_enabled', default: true })
   weatherAlgoSignalScoreSizingEnabled!: boolean;
 
-  // ── Pre-close (weather) ───────────────────────────────────────────
-
-  @Column({ type: 'boolean', name: 'weather_algo_pre_close_enabled', default: true })
-  weatherAlgoPreCloseEnabled!: boolean;
-
-  @Column({ type: 'integer', name: 'weather_algo_pre_close_seconds', default: 60 })
-  weatherAlgoPreCloseSeconds!: number;
-
   // ── SL/TP/Trailing toggles (weather) ──────────────────────────────
 
   @Column({ type: 'boolean', name: 'weather_algo_sl_enabled', default: true })
@@ -149,9 +141,6 @@ export class WeatherConfig {
 
   @Column({ type: 'real', name: 'weather_algo_forecast_change_threshold', default: 2 })
   weatherAlgoForecastChangeThreshold!: number;
-
-  @Column({ type: 'real', name: 'weather_algo_close_before_resolution_hours', default: 1 })
-  weatherAlgoCloseBeforeResolutionHours!: number;
 
   // ── Polling ───────────────────────────────────────────────────────
 

@@ -109,7 +109,6 @@ async function main() {
     risk: weatherConfig,
     forecastService,
     positionForecastService,
-    marketService,
     connectionManager,
     closeQueue,
     redisCmd,

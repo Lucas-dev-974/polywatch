@@ -256,7 +256,6 @@ const weatherStrategyParamsBagSchema = z
     fixedShareCount: z.number().int().min(1).max(10_000_000).optional(),
     // Exit
     forecastChangeThreshold: z.number().finite().min(0.5).max(20),
-    closeBeforeResolutionHours: z.number().finite().min(0.5).max(168),
     bucketHysteresisPolls: z.number().int().min(1).max(10),
     reentryThrottleMs: z.number().int().min(0).max(86_400_000),
     cityFollowSwitchMode: weatherCityFollowSwitchMode,
@@ -280,9 +279,6 @@ const weatherStrategyParamsBagSchema = z
     slConfirmationTicks: z.number().int().min(1).max(10),
     // Kill switch
     killSwitchAction: weatherKillSwitchAction,
-    // Pre-close
-    preCloseEnabled: z.boolean(),
-    preCloseSeconds: z.number().int().min(0).max(86_400),
     // Misc
     allowedMarketTags: z.array(z.string().min(1).max(100)).max(200),
     signalScoreSizingEnabled: z.boolean(),

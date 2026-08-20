@@ -6,14 +6,12 @@ import {
   type WeatherConfig,
   type RedisQueue,
   type IPolymarketConnectionManager,
-  type MarketService,
   type WeatherForecastService,
   type TotalCloseReason,
   CopiedPosition,
   WeatherPositionForecastService,
   buildCloseOrderSignal,
   shouldCloseForForecastDrift,
-  shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
   shouldEmitBucketExit,
   resolveCityFollowSwitchMode,
@@ -38,7 +36,6 @@ export interface WeatherExitEvaluatorParams {
   risk: WeatherConfig;
   forecastService: WeatherForecastService;
   positionForecastService: WeatherPositionForecastService;
-  marketService: MarketService;
   connectionManager: IPolymarketConnectionManager;
   closeQueue: RedisQueue<OrderSignal>;
   redisCmd: Redis;
@@ -106,16 +103,6 @@ export class WeatherExitEvaluator {
       strategyId ?? resolveEnabledWeatherStrategies(risk)[0] ?? WEATHER_FORECAST_STRATEGY_ID,
     );
 
-    const markets = await this.params.marketService.loadByConditionIds([pos.conditionId]);
-    const market = markets.get(pos.conditionId);
-    const endDate = market?.endDate ? new Date(market.endDate) : null;
-    const hoursToEnd = endDate
-      ? (endDate.getTime() - Date.now()) / 3_600_000
-      : Number.POSITIVE_INFINITY;
-
-    const closeBeforeHours = bag.closeBeforeResolutionHours;
-    const preClose = shouldCloseBeforeResolution(hoursToEnd, closeBeforeHours);
-
     // highest-yes holds until resolution: no forecast drift and no bucket-exit.
     // Skipping the forecast fetch also avoids a phantom close caused by the
     // persisted entryForecastMean=0 placeholder (drift would read 0 and fire).
@@ -123,7 +110,7 @@ export class WeatherExitEvaluator {
 
     let drift = false;
     let bucketExit = false;
-    if (!preClose && !isHighestYes) {
+    if (!isHighestYes) {
       if (!isWeatherMetric(snapshot.metric)) {
         log.warn(
           { positionId: pos.id, city: snapshot.city, metric: snapshot.metric },
@@ -198,13 +185,11 @@ export class WeatherExitEvaluator {
       }
     }
 
-    if (!preClose && !drift && !bucketExit) return;
+    if (!drift && !bucketExit) return;
 
-    const reason: TotalCloseReason = preClose
-      ? 'WEATHER_PRE_CLOSE'
-      : drift
-        ? 'WEATHER_FORECAST_CHANGE'
-        : 'WEATHER_BUCKET_EXIT';
+    const reason: TotalCloseReason = drift
+      ? 'WEATHER_FORECAST_CHANGE'
+      : 'WEATHER_BUCKET_EXIT';
 
     const prices = await this.params.connectionManager.fetchExecutablePrices(
       pos.assetId,
@@ -261,7 +246,6 @@ export class WeatherExitEvaluator {
       {
         positionId: pos.id,
         reason,
-        hoursToEnd: Number.isFinite(hoursToEnd) ? hoursToEnd.toFixed(2) : null,
         bidVwap,
         city: snapshot.city,
       },

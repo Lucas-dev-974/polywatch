@@ -558,7 +558,6 @@ describe('evaluateCityFollowDateGroup with open position', () => {
     runner.setRiskConfig(
       minimalRisk({
         weatherAlgoMarketSnapshotRecordingEnabled: true,
-        weatherAlgoCloseBeforeResolutionHours: 1,
       }),
     );
 
@@ -570,7 +569,6 @@ describe('evaluateCityFollowDateGroup with open position', () => {
       [market()],
       [],
       [strategy],
-      1,
       new Map([['paris|2026-08-02|weather-forecast', 1]]),
     );
 

@@ -357,7 +357,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     this.lastRunnerSimBatchAt = batchAt;
 
     const groupKey = this.bucketGroupStore.upsert(data);
-    const minHours = this.bag.closeBeforeResolutionHours;
 
     const forecast = this.getCurrentForecast(
       ctx,
@@ -373,7 +372,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const ticks = this.bucketGroupStore.ticksForGroup(groupKey);
     const activeMarkets = buildActiveMarketsForGroup(
       ticks,
-      minHours,
       ctx.clock.now().getTime(),
       (tick, reason) => {
         ctx.excludedTicks.push({
@@ -457,8 +455,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       return;
     }
 
-    const minHours = this.bag.closeBeforeResolutionHours;
-    if (!isMarketActiveForWeather(market, minHours, ctx.clock.now().getTime())) {
+    if (!isMarketActiveForWeather(market)) {
       this.noteLifecycleSkip(ctx, data, at);
       return;
     }
@@ -720,7 +717,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   ): boolean {
     const decision = this.exitManager.evaluate(pos, {
       yesPrice,
-      endDate: tick.endDate,
       currentMean,
       now: ctx.clock.now(),
       slippageBps: ctx.params.slippageBps,

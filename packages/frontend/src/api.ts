@@ -591,7 +591,6 @@ export interface WeatherConfig {
   weatherAlgoSelectionMode: string;
   weatherAlgoMaxSignalsPerEvent: number;
   weatherAlgoForecastChangeThreshold: number;
-  weatherAlgoCloseBeforeResolutionHours: number;
   weatherAlgoPollMs: number;
   weatherAlgoCityFollowSwitchMode: string;
   weatherAlgoBucketHysteresisPolls: number;
@@ -609,8 +608,6 @@ export interface WeatherConfig {
   weatherAlgoMinTimeToClose: number;
   weatherAlgoAllowedMarketTags: string[];
   weatherAlgoSignalScoreSizingEnabled: boolean;
-  weatherAlgoPreCloseEnabled: boolean;
-  weatherAlgoPreCloseSeconds: number;
   weatherAlgoSlEnabled: boolean;
   weatherAlgoTpEnabled: boolean;
   weatherAlgoTrailingEnabled: boolean;

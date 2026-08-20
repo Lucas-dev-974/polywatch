@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   shouldCloseForForecastDrift,
-  shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
   shouldEmitBucketExit,
   resolveCityFollowSwitchMode,
@@ -14,11 +13,6 @@ describe('weather-exit-helpers', () => {
   it('detects forecast drift above threshold', () => {
     expect(shouldCloseForForecastDrift(20, 23, 2)).toBe(true);
     expect(shouldCloseForForecastDrift(20, 21.5, 2)).toBe(false);
-  });
-
-  it('detects pre-close window', () => {
-    expect(shouldCloseBeforeResolution(0.5, 1)).toBe(true);
-    expect(shouldCloseBeforeResolution(2, 1)).toBe(false);
   });
 
   it('normalizes city names', () => {

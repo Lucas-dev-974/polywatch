@@ -32,7 +32,6 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
     title: 'Sortie',
     keys: [
       'forecastChangeThreshold',
-      'closeBeforeResolutionHours',
       'bucketHysteresisPolls',
       'reentryThrottleMs',
       'cityFollowSwitchMode',
@@ -66,11 +65,6 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
       'slConfirmationTicks',
       'killSwitchAction',
     ],
-  },
-  {
-    id: 'preclose',
-    title: 'Pré-clôture',
-    keys: ['preCloseEnabled', 'preCloseSeconds'],
   },
   {
     id: 'misc',

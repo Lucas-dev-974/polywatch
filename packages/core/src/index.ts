@@ -316,7 +316,6 @@ export {
 export { calculateEdge, resolveDynamicMinEdge } from './weather/weather-edge.js';
 export {
   shouldCloseForForecastDrift,
-  shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
   shouldEmitBucketExit,
   resolveCityFollowSwitchMode,

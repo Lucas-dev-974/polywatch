@@ -1,7 +1,6 @@
 import {
   type WeatherConfig,
   shouldCloseForForecastDrift,
-  shouldCloseBeforeResolution,
   shouldCloseForBucketExit,
   shouldEmitBucketExit,
   resolveCityFollowSwitchMode,
@@ -75,7 +74,6 @@ export class WeatherExitManager {
     pos: LedgerPosition,
     input: {
       yesPrice: number;
-      endDate: Date | null;
       currentMean: number | null;
       now: Date;
       slippageBps: number;
@@ -90,22 +88,6 @@ export class WeatherExitManager {
     const bag = strategyId
       ? getStrategyParams(input.risk, strategyId)
       : DEFAULT_WEATHER_STRATEGY_PARAMS;
-
-    const closeBeforeHours = bag.closeBeforeResolutionHours;
-    // Negative hoursToEnd (endDate already past) is intentional: the helper
-    // treats hoursToEnd <= closeBeforeHours as pre-close (see R3 follow-up).
-    let hoursToEnd = Number.POSITIVE_INFINITY;
-    if (input.endDate) {
-      hoursToEnd = (input.endDate.getTime() - now.getTime()) / 3_600_000;
-    }
-    if (shouldCloseBeforeResolution(hoursToEnd, closeBeforeHours)) {
-      const { exitPrice, fees } = simulateWeatherExitFill({
-        qty: pos.qty,
-        yesPrice: input.yesPrice,
-        slippageBps: input.slippageBps,
-      });
-      return { reason: 'WEATHER_PRE_CLOSE', exitPrice, fees };
-    }
 
     let drift = false;
     let bucketExit = false;

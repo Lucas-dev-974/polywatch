@@ -23,7 +23,6 @@ export async function configureWeatherAlgoRisk(
       ...DEFAULT_WEATHER_STRATEGY_PARAMS,
       minEdge: 0.05,
       entryUsdc: 10,
-      closeBeforeResolutionHours: 1,
     },
   });
   Object.assign(existing, overrides ?? {});

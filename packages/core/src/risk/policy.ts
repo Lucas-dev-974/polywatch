@@ -5,7 +5,6 @@ import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import {
   getStrategyParams,
   DEFAULT_WEATHER_STRATEGY_PARAMS,
-  resolveEnabledWeatherStrategies,
   type WeatherStrategyParamsBag,
 } from '../weather/strategy-catalog.js';
 import { isMarketTagAllowed } from '../market/tags.js';
@@ -95,14 +94,14 @@ export function getCopyPreCloseParams(cfg: CopyConfig, mode: TradingMode): ModeP
 }
 
 export function getWeatherPreCloseParams(
-  cfg: WeatherConfig,
+  _cfg: WeatherConfig,
   _mode: TradingMode,
-  strategyId?: string | null,
+  _strategyId?: string | null,
 ): ModePreCloseParams {
-  const bag = strategyId ? getStrategyParams(cfg, strategyId) : DEFAULT_WEATHER_STRATEGY_PARAMS;
+  // Weather pre-close feature removed — positions hold until resolution.
   return {
-    preCloseEnabled: bag.preCloseEnabled,
-    preCloseSeconds: bag.preCloseSeconds,
+    preCloseEnabled: false,
+    preCloseSeconds: 0,
     keepEnabled: false,
     keepBidThreshold: 0.80,
   };
@@ -114,24 +113,15 @@ export interface WeatherPreCloseAggregate {
 }
 
 /**
- * Aggregate weather pre-close across enabled strategies. A strategy that has
- * preClose disabled contributes 0 seconds; the aggregate is the max seconds
- * among enabled strategies. Reused by both the market-resolution service and
- * the worker pre-close refresh so they stay consistent.
+ * Aggregate weather pre-close across enabled strategies. The weather pre-close
+ * feature is removed, so this always reports disabled (0 seconds) — kept for
+ * interface compatibility so consumers (market refresh / resolution polling)
+ * fall back to copy/crypto pre-close windows only.
  */
 export function resolveWeatherPreCloseAggregate(
-  cfg: WeatherConfig,
+  _cfg: WeatherConfig,
 ): WeatherPreCloseAggregate {
-  const enabled = resolveEnabledWeatherStrategies(cfg);
-  let seconds = 0;
-  let anyEnabled = false;
-  for (const strategyId of enabled) {
-    const bag = getStrategyParams(cfg, strategyId);
-    if (!bag.preCloseEnabled) continue;
-    anyEnabled = true;
-    seconds = Math.max(seconds, bag.preCloseSeconds ?? 0);
-  }
-  return { enabled: anyEnabled, seconds };
+  return { enabled: false, seconds: 0 };
 }
 
 export interface PreCloseCheckSource {

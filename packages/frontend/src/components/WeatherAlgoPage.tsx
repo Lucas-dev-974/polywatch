@@ -7,7 +7,6 @@ import {
   WEATHER_ALGO_PAGE_TABS,
   usePersistedEnum,
 } from '../lib/ui-persistence';
-import { WeatherAlgoHeader } from './WeatherAlgoHeader';
 import { WeatherAlgoCapitalHero } from './WeatherAlgoCapitalHero';
 import { WeatherAlgoDiscoverPanel } from './WeatherAlgoDiscoverPanel';
 import { WeatherAlgoActiveMarketsPanel } from './WeatherAlgoActiveMarketsPanel';
@@ -34,7 +33,6 @@ export function WeatherAlgoPage() {
 
   return (
     <div class="weather-algo-page">
-      <WeatherAlgoHeader status={dashboard.status()} />
       <WeatherAlgoCapitalHero
         capital={dashboard.capital()}
         realTradingEnabled={dashboard.realTradingEnabled()}
@@ -44,28 +42,38 @@ export function WeatherAlgoPage() {
         onResetSim={() => setResetDialogOpen(true)}
       />
 
-      <div class="weather-algo-segmented" role="tablist">
-        <For each={[
-          { id: 'markets' as const, label: 'Marchés' },
-          { id: 'positions' as const, label: 'Positions' },
-          { id: 'cities' as const, label: 'Villes' },
-          { id: 'data' as const, label: 'Données' },
-          { id: 'backtest' as const, label: 'Backtest' },
-          { id: 'strategies' as const, label: 'Stratégies' },
-          { id: 'settings' as const, label: 'Paramètres' },
-        ]}>
-          {(item) => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab() === item.id}
-              class={`weather-algo-segmented-btn${tab() === item.id ? ' active' : ''}`}
-              onClick={() => setTab(item.id)}
-            >
-              {item.label}
-            </button>
+      <div class="weather-algo-tabs-row">
+        <div class="weather-algo-segmented" role="tablist">
+          <For each={[
+            { id: 'markets' as const, label: 'Marchés' },
+            { id: 'positions' as const, label: 'Positions' },
+            { id: 'cities' as const, label: 'Villes' },
+            { id: 'data' as const, label: 'Données' },
+            { id: 'backtest' as const, label: 'Backtest' },
+            { id: 'strategies' as const, label: 'Stratégies' },
+            { id: 'settings' as const, label: 'Paramètres' },
+          ]}>
+            {(item) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab() === item.id}
+                class={`weather-algo-segmented-btn${tab() === item.id ? ' active' : ''}`}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label}
+              </button>
+            )}
+          </For>
+        </div>
+        <Show when={dashboard.status()}>
+          {(s) => (
+            <span class={`algo-status-badge ${s().alive ? 'alive' : 'stopped'}`}>
+              <span class="algo-status-dot" />
+              {s().alive ? 'En ligne' : 'Arrêté'}
+            </span>
           )}
-        </For>
+        </Show>
       </div>
 
       <Show when={tab() === 'markets'}>

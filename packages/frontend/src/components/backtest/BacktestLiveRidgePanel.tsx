@@ -48,6 +48,7 @@ export function BacktestLiveRidgePanel(props: BacktestLiveRidgePanelProps) {
           positions={[]}
           from={props.window.from!}
           to={props.window.to!}
+          enablePlayer={false}
         />
       </Show>
     </div>

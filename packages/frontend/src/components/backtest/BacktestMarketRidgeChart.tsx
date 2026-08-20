@@ -9,6 +9,12 @@ import { buildRidgeScale, MARGIN_TOP, VOIE_H } from './ridge/scale';
 import { RidgeGrid } from './ridge/RidgeGrid';
 import { RidgeLines, RidgeCrosshair } from './ridge/RidgeLines';
 import { RidgeTooltip } from './ridge/RidgeTooltip';
+import { RidgePlayhead } from './ridge/RidgePlayhead';
+import { RidgePlayMarkers } from './ridge/RidgePlayMarkers';
+import { RidgePlayerControls } from './ridge/RidgePlayerControls';
+import { RidgePlayTooltip } from './ridge/RidgePlayTooltip';
+import { useRidgePlayer } from './ridge/useRidgePlayer';
+import { useRidgePlayerFocus } from './ridge/useRidgePlayerFocus';
 import type { RidgeScale, TooltipInfo } from './ridge/types';
 
 const PAD_L = 8;
@@ -20,13 +26,23 @@ export function BacktestMarketRidgeChart(props: {
   positions: BacktestPositionDto[];
   from: string;
   to: string;
+  enablePlayer?: boolean;
 }) {
   const runFrom = () => Date.parse(props.from);
   const runTo = () => Date.parse(props.to);
 
+  // Le player est activé par défaut ; le panel live le désactive explicitement.
+  const enablePlayer = () => props.enablePlayer !== false;
+  // Checkbox d'activation/désactivation du player dans la toolbar.
+  const [playerEnabled, setPlayerEnabled] = createSignal<boolean>(true);
+  // Le player est actif si disponible ET activé par la checkbox.
+  const playerActive = () => enablePlayer() && playerEnabled();
+
   const [targetDateFilter, setTargetDateFilter] = createSignal<string>('all');
   const [maxTicks, setMaxTicks] = createSignal<number>(0);
   const [cutGaps, setCutGaps] = createSignal<boolean>(true);
+  // true = points d'entrée/sortie au survol uniquement ; false = en permanence.
+  const [showEntryExit, setShowEntryExit] = createSignal<boolean>(true);
 
   const allGroups = createMemo(() => groupVoies(props.series, props.positions));
 
@@ -43,10 +59,115 @@ export function BacktestMarketRidgeChart(props: {
     return groups.filter((g) => g.date === filter);
   });
 
+  // ── Player de replay ──────────────────────────────────────────────────
+  // Timeline = timestamps uniques triés des points des voies filtrées
+  // (P1/P2/P3 : synchronisée avec les courbes affichées, respecte maxTicks).
+  const playerTimeline = createMemo<number[]>(() => {
+    if (!playerActive()) return [];
+    const n = maxTicks();
+    const set = new Set<number>();
+    for (const voie of voies()) {
+      for (const b of voie.buckets) {
+        const points = n > 0 ? b.series.points.slice(-n) : b.series.points;
+        for (const p of points) {
+          const t = Date.parse(p.t);
+          if (!Number.isNaN(t)) set.add(t);
+        }
+      }
+    }
+    return [...set].sort((a, b) => a - b);
+  });
+
+  const player = useRidgePlayer(playerTimeline);
+
+  // Row active au playhead : la voie de la position la plus récemment entrée
+  // (entryAt <= playhead). Stable : ne change que lors d'une nouvelle entrée,
+  // évitant le saccadement vertical dû à la première voie qui matche un tick.
+  const activeVoieIndex = createMemo<number | null>(() => {
+    const t = player.playheadT();
+    if (t == null) return null;
+    const vs = voies();
+    // Map conditionId -> index de voie.
+    const voieIndexByCondition = new Map<string, number>();
+    vs.forEach((voie, i) => {
+      for (const b of voie.buckets) {
+        if (!voieIndexByCondition.has(b.series.conditionId)) {
+          voieIndexByCondition.set(b.series.conditionId, i);
+        }
+      }
+    });
+    // Position la plus récemment entrée (entryAt <= t).
+    let best: { voieIndex: number; entryT: number } | null = null;
+    for (const pos of props.positions) {
+      const entryT = Date.parse(pos.entryAt);
+      if (Number.isNaN(entryT) || entryT > t) continue;
+      const voieIndex = voieIndexByCondition.get(pos.conditionId);
+      if (voieIndex == null) continue;
+      if (!best || entryT > best.entryT) best = { voieIndex, entryT };
+    }
+    return best ? best.voieIndex : null;
+  });
+
+  const [hoveredPlayPosition, setHoveredPlayPosition] = createSignal<BacktestPositionDto | null>(null);
+  const [hoveredPlayXY, setHoveredPlayXY] = createSignal<{ x: number; y: number } | null>(null);
+
+  // Tooltip des points d'entrée/sortie de row (survol).
+  const [hoveredRowPosition, setHoveredRowPosition] = createSignal<BacktestPositionDto | null>(null);
+  const [hoveredRowXY, setHoveredRowXY] = createSignal<{ x: number; y: number } | null>(null);
+
+  // Convertit des coordonnées SVG (interne au <svg viewBox>) en coordonnées
+  // CSS du container racine backtest-ridge-plot (qui inclut toolbar + scroll + axe Y).
+  const svgToContainer = (svgX: number, svgY: number): { x: number; y: number } => {
+    const svg = plotSvgEl();
+    const root = rootEl();
+    if (!svg || !root) return { x: svgX, y: svgY };
+    const svgRect = svg.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    // Facteur d'échelle SVG → pixels écran.
+    const scaleX = svgRect.width / plotW();
+    const scaleY = svgRect.height / heightPlot();
+    return {
+      x: svgRect.left - rootRect.left + svgX * scaleX,
+      y: svgRect.top - rootRect.top + svgY * scaleY,
+    };
+  };
+
+  const onPositionHover = (pos: BacktestPositionDto | null, x: number, y: number) => {
+    setHoveredRowPosition(pos);
+    setHoveredRowXY(pos ? svgToContainer(x, y) : null);
+  };
+
+  // Hover d'un marker du player : positionne le tooltip près du marker.
+  const onPlayMarkerHover = (pos: BacktestPositionDto | null) => {
+    setHoveredPlayPosition(pos);
+    if (pos) {
+      const entryT = Date.parse(pos.entryAt);
+      const voieIndex = voies().findIndex((v) =>
+        v.buckets.some((b) => b.series.conditionId === pos.conditionId),
+      );
+      if (voieIndex >= 0) {
+        setHoveredPlayXY(
+          svgToContainer(scale().xPos(entryT), scale().top(voieIndex) + VOIE_H / 2),
+        );
+      }
+    } else {
+      setHoveredPlayXY(null);
+    }
+  };
+
+  // Le clip n'est actif qu'en mode replay (index > 0 ou playing).
+  const clipUntilT = createMemo<number | null>(() => {
+    if (!playerActive()) return null;
+    if (player.currentIndex() > 0 || player.isPlaying()) return player.playheadT();
+    return null;
+  });
+
   const [plotEl, setPlotEl] = createSignal<HTMLDivElement>();
+  const [plotSvgEl, setPlotSvgEl] = createSignal<SVGSVGElement>();
+  const [rootEl, setRootEl] = createSignal<HTMLDivElement>();
   const plotW = useChartWidth(plotEl);
 
-  const { viewport, zoomAt, pan, reset } = usePanZoomViewport(runFrom(), runTo());
+  const { viewport, setViewport, zoomAt, pan, reset } = usePanZoomViewport(runFrom(), runTo());
 
   const [hoveredT, setHoveredT] = createSignal<number | null>(null);
   const [hoveredY, setHoveredY] = createSignal<number | null>(null);
@@ -54,6 +175,18 @@ export function BacktestMarketRidgeChart(props: {
   const [dragStart, setDragStart] = createSignal<{ x: number; y: number } | null>(null);
 
   const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>();
+
+  // Focus smooth du viewport pendant la lecture du player.
+  useRidgePlayerFocus({
+    isPlaying: player.isPlaying,
+    playheadT: player.playheadT,
+    viewport,
+    setViewport,
+    runFrom: runFrom(),
+    runTo: runTo(),
+    activeVoieIndex,
+    scrollEl,
+  });
 
   const plotH = createMemo(() => Math.max(1, VOIE_H * voies().length));
   const heightPlot = createMemo(() => MARGIN_TOP + plotH());
@@ -215,6 +348,8 @@ export function BacktestMarketRidgeChart(props: {
   });
 
   const tooltipInfo = createMemo<TooltipInfo | null>(() => {
+    // P10 : masquer le tooltip hover pendant le replay ou au survol d'un marker.
+    if (player.isPlaying() || hoveredPlayPosition() != null) return null;
     const t = hoveredT();
     const idx = hoveredVoieIndex();
     const group = idx == null ? null : voies()[idx];
@@ -243,7 +378,7 @@ export function BacktestMarketRidgeChart(props: {
   });
 
   return (
-    <div class="backtest-ridge-plot">
+    <div class="backtest-ridge-plot" ref={setRootEl}>
       <div class="backtest-ridge-toolbar">
         <span class="backtest-ridge-hint">Molette : zoom · Glisser : déplacer</span>
         <div class="backtest-ridge-toolbar-right">
@@ -282,6 +417,24 @@ export function BacktestMarketRidgeChart(props: {
               onChange={(e) => setCutGaps(e.currentTarget.checked)}
             />
           </label>
+          <label class="backtest-ridge-filter">
+            <span>Entry/Exit hover show</span>
+            <input
+              type="checkbox"
+              checked={showEntryExit()}
+              onChange={(e) => setShowEntryExit(e.currentTarget.checked)}
+            />
+          </label>
+          <Show when={enablePlayer()}>
+            <label class="backtest-ridge-filter">
+              <span>Player</span>
+              <input
+                type="checkbox"
+                checked={playerEnabled()}
+                onChange={(e) => setPlayerEnabled(e.currentTarget.checked)}
+              />
+            </label>
+          </Show>
           <button type="button" class="btn btn-sm btn-ghost backtest-ridge-reset-btn" onClick={reset}>
             Réinitialiser
           </button>
@@ -329,6 +482,7 @@ export function BacktestMarketRidgeChart(props: {
             {/* Plot principal */}
             <div class="backtest-ridge-plot-main" ref={setPlotEl}>
               <svg
+                ref={setPlotSvgEl}
                 viewBox={`0 0 ${plotW()} ${heightPlot()}`}
                 width="100%"
                 height={heightPlot()}
@@ -347,8 +501,18 @@ export function BacktestMarketRidgeChart(props: {
                 </defs>
                 <RidgeGrid voies={voies()} xTicks={xTicks()} scale={scale()} />
                 <g clip-path="url(#backtest-ridge-clip)">
-                  <RidgeLines voies={voies()} scale={scale()} hoveredVoieIndex={hoveredVoieIndex} hoveredBucketKey={hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} />
+                  <RidgeLines voies={voies()} scale={scale()} hoveredVoieIndex={hoveredVoieIndex} hoveredBucketKey={hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} clipUntilT={clipUntilT()} showEntryExit={showEntryExit()} onPositionHover={onPositionHover} />
                   <RidgeCrosshair hoveredT={hoveredT()} plotH={plotH()} scale={scale()} />
+                  <Show when={playerActive()}>
+                    <RidgePlayMarkers
+                      positions={props.positions}
+                      scale={scale()}
+                      voies={voies()}
+                      playheadT={player.playheadT()}
+                      onHover={onPlayMarkerHover}
+                    />
+                    <RidgePlayhead playheadT={player.playheadT()} scale={scale()} plotH={plotH()} viewport={vp()} />
+                  </Show>
                   <Show when={nowX() != null}>
                     <line
                       x1={nowX()!}
@@ -411,7 +575,26 @@ export function BacktestMarketRidgeChart(props: {
           </div>
         </div>
       </Show>
+      <Show when={playerActive()}>
+        <RidgePlayerControls
+          isPlaying={player.isPlaying()}
+          currentIndex={player.currentIndex()}
+          total={player.total()}
+          playheadT={player.playheadT()}
+          speed={player.speed()}
+          onToggle={player.toggle}
+          onSeekIndex={player.seekIndex}
+          onSpeed={player.setSpeed}
+          onReset={player.reset}
+        />
+      </Show>
       <RidgeTooltip info={tooltipInfo()} />
+      <Show when={playerActive() && hoveredPlayPosition() != null && hoveredPlayXY() != null}>
+        <RidgePlayTooltip position={hoveredPlayPosition()} x={hoveredPlayXY()!.x} y={hoveredPlayXY()!.y} />
+      </Show>
+      <Show when={hoveredRowPosition() != null && hoveredRowXY() != null}>
+        <RidgePlayTooltip position={hoveredRowPosition()} x={hoveredRowXY()!.x} y={hoveredRowXY()!.y} />
+      </Show>
     </div>
   );
 }

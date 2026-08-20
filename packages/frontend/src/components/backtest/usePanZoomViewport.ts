@@ -44,5 +44,5 @@ export function usePanZoomViewport(runFrom: number, runTo: number) {
     setViewport({ minT: runFrom, maxT: runTo });
   };
 
-  return { viewport, zoomAt, pan, reset };
+  return { viewport, setViewport, zoomAt, pan, reset };
 }

@@ -34,13 +34,16 @@ const GAP_FLOOR_MS = 60_000;
 /** Trace le `d` de la courbe d'une série pour une row donnée.
  * `maxTicks` limite le tracé aux N derniers ticks (par ordre temporel).
  * Si `cutGaps` est vrai, les lacunes de données (point sans prix, ou tick
- * absent) coupent le tracé : les segments de part et d'autre ne sont pas reliés. */
+ * absent) coupent le tracé : les segments de part et d'autre ne sont pas reliés.
+ * `clipUntilT` (si non-null) ne trace que les points dont t <= clipUntilT :
+ * utilisé par le player de replay pour révéler les courbes progressivement. */
 export function buildPath(
   series: BacktestMarketSeriesDto,
   voieTop: number,
   scale: RidgeScale,
   maxTicks?: number | null,
   cutGaps = true,
+  clipUntilT?: number | null,
 ): string {
   const points = maxTicks && maxTicks > 0 ? series.points.slice(-maxTicks) : series.points;
   if (points.length === 0) return '';
@@ -49,7 +52,9 @@ export function buildPath(
   const valid: { px: number; py: number; t: number }[] = [];
   for (const p of points) {
     if (p.yesPrice == null) continue;
-    valid.push({ px: scale.xPos(Date.parse(p.t)), py: scale.yPos(p.yesPrice, voieTop), t: Date.parse(p.t) });
+    const t = Date.parse(p.t);
+    if (clipUntilT != null && t > clipUntilT) continue;
+    valid.push({ px: scale.xPos(t), py: scale.yPos(p.yesPrice, voieTop), t });
   }
   if (valid.length === 0) return '';
 

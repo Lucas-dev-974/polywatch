@@ -1,6 +1,8 @@
 import { createMemo, For, Show } from 'solid-js';
+import type { BacktestPositionDto } from '../../../api';
 import type { RidgeScale, VoieGroup } from './types';
-import { buildPath, MARGIN_TOP, VOIE_H } from './scale';
+import { buildPath, MARGIN_TOP } from './scale';
+import { RidgePositionMarkers } from './RidgePositionMarkers';
 
 /** Courbes par bucket, clippées à la zone de plot. */
 export function RidgeLines(props: {
@@ -10,6 +12,10 @@ export function RidgeLines(props: {
   hoveredBucketKey: () => string | null;
   maxTicks?: number | null;
   cutGaps?: boolean;
+  clipUntilT?: number | null;
+  /** true = points d'entrée/sortie au survol uniquement ; false = en permanence. */
+  showEntryExit?: boolean;
+  onPositionHover: (pos: BacktestPositionDto | null, x: number, y: number) => void;
 }) {
   return (
     <For each={props.voies}>
@@ -19,7 +25,7 @@ export function RidgeLines(props: {
           <g>
             <For each={voie.buckets}>
               {(bucket, bi) => {
-                const path = createMemo(() => buildPath(bucket.series, voieTop(), props.scale, props.maxTicks, props.cutGaps));
+                const path = createMemo(() => buildPath(bucket.series, voieTop(), props.scale, props.maxTicks, props.cutGaps, props.clipUntilT));
                 const bucketKey = () => `${i()}:${bi()}`;
                 const isHovered = () => props.hoveredBucketKey() === bucketKey();
                 return (
@@ -37,22 +43,8 @@ export function RidgeLines(props: {
                 );
               }}
             </For>
-            <Show when={props.hoveredVoieIndex() === i()}>
-              <For each={voie.positionBuckets}>
-                {(bucket) => {
-                  const pos = bucket.position!;
-                  const entryX = createMemo(() => props.scale.xPos(Date.parse(pos.entryAt)));
-                  const exitX = createMemo(() => pos.exitAt ? props.scale.xPos(Date.parse(pos.exitAt)) : null);
-                  return (
-                    <g>
-                      <line x1={entryX()} y1={voieTop() + 4} x2={entryX()} y2={voieTop() + VOIE_H - 4} class="backtest-ridge-marker-entry" />
-                      <Show when={exitX() != null}>
-                        <line x1={exitX()!} y1={voieTop() + 4} x2={exitX()!} y2={voieTop() + VOIE_H - 4} class="backtest-ridge-marker-exit" />
-                      </Show>
-                    </g>
-                  );
-                }}
-              </For>
+            <Show when={props.showEntryExit === false || props.hoveredVoieIndex() === i()}>
+              <RidgePositionMarkers voie={voie} scale={props.scale} voieTop={voieTop()} onHover={props.onPositionHover} />
             </Show>
           </g>
         );

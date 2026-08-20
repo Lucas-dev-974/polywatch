@@ -12220,14 +12220,33 @@ body.is-resizing-columns .position-market-split-handle::after {
   pointer-events: none;
 }
 
-.backtest-ridge-marker-entry {
-  stroke: var(--success, #2ecc71);
-  stroke-width: 2;
+.ridge-position-marker {
+  cursor: pointer;
+  pointer-events: all;
+  transition: r 0.1s ease;
 }
 
-.backtest-ridge-marker-exit {
-  stroke: var(--danger, #e74c3c);
-  stroke-width: 2;
+.ridge-position-marker:hover {
+  r: 6;
+}
+
+.ridge-position-marker-entry {
+  fill: var(--success, #2ecc71);
+  stroke: rgba(0, 0, 0, 0.4);
+  stroke-width: 1;
+}
+
+.ridge-position-marker-exit {
+  fill: var(--danger, #e74c3c);
+  stroke: rgba(0, 0, 0, 0.4);
+  stroke-width: 1;
+}
+
+/* Anneau vert autour d'un point de sortie gagnant (P&L positif). */
+.ridge-position-marker-ring-win {
+  fill: none;
+  stroke: var(--success, #2ecc71);
+  stroke-width: 1.5;
 }
 
 .backtest-ridge-crosshair {
@@ -12974,3 +12993,228 @@ body.is-resizing-columns .position-market-split-handle::after {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* ── Player de replay ridge plot ───────────────────────────────────── */
+.ridge-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  flex-wrap: wrap;
+}
+
+.ridge-player-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.ridge-player-slider {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  accent-color: var(--blue, #3b82f6);
+}
+
+.ridge-player-index {
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--text-muted, var(--text-secondary));
+  white-space: nowrap;
+}
+
+.ridge-player-time {
+  font-size: 0.75rem;
+  color: var(--text-muted, var(--text-secondary));
+  white-space: nowrap;
+}
+
+.ridge-player-speed {
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--bg, var(--surface));
+  color: var(--text, var(--text-primary));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 0.25rem);
+}
+
+.ridge-playhead {
+  stroke: var(--blue, #3b82f6);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.ridge-play-marker {
+  cursor: pointer;
+  pointer-events: all;
+  transition: r 0.1s ease;
+}
+
+.ridge-play-marker-entry {
+  fill: var(--success, #2ecc71);
+  stroke: rgba(0, 0, 0, 0.4);
+  stroke-width: 1;
+}
+
+.ridge-play-marker-exit {
+  fill: var(--danger, #e74c3c);
+  stroke: rgba(0, 0, 0, 0.4);
+  stroke-width: 1;
+}
+
+/* Anneau vert autour d'un point de sortie gagnant (P&L positif). */
+.ridge-play-marker-ring-win {
+  fill: none;
+  stroke: var(--success, #2ecc71);
+  stroke-width: 1.5;
+}
+
+.ridge-play-marker:hover {
+  r: 6;
+}
+
+.ridge-play-tooltip {
+  position: absolute;
+  background: var(--bg-elevated, var(--surface));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 0.5rem);
+  padding: 0.625rem 0.75rem;
+  z-index: 10;
+  pointer-events: none;
+  width: 240px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  /* À droite du point : bord gauche à 10px après le point (rayon 4px inclus). */
+  transform: translate(14px, -50%);
+}
+
+.ridge-play-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ridge-play-tooltip-side {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  color: #fff;
+}
+
+.ridge-play-tooltip-side-yes {
+  background: var(--success, #2ecc71);
+}
+
+.ridge-play-tooltip-side-no {
+  background: var(--danger, #e74c3c);
+}
+
+.ridge-play-tooltip-city {
+  font-weight: 600;
+  color: var(--text, var(--text-primary));
+}
+
+.ridge-play-tooltip-cond {
+  font-size: 0.625rem;
+  color: var(--text-muted, var(--text-secondary));
+  font-family: var(--font-mono, monospace);
+  word-break: break-all;
+}
+
+.ridge-play-tooltip-pnl-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.375rem 0;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.ridge-play-tooltip-pnl-label {
+  color: var(--text-muted, var(--text-secondary));
+  font-weight: 600;
+}
+
+.ridge-play-tooltip-pnl {
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ridge-play-tooltip-pnl-pos {
+  color: var(--success, #2ecc71);
+}
+
+.ridge-play-tooltip-pnl-neg {
+  color: var(--danger, #e74c3c);
+}
+
+.ridge-play-tooltip-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+}
+
+.ridge-play-tooltip-grid dt {
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.ridge-play-tooltip-grid dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, var(--text-primary));
+}
+
+.ridge-play-tooltip-times {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.ridge-play-tooltip-times > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ridge-play-tooltip-time-label {
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.ridge-play-tooltip-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text, var(--text-primary));
+}
+
+.ridge-play-tooltip-exit {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.ridge-play-tooltip-exit-label {
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.ridge-play-tooltip-exit-value {
+  color: var(--text, var(--text-primary));
+  text-align: right;
+}
+

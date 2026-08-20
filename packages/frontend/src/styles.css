@@ -11213,12 +11213,6 @@ body.is-resizing-columns .position-market-split-handle::after {
   box-shadow: var(--shadow-sm);
 }
 
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 .weather-history-city {
   font-weight: 600;
   color: var(--text-primary, var(--text));
@@ -11271,12 +11265,6 @@ body.is-resizing-columns .position-market-split-handle::after {
 }
 
 /* Sub-tabs (live/sim) shown under the open positions header */
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 /* History table — city column emphasis */
 .weather-history-city {
   font-weight: 600;
@@ -11324,12 +11312,6 @@ body.is-resizing-columns .position-market-split-handle::after {
 }
 
 /* Weather positions — open live/sim sub-tabs row */
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 /* Weather history table */
 .weather-history-city {
   font-weight: 600;
@@ -11375,12 +11357,6 @@ body.is-resizing-columns .position-market-split-handle::after {
   box-shadow: var(--shadow-sm);
 }
 
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 /* History table tweaks */
 .weather-history-city {
   font-weight: 600;
@@ -11424,12 +11400,6 @@ body.is-resizing-columns .position-market-split-handle::after {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-sm);
-}
-
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
 }
 
 .weather-history-city {
@@ -11478,12 +11448,6 @@ body.is-resizing-columns .position-market-split-handle::after {
 }
 
 /* Inner live/sim sub-tabs row */
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 /* History table tweaks */
 .weather-history-city {
   font-weight: 600;
@@ -11531,12 +11495,6 @@ body.is-resizing-columns .position-market-split-handle::after {
 }
 
 /* Sub-tabs (live/sim) shown under the open positions tab */
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 /* History table — city column emphasis */
 .weather-history-city {
   font-weight: 600;
@@ -11583,12 +11541,6 @@ body.is-resizing-columns .position-market-split-handle::after {
 }
 
 /* Weather algo positions — inner live/sim sub-tabs (open tab) */
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 /* Weather algo positions — history table */
 .weather-history-city {
   font-weight: 600;
@@ -11635,12 +11587,6 @@ body.is-resizing-columns .position-market-split-handle::after {
 }
 
 /* Inner live/sim sub-tabs under the "Ouvertes" view */
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
-}
-
 /* History table tweaks */
 .weather-history-city {
   font-weight: 600;
@@ -11686,12 +11632,6 @@ body.is-resizing-columns .position-market-split-handle::after {
   background: var(--surface, var(--bg-base, #0a0a0c));
   color: var(--text, var(--text-primary));
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.15));
-}
-
-.weather-position-subtabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0;
 }
 
 /* History table tweaks */

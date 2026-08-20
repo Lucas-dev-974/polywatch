@@ -1,10 +1,5 @@
 import { createMemo, Show } from 'solid-js';
 import type { useWeatherAlgoPositions, WeatherPosition } from '../hooks/useWeatherAlgoPositions';
-import {
-  UI_KEYS,
-  WEATHER_ALGO_POS_OPEN_SUB_TABS,
-  usePersistedEnum,
-} from '../lib/ui-persistence';
 import { CollapsibleSection } from './CollapsibleSection';
 import { Icon } from './Icon';
 import {
@@ -31,31 +26,16 @@ function matchesMode(
 
 export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps) {
   const p = () => props.positions;
-  const [activeTab, setActiveTab] = usePersistedEnum(
-    UI_KEYS.weatherAlgoPosOpenSubTab,
-    'live',
-    WEATHER_ALGO_POS_OPEN_SUB_TABS,
-  );
 
   const openPositions = createMemo(() =>
     p().positions().filter((pos) => matchesMode(pos, p().posModeFilter())),
-  );
-  const livePositions = createMemo(() =>
-    openPositions().filter((pos) => pos.mode === 'live'),
-  );
-  const simPositions = createMemo(() =>
-    openPositions().filter((pos) => pos.mode === 'sim'),
-  );
-
-  const activePositions = createMemo(() =>
-    activeTab() === 'live' ? livePositions() : simPositions(),
   );
 
   const closedList = createMemo(() =>
     p().closedPositions().filter((pos) => matchesMode(pos, p().posModeFilter())),
   );
 
-  const openGroups = createMemo(() => buildWeatherPositionGroups(activePositions()));
+  const openGroups = createMemo(() => buildWeatherPositionGroups(openPositions()));
   const historyGroups = createMemo(() => buildWeatherPositionGroups(closedList()));
 
   return (
@@ -107,28 +87,12 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
     >
 
       <Show when={p().posTab() === 'open'}>
-        <div class="weather-position-subtabs">
-          <button
-            class={`weather-position-tab ${activeTab() === 'live' ? 'weather-position-tab--active' : ''}`}
-            onClick={() => setActiveTab('live')}
-          >
-            Live ({livePositions().length})
-          </button>
-          <button
-            class={`weather-position-tab ${activeTab() === 'sim' ? 'weather-position-tab--active' : ''}`}
-            onClick={() => setActiveTab('sim')}
-          >
-            Sim ({simPositions().length})
-          </button>
-        </div>
-
         <Show when={!p().loading()} fallback={<div class="algo-empty">Chargement…</div>}>
           <Show
-            when={activePositions().length > 0}
+            when={openPositions().length > 0}
             fallback={
               <div class="algo-empty">
-                Aucune position {activeTab().toUpperCase()} ouverte
-                {p().posModeFilter() !== 'all' ? ` en mode ${MODE_LABELS[p().posModeFilter()]}` : ''}.
+                Aucune position {p().posModeFilter() === 'all' ? 'ouverte' : `ouverte en mode ${MODE_LABELS[p().posModeFilter()]}`}.
               </div>
             }
           >

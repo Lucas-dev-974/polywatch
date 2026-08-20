@@ -73,9 +73,6 @@ export const WEATHER_ALGO_POS_TABS = ['open', 'history'] as const;
 export type WeatherAlgoPosModeFilter = 'all' | 'live' | 'sim';
 export const WEATHER_ALGO_POS_MODE_FILTERS = ['all', 'live', 'sim'] as const;
 
-export type WeatherAlgoPosOpenSubTab = 'live' | 'sim';
-export const WEATHER_ALGO_POS_OPEN_SUB_TABS = ['live', 'sim'] as const;
-
 export type WeatherAlgoExecModeFilter = 'all' | 'sim' | 'real';
 export const WEATHER_ALGO_EXEC_MODE_FILTERS = ['all', 'sim', 'real'] as const;
 
@@ -147,7 +144,6 @@ export const UI_KEYS = {
   cryptoAlgoDataStatus: 'polywatch_crypto_algo_data_status',
   weatherAlgoPosTab: 'polywatch_weather_algo_pos_tab',
   weatherAlgoPosModeFilter: 'polywatch_weather_algo_pos_mode_filter',
-  weatherAlgoPosOpenSubTab: 'polywatch_weather_algo_pos_open_sub_tab',
   weatherAlgoPosHistoryPage: 'polywatch_weather_algo_pos_history_page',
   weatherAlgoExecModeFilter: 'polywatch_weather_algo_exec_mode_filter',
   weatherAlgoExecStatusFilter: 'polywatch_weather_algo_exec_status_filter',

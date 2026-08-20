@@ -229,6 +229,139 @@ export function createBacktestRouter(ds: DataSource): Router {
     });
   });
 
+  // ── Live market price series (ridge plot, toutes les données marché) ──
+  // Renvoie les séries de prix YES agrégées depuis weather_bucket_ticks sur
+  // toute la plage disponible en base (MIN→MAX recordedAt), indépendamment de
+  // toute run. Même pattern d'agrégation que l'endpoint par run (SELECT
+  // DISTINCT markets puis ticks par batch de 200).
+  router.get('/markets-series', requireJwt, async (req, res) => {
+    const fidelityMinutesRaw = Number(req.query.fidelityMinutes);
+    const fidelityMinutes =
+      Number.isFinite(fidelityMinutesRaw) && fidelityMinutesRaw > 0
+        ? Math.floor(fidelityMinutesRaw)
+        : undefined;
+
+    // 0. Plage réelle = [MIN, MAX] des ticks en base (avec filtre fid si présent).
+    const rangeQb = ds
+      .getRepository(WeatherBucketTick)
+      .createQueryBuilder('t')
+      .select('MIN(t.recordedAt)', 'minT')
+      .addSelect('MAX(t.recordedAt)', 'maxT');
+    if (fidelityMinutes != null) {
+      rangeQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+    }
+    const range = await rangeQb.getRawOne<{ minT: Date | null; maxT: Date | null }>();
+    const from = range?.minT ? new Date(range.minT) : null;
+    const to = range?.maxT ? new Date(range.maxT) : null;
+    if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      res.json({ items: [], truncated: false, window: { from: null, to: null } });
+      return;
+    }
+
+    // 1. Marchés distincts sur la fenêtre.
+    const marketQb = ds
+      .getRepository(WeatherBucketTick)
+      .createQueryBuilder('t')
+      .select('t.conditionId', 'conditionId')
+      .addSelect('t.city', 'city')
+      .addSelect('t.targetDateIso', 'targetDateIso')
+      .addSelect('t.metric', 'metric')
+      .addSelect('t.bucketComparison', 'bucketComparison')
+      .addSelect('t.bucketTarget', 'bucketTarget')
+      .addSelect('t.bucketLow', 'bucketLow')
+      .addSelect('t.bucketHigh', 'bucketHigh')
+      .addSelect('t.question', 'question')
+      .where('t.recordedAt >= :from', { from })
+      .andWhere('t.recordedAt <= :to', { to })
+      .groupBy('t.conditionId')
+      .addGroupBy('t.city')
+      .addGroupBy('t.targetDateIso')
+      .addGroupBy('t.metric')
+      .addGroupBy('t.bucketComparison')
+      .addGroupBy('t.bucketTarget')
+      .addGroupBy('t.bucketLow')
+      .addGroupBy('t.bucketHigh')
+      .addGroupBy('t.question')
+      .orderBy('MIN(t.recordedAt)', 'ASC');
+    if (fidelityMinutes != null) {
+      marketQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+    }
+    const markets = await marketQb.getRawMany<{
+      conditionId: string;
+      city: string | null;
+      targetDateIso: string | null;
+      metric: string | null;
+      bucketComparison: string | null;
+      bucketTarget: number | null;
+      bucketLow: number | null;
+      bucketHigh: number | null;
+      question: string | null;
+    }>();
+
+    // 2. Ticks par batch de conditionId, triés par recorded_at.
+    const BATCH = 200;
+    const series = new Map<string, {
+      conditionId: string;
+      city: string | null;
+      targetDateIso: string | null;
+      metric: string | null;
+      bucketComparison: string | null;
+      bucketTarget: number | null;
+      bucketLow: number | null;
+      bucketHigh: number | null;
+      unit: string | null;
+      points: { t: string; yesPrice: number | null }[];
+    }>();
+    for (let i = 0; i < markets.length; i += BATCH) {
+      const batch = markets.slice(i, i + BATCH).map((m) => m.conditionId);
+      const tickQb = ds
+        .getRepository(WeatherBucketTick)
+        .createQueryBuilder('t')
+        .select('t.conditionId', 'conditionId')
+        .addSelect('t.recordedAt', 'recordedAt')
+        .addSelect('t.yesPrice', 'yesPrice')
+        .where('t.conditionId IN (:...ids)', { ids: batch })
+        .andWhere('t.recordedAt >= :from', { from })
+        .andWhere('t.recordedAt <= :to', { to })
+        .orderBy('t.recordedAt', 'ASC')
+        .addOrderBy('t.id', 'ASC');
+      if (fidelityMinutes != null) {
+        tickQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+      }
+      const ticks = await tickQb.getRawMany<{
+        conditionId: string;
+        recordedAt: Date;
+        yesPrice: number | null;
+      }>();
+      for (const t of ticks) {
+        let entry = series.get(t.conditionId);
+        if (!entry) {
+          const meta = markets.find((m) => m.conditionId === t.conditionId);
+          entry = {
+            conditionId: t.conditionId,
+            city: meta?.city ?? null,
+            targetDateIso: meta?.targetDateIso ?? null,
+            metric: meta?.metric ?? null,
+            bucketComparison: meta?.bucketComparison ?? null,
+            bucketTarget: meta?.bucketTarget ?? null,
+            bucketLow: meta?.bucketLow ?? null,
+            bucketHigh: meta?.bucketHigh ?? null,
+            unit: meta?.question ? (parseWeatherQuestion(meta.question)?.unit ?? null) : null,
+            points: [],
+          };
+          series.set(t.conditionId, entry);
+        }
+        entry.points.push({ t: new Date(t.recordedAt).toISOString(), yesPrice: t.yesPrice });
+      }
+    }
+
+    res.json({
+      items: [...series.values()],
+      truncated: false,
+      window: { from: from.toISOString(), to: to.toISOString() },
+    });
+  });
+
   // ── Market price series traversed by a run (ridge plot) ────────────────
   // Dérive les séries de prix YES par marché (conditionId) depuis
   // weather_bucket_ticks sur la plage du run. On applique le même filtre

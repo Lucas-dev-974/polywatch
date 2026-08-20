@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
 
 export interface Viewport {
   minT: number;
@@ -13,12 +13,18 @@ const MIN_SPAN_MS = 60_000;
  *   données n'occupent qu'une portion du viewport).
  * - Zoom borné : on ne peut ni zoomer au-delà de la plage totale, ni zoomer
  *   sous 1 minute.
+ * - Réactif : si runFrom/runTo changent (ex. changement de fenêtre du ridge
+ *   plot live), le viewport se réinitialise sur la nouvelle plage.
  */
 export function usePanZoomViewport(runFrom: number, runTo: number) {
-  const totalSpan = Math.max(1, runTo - runFrom);
+  const totalSpan = () => Math.max(1, runTo - runFrom);
   const [viewport, setViewport] = createSignal<Viewport>({ minT: runFrom, maxT: runTo });
 
-  const clampSpan = (span: number) => Math.min(Math.max(span, MIN_SPAN_MS), totalSpan);
+  createEffect(() => {
+    setViewport({ minT: runFrom, maxT: runTo });
+  });
+
+  const clampSpan = (span: number) => Math.min(Math.max(span, MIN_SPAN_MS), totalSpan());
 
   const zoomAt = (cursorT: number, factor: number) => {
     const v = viewport();

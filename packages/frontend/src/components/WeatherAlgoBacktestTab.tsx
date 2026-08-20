@@ -8,6 +8,7 @@ import {
   fetchBacktestPositions,
   fetchBacktestRun,
   fetchBacktestRuns,
+  fetchLiveMarketSeries,
   fetchWeatherStrategyCatalog,
   launchBacktestRun,
   type BacktestDataCoverage,
@@ -23,6 +24,7 @@ import { toDateInputValue, resolveRunCapital } from './backtest/format';
 import { LaunchBacktestForm } from './backtest/LaunchBacktestForm';
 import { BacktestRunList } from './backtest/BacktestRunList';
 import { BacktestRunDetail } from './backtest/BacktestRunDetail';
+import { BacktestLiveRidgePanel } from './backtest/BacktestLiveRidgePanel';
 import { useBacktestPolling } from './backtest/useBacktestPolling';
 
 const PAGE_SIZE = 20;
@@ -84,11 +86,40 @@ export function WeatherAlgoBacktestTab() {
   const [marketSeries, setMarketSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
   const [detailError, setDetailError] = createSignal<string | null>(null);
 
+  // ── Ridge plot live (toutes les données marché) ───────────────────────
+  const [liveSeries, setLiveSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
+  const [liveWindow, setLiveWindow] = createSignal<{ from: string | null; to: string | null }>({
+    from: null,
+    to: null,
+  });
+  const [liveLoading, setLiveLoading] = createSignal(false);
+  const [liveError, setLiveError] = createSignal<string | null>(null);
+
   const polling = useBacktestPolling(() => {
     const id = selectedId();
     if (id != null) void refreshDetail(id);
     void refreshList();
   });
+
+  const livePolling = useBacktestPolling(() => {
+    void refreshLiveSeries();
+  });
+
+  async function refreshLiveSeries() {
+    setLiveLoading(true);
+    try {
+      const res = await fetchLiveMarketSeries({
+        fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
+      });
+      setLiveSeries(res.items);
+      setLiveWindow(res.window);
+      setLiveError(null);
+    } catch (err) {
+      setLiveError(err instanceof Error ? err.message : 'Données marché indisponibles');
+    } finally {
+      setLiveLoading(false);
+    }
+  }
 
   async function refreshCoverage() {
     try {
@@ -153,6 +184,8 @@ export function WeatherAlgoBacktestTab() {
   onMount(() => {
     void refreshCoverage();
     void refreshList();
+    void refreshLiveSeries();
+    livePolling.start();
     void fetchWeatherStrategyCatalog()
       .then((res) => setCatalog(res.strategies))
       .catch(() => setCatalog([]));
@@ -214,6 +247,7 @@ export function WeatherAlgoBacktestTab() {
     setPositions([]);
     setMarketSeries([]);
     stopPolling();
+    void refreshLiveSeries();
   }
 
   async function doCancel(id: number) {
@@ -253,6 +287,12 @@ export function WeatherAlgoBacktestTab() {
   return (
     <div class="backtest-tab">
       <Show when={selectedRun() == null}>
+        <BacktestLiveRidgePanel
+          series={liveSeries()}
+          window={liveWindow()}
+          loading={liveLoading()}
+          error={liveError()}
+        />
         <LaunchBacktestForm
           coverage={coverage}
           coverageLoading={coverageLoading}

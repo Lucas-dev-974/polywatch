@@ -30,7 +30,8 @@ function shouldUseGetCache(path: string): boolean {
     !path.startsWith('/system/overview') &&
     !path.startsWith('/system/crypto-algo-monitor') &&
     !path.startsWith('/weather-algo-discover') &&
-    !path.startsWith('/weather-algo-history/jobs')
+    !path.startsWith('/weather-algo-history/jobs') &&
+    !path.startsWith('/backtest/markets-series')
   );
 }
 
@@ -1277,6 +1278,18 @@ export async function fetchBacktestMarketSeries(
   id: number,
 ): Promise<{ items: BacktestMarketSeriesDto[]; truncated: boolean }> {
   return api(`/backtest/runs/${id}/markets-series`);
+}
+
+export interface BacktestLiveMarketSeriesResponse {
+  items: BacktestMarketSeriesDto[];
+  truncated: boolean;
+  window: { from: string | null; to: string | null };
+}
+
+export async function fetchLiveMarketSeries(params: {
+  fidelityMinutes?: number;
+}): Promise<BacktestLiveMarketSeriesResponse> {
+  return api(`/backtest/markets-series${weatherAlgoDataQuery(params)}`);
 }
 
 export interface WeatherHistoryIngestJob {

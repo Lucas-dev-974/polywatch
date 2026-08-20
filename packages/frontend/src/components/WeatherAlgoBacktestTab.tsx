@@ -157,16 +157,22 @@ export function WeatherAlgoBacktestTab() {
       const run = await fetchBacktestRun(id);
       setDetail(run);
       if (run.status === 'completed') {
-        const [eq, pos, mkt, exc] = await Promise.all([
+        const [eq, pos, mkt] = await Promise.all([
           fetchBacktestEquity(id),
           fetchBacktestPositions(id, { limit: 200 }),
           fetchBacktestMarketSeries(id),
-          fetchBacktestExcludedTicks(id),
         ]);
         setEquity(eq.points);
         setPositions(pos.items);
         setMarketSeries(mkt.items);
-        setExcludedTicks(exc.ticks);
+        // Les ticks exclus sont décoratifs : une erreur ici ne doit pas faire
+        // échouer le chargement du détail (positions/marchés restent visibles).
+        try {
+          const exc = await fetchBacktestExcludedTicks(id);
+          setExcludedTicks(exc.ticks);
+        } catch {
+          setExcludedTicks([]);
+        }
       } else {
         setEquity([]);
         setPositions([]);

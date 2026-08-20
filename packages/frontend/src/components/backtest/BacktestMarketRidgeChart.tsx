@@ -53,14 +53,6 @@ export function BacktestMarketRidgeChart(props: {
       .filter((n) => Number.isFinite(n)),
   );
 
-  const excludedWithinViewport = createMemo<number[]>(() => {
-    const minT = vp().minT;
-    const maxT = vp().maxT;
-    return showExcluded()
-      ? excludedTs().filter((t) => t >= minT && t <= maxT)
-      : [];
-  });
-
   const allGroups = createMemo(() => groupVoies(props.series, props.positions));
 
   const targetDates = createMemo(() => {
@@ -210,6 +202,14 @@ export function BacktestMarketRidgeChart(props: {
 
   const vp = () => viewport();
   const scale = createMemo<RidgeScale>(() => buildRidgeScale(vp().minT, vp().maxT, plotW()));
+
+  const excludedWithinViewport = createMemo<number[]>(() => {
+    const minT = vp().minT;
+    const maxT = vp().maxT;
+    return showExcluded()
+      ? excludedTs().filter((t) => t >= minT && t <= maxT)
+      : [];
+  });
 
   // ── Hover throttling : un seul update de tooltip par frame (rAF) ──────────
   let pendingHover: { t: number; y: number } | null = null;

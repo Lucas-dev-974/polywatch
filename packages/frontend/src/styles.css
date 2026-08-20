@@ -168,8 +168,7 @@ body {
 .dashboard,
 .page {
   flex: 1;
-  max-width: 1400px;
-  width: 100%;
+  width: 90%;
   margin: 0 auto;
   padding: 1.25rem 1.5rem 2rem;
   display: flex;
@@ -4517,7 +4516,7 @@ body.is-resizing-columns .position-market-split-handle::after {
 /* ── Markets page ── */
 
 .page-markets {
-  max-width: 1400px;
+  width: 90%;
   margin: 0 auto;
   padding: 0 1rem 2rem;
 }
@@ -5161,7 +5160,7 @@ body.is-resizing-columns .position-market-split-handle::after {
 /* ─── Crypto Algo page v2 (professional) ─── */
 
 .page-crypto-algo {
-  max-width: 1200px;
+  width: 90%;
   margin: 0 auto;
   padding: 1.25rem;
 }
@@ -11871,22 +11870,33 @@ body.is-resizing-columns .position-market-split-handle::after {
 
 .backtest-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.625rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
 }
 
 .backtest-metric {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 0.625rem 0.75rem;
+  padding: 0.75rem 0.875rem;
   background: var(--bg-elevated, var(--surface));
   border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-md, 0.5rem);
+  border-radius: var(--radius, 0.5rem);
+}
+
+.backtest-metric--hero {
+  background:
+    linear-gradient(180deg, var(--bg-elevated), transparent),
+    var(--surface);
+  border-color: var(--border);
+}
+
+.backtest-metric--wide {
+  grid-column: 1 / -1;
 }
 
 .backtest-metric-label {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -11896,7 +11906,33 @@ body.is-resizing-columns .position-market-split-handle::after {
 .backtest-metric-value {
   font-size: 1rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--text, var(--text-primary));
+}
+
+.backtest-metric-value--big {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.backtest-metric-value--success {
+  color: var(--success, #2ecc71);
+}
+
+.backtest-metric-value--danger {
+  color: var(--danger, #e74c3c);
+}
+
+.backtest-metric-sub {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.backtest-metric-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary, var(--text-muted));
+  line-height: 1.5;
 }
 
 .backtest-section {
@@ -12479,35 +12515,6 @@ body.is-resizing-columns .position-market-split-handle::after {
   border-radius: var(--radius-sm, 0.375rem);
 }
 
-.backtest-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 0.75rem;
-}
-
-.backtest-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 0.375rem);
-}
-
-.backtest-metric-label {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted, var(--text-secondary));
-}
-
-.backtest-metric-value {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text, var(--text-primary));
-}
-
 .backtest-section {
   display: flex;
   flex-direction: column;
@@ -12790,37 +12797,6 @@ body.is-resizing-columns .position-market-split-handle::after {
 }
 
 .backtest-detail-meta strong {
-  color: var(--text, var(--text-primary));
-}
-
-.backtest-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.625rem;
-  margin: 0.75rem 0;
-}
-
-.backtest-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.625rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 0.375rem);
-  background: var(--bg-base, #0a0a0c);
-}
-
-.backtest-metric-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted, var(--text-secondary));
-}
-
-.backtest-metric-value {
-  font-size: 1.05rem;
-  font-weight: 700;
   color: var(--text, var(--text-primary));
 }
 

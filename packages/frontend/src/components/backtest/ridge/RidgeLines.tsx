@@ -1,12 +1,12 @@
 import { createMemo, For, Show } from 'solid-js';
 import type { BacktestPositionDto } from '../../../api';
-import type { RidgeScale, VoieGroup } from './types';
+import type { RidgeScale, VisibleVoie } from './types';
 import { buildPath, MARGIN_TOP } from './scale';
 import { RidgePositionMarkers } from './RidgePositionMarkers';
 
 /** Courbes par bucket, clippées à la zone de plot. */
 export function RidgeLines(props: {
-  voies: VoieGroup[];
+  voies: VisibleVoie[];
   scale: RidgeScale;
   hoveredVoieIndex: () => number | null;
   hoveredBucketKey: () => string | null;
@@ -19,14 +19,16 @@ export function RidgeLines(props: {
 }) {
   return (
     <For each={props.voies}>
-      {(voie, i) => {
-        const voieTop = createMemo(() => props.scale.top(i()));
+      {(visible) => {
+        const voie = visible.voie;
+        const globalIndex = visible.globalIndex;
+        const voieTop = createMemo(() => props.scale.top(globalIndex));
         return (
           <g>
             <For each={voie.buckets}>
               {(bucket, bi) => {
                 const path = createMemo(() => buildPath(bucket.series, voieTop(), props.scale, props.maxTicks, props.cutGaps, props.clipUntilT));
-                const bucketKey = () => `${i()}:${bi()}`;
+                const bucketKey = () => `${globalIndex}:${bi()}`;
                 const isHovered = () => props.hoveredBucketKey() === bucketKey();
                 return (
                   <g>
@@ -43,7 +45,7 @@ export function RidgeLines(props: {
                 );
               }}
             </For>
-            <Show when={props.showEntryExit === false || props.hoveredVoieIndex() === i()}>
+            <Show when={props.showEntryExit === false || props.hoveredVoieIndex() === globalIndex}>
               <RidgePositionMarkers voie={voie} scale={props.scale} voieTop={voieTop()} onHover={props.onPositionHover} />
             </Show>
           </g>

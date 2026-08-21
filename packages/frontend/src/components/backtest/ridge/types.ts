@@ -16,6 +16,17 @@ export interface VoieGroup {
   positionBuckets: BucketLine[];
 }
 
+/**
+ * Voie visible dans la fenêtre de virtualisation, associée à son index global
+ * dans la liste complète des voies. L'index global est nécessaire pour le
+ * positionnement vertical (`scale().top(globalIndex)`) et la comparaison de
+ * hover, car l'index du `<For>` est local au sous-ensemble rendu.
+ */
+export interface VisibleVoie {
+  voie: VoieGroup;
+  globalIndex: number;
+}
+
 /** Géométrie pure (pixels) dérivée du viewport et de la largeur du plot. */
 export interface RidgeScale {
   minT: number;

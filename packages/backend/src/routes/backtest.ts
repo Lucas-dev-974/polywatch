@@ -265,6 +265,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       Number.isFinite(fidelityMinutesRaw) && fidelityMinutesRaw > 0
         ? Math.floor(fidelityMinutesRaw)
         : undefined;
+    const offset = parseOffset(req.query.offset);
+    const limit = parseLimit(req.query.limit, MAX_MARKETS_SERIES, MAX_MARKETS_SERIES);
 
     // 0. Plage réelle = [MIN, MAX] des ticks en base (avec filtre fid si présent).
     const rangeQb = ds
@@ -279,7 +281,7 @@ export function createBacktestRouter(ds: DataSource): Router {
     const from = range?.minT ? new Date(range.minT) : null;
     const to = range?.maxT ? new Date(range.maxT) : null;
     if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-      res.json({ items: [], truncated: false, window: { from: null, to: null } });
+      res.json({ items: [], total: 0, truncated: false, window: { from: null, to: null } });
       return;
     }
 
@@ -322,8 +324,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketHigh: number | null;
       question: string | null;
     }>();
-    const markets = allMarkets.slice(0, MAX_MARKETS_SERIES);
-    const truncated = allMarkets.length > MAX_MARKETS_SERIES;
+    const markets = allMarkets.slice(offset, offset + limit);
+    const truncated = allMarkets.length > offset + limit;
 
     // 2. Ticks par batch de conditionId, triés par recorded_at.
     const BATCH = 200;
@@ -384,6 +386,7 @@ export function createBacktestRouter(ds: DataSource): Router {
 
     res.json({
       items: [...series.values()],
+      total: allMarkets.length,
       truncated,
       window: { from: from.toISOString(), to: to.toISOString() },
     });
@@ -415,6 +418,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       Number.isFinite(fidelityMinutesRaw) && fidelityMinutesRaw > 0
         ? Math.floor(fidelityMinutesRaw)
         : undefined;
+    const offset = parseOffset(req.query.offset);
+    const limit = parseLimit(req.query.limit, MAX_MARKETS_SERIES, MAX_MARKETS_SERIES);
 
     // La période paramétrée de la run (params.from/to) définit l'étendue des
     // marchés à afficher, pas la plage effective des données consommées.
@@ -423,7 +428,7 @@ export function createBacktestRouter(ds: DataSource): Router {
     const from = fromIso ? new Date(fromIso) : null;
     const to = toIso ? new Date(toIso) : null;
     if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-      res.json({ items: [], truncated: false });
+      res.json({ items: [], truncated: false, total: 0 });
       return;
     }
 
@@ -471,8 +476,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketHigh: number | null;
       question: string | null;
     }>();
-    const markets = allMarkets.slice(0, MAX_MARKETS_SERIES);
-    const truncated = allMarkets.length > MAX_MARKETS_SERIES;
+    const markets = allMarkets.slice(offset, offset + limit);
+    const truncated = allMarkets.length > offset + limit;
 
     // 2. Ticks par batch de conditionId, triés par recorded_at.
     const BATCH = 200;
@@ -533,6 +538,7 @@ export function createBacktestRouter(ds: DataSource): Router {
 
     res.json({
       items: [...series.values()],
+      total: allMarkets.length,
       truncated,
     });
   });

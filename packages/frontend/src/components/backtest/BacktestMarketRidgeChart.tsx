@@ -1,10 +1,9 @@
-import { createMemo, createSignal, For, Show, onCleanup } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import type { BacktestMarketSeriesDto, BacktestPositionDto, BacktestExcludedTickDto } from '../../api';
 import { useChartWidth } from '../../hooks/useChartWidth';
 import { buildChartXTicks } from '../../lib/updown-price-chart';
-import { formatTs } from './format';
 import { usePanZoomViewport } from './usePanZoomViewport';
-import { groupVoies, bucketLabel } from './ridge/group';
+import { groupVoies } from './ridge/group';
 import { buildRidgeScale, MARGIN_TOP, VOIE_H } from './ridge/scale';
 import { RidgeGrid } from './ridge/RidgeGrid';
 import { RidgeLines, RidgeCrosshair } from './ridge/RidgeLines';
@@ -13,13 +12,13 @@ import { RidgePlayhead } from './ridge/RidgePlayhead';
 import { RidgePlayMarkers } from './ridge/RidgePlayMarkers';
 import { RidgePlayerControls } from './ridge/RidgePlayerControls';
 import { RidgePlayTooltip } from './ridge/RidgePlayTooltip';
+import { RidgeToolbar } from './ridge/RidgeToolbar';
+import { RidgeAxisY, RidgeAxisX } from './ridge/RidgeAxes';
 import { useRidgePlayer } from './ridge/useRidgePlayer';
 import { useRidgePlayerFocus } from './ridge/useRidgePlayerFocus';
-import type { RidgeScale, TooltipInfo } from './ridge/types';
-
-const PAD_L = 8;
-const Y_AXIS_W = 148;
-const X_AXIS_H = 40;
+import { useRidgeVirtualization } from './ridge/useRidgeVirtualization';
+import { useRidgeHover } from './ridge/useRidgeHover';
+import type { RidgeScale } from './ridge/types';
 
 export function BacktestMarketRidgeChart(props: {
   series: BacktestMarketSeriesDto[];
@@ -67,6 +66,9 @@ export function BacktestMarketRidgeChart(props: {
     if (filter === 'all') return groups;
     return groups.filter((g) => g.date === filter);
   });
+
+  // ── Virtualisation verticale ──────────────────────────────────────────
+  const virtualization = useRidgeVirtualization(voies);
 
   // ── Player de replay ──────────────────────────────────────────────────
   // Timeline = timestamps uniques triés des points des voies filtrées
@@ -124,46 +126,6 @@ export function BacktestMarketRidgeChart(props: {
   const [hoveredRowPosition, setHoveredRowPosition] = createSignal<BacktestPositionDto | null>(null);
   const [hoveredRowXY, setHoveredRowXY] = createSignal<{ x: number; y: number } | null>(null);
 
-  // Convertit des coordonnées SVG (interne au <svg viewBox>) en coordonnées
-  // CSS du container racine backtest-ridge-plot (qui inclut toolbar + scroll + axe Y).
-  const svgToContainer = (svgX: number, svgY: number): { x: number; y: number } => {
-    const svg = plotSvgEl();
-    const root = rootEl();
-    if (!svg || !root) return { x: svgX, y: svgY };
-    const svgRect = svg.getBoundingClientRect();
-    const rootRect = root.getBoundingClientRect();
-    // Facteur d'échelle SVG → pixels écran.
-    const scaleX = svgRect.width / plotW();
-    const scaleY = svgRect.height / heightPlot();
-    return {
-      x: svgRect.left - rootRect.left + svgX * scaleX,
-      y: svgRect.top - rootRect.top + svgY * scaleY,
-    };
-  };
-
-  const onPositionHover = (pos: BacktestPositionDto | null, x: number, y: number) => {
-    setHoveredRowPosition(pos);
-    setHoveredRowXY(pos ? svgToContainer(x, y) : null);
-  };
-
-  // Hover d'un marker du player : positionne le tooltip près du marker.
-  const onPlayMarkerHover = (pos: BacktestPositionDto | null) => {
-    setHoveredPlayPosition(pos);
-    if (pos) {
-      const entryT = Date.parse(pos.entryAt);
-      const voieIndex = voies().findIndex((v) =>
-        v.buckets.some((b) => b.series.conditionId === pos.conditionId),
-      );
-      if (voieIndex >= 0) {
-        setHoveredPlayXY(
-          svgToContainer(scale().xPos(entryT), scale().top(voieIndex) + VOIE_H / 2),
-        );
-      }
-    } else {
-      setHoveredPlayXY(null);
-    }
-  };
-
   // Le clip n'est actif qu'en mode replay (index > 0 ou playing).
   const clipUntilT = createMemo<number | null>(() => {
     if (!playerActive()) return null;
@@ -178,14 +140,29 @@ export function BacktestMarketRidgeChart(props: {
 
   const { viewport, setViewport, zoomAt, pan, reset } = usePanZoomViewport(runFrom(), runTo());
 
-  const [hoveredT, setHoveredT] = createSignal<number | null>(null);
-  const [hoveredY, setHoveredY] = createSignal<number | null>(null);
   const [dragging, setDragging] = createSignal(false);
   const [dragStart, setDragStart] = createSignal<{ x: number; y: number } | null>(null);
 
-  const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>();
+  // ── Hover : crosshair + tooltip (coordonnées, bucket, throttling rAF) ──
+  const plotH = createMemo(() => Math.max(1, VOIE_H * voies().length));
+  const heightPlot = createMemo(() => MARGIN_TOP + plotH());
 
-  // Focus smooth du viewport pendant la lecture du player.
+  const vp = () => viewport();
+  const scale = createMemo<RidgeScale>(() => buildRidgeScale(vp().minT, vp().maxT, plotW()));
+
+  const hover = useRidgeHover({
+    plotSvgEl,
+    rootEl,
+    plotW,
+    heightPlot,
+    voies,
+    scale,
+    maxTicks,
+    isPlaying: player.isPlaying,
+    isHoveringPlayMarker: () => hoveredPlayPosition() != null,
+  });
+
+  // ── Focus smooth du viewport pendant la lecture du player ─────────────
   useRidgePlayerFocus({
     isPlaying: player.isPlaying,
     playheadT: player.playheadT,
@@ -194,14 +171,8 @@ export function BacktestMarketRidgeChart(props: {
     runFrom: runFrom(),
     runTo: runTo(),
     activeVoieIndex,
-    scrollEl,
+    scrollEl: virtualization.scrollEl,
   });
-
-  const plotH = createMemo(() => Math.max(1, VOIE_H * voies().length));
-  const heightPlot = createMemo(() => MARGIN_TOP + plotH());
-
-  const vp = () => viewport();
-  const scale = createMemo<RidgeScale>(() => buildRidgeScale(vp().minT, vp().maxT, plotW()));
 
   const excludedWithinViewport = createMemo<number[]>(() => {
     const minT = vp().minT;
@@ -209,25 +180,6 @@ export function BacktestMarketRidgeChart(props: {
     return showExcluded()
       ? excludedTs().filter((t) => t >= minT && t <= maxT)
       : [];
-  });
-
-  // ── Hover throttling : un seul update de tooltip par frame (rAF) ──────────
-  let pendingHover: { t: number; y: number } | null = null;
-  let rafId: number | null = null;
-  const flushHover = () => {
-    rafId = null;
-    if (pendingHover) {
-      setHoveredT(pendingHover.t);
-      setHoveredY(pendingHover.y);
-      pendingHover = null;
-    }
-  };
-  const scheduleHover = (t: number, y: number) => {
-    pendingHover = { t, y };
-    if (rafId == null) rafId = requestAnimationFrame(flushHover);
-  };
-  onCleanup(() => {
-    if (rafId != null) cancelAnimationFrame(rafId);
   });
 
   const toLocalXY = (svg: SVGSVGElement, clientX: number, clientY: number) => {
@@ -258,12 +210,12 @@ export function BacktestMarketRidgeChart(props: {
       const dx = e.clientX - dragStart()!.x;
       const dy = e.clientY - dragStart()!.y;
       pan((-dx / plotW()) * (vp().maxT - vp().minT));
-      const scroller = scrollEl();
+      const scroller = virtualization.scrollEl();
       if (scroller && dy !== 0) scroller.scrollTop -= dy;
       setDragStart({ x: e.clientX, y: e.clientY });
     } else {
       const local = toLocalXY(e.currentTarget as SVGSVGElement, e.clientX, e.clientY);
-      scheduleHover(
+      hover.scheduleHover(
         vp().minT + (local.x / plotW()) * (vp().maxT - vp().minT),
         local.y,
       );
@@ -277,13 +229,7 @@ export function BacktestMarketRidgeChart(props: {
   };
 
   const onPointerLeave = () => {
-    if (rafId != null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-    pendingHover = null;
-    setHoveredT(null);
-    setHoveredY(null);
+    hover.clearHover();
     setDragging(false);
     setDragStart(null);
   };
@@ -298,210 +244,57 @@ export function BacktestMarketRidgeChart(props: {
     return scale().xPos(end);
   });
 
-  // nearestPrice en recherche dichotomique (points triés par temps).
-  const nearestPrice = (s: BacktestMarketSeriesDto, t: number): number | null => {
-    const n = maxTicks();
-    const points = n > 0 ? s.points.slice(-n) : s.points;
-    if (points.length === 0) return null;
-    // Recherche dichotomique de l'index du point le plus proche de t.
-    let lo = 0;
-    let hi = points.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (Date.parse(points[mid].t) < t) lo = mid + 1;
-      else hi = mid;
-    }
-    // Comparer lo et lo-1 pour trouver le plus proche (en tenant compte des null).
-    let best: number | null = null;
-    let bestDist = Infinity;
-    for (const cand of [lo - 1, lo, lo + 1]) {
-      if (cand < 0 || cand >= points.length) continue;
-      const p = points[cand];
-      if (p.yesPrice == null) continue;
-      const d = Math.abs(Date.parse(p.t) - t);
-      if (d < bestDist) {
-        bestDist = d;
-        best = p.yesPrice;
-      }
-    }
-    return best;
+  // Hover d'une position de row : positionne le tooltip près du marker.
+  const onPositionHover = (pos: BacktestPositionDto | null, x: number, y: number) => {
+    setHoveredRowPosition(pos);
+    setHoveredRowXY(pos ? hover.svgToContainer(x, y) : null);
   };
 
-  const hoveredVoieIndex = createMemo(() => {
-    const y = hoveredY();
-    const list = voies();
-    if (y == null || list.length === 0) return null;
-    const rel = y - MARGIN_TOP;
-    if (rel < 0 || rel >= plotH()) return null;
-    return Math.floor(rel / VOIE_H);
-  });
-
-  // Clé unique d'un bucket dans une row : `${voieIndex}:${bucketIndex}`.
-  // null si le curseur n'est sur aucune courbe spécifique.
-  const HOVER_BUCKET_TOLERANCE_PX = 8; // distance verticale max pour "survoler" une courbe
-  const hoveredBucketKey = createMemo<string | null>(() => {
-    const t = hoveredT();
-    const y = hoveredY();
-    const idx = hoveredVoieIndex();
-    if (t == null || y == null || idx == null) return null;
-    const sc = scale();
-    const group = voies()[idx];
-    if (!group) return null;
-    const voieTop = sc.top(idx);
-    let bestKey: string | null = null;
-    let bestDist = Infinity;
-    for (let bi = 0; bi < group.buckets.length; bi++) {
-      const b = group.buckets[bi];
-      const price = nearestPrice(b.series, t);
-      if (price == null) continue;
-      const py = sc.yPos(price, voieTop);
-      const d = Math.abs(py - y);
-      if (d < bestDist) {
-        bestDist = d;
-        bestKey = `${idx}:${bi}`;
+  // Hover d'un marker du player : positionne le tooltip près du marker.
+  const onPlayMarkerHover = (pos: BacktestPositionDto | null) => {
+    setHoveredPlayPosition(pos);
+    if (pos) {
+      const entryT = Date.parse(pos.entryAt);
+      const voieIndex = voies().findIndex((v) =>
+        v.buckets.some((b) => b.series.conditionId === pos.conditionId),
+      );
+      if (voieIndex >= 0) {
+        setHoveredPlayXY(
+          hover.svgToContainer(scale().xPos(entryT), scale().top(voieIndex) + VOIE_H / 2),
+        );
       }
+    } else {
+      setHoveredPlayXY(null);
     }
-    return bestDist <= HOVER_BUCKET_TOLERANCE_PX ? bestKey : null;
-  });
-
-  const tooltipInfo = createMemo<TooltipInfo | null>(() => {
-    // P10 : masquer le tooltip hover pendant le replay ou au survol d'un marker.
-    if (player.isPlaying() || hoveredPlayPosition() != null) return null;
-    const t = hoveredT();
-    const idx = hoveredVoieIndex();
-    const group = idx == null ? null : voies()[idx];
-    if (t == null || !group) return null;
-    const key = hoveredBucketKey();
-    // Si une courbe précise est survolée, on ne garde que son bucket.
-    // Sinon, on affiche tous les buckets de la row.
-    const selectedBuckets = key != null
-      ? group.buckets.filter((_, bi) => `${idx}:${bi}` === key)
-      : group.buckets;
-    const buckets = selectedBuckets.map((b) => ({
-      color: b.color,
-      label: bucketLabel(b.series),
-      price: nearestPrice(b.series, t),
-      position: b.position,
-    }));
-    const positionBuckets = buckets.filter((b) => b.position);
-    return {
-      city: group.city ?? '—',
-      date: group.date,
-      cursorLabel: formatTs(new Date(t).toISOString()),
-      buckets,
-      hasPositions: positionBuckets.length > 0,
-      positionBuckets,
-    };
-  });
+  };
 
   return (
     <div class="backtest-ridge-plot" ref={setRootEl}>
-      <div class="backtest-ridge-toolbar">
-        <span class="backtest-ridge-hint">Molette : zoom · Glisser : déplacer</span>
-        <div class="backtest-ridge-toolbar-right">
-          <Show when={targetDates().length > 1}>
-            <label class="backtest-ridge-filter">
-              <span>Date cible</span>
-              <select
-                value={targetDateFilter()}
-                onChange={(e) => setTargetDateFilter(e.currentTarget.value)}
-              >
-                <option value="all">Toutes</option>
-                <For each={targetDates()}>
-                  {(d) => <option value={d}>{d}</option>}
-                </For>
-              </select>
-            </label>
-          </Show>
-          <label class="backtest-ridge-filter">
-            <span>Derniers ticks</span>
-            <select
-              value={maxTicks()}
-              onChange={(e) => setMaxTicks(Number(e.currentTarget.value))}
-            >
-              <option value="0">Tous</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-            </select>
-          </label>
-          <label class="backtest-ridge-filter">
-            <span>Couper sur les trous</span>
-            <input
-              type="checkbox"
-              checked={cutGaps()}
-              onChange={(e) => setCutGaps(e.currentTarget.checked)}
-            />
-          </label>
-          <label class="backtest-ridge-filter">
-            <span>Entry/Exit hover show</span>
-            <input
-              type="checkbox"
-              checked={showEntryExit()}
-              onChange={(e) => setShowEntryExit(e.currentTarget.checked)}
-            />
-          </label>
-          <label class="backtest-ridge-filter">
-            <span>Ticks exclus</span>
-            <input
-              type="checkbox"
-              checked={showExcluded()}
-              onChange={(e) => setShowExcluded(e.currentTarget.checked)}
-            />
-          </label>
-          <Show when={enablePlayer()}>
-            <label class="backtest-ridge-filter">
-              <span>Player</span>
-              <input
-                type="checkbox"
-                checked={playerEnabled()}
-                onChange={(e) => setPlayerEnabled(e.currentTarget.checked)}
-              />
-            </label>
-          </Show>
-          <button type="button" class="btn btn-sm btn-ghost backtest-ridge-reset-btn" onClick={reset}>
-            Réinitialiser
-          </button>
-        </div>
-      </div>
+      <RidgeToolbar
+        targetDates={targetDates()}
+        targetDateFilter={[targetDateFilter, setTargetDateFilter]}
+        maxTicks={[maxTicks, setMaxTicks]}
+        cutGaps={[cutGaps, setCutGaps]}
+        showEntryExit={[showEntryExit, setShowEntryExit]}
+        showExcluded={[showExcluded, setShowExcluded]}
+        playerEnabled={[playerEnabled, setPlayerEnabled]}
+        enablePlayer={enablePlayer()}
+        onReset={reset}
+      />
       <Show
         when={voies().length > 0}
         fallback={<p class="form-hint">Aucun marché parcouru sur cette plage.</p>}
       >
-        <div class="backtest-ridge-scroll" ref={setScrollEl}>
+        <div class="backtest-ridge-scroll" ref={virtualization.setScrollEl} onScroll={virtualization.onScroll}>
           <div class="backtest-ridge-grid">
             {/* Axe Y (labels des rows) */}
             <div class="backtest-ridge-axis-y">
-              <svg
-                viewBox={`0 0 ${Y_AXIS_W} ${heightPlot()}`}
-                width={Y_AXIS_W}
-                height={heightPlot()}
-                role="img"
-                aria-label="Axe Y : marchés par date cible"
-              >
-                <For each={voies()}>
-                  {(voie, i) => (
-                    <text
-                      x={PAD_L}
-                      y={scale().top(i()) + VOIE_H / 2 + 4}
-                      class={hoveredVoieIndex() === i() ? 'backtest-ridge-label backtest-ridge-label-focused' : 'backtest-ridge-label'}
-                      text-anchor="start"
-                    >
-                      {voie.city ?? '—'} · {voie.date}
-                    </text>
-                  )}
-                </For>
-                <text
-                  x={10}
-                  y={heightPlot() / 2}
-                  text-anchor="middle"
-                  transform={`rotate(-90 10 ${heightPlot() / 2})`}
-                  class="backtest-ridge-axis-title"
-                >
-                  Prix YES
-                </text>
-              </svg>
+              <RidgeAxisY
+                visibleVoies={virtualization.visibleVoies()}
+                scale={scale()}
+                heightPlot={heightPlot()}
+                hoveredVoieIndex={hover.hoveredVoieIndex()}
+              />
             </div>
 
             {/* Plot principal */}
@@ -524,9 +317,9 @@ export function BacktestMarketRidgeChart(props: {
                     <rect x={0} y={MARGIN_TOP} width={plotW()} height={plotH()} />
                   </clipPath>
                 </defs>
-                <RidgeGrid voies={voies()} xTicks={xTicks()} scale={scale()} />
+                <RidgeGrid voies={virtualization.visibleVoies()} xTicks={xTicks()} scale={scale()} plotH={plotH()} />
                 <g clip-path="url(#backtest-ridge-clip)">
-                  <RidgeLines voies={voies()} scale={scale()} hoveredVoieIndex={hoveredVoieIndex} hoveredBucketKey={hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} clipUntilT={clipUntilT()} showEntryExit={showEntryExit()} onPositionHover={onPositionHover} />
+                  <RidgeLines voies={virtualization.visibleVoies()} scale={scale()} hoveredVoieIndex={hover.hoveredVoieIndex} hoveredBucketKey={hover.hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} clipUntilT={clipUntilT()} showEntryExit={showEntryExit()} onPositionHover={onPositionHover} />
                   <Show when={excludedWithinViewport().length > 0}>
                     <For each={excludedWithinViewport()}>
                       {(t) => (
@@ -540,7 +333,7 @@ export function BacktestMarketRidgeChart(props: {
                       )}
                     </For>
                   </Show>
-                  <RidgeCrosshair hoveredT={hoveredT()} plotH={plotH()} scale={scale()} />
+                  <RidgeCrosshair hoveredT={hover.hoveredT()} plotH={plotH()} scale={scale()} />
                   <Show when={playerActive()}>
                     <RidgePlayMarkers
                       positions={props.positions}
@@ -569,46 +362,7 @@ export function BacktestMarketRidgeChart(props: {
 
             {/* Axe X (temps) */}
             <div class="backtest-ridge-axis-x">
-              <svg
-                viewBox={`0 0 ${plotW()} ${X_AXIS_H}`}
-                width="100%"
-                height={X_AXIS_H}
-                role="img"
-                aria-label="Axe X : temps"
-              >
-                <For each={xTicks()}>
-                  {(tick) => (
-                    <text x={scale().xPos(tick.t)} y={14} text-anchor="middle" class="backtest-ridge-axis-label">
-                      {tick.label}
-                    </text>
-                  )}
-                </For>
-                <Show when={nowX() != null}>
-                  <line
-                    x1={nowX()!}
-                    y1={0}
-                    x2={nowX()!}
-                    y2={X_AXIS_H}
-                    class="backtest-ridge-now"
-                  />
-                  <text
-                    x={nowX()!}
-                    y={X_AXIS_H - 6}
-                    text-anchor="middle"
-                    class="backtest-ridge-now-label"
-                  >
-                    fin des données
-                  </text>
-                </Show>
-                <text
-                  x={plotW() / 2}
-                  y={32}
-                  text-anchor="middle"
-                  class="backtest-ridge-axis-title"
-                >
-                  Temps
-                </text>
-              </svg>
+              <RidgeAxisX scale={scale()} plotW={plotW()} xTicks={xTicks()} nowX={nowX()} />
             </div>
           </div>
         </div>
@@ -626,7 +380,7 @@ export function BacktestMarketRidgeChart(props: {
           onReset={player.reset}
         />
       </Show>
-      <RidgeTooltip info={tooltipInfo()} />
+      <RidgeTooltip info={hover.tooltipInfo()} />
       <Show when={playerActive() && hoveredPlayPosition() != null && hoveredPlayXY() != null}>
         <RidgePlayTooltip position={hoveredPlayPosition()} x={hoveredPlayXY()!.x} y={hoveredPlayXY()!.y} />
       </Show>

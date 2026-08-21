@@ -20,6 +20,7 @@ interface BacktestRunDetailProps {
   excludedTicks: BacktestExcludedTickDto[];
   positions: BacktestPositionDto[];
   marketSeries: BacktestMarketSeriesDto[];
+  marketTotal: number;
   error: string | null;
   capital: number;
   onBack: () => void;
@@ -113,7 +114,7 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
 
       <Show when={props.marketSeries.length > 0 && runFrom() && runTo()}>
         <CollapsibleSection
-          title={`Marchés parcourus (${props.marketSeries.length})`}
+          title={`Marchés parcourus (${props.marketTotal})`}
           defaultCollapsed={false}
           persistKey="backtest-detail-markets"
         >

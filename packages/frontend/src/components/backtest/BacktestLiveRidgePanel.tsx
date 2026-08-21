@@ -4,6 +4,7 @@ import { BacktestMarketRidgeChart } from './BacktestMarketRidgeChart';
 
 interface BacktestLiveRidgePanelProps {
   series: BacktestMarketSeriesDto[];
+  total: number;
   window: { from: string | null; to: string | null };
   loading: boolean;
   error: string | null;
@@ -27,7 +28,7 @@ export function BacktestLiveRidgePanel(props: BacktestLiveRidgePanelProps) {
             Live
           </span>
           <h3 class="settings-subheading">Marchés en direct</h3>
-          <span class="algo-panel-count">{props.series.length} marché(s)</span>
+          <span class="algo-panel-count">{props.total} marché(s)</span>
         </div>
       </div>
 

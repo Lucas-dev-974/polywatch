@@ -30,6 +30,9 @@ import { BacktestLiveRidgePanel } from './backtest/BacktestLiveRidgePanel';
 import { useBacktestPolling } from './backtest/useBacktestPolling';
 
 const PAGE_SIZE = 20;
+// Taille de page pour le chargement paginé des séries marché (ridge plot).
+// Bornée par MAX_MARKETS_SERIES côté backend.
+const MARKETS_PAGE_SIZE = 500;
 
 export function WeatherAlgoBacktestTab() {
   // ── Coverage (disponibilité des données) ─────────────────────────
@@ -87,10 +90,12 @@ export function WeatherAlgoBacktestTab() {
   const [excludedTicks, setExcludedTicks] = createSignal<BacktestExcludedTickDto[]>([]);
   const [positions, setPositions] = createSignal<BacktestPositionDto[]>([]);
   const [marketSeries, setMarketSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
+  const [marketTotal, setMarketTotal] = createSignal(0);
   const [detailError, setDetailError] = createSignal<string | null>(null);
 
   // ── Ridge plot live (toutes les données marché) ───────────────────────
   const [liveSeries, setLiveSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
+  const [liveTotal, setLiveTotal] = createSignal(0);
   const [liveWindow, setLiveWindow] = createSignal<{ from: string | null; to: string | null }>({
     from: null,
     to: null,
@@ -111,11 +116,27 @@ export function WeatherAlgoBacktestTab() {
   async function refreshLiveSeries() {
     setLiveLoading(true);
     try {
-      const res = await fetchLiveMarketSeries({
-        fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
-      });
-      setLiveSeries(res.items);
-      setLiveWindow(res.window);
+      const fid = fidelityMinutes() ? Number(fidelityMinutes()) : undefined;
+      const items: BacktestMarketSeriesDto[] = [];
+      let total = 0;
+      let offset = 0;
+      let window: { from: string | null; to: string | null } = { from: null, to: null };
+      // Boucle paginée : on concatène les pages jusqu'à avoir tout le total.
+      for (;;) {
+        const res = await fetchLiveMarketSeries({
+          fidelityMinutes: fid,
+          offset,
+          limit: MARKETS_PAGE_SIZE,
+        });
+        items.push(...res.items);
+        total = res.total;
+        window = res.window;
+        offset += res.items.length;
+        if (offset >= total || res.items.length === 0) break;
+      }
+      setLiveSeries(items);
+      setLiveTotal(total);
+      setLiveWindow(window);
       setLiveError(null);
     } catch (err) {
       setLiveError(err instanceof Error ? err.message : 'Données marché indisponibles');
@@ -165,14 +186,28 @@ export function WeatherAlgoBacktestTab() {
         stopPolling();
       }
       if (run.status === 'completed') {
-        const [eq, pos, mkt] = await Promise.all([
+        const [eq, pos] = await Promise.all([
           fetchBacktestEquity(id),
           fetchBacktestPositions(id, { limit: 200 }),
-          fetchBacktestMarketSeries(id),
         ]);
         setEquity(eq.points);
         setPositions(pos.items);
-        setMarketSeries(mkt.items);
+        // Marchés : boucle paginée pour tout récupérer (pas de troncature silencieuse).
+        const mktItems: BacktestMarketSeriesDto[] = [];
+        let mktTotal = 0;
+        let mktOffset = 0;
+        for (;;) {
+          const mkt = await fetchBacktestMarketSeries(id, {
+            offset: mktOffset,
+            limit: MARKETS_PAGE_SIZE,
+          });
+          mktItems.push(...mkt.items);
+          mktTotal = mkt.total;
+          mktOffset += mkt.items.length;
+          if (mktOffset >= mktTotal || mkt.items.length === 0) break;
+        }
+        setMarketSeries(mktItems);
+        setMarketTotal(mktTotal);
         // Les ticks exclus sont décoratifs : une erreur ici ne doit pas faire
         // échouer le chargement du détail (positions/marchés restent visibles).
         try {
@@ -185,6 +220,7 @@ export function WeatherAlgoBacktestTab() {
         setEquity([]);
         setPositions([]);
         setMarketSeries([]);
+        setMarketTotal(0);
         setExcludedTicks([]);
       }
       setDetailError(null);
@@ -257,6 +293,7 @@ export function WeatherAlgoBacktestTab() {
     setExcludedTicks([]);
     setPositions([]);
     setMarketSeries([]);
+    setMarketTotal(0);
     void refreshDetail(id);
     startPolling();
   }
@@ -268,6 +305,7 @@ export function WeatherAlgoBacktestTab() {
     setExcludedTicks([]);
     setPositions([]);
     setMarketSeries([]);
+    setMarketTotal(0);
     stopPolling();
     void refreshLiveSeries();
   }
@@ -311,6 +349,7 @@ export function WeatherAlgoBacktestTab() {
       <Show when={selectedRun() == null}>
         <BacktestLiveRidgePanel
           series={liveSeries()}
+          total={liveTotal()}
           window={liveWindow()}
           loading={liveLoading()}
           error={liveError()}
@@ -366,6 +405,7 @@ export function WeatherAlgoBacktestTab() {
           excludedTicks={excludedTicks()}
           positions={positions()}
           marketSeries={marketSeries()}
+          marketTotal={marketTotal()}
           error={detailError()}
           capital={resolveRunCapital(selectedRun()!.params)}
           onBack={closeRun}

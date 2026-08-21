@@ -1283,18 +1283,22 @@ export async function fetchBacktestExcludedTicks(
 
 export async function fetchBacktestMarketSeries(
   id: number,
-): Promise<{ items: BacktestMarketSeriesDto[]; truncated: boolean }> {
-  return api(`/backtest/runs/${id}/markets-series`);
+  params: { offset?: number; limit?: number } = {},
+): Promise<{ items: BacktestMarketSeriesDto[]; total: number; truncated: boolean }> {
+  return api(`/backtest/runs/${id}/markets-series${weatherAlgoDataQuery(params)}`);
 }
 
 export interface BacktestLiveMarketSeriesResponse {
   items: BacktestMarketSeriesDto[];
+  total: number;
   truncated: boolean;
   window: { from: string | null; to: string | null };
 }
 
 export async function fetchLiveMarketSeries(params: {
   fidelityMinutes?: number;
+  offset?: number;
+  limit?: number;
 }): Promise<BacktestLiveMarketSeriesResponse> {
   return api(`/backtest/markets-series${weatherAlgoDataQuery(params)}`);
 }

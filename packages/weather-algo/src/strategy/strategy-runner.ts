@@ -516,7 +516,7 @@ export class WeatherStrategyRunner {
       // Collect the resolved bucket dates for this city so we still record a
       // snapshot for a city whose active markets are all gone but which has
       // resolved buckets to persist.
-      for (const [key, markets] of resolvedByCityDate) {
+      for (const key of resolvedByCityDate.keys()) {
         const prefix = `${cityKey}|${metric}|`;
         if (!key.startsWith(prefix)) continue;
         const dateKey = key.slice(prefix.length);

@@ -1,4 +1,3 @@
-import type { DataSource } from 'typeorm';
 import { binaryPricesFromParsed, binaryPricesToUpDown, type MarketListItemDto } from '@polywatch/core';
 
 export interface ResolvedBucketPrices {

@@ -1,6 +1,5 @@
 import pino from 'pino';
 import type { MarketListItemDto, WeatherStrategyParamsBag } from '@polywatch/core';
-import { parseWeatherQuestion } from '@polywatch/core';
 import type {
   WeatherStrategy,
   WeatherEvaluationContext,

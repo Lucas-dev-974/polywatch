@@ -604,21 +604,6 @@ describe('applySelectionMode', () => {
     };
   }
 
-  function buildRunnerForSelection(risk: WeatherConfig) {
-    const registry = { getAll: () => [] } as unknown as WeatherStrategyRegistry;
-    const runner = new WeatherStrategyRunner({
-      ds: { getRepository: () => ({ find: async () => [] }) } as never,
-      autoTrackService: { listEnabled: async () => [] } as never,
-      forecastService: {} as never,
-      registry,
-      redisCmd: {} as never,
-      onSignal: async () => false,
-      pollMs: 60_000,
-    });
-    runner.setRiskConfig(risk);
-    return runner;
-  }
-
   it('single mode returns the highest-edge signal only', () => {
     const risk = minimalRisk({ weatherAlgoEnabled: true, weatherAlgoSelectionMode: 'single' });
     const result = applySelectionMode(

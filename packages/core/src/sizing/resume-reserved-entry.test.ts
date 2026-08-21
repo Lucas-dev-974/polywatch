@@ -36,7 +36,10 @@ describe('resumeEntryFromReservation', () => {
     });
 
     expect(result).toBe(ENTRY_MOS_SKIP_CANNOT_BUMP);
-    expect(release).toHaveBeenCalledWith('sig-1');
+    expect(release).toHaveBeenCalledWith(
+      'sig-1',
+      'resume_abandoned:Quantité sous le minimum marché (MOS), bump impossible',
+    );
     expect(enqueueUnique).not.toHaveBeenCalled();
   });
 

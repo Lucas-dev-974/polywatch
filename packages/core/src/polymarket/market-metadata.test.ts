@@ -45,6 +45,7 @@ describe('fetchGammaMarket', () => {
     });
     expect(fetch).toHaveBeenCalledWith(
       'https://gamma-api.polymarket.com/markets?condition_ids=0xabc',
+      { signal: expect.any(AbortSignal) },
     );
   });
 
@@ -73,6 +74,7 @@ describe('fetchGammaMarket', () => {
     expect(fetch).toHaveBeenNthCalledWith(
       2,
       'https://gamma-api.polymarket.com/markets?condition_ids=0xclosed&closed=true',
+      { signal: expect.any(AbortSignal) },
     );
   });
 

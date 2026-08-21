@@ -18,6 +18,9 @@ import type {
 /** Cap for take-profit in bid points on binary markets (max bid is 1.00). */
 export const BINARY_TP_BID_CAP = 0.99;
 
+/** Tiny tolerance for floating-point price comparisons (bid points). */
+const BID_POINTS_EPSILON = 1e-9;
+
 /**
  * Fail-closed gate for independent exit legs (SL / TP / trailing).
  * Only an explicit `true` enables the leg.
@@ -235,7 +238,7 @@ export function evaluateSlTpTrailing(input: {
     const currentBid = entryBidVwap * (1 + effectiveTrigger / 100);
     if (
       isTrailingArmed(currentBid, entryBidVwap, trailingActivationBidPoints) &&
-      peakBidVwap - currentBid >= trailingBidPoints
+      peakBidVwap - currentBid >= trailingBidPoints - BID_POINTS_EPSILON
     ) {
       return 'TRAILING';
     }

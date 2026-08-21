@@ -31,7 +31,11 @@ describe('snapshot-decision-collector parity (sim vs real)', () => {
   });
 
   it('produces matching shared summary fields for equivalent positions', async () => {
-    const snapshotAt = new Date('2026-08-06T12:00:00.000Z');
+    // Use a fixed future date so seeded session/snapshot timestamps (created
+    // during seedDefaults from Date.now()) do not push windowFrom past the
+    // test events we create below.
+    const snapshotAt = new Date('2030-01-15T12:00:00.000Z');
+    const eventAt = new Date('2030-01-15T11:30:00.000Z');
     const posRepo = ds.getRepository(CopiedPosition);
 
     const simPos = await posRepo.save(
@@ -73,14 +77,14 @@ describe('snapshot-decision-collector parity (sim vs real)', () => {
         mode: 'sim',
         kind: 'emit',
         closeReason: 'tp',
-        createdAt: new Date('2026-08-06T11:30:00.000Z'),
+        createdAt: eventAt,
       }),
       exitRepo.create({
         copiedPositionId: realPos.id,
         mode: 'real',
         kind: 'emit',
         closeReason: 'tp',
-        createdAt: new Date('2026-08-06T11:30:00.000Z'),
+        createdAt: eventAt,
       }),
     ]);
 

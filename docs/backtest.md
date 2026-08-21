@@ -9,9 +9,11 @@ produit positions, equity, statistiques et avertissements de fidélité.
 
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
 > Prometheus et Socket.IO décrits dans le plan d'origine ne sont **pas** implémentés.  
-> **Moteur** : `engineVersion` **`0.4.0`** (audit moteur —
-> [`audits/2026-08-19_audit-weather-backtest-moteur.md`](./audits/2026-08-19_audit-weather-backtest-moteur.md)).  
-> Runs `< 0.4.0` non comparables.
+> **Moteur** : `engineVersion` **`0.5.0`** (audit moteur —
+> [`audits/2026-08-19_audit-weather-backtest-moteur.md`](./audits/2026-08-19_audit-weather-backtest-moteur.md) ;
+> per-strategy risk guards —
+> [`audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](./audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md)).  
+> Runs `< 0.5.0` non comparables (résolution per-strategy des garde-fous risk).
 
 ---
 
@@ -95,9 +97,16 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 
 Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
 `maxExposure`, `maxDailyLoss` (+ `force_close_all` → `KILL_SWITCH`), cash insuffisant,
-one-thesis-per-city-date (`maxPositionsPerCityDate`), throttle re-entry **ville+date** **uniquement** après
+one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, throttle re-entry **ville+date** **uniquement** après
 `WEATHER_BUCKET_EXIT` / `WEATHER_FORECAST_CHANGE`, filtre cycle de vie marché
 (`isMarketActiveForWeather`), hystérésis bucket calée sur `weatherAlgoPollMs`.
+
+> **Résolution per-strategy (depuis 0.5.0)** : `maxExposureUsdc`, `maxDailyLossUsdc`,
+> `maxPositionSizeUsdc`, `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
+> via `getStrategyParams(cfgSnapshot, strategyId)` pour **chaque position** — pas via
+> un bag global. En `runner-sim`, le bag de `signal.strategyId` est utilisé ; en mode
+> `strategy`, le bag de `this.strategyId`. Le kill-switch ferme uniquement les
+> positions de la stratégie déclenchée (pas toutes les positions du ledger).
 
 ---
 
@@ -208,12 +217,12 @@ Paramètres lus depuis le bag per-strategy
 | `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > bag.forecastChangeThreshold` — **pose** le throttle — **non applicable à `weather-highest-yes` en live (évalué en backtest)** |
 | `WEATHER_BUCKET_EXIT` | Forecast hors palier + `bag.cityFollowSwitchMode = close_and_reenter` après `bag.bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle — **non applicable à `weather-highest-yes` en live (évalué en backtest)** |
 | `SL` / `TP` / `TRAILING` | Seuils résolus à l’entrée via `resolveWeatherEntryExitParams(risk, mode, interval, strategyId)` (défauts `WEATHER_EXIT_DEFAULTS` si bidPoints null) — **pas** de confirmation ticks, **pas** de throttle |
-| `KILL_SWITCH` | `dailyPnl(strategyId) <= -bag.maxDailyLossUsdc` et `bag.killSwitchAction === 'force_close_all'` — ferme uniquement les positions de la stratégie |
+| `KILL_SWITCH` | `dailyRealizedPnl(strategyId) <= -bag.maxDailyLossUsdc` et `bag.killSwitchAction === 'force_close_all'` — ferme **uniquement** les positions de la stratégie déclenchée (pas toutes les positions du ledger) |
 | `RESOLUTION` | Marché résolu par prix YES (`>= 0.99` → YES / `<= 0.01` → NO) — 1 tick suffit |
 | `BACKTEST_INCOMPLETE_DATA` | Position encore ouverte en fin de run (aucun tick de résolution reçu) — résolution forcée au dernier `markPrice` (ou `entryPrice` si aucun) |
 
-> **Note** : les runs avec `engineVersion < 0.4.0` ont été produits avant l’alignement
-> SL/TP/throttle/filtres/résolution forcée/résolution par prix — **non comparables** aux runs ≥ `0.4.0`.
+> **Note** : les runs avec `engineVersion < 0.5.0` ont été produits avant l’alignement
+> SL/TP/throttle/filtres/résolution forcée/résolution par prix/garde-fous per-strategy — **non comparables** aux runs ≥ `0.5.0`.
 
 ---
 
@@ -278,10 +287,12 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 - `src/adapters/weather/weather-adapter.test.ts` : run replay (entrée + résolution),
   meta persisté, limite positions, capacité ville+date replay, résolution fallback,
   metric non supporté, hors plage, résolution forcée ghost positions, carry-forward markPrice,
-  garde highest-yes drift/bucket.
+  garde highest-yes drift/bucket, **garde-fous per-strategy** (`ledger.openExposure` /
+  `dailyRealizedPnl` filtrage par `strategyId`, `maxExposureUsdc` par stratégie bloque
+  2e entrée, `maxExposureUsdc` généreux autorise multiple entrées).
 - `packages/core/src/services/backtest-run.service.test.ts` : verrou singleton.
 
-Lancement : `npm run test -w @polywatch/backtest` (**35** tests).
+Lancement : `npm run test -w @polywatch/backtest` (**45** tests).
 
 ---
 

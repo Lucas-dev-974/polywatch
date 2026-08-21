@@ -348,7 +348,7 @@ Service : `BacktestRunService`. Doc : [`backtest.md`](./backtest.md).
 **`backtest_runs`** — job de replay :
 - Cycle de vie : `queued` → `running` → `completed` | `failed` | `cancelled`
 - `params_json` (plage, mode, villes, capital…), `config_snapshot_json`, `config_fingerprint`
-- `engine_version` (semver moteur, ex. `0.4.0` via `BACKTEST_ENGINE_VERSION`)
+- `engine_version` (semver moteur, ex. `0.5.0` via `BACKTEST_ENGINE_VERSION`)
 - `stats_json` (PnL, win rate, `profitFactor` **null = +∞**, max drawdown, `byExitReason`, `byCity`…), `fidelity_warnings_json`
 - `data_range_from` / `data_range_to` (plage réellement couverte par les events)
 - `error` si `failed` (exception, `timeout`, `backend_restart`)

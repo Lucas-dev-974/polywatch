@@ -9,6 +9,7 @@ import {
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
 } from '@polywatch/core';
+
 import type { BacktestEvent, BookTickEventData, SignalEventData } from '../../engine/events.js';
 import type { RunContext } from '../../engine/runner.js';
 import type { LedgerPosition } from '../../engine/ledger.js';
@@ -163,19 +164,33 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       ).length;
   }
 
-  private isDailyLossBreached(ctx: RunContext): boolean {
-    const bag = this.bag;
+  /**
+   * Check if daily loss is breached for a given strategy. Per-strategy filtering
+   * aligns with live behaviour (policy.ts resolves by strategyId).
+   */
+  private isDailyLossBreached(ctx: RunContext, strategyId: string | null): boolean {
+    const bag = strategyId
+      ? getStrategyParams(ctx.configSnapshot, strategyId)
+      : this.bag;
     const maxDailyLoss = bag.maxDailyLossUsdc;
     if (maxDailyLoss == null) return false;
-    return ctx.ledger.dailyRealizedPnl(ctx.clock.now()) <= -maxDailyLoss;
+    return ctx.ledger.dailyRealizedPnl(ctx.clock.now(), strategyId) <= -maxDailyLoss;
   }
 
+  /**
+   * Check entry feasibility using the bag of the strategy that will own the
+   * position (signal.strategyId for runner-sim, this.strategyId for strategy mode).
+   */
   private canEnter(
     ctx: RunContext,
     entryUsdc: number,
     yesPrice: number,
+    strategyId: string | null,
   ): boolean {
     this.emitStaticFidelityWarnings(ctx);
+    const bag = strategyId
+      ? getStrategyParams(ctx.configSnapshot, strategyId)
+      : this.bag;
     const slippage = ctx.params.slippageBps;
     const entryPrice = yesPrice * (1 + slippage / 10_000);
     const qty = entryUsdc / entryPrice;
@@ -186,32 +201,63 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       return false;
     }
 
-    const maxExposure = this.bag.maxExposureUsdc;
-    if (maxExposure != null && ctx.ledger.openExposure() + entryUsdc > maxExposure) {
+    const maxExposure = bag.maxExposureUsdc;
+    if (maxExposure != null && ctx.ledger.openExposure(strategyId) + entryUsdc > maxExposure) {
       return false;
     }
 
-    if (this.isDailyLossBreached(ctx)) {
+    if (this.isDailyLossBreached(ctx, strategyId)) {
       return false;
     }
 
     return true;
   }
 
-  /** Close all open positions when kill-switch action is force_close_all. */
+  /**
+   * Close positions when their owning strategy's kill-switch is triggered.
+   * Iterates per-position with the position's own bag, mirroring live behaviour
+   * (getWeatherKillSwitchAction(cfg, mode, strategyId)).
+   */
   private maybeForceCloseAll(ctx: RunContext): void {
     if (this.killSwitchFired) return;
-    if (!this.isDailyLossBreached(ctx)) return;
 
-    const action = this.bag.killSwitchAction;
-    if (action !== 'force_close_all') {
+    // Group open positions by strategyId to evaluate each strategy's kill-switch
+    // with its own bag. A strategy is "triggered" when its daily loss is breached
+    // AND its killSwitchAction is force_close_all.
+    const positionsByStrategy = new Map<string | null, LedgerPosition[]>();
+    for (const pos of ctx.ledger.openPositions()) {
+      const sid = (pos.meta?.strategyId as string | null | undefined) ?? null;
+      const bucket = positionsByStrategy.get(sid) ?? [];
+      bucket.push(pos);
+      positionsByStrategy.set(sid, bucket);
+    }
+
+    const firedStrategies: string[] = [];
+    const blockedStrategies: string[] = [];
+    for (const [strategyId, positions] of positionsByStrategy) {
+      const bag = strategyId
+        ? getStrategyParams(ctx.configSnapshot, strategyId)
+        : this.bag;
+      if (!this.isDailyLossBreached(ctx, strategyId)) continue;
+      const action = bag.killSwitchAction;
+      if (action !== 'force_close_all') {
+        blockedStrategies.push(`${strategyId ?? 'default'}:${action}`);
+        continue;
+      }
+      firedStrategies.push(strategyId ?? 'default');
+    }
+
+    if (firedStrategies.length === 0 && blockedStrategies.length === 0) return;
+
+    if (blockedStrategies.length > 0) {
       this.warnOnce(
         ctx,
         'kill_switch_block_entries',
-        `Kill-switch actif (${action}) — nouvelles entrées bloquées`,
+        `Kill-switch actif (${blockedStrategies.join(', ')}) — nouvelles entrées bloquées`,
       );
-      return;
     }
+
+    if (firedStrategies.length === 0) return;
 
     // Mark fired before the loop so a mid-loop throw cannot re-enter and
     // double-close. If any close fails, we clear the flag so the next tick retries.
@@ -219,28 +265,31 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     this.warnOnce(
       ctx,
       'kill_switch_force_close',
-      'Kill-switch force_close_all — clôture de toutes les positions ouvertes',
+      `Kill-switch force_close_all — clôture des positions des stratégies: ${firedStrategies.join(', ')}`,
     );
 
     let failed = 0;
-    for (const pos of [...ctx.ledger.openPositions()]) {
-      try {
-        const cached = this.lastTickByCondition.get(pos.conditionId);
-        const yesPrice = cached?.tick.yesPrice != null ? cached.tick.yesPrice : pos.markPrice;
-        const { exitPrice, fees } = simulateWeatherExitFill({
-          qty: pos.qty,
-          yesPrice,
-          slippageBps: ctx.params.slippageBps,
-        });
-        ctx.ledger.closePosition({
-          conditionId: pos.conditionId,
-          exitPrice,
-          exitAt: ctx.clock.now(),
-          exitReason: 'KILL_SWITCH',
-          fees,
-        });
-      } catch {
-        failed += 1;
+    for (const [strategyId, positions] of positionsByStrategy) {
+      if (!firedStrategies.includes(strategyId ?? 'default')) continue;
+      for (const pos of [...positions]) {
+        try {
+          const cached = this.lastTickByCondition.get(pos.conditionId);
+          const yesPrice = cached?.tick.yesPrice != null ? cached.tick.yesPrice : pos.markPrice;
+          const { exitPrice, fees } = simulateWeatherExitFill({
+            qty: pos.qty,
+            yesPrice,
+            slippageBps: ctx.params.slippageBps,
+          });
+          ctx.ledger.closePosition({
+            conditionId: pos.conditionId,
+            exitPrice,
+            exitAt: ctx.clock.now(),
+            exitReason: 'KILL_SWITCH',
+            fees,
+          });
+        } catch {
+          failed += 1;
+        }
       }
     }
 
@@ -310,14 +359,14 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       const cached = this.lastTickByCondition.get(signal.conditionId);
       const yesPrice = cached?.tick.yesPrice;
       if (yesPrice == null) continue;
-      if (!this.canEnter(ctx, ctx.params.entryUsdc, yesPrice)) continue;
+      if (!this.canEnter(ctx, ctx.params.entryUsdc, yesPrice, signal.strategyId)) continue;
 
       const fill = simulateWeatherEntryFill({
         conditionId: signal.conditionId,
         yesPrice,
         entryUsdc: ctx.params.entryUsdc,
         slippageBps: ctx.params.slippageBps,
-        maxPositionSizeUsdc: this.bag.maxPositionSizeUsdc,
+        maxPositionSizeUsdc: signalBag.maxPositionSizeUsdc,
       });
 
       ctx.ledger.openPosition({
@@ -475,7 +524,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       Math.max(1, this.bag.maxPositionsPerCityDate ?? 1)
     ) return;
 
-    if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice)) return;
+    if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice, this.strategyId)) return;
 
     const fill = simulateWeatherEntryFill({
       conditionId: data.conditionId,
@@ -524,17 +573,17 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     if (data.city && targetDateIso && this.exitManager.isReentryBlocked(data.city, targetDateIso, ctx.clock.now(), risk, data.strategyId)) return;
     if (
       this.openCountForCityDate(ctx, data.city, targetDateIso, data.strategyId) >=
-      Math.max(1, this.bag.maxPositionsPerCityDate ?? 1)
+      Math.max(1, (getStrategyParams(risk, data.strategyId).maxPositionsPerCityDate ?? 1))
     ) return;
 
-    if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice)) return;
+    if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice, data.strategyId)) return;
 
     const fill = simulateWeatherEntryFill({
       conditionId: data.conditionId,
       yesPrice: data.yesPrice,
       entryUsdc: ctx.params.entryUsdc,
       slippageBps: ctx.params.slippageBps,
-      maxPositionSizeUsdc: this.bag.maxPositionSizeUsdc,
+      maxPositionSizeUsdc: getStrategyParams(risk, data.strategyId).maxPositionSizeUsdc,
     });
 
     ctx.ledger.openPosition({
@@ -587,9 +636,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     }
 
     if (tick.yesPrice == null) {
-      // markPrice est toujours non-null (initialisé à entryPrice). On ne peut
-      // pas distinguer markPrice mis à jour par un tick antérieur de entryPrice
-      // pur. On indique donc la source réelle via comparaison.
       const fallbackSource = pos.markPrice !== pos.entryPrice ? 'markPrice' : 'entryPrice';
       this.warnOnce(
         ctx,

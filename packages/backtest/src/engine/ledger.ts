@@ -68,23 +68,30 @@ export class Ledger {
     return this.open.has(conditionId);
   }
 
-  /** Notional USDC tied up in open positions (cost basis). */
-  openExposure(): number {
+  /** Notional USDC tied up in open positions (cost basis). Optional strategy filter. */
+  openExposure(strategyId?: string | null): number {
     let total = 0;
     for (const pos of this.open.values()) {
+      if (strategyId !== undefined) {
+        const posStrategy = (pos.meta?.strategyId as string | null | undefined) ?? null;
+        if (posStrategy !== strategyId) continue;
+      }
       total += pos.qty * pos.entryPrice;
     }
     return total;
   }
 
-  /** Realized PnL for the UTC calendar day of `at` (negative = loss). */
-  dailyRealizedPnl(at: Date): number {
+  /** Realized PnL for the UTC calendar day of `at` (negative = loss). Optional strategy filter. */
+  dailyRealizedPnl(at: Date, strategyId?: string | null): number {
     const dayKey = at.toISOString().slice(0, 10);
     let total = 0;
     for (const pos of this.closed) {
-      if (pos.exitAt.toISOString().slice(0, 10) === dayKey) {
-        total += pos.pnl;
+      if (pos.exitAt.toISOString().slice(0, 10) !== dayKey) continue;
+      if (strategyId !== undefined) {
+        const posStrategy = (pos.meta?.strategyId as string | null | undefined) ?? null;
+        if (posStrategy !== strategyId) continue;
       }
+      total += pos.pnl;
     }
     return total;
   }

@@ -1,5 +1,43 @@
 # Change History
 
+## 2026-08-21 — Backtest per-strategy risk guards (engineVersion 0.5.0)
+
+### Fixed
+- Backtest adapter (`packages/backtest/src/adapters/weather/weather-adapter.ts`) :
+  les garde-fous risk (`maxExposureUsdc`, `maxDailyLossUsdc`, `maxPositionSizeUsdc`,
+  `killSwitchAction`, `maxPositionsPerCityDate`) étaient résolus via `this.bag` global
+  au lieu du bag de la stratégie propriétaire de la position — divergence avec le live
+  (`policy.ts` résout par `strategyId`). Corrigé :
+  - `canEnter(ctx, entryUsdc, yesPrice, strategyId)` résout le bag via
+    `getStrategyParams(cfgSnapshot, strategyId)` et filtre `openExposure(strategyId)` ;
+  - `isDailyLossBreached(ctx, strategyId)` filtre `dailyRealizedPnl(at, strategyId)` ;
+  - `maybeForceCloseAll` groupe les positions par `strategyId`, évalue chaque
+    kill-switch avec son propre bag, et ne ferme que les positions des stratégies
+    déclenchées (pas tout le ledger) ;
+  - `flushPendingRunnerSimSignals` et `onSignal` utilisent `signalBag.maxPositionSizeUsdc`
+    et `getStrategyParams(risk, data.strategyId).maxPositionsPerCityDate` ;
+  - `onBookTick` passe `this.strategyId` à `canEnter`.
+
+### Changed
+- Backtest ledger (`packages/backtest/src/engine/ledger.ts`) : `openExposure(strategyId?)`
+  et `dailyRealizedPnl(at, strategyId?)` acceptent un paramètre optionnel `strategyId`
+  pour filtrer les positions/pertes par stratégie (aligné sur `reservation.service.ts`
+  live qui filtre par `strategyId`).
+- Engine version bump : `0.4.0` → **`0.5.0`** (sémantique de garde-fous modifiée — runs
+  non comparables).
+
+### Tests Added
+- `packages/backtest/src/adapters/weather/weather-adapter.test.ts` : 4 tests —
+  `ledger.openExposure` filtre par `strategyId`, `ledger.dailyRealizedPnl` filtre par
+  `strategyId`, `maxExposureUsdc` par stratégie bloque 2e entrée, `maxExposureUsdc`
+  généreux autorise multiple entrées.
+- Tests validés : `backtest` 45/45.
+
+### Notes
+- Doc mise à jour : `docs/backtest.md`, `docs/code/09-backtest.md`, `docs/weather-algo.md`,
+  `docs/modele-donnees.md`, `docs/api.md`, `change.history.md`.
+- Audit : `docs/audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`.
+
 ## 2026-08-15 — Weather-algo highest-yes edge cases : backtest resolution fallback + single mode city+date selection
 
 ### Fixed

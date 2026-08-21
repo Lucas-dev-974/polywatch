@@ -57,6 +57,12 @@ export type WeatherStrategyParamsBag = {
   /** Min YES market price required to emit a signal (highest-yes strategy). */
   minYesPrice: number;
   /**
+   * Max YES price ceiling for entry (highest-yes strategy). Null disables the
+   * filter. Acts as an anti-fade gate: refuse to buy a bucket whose YES price
+   * is already so high that the upside to resolution (≈ 1.0) is too thin.
+   */
+  maxYesPrice: number | null;
+  /**
    * Bucket comparisons eligible for the highest-yes strategy. Empty array or
    * null = all comparisons accepted (default). Use to exclude cumulative
    * buckets (or_above / or_below) whose YES price is mechanically inflated
@@ -118,6 +124,7 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   maxForecastStd: null,
   minForecastProbability: null,
   minYesPrice: 0.5,
+  maxYesPrice: null,
   allowedComparisons: null,
   maxPositionsPerCityDate: 1,
   entryUsdc: 10,
@@ -227,6 +234,7 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
   return [
     // Entry gate
     { key: 'minYesPrice', label: 'Prix YES minimal', kind: 'number', min: 0.01, max: 1, step: 0.01, default: 0.5, hint: 'Seuil de consensus : n’entre que si le prix YES du bucket est >= ce seuil.' },
+    { key: 'maxYesPrice', label: 'Prix YES maximal', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé. Anti-fade : n’entre que si le prix YES du bucket est <= ce plafond (upside restant vers la résolution trop fin sinon).' },
     {
       key: 'allowedComparisons',
       label: 'Comparaisons éligibles',
@@ -347,6 +355,7 @@ export function serializeWeatherAlgoStrategyParams(params: WeatherStrategyParams
 const NULLABLE_ZERO_KEYS = new Set([
   'maxForecastStd',
   'minForecastProbability',
+  'maxYesPrice',
   'slBidPoints',
   'tpBidPoints',
   'trailingBidPoints',
@@ -409,6 +418,10 @@ export function validateWeatherStrategyParamsUpdate(
       const schema = meta.params.find((p) => p.key === key);
       if (!schema) continue;
       if (schema.kind === 'number' && typeof value !== 'number') {
+        if (value === null && NULLABLE_ZERO_KEYS.has(key)) {
+          // Null = knob désactivé (nullable numeric knob). Legit, skip.
+          continue;
+        }
         errors.push({ strategyId, key, message: 'expected number' });
       } else if (schema.kind === 'boolean' && typeof value !== 'boolean') {
         errors.push({ strategyId, key, message: 'expected boolean' });

@@ -250,6 +250,7 @@ const weatherStrategyParamsBagSchema = z
     maxForecastStd: nullableNumber,
     minForecastProbability: nullableNumber,
     minYesPrice: z.number().finite().min(0).max(1),
+    maxYesPrice: nullableNumber,
     // Sizing
     entryUsdc: z.number().finite().min(1).max(10000),
     sizingMode: weatherSizingMode,
@@ -285,8 +286,7 @@ const weatherStrategyParamsBagSchema = z
     minBidToAskRatio: z.number().finite().min(0).max(1),
     minTimeToClose: z.number().int().min(0).max(86_400),
   })
-  .partial()
-  .strict();
+  .partial();
 
 const weatherStrategyParamsMapSchema = z.record(
   weatherStrategyId,

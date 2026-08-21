@@ -19,6 +19,29 @@ describe('strategy-catalog', () => {
   it('getStrategyParams returns minYesPrice default for highest-yes', () => {
     const params = getStrategyParams({}, WEATHER_HIGHEST_YES_STRATEGY_ID);
     expect(params.minYesPrice).toBe(0.5);
+    expect(params.maxYesPrice).toBeNull();
+  });
+
+  it('getStrategyParams overlays stored maxYesPrice and coerces 0 to null', () => {
+    const params = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          [WEATHER_HIGHEST_YES_STRATEGY_ID]: { maxYesPrice: 0.7 },
+        }),
+      },
+      WEATHER_HIGHEST_YES_STRATEGY_ID,
+    );
+    expect(params.maxYesPrice).toBe(0.7);
+
+    const disabled = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          [WEATHER_HIGHEST_YES_STRATEGY_ID]: { maxYesPrice: 0 },
+        }),
+      },
+      WEATHER_HIGHEST_YES_STRATEGY_ID,
+    );
+    expect(disabled.maxYesPrice).toBeNull();
   });
 
   it('getStrategyParams overlays stored minYesPrice for highest-yes', () => {
@@ -115,5 +138,24 @@ describe('strategy-catalog', () => {
       { 'weather-forecast': { useGlobalMinEdge: false } },
     );
     expect(errors).toEqual([]);
+  });
+
+  it('validateWeatherStrategyParamsUpdate accepts null for nullable numeric knobs', () => {
+    const errors = validateWeatherStrategyParamsUpdate(
+      [WEATHER_HIGHEST_YES_STRATEGY_ID, WEATHER_FORECAST_STRATEGY_ID],
+      {
+        'weather-highest-yes': { maxYesPrice: null },
+        'weather-forecast': { slBidPoints: null, maxForecastStd: null },
+      },
+    );
+    expect(errors).toEqual([]);
+  });
+
+  it('validateWeatherStrategyParamsUpdate still rejects null for non-nullable knobs', () => {
+    const errors = validateWeatherStrategyParamsUpdate(
+      [WEATHER_FORECAST_STRATEGY_ID],
+      { 'weather-forecast': { minEdge: null } },
+    );
+    expect(errors.some((e) => e.key === 'minEdge' && e.message === 'expected number')).toBe(true);
   });
 });

@@ -186,6 +186,7 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `maxForecastStd` | `null` | Std dev max des modeles (°C, null = illimite) |
 | `minForecastProbability` | `null` | Probabilité forecast min (null = illimité) |
 | `minYesPrice` | `0.5` | Prix YES minimal pour entrer — **stratégie `weather-highest-yes` uniquement** (seuil de consensus) |
+| `maxYesPrice` | `null` | Prix YES maximal pour entrer — **stratégie `weather-highest-yes` uniquement** (plafond anti-fade ; `null`/`0` = désactivé) |
 | `sizingMode` | `fixed_usdc` | Mode de sizing (`fixed_usdc` uniquement) |
 | `entryUsdc` | `10` | Montant fixe d'entree USDC |
 | `entryDepthRetryMax` | `3` | Retries profondeur ask insuffisante |
@@ -206,9 +207,6 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `slConfirmationTicks` | `2` | Evaluations consecutives SL avant signal |
 | `slCloseMaxRetries` | `5` | Max tentatives cloture SL/TRAILING/PRE_CLOSE_LOSS/KILL_SWITCH |
 | `forecastChangeThreshold` | `2` | Drift du forecast mean (°C) → `WEATHER_FORECAST_CHANGE` |
-| `closeBeforeResolutionHours` | `1` | Gate d'entrée + auto-close `WEATHER_PRE_CLOSE` |
-| `preCloseEnabled` | `true` | Active la pre-close (par stratégie) |
-| `preCloseSeconds` | `60` | Fenêtre pre-close en secondes (par stratégie) |
 | `cityFollowSwitchMode` | `close_and_reenter` | `close_and_reenter` \| `hold` (`add_position` coercé) |
 | `bucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
 | `reentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree sur le même couple (ville, date cible) |
@@ -220,9 +218,9 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 > **`weather-highest-yes` (sans forecast)** : les knobs forecast sont **inopérants**
 > pour cette stratégie — `minEdge`, `maxForecastStd`, `minForecastProbability`
 > (gates d'entrée), ainsi que `forecastChangeThreshold` et
-> `bucketHysteresisPolls` (drift/bucket-exit désactivés en live). Seule la
-> gate `minYesPrice` s'applique à l'entrée ; pre-close et SL/TP/trailing
-> restent actifs.
+> `bucketHysteresisPolls` (drift/bucket-exit désactivés en live). Seules les
+> gates `minYesPrice` (prix YES ≥ seuil) et `maxYesPrice` (prix YES ≤ plafond,
+> désactivé par défaut) s'appliquent à l'entrée ; SL/TP/trailing restent actifs.
 
 UI : onglet **Paramètres** (globaux) + onglet **Stratégies** (activation +
 params per-strategy) + onglet **Donnees** (exploration/purge). Voir

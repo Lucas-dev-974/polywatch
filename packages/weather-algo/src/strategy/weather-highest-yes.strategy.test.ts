@@ -82,6 +82,80 @@ describe('WeatherHighestYesStrategy', () => {
     }
   });
 
+  it('filters buckets above maxYesPrice (anti-fade ceiling)', async () => {
+    const strategy = new WeatherHighestYesStrategy();
+    strategy.setRiskConfig({ minYesPrice: 0.5, maxYesPrice: 0.7 } as never);
+
+    const result = await strategy.evaluateGroup(
+      [
+        market({
+          conditionId: 'low',
+          outcomePrices: [
+            { outcome: 'Yes', price: 0.55 },
+            { outcome: 'No', price: 0.45 },
+          ],
+        }),
+        market({
+          conditionId: 'high',
+          outcomePrices: [
+            { outcome: 'Yes', price: 0.80 },
+            { outcome: 'No', price: 0.20 },
+          ],
+        }),
+      ],
+      { forecastMean: 0, forecastStdDev: 0 },
+    );
+
+    // 0.80 dépasse le plafond 0.70 → exclu ; seul 0.55 reste éligible.
+    expect(result.kind).toBe('signal');
+    if (result.kind === 'signal') {
+      expect(result.signal.conditionId).toBe('low');
+    }
+  });
+
+  it('abstains when every bucket exceeds maxYesPrice', async () => {
+    const strategy = new WeatherHighestYesStrategy();
+    strategy.setRiskConfig({ minYesPrice: 0.5, maxYesPrice: 0.6 } as never);
+
+    const result = await strategy.evaluateGroup(
+      [
+        market({
+          conditionId: 'high',
+          outcomePrices: [
+            { outcome: 'Yes', price: 0.80 },
+            { outcome: 'No', price: 0.20 },
+          ],
+        }),
+      ],
+      { forecastMean: 0, forecastStdDev: 0 },
+    );
+
+    expect(result.kind).toBe('abstain');
+    if (result.kind === 'abstain') {
+      expect(result.reason).toBe('no_high_yes_bucket');
+    }
+  });
+
+  it('single-bucket evaluate applies the maxYesPrice ceiling', async () => {
+    const strategy = new WeatherHighestYesStrategy();
+    strategy.setRiskConfig({ minYesPrice: 0.5, maxYesPrice: 0.6 } as never);
+
+    const result = await strategy.evaluate(
+      market({
+        outcomePrices: [
+          { outcome: 'Yes', price: 0.80 },
+          { outcome: 'No', price: 0.20 },
+        ],
+      }),
+      { forecastMean: 0, forecastStdDev: 0 },
+    );
+
+    expect(result.kind).toBe('abstain');
+    if (result.kind === 'abstain') {
+      expect(result.reason).toBe('yes_price_above_max');
+    }
+  });
+
   it('abstains when no bucket has a valid YES price', async () => {
     const strategy = new WeatherHighestYesStrategy();
     strategy.setRiskConfig({ minYesPrice: 0.5 } as never);

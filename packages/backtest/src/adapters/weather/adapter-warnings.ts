@@ -53,7 +53,7 @@ export class AdapterWarnings {
     this.warnOnce(
       ctx,
       'risk_min_time_to_close_ignored',
-      'minTimeToClose non appliqué en backtest (closeBeforeHours appliqué à l\'entrée)',
+      'minTimeToClose non appliqué en backtest (positions tenues jusqu\'à la résolution ou sortie SL/TP)',
     );
     this.warnOnce(
       ctx,

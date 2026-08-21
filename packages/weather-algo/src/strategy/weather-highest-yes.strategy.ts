@@ -44,10 +44,12 @@ const log = pino({ name: 'weather-algo:highest-yes-strategy' });
 export class WeatherHighestYesStrategy implements WeatherStrategy {
   readonly id = 'weather-highest-yes';
   private minYesPrice: number = 0.5;
+  private maxYesPrice: number | null = null;
   private allowedComparisons: WeatherComparison[] | null = null;
 
   setRiskConfig(params: WeatherStrategyParamsBag): void {
     this.minYesPrice = params.minYesPrice;
+    this.maxYesPrice = params.maxYesPrice ?? null;
     this.allowedComparisons =
       params.allowedComparisons && params.allowedComparisons.length > 0
         ? params.allowedComparisons
@@ -76,6 +78,13 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
         detail: `yesPrice=${yesPrice.toFixed(4)} < min=${this.minYesPrice.toFixed(4)}`,
       };
     }
+    if (this.maxYesPrice != null && yesPrice > this.maxYesPrice) {
+      return {
+        kind: 'abstain',
+        reason: 'yes_price_above_max',
+        detail: `yesPrice=${yesPrice.toFixed(4)} > max=${this.maxYesPrice.toFixed(4)}`,
+      };
+    }
     return this.buildSignal(market, yesPrice, now);
   }
 
@@ -91,7 +100,12 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
         continue;
       }
       const yesPrice = this.extractYesPrice(market);
-      if (yesPrice == null || yesPrice <= 0 || yesPrice < this.minYesPrice) {
+      if (
+        yesPrice == null ||
+        yesPrice <= 0 ||
+        yesPrice < this.minYesPrice ||
+        (this.maxYesPrice != null && yesPrice > this.maxYesPrice)
+      ) {
         continue;
       }
       if (!best || yesPrice > best.yesPrice) {

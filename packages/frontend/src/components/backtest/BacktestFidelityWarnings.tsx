@@ -25,7 +25,7 @@ const KNOWN_WARNINGS: Record<string, FidelityWarning> = {
   risk_min_time_to_close_ignored: {
     icon: '⏱️',
     title: 'minTimeToClose ignoré',
-    hint: 'Ce paramètre n’est pas appliqué en backtest ; closeBeforeHours est appliqué à l’entrée.',
+    hint: 'Ce paramètre n’est pas appliqué en backtest ; les positions sont tenues jusqu’à la résolution ou une sortie SL/TP.',
   },
   fill_no_book_depth: {
     icon: '📖',

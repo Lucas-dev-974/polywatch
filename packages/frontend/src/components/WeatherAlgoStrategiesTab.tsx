@@ -14,6 +14,7 @@ import { NumberField, ToggleField, SelectField, NullableNumberField } from './se
 const NULLABLE_PARAM_KEYS = new Set([
   'maxForecastStd',
   'minForecastProbability',
+  'maxYesPrice',
   'slBidPoints',
   'tpBidPoints',
   'trailingBidPoints',
@@ -25,7 +26,7 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
   {
     id: 'entry',
     title: 'Entrée',
-    keys: ['minEdge', 'maxForecastStd', 'minForecastProbability', 'minYesPrice', 'entryUsdc', 'sizingMode', 'fixedShareCount'],
+    keys: ['minEdge', 'maxForecastStd', 'minForecastProbability', 'minYesPrice', 'maxYesPrice', 'entryUsdc', 'sizingMode', 'fixedShareCount'],
   },
   {
     id: 'exit',

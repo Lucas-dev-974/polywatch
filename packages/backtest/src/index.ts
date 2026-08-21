@@ -25,12 +25,39 @@ export interface RunBacktestInput {
   getAbortReason?: () => 'cancelled' | 'timeout' | null;
 }
 
-function applyConfigOverrides(
+export function applyConfigOverrides(
   config: WeatherConfig,
   overrides?: Record<string, unknown>,
 ): WeatherConfig {
   if (!overrides || Object.keys(overrides).length === 0) {
     return config;
+  }
+
+  // Les overrides sont limités aux clés météo et à des valeurs primitives
+  // (les champs complexes sont stockés en JSON string côté WeatherConfig).
+  // Cela évite un spread naïf qui corromprait silencieusement la config.
+  const unknownKeys: string[] = [];
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!key.startsWith('weatherAlgo')) {
+      unknownKeys.push(key);
+      continue;
+    }
+    const type = typeof value;
+    if (
+      value !== null &&
+      type !== 'string' &&
+      type !== 'number' &&
+      type !== 'boolean'
+    ) {
+      throw new Error(
+        `configOverrides: la valeur de '${key}' doit être primitive (string|number|boolean|null), reçu ${type}`,
+      );
+    }
+  }
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `configOverrides: clés inconnues (préfixe attendu 'weatherAlgo') : ${unknownKeys.join(', ')}`,
+    );
   }
   return { ...config, ...overrides } as WeatherConfig;
 }

@@ -19,8 +19,9 @@ export class VirtualClock {
   }
 
   /**
-   * Advance to a target timestamp. Throws on going backwards more than the
-   * allowed tolerance, which catches mis-sorted source data.
+   * Advance to a target timestamp. Throws on any backwards regression
+   * (no tolerance — exact chronological ordering is required), which
+   * catches mis-sorted source data.
    */
   advanceTo(target: Date): void {
     const targetMs = target.getTime();

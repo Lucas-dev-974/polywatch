@@ -137,6 +137,20 @@ describe('computeStats', () => {
     const stats = computeStats([closed({ pnl: 5, ms: 1000, reason: 'TP' })], 1000, 1005, []);
     expect(stats.profitFactor).toBeNull();
   });
+
+  it('treats pnl === 0 as breakeven, not a loss (P1-4)', () => {
+    const closedPositions = [
+      closed({ pnl: 10, ms: 1000, reason: 'TP' }),
+      closed({ pnl: 0, ms: 2000, reason: 'RESOLUTION' }),
+    ];
+    const stats = computeStats(closedPositions, 1000, 1010, []);
+    // Breakeven is neither win nor loss: winRate 1/2, avgLoss unchanged.
+    expect(stats.winRate).toBeCloseTo(1 / 2, 5);
+    expect(stats.avgLoss).toBe(0);
+    expect(stats.avgWin).toBeCloseTo(10, 5);
+    // grossLoss = 0 (only breakeven) → profitFactor null (no losing trades).
+    expect(stats.profitFactor).toBeNull();
+  });
 });
 
 describe('computeMaxDrawdown', () => {

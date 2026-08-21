@@ -25,6 +25,11 @@ import pino from 'pino';
 
 const log = pino({ name: 'backend:backtest' });
 
+// Borne sur le nombre de marchés séries retournés par /markets-series et
+// /runs/:id/markets-series (ridge plot). Les marchés au-delà sont tronqués
+// et signalés par `truncated: true` pour éviter des réponses JSON démesurées.
+const MAX_MARKETS_SERIES = Number(process.env.BACKTEST_MARKETS_SERIES_LIMIT ?? 500);
+
 function parseExitReason(value: unknown): BacktestExitReason | null {
   if (typeof value !== 'string' || !value.trim()) return null;
   return (BACKTEST_EXIT_REASONS as readonly string[]).includes(value)
@@ -306,7 +311,7 @@ export function createBacktestRouter(ds: DataSource): Router {
     if (fidelityMinutes != null) {
       marketQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
     }
-    const markets = await marketQb.getRawMany<{
+    const allMarkets = await marketQb.getRawMany<{
       conditionId: string;
       city: string | null;
       targetDateIso: string | null;
@@ -317,6 +322,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketHigh: number | null;
       question: string | null;
     }>();
+    const markets = allMarkets.slice(0, MAX_MARKETS_SERIES);
+    const truncated = allMarkets.length > MAX_MARKETS_SERIES;
 
     // 2. Ticks par batch de conditionId, triés par recorded_at.
     const BATCH = 200;
@@ -377,7 +384,7 @@ export function createBacktestRouter(ds: DataSource): Router {
 
     res.json({
       items: [...series.values()],
-      truncated: false,
+      truncated,
       window: { from: from.toISOString(), to: to.toISOString() },
     });
   });
@@ -453,7 +460,7 @@ export function createBacktestRouter(ds: DataSource): Router {
         cities: cities.map((c) => c.toLowerCase()),
       });
     }
-    const markets = await marketQb.getRawMany<{
+    const allMarkets = await marketQb.getRawMany<{
       conditionId: string;
       city: string | null;
       targetDateIso: string | null;
@@ -464,6 +471,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketHigh: number | null;
       question: string | null;
     }>();
+    const markets = allMarkets.slice(0, MAX_MARKETS_SERIES);
+    const truncated = allMarkets.length > MAX_MARKETS_SERIES;
 
     // 2. Ticks par batch de conditionId, triés par recorded_at.
     const BATCH = 200;
@@ -524,7 +533,7 @@ export function createBacktestRouter(ds: DataSource): Router {
 
     res.json({
       items: [...series.values()],
-      truncated: false,
+      truncated,
     });
   });
 

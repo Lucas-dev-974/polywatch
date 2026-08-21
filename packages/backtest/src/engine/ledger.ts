@@ -43,10 +43,8 @@ export class Ledger {
   cash: number;
   private open = new Map<string, LedgerPosition>();
   private closed: ClosedLedgerPosition[] = [];
-  private initialCapital: number;
 
   constructor(initialCapital: number) {
-    this.initialCapital = initialCapital;
     this.cash = initialCapital;
   }
 
@@ -132,11 +130,6 @@ export class Ledger {
     }
   }
 
-  /** @deprecated Use updateMark — kept for tests that only need peak tracking. */
-  updatePeak(conditionId: string, bid: number): void {
-    this.updateMark(conditionId, bid);
-  }
-
   /** Close an open position, realizing P&L. Returns the closed record. */
   closePosition(input: {
     conditionId: string;
@@ -193,9 +186,5 @@ export class Ledger {
 
   allPositions(): (LedgerPosition | ClosedLedgerPosition)[] {
     return [...this.open.values(), ...this.closed];
-  }
-
-  initialCapitalValue(): number {
-    return this.initialCapital;
   }
 }

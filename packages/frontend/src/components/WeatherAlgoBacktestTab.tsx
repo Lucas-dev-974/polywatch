@@ -156,6 +156,14 @@ export function WeatherAlgoBacktestTab() {
     try {
       const run = await fetchBacktestRun(id);
       setDetail(run);
+      // Arrêt du polling quand le run est dans un état terminal.
+      if (
+        run.status === 'completed' ||
+        run.status === 'cancelled' ||
+        run.status === 'failed'
+      ) {
+        stopPolling();
+      }
       if (run.status === 'completed') {
         const [eq, pos, mkt] = await Promise.all([
           fetchBacktestEquity(id),

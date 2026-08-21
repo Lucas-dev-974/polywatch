@@ -1,7 +1,9 @@
 /** Helpers de parsing de query params partagés entre les routes backend (R6). */
 
 export function parseLimit(value: unknown, fallback: number, max: number): number {
-  return Math.max(1, Math.min(Number(value ?? fallback), max));
+  const n = Number(value ?? fallback);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(n, max));
 }
 
 export function parseOffset(value: unknown): number {

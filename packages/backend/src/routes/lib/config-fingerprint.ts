@@ -7,6 +7,9 @@ export function computeConfigFingerprint(config: WeatherConfig): string {
     .map((k) => `${k}=${String((config as unknown as Record<string, unknown>)[k])}`)
     .join('|');
   let hash = 0;
+  // djb2 hash — rapide, non cryptographique. Suffisant pour un fingerprint de
+  // comparaison/audit de config, pas pour de la sécurité. Les collisions sont
+  // improbables sur des configs réelles.
   for (let i = 0; i < relevant.length; i++) {
     hash = (hash << 5) - hash + relevant.charCodeAt(i);
     hash |= 0;

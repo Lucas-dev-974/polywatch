@@ -5,14 +5,33 @@ const POLL_MS = 4000;
 /**
  * Encapsule le polling d'un backtest : un timer qui appelle `onTick` à
  * intervalle régulier, avec start/stop explicites et arrêt automatique au
- * démontage du composant.
+ * démontage du composant. Le polling se met en pause quand l'onglet est
+ * inactif (document.visibilityState !== 'visible').
  */
-export function useBacktestPolling(onTick: () => void) {
+export function useBacktestPolling(
+  onTick: () => void,
+  isActive: () => boolean = () => true,
+) {
   let timer: ReturnType<typeof setInterval> | null = null;
+
+  function isPaused() {
+    return !isActive() || document.visibilityState !== 'visible';
+  }
+
+  function tick() {
+    if (isPaused()) return;
+    onTick();
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState !== 'visible') return;
+    tick();
+  }
 
   function start() {
     stop();
-    timer = setInterval(onTick, POLL_MS);
+    timer = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', onVisibilityChange);
   }
 
   function stop() {
@@ -20,6 +39,7 @@ export function useBacktestPolling(onTick: () => void) {
       clearInterval(timer);
       timer = null;
     }
+    document.removeEventListener('visibilitychange', onVisibilityChange);
   }
 
   onCleanup(stop);

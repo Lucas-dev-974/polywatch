@@ -33,7 +33,8 @@ export function computeStats(
 ): BacktestRunStats {
   const totalTrades = closed.length;
   const wins = closed.filter((p) => p.pnl > 0);
-  const losses = closed.filter((p) => p.pnl <= 0);
+  // pnl === 0 (breakeven) n'est ni un win ni un loss : exclu de avgLoss et de grossLoss.
+  const losses = closed.filter((p) => p.pnl < 0);
 
   const totalPnl = closed.reduce((s, p) => s + p.pnl, 0);
   const pnlPct = initialCapital > 0 ? (totalPnl / initialCapital) * 100 : 0;

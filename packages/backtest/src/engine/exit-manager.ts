@@ -17,6 +17,11 @@ export interface ExitDecision {
   fees: number;
 }
 
+/** Clé de throttle ré-entrée : stratifiée par stratégie pour ne pas croiser les stratégies. */
+function reentryKey(city: string, targetDateIso: string, strategyId: string | null): string {
+  return `${city}|${targetDateIso}|${strategyId ?? 'default'}`;
+}
+
 function readResolvedBidPoints(
   meta: Record<string, unknown>,
   key: string,
@@ -28,7 +33,7 @@ function readResolvedBidPoints(
 /**
  * Weather exit rules evaluated purely in-memory at each book tick that
  * touches an open position. Mirrors live WeatherExitEvaluator behaviour:
- * - re-entry throttle only for bucket/drift exits
+ * - re-entry throttle for bucket/drift exits and resolution
  * - bucket hysteresis advances at most once per weatherAlgoPollMs
  * - SL/TP/trailing use thresholds resolved at entry (meta.*BidPoints)
  */
@@ -37,10 +42,8 @@ export class WeatherExitManager {
   private bucketHysteresis = new Map<string, number>();
   /** positionId -> last virtual time hysteresis was advanced. */
   private lastHysteresisAdvanceAt = new Map<string, number>();
-  /** `city|dateIso` -> last close timestamp (re-entry throttle). */
+  /** `city|dateIso|strategyId` -> last close timestamp (re-entry throttle). */
   private reentryThrottle = new Map<string, number>();
-
-  constructor() {}
 
   isReentryBlocked(
     city: string,
@@ -50,7 +53,7 @@ export class WeatherExitManager {
     strategyId: string | null,
   ): boolean {
     if (!targetDateIso) return false;
-    const last = this.reentryThrottle.get(`${city}|${targetDateIso}`);
+    const last = this.reentryThrottle.get(reentryKey(city, targetDateIso, strategyId));
     if (last == null) return false;
     const bag = strategyId
       ? getStrategyParams(risk, strategyId)
@@ -58,9 +61,10 @@ export class WeatherExitManager {
     return now.getTime() - last < bag.reentryThrottleMs;
   }
 
-  private markClosed(city: string, targetDateIso: string | null, now: Date): void {
+  /** Throttle une ville/date pour une stratégie donnée (résolution et sorties drift/bucket). */
+  markClosed(city: string, targetDateIso: string | null, now: Date, strategyId: string | null): void {
     if (!targetDateIso) return;
-    this.reentryThrottle.set(`${city}|${targetDateIso}`, now.getTime());
+    this.reentryThrottle.set(reentryKey(city, targetDateIso, strategyId), now.getTime());
   }
 
   /**
@@ -143,7 +147,7 @@ export class WeatherExitManager {
       slippageBps: input.slippageBps,
     });
     if (pos.city) {
-      this.markClosed(pos.city, pos.targetDateIso, now);
+      this.markClosed(pos.city, pos.targetDateIso, now, strategyId);
     }
     this.bucketHysteresis.delete(pos.conditionId);
     this.lastHysteresisAdvanceAt.delete(pos.conditionId);

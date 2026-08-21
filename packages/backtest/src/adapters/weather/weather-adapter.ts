@@ -623,6 +623,16 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       exitReason: 'RESOLUTION',
       fees: 0,
     });
+    // Une résolution est une sortie de marché : on marque le throttle de
+    // ré-entrée pour la ville/date/stratégie, cohérent avec drift/bucket exit.
+    if (pos.city) {
+      this.exitManager.markClosed(
+        pos.city,
+        pos.targetDateIso,
+        ctx.clock.now(),
+        (pos.meta.strategyId as string | undefined) ?? null,
+      );
+    }
     return true;
   }
 

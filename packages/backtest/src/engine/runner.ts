@@ -41,8 +41,6 @@ export interface RunContext {
     backtestExecutionMode: 'strategy' | 'runner-sim';
     fidelityMinutes?: number;
   };
-  /** Current event being processed (read-only, set by the runner). */
-  currentEvent: BacktestEvent | null;
   cancelRequested(): boolean;
 }
 
@@ -152,7 +150,6 @@ export class BacktestRunner {
         backtestExecutionMode: spec.backtestExecutionMode,
         fidelityMinutes: spec.fidelityMinutes,
       },
-      currentEvent: null,
       cancelRequested: () => (spec.getAbortReason ? spec.getAbortReason() != null : false),
     };
     const adapter = spec.adapterFactory(ctx);
@@ -264,7 +261,6 @@ export class BacktestRunner {
         return finishRun('cancelled');
       }
 
-      ctx.currentEvent = event;
       clock.advanceTo(event.at);
       await adapter.handle(event, ctx);
       processed++;

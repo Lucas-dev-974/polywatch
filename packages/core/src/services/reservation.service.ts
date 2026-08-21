@@ -62,6 +62,14 @@ export interface ReserveInput {
   trailingActivationBidPoints?: number;
   slBidPoints?: number;
   tpBidPoints?: number;
+  /** Stop-loss as % of invested amount (weather-algo). */
+  slPercent?: number | null;
+  /** Take-profit as % of invested amount (weather-algo). */
+  tpPercent?: number | null;
+  /** Trailing drawdown as % of invested amount (weather-algo). */
+  trailingPercent?: number | null;
+  /** Trailing activation as % of invested amount (weather-algo). */
+  trailingActivationPercent?: number | null;
   /** Strategy that opens the position (weather-algo). Null for copy/crypto/manual. */
   strategyId?: string | null;
 }
@@ -271,6 +279,10 @@ export class ReservationService {
           trailingActivationBidPoints: input.trailingActivationBidPoints ?? null,
           slBidPoints: input.slBidPoints ?? null,
           tpBidPoints: input.tpBidPoints ?? null,
+          slPercent: input.slPercent ?? null,
+          tpPercent: input.tpPercent ?? null,
+          trailingPercent: input.trailingPercent ?? null,
+          trailingActivationPercent: input.trailingActivationPercent ?? null,
           reason: input.reason,
           strategyId: input.strategyId ?? null,
         });

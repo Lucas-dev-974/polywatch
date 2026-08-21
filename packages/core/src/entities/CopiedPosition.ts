@@ -124,6 +124,22 @@ export class CopiedPosition {
   @Column({ type: 'real', name: 'tp_bid_points', nullable: true })
   tpBidPoints!: number | null;
 
+  /** Stop-loss threshold as % of invested amount (weather-algo). */
+  @Column({ type: 'real', name: 'sl_percent', nullable: true })
+  slPercent!: number | null;
+
+  /** Take-profit threshold as % of invested amount (weather-algo). */
+  @Column({ type: 'real', name: 'tp_percent', nullable: true })
+  tpPercent!: number | null;
+
+  /** Trailing drawdown threshold as % of invested amount (weather-algo). */
+  @Column({ type: 'real', name: 'trailing_percent', nullable: true })
+  trailingPercent!: number | null;
+
+  /** Trailing activation threshold as % of invested amount (weather-algo). */
+  @Column({ type: 'real', name: 'trailing_activation_percent', nullable: true })
+  trailingActivationPercent!: number | null;
+
   /** Failed CLOB exit attempts for SL/TP/trailing/pre-close/time-exit. */
   @Column({ type: 'integer', name: 'forced_exit_failed_attempts', default: 0 })
   forcedExitFailedAttempts!: number;

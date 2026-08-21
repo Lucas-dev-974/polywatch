@@ -611,10 +611,6 @@ export interface WeatherConfig {
   weatherAlgoSlEnabled: boolean;
   weatherAlgoTpEnabled: boolean;
   weatherAlgoTrailingEnabled: boolean;
-  weatherAlgoSlBidPoints: number | null;
-  weatherAlgoTpBidPoints: number | null;
-  weatherAlgoTrailingBidPoints: number | null;
-  weatherAlgoTrailingActivationBidPoints: number | null;
   simInitialCapitalWeather: number;
   weatherAlgoForecastHistoryRecordingEnabled: boolean;
   weatherAlgoMarketSnapshotRecordingEnabled: boolean;

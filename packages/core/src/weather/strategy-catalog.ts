@@ -91,10 +91,14 @@ export type WeatherStrategyParamsBag = {
   slEnabled: boolean;
   tpEnabled: boolean;
   trailingEnabled: boolean;
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
-  trailingBidPoints: number | null;
-  trailingActivationBidPoints: number | null;
+  /** Stop-loss threshold as % of the invested amount (cost basis + fees). */
+  slPercent: number | null;
+  /** Take-profit threshold as % of the invested amount (cost basis + fees). */
+  tpPercent: number | null;
+  /** Trailing drawdown threshold as % of the invested amount. */
+  trailingPercent: number | null;
+  /** Trailing activation threshold as % of the invested amount. */
+  trailingActivationPercent: number | null;
   // ── Risk limits ────────────────────────────────────────────────────
   maxOpenPositions: number;
   maxExposureUsdc: number;
@@ -137,10 +141,10 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   slEnabled: true,
   tpEnabled: true,
   trailingEnabled: true,
-  slBidPoints: null,
-  tpBidPoints: null,
-  trailingBidPoints: null,
-  trailingActivationBidPoints: null,
+  slPercent: null,
+  tpPercent: null,
+  trailingPercent: null,
+  trailingActivationPercent: null,
   maxOpenPositions: 10,
   maxExposureUsdc: 1000,
   maxDailyLossUsdc: 100,
@@ -195,10 +199,10 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'slEnabled', label: 'Stop-loss actif', kind: 'boolean', default: true },
     { key: 'tpEnabled', label: 'Take-profit actif', kind: 'boolean', default: true },
     { key: 'trailingEnabled', label: 'Trailing actif', kind: 'boolean', default: true },
-    { key: 'slBidPoints', label: 'SL (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
-    { key: 'tpBidPoints', label: 'TP (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
-    { key: 'trailingBidPoints', label: 'Trailing (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
-    { key: 'trailingActivationBidPoints', label: 'Trailing activation (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'slPercent', label: 'SL (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Pourcentage de la mise investie.' },
+    { key: 'tpPercent', label: 'TP (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Pourcentage de la mise investie.' },
+    { key: 'trailingPercent', label: 'Trailing (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Drawdown en % de la mise investie.' },
+    { key: 'trailingActivationPercent', label: 'Trailing activation (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Gain en % de la mise investie pour armer le trailing.' },
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
     { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
@@ -252,10 +256,10 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     { key: 'slEnabled', label: 'Stop-loss actif', kind: 'boolean', default: true },
     { key: 'tpEnabled', label: 'Take-profit actif', kind: 'boolean', default: true },
     { key: 'trailingEnabled', label: 'Trailing actif', kind: 'boolean', default: true },
-    { key: 'slBidPoints', label: 'SL (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
-    { key: 'tpBidPoints', label: 'TP (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
-    { key: 'trailingBidPoints', label: 'Trailing (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
-    { key: 'trailingActivationBidPoints', label: 'Trailing activation (bid points)', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé.' },
+    { key: 'slPercent', label: 'SL (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Pourcentage de la mise investie.' },
+    { key: 'tpPercent', label: 'TP (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Pourcentage de la mise investie.' },
+    { key: 'trailingPercent', label: 'Trailing (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Drawdown en % de la mise investie.' },
+    { key: 'trailingActivationPercent', label: 'Trailing activation (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Gain en % de la mise investie pour armer le trailing.' },
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
     { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
@@ -356,10 +360,10 @@ const NULLABLE_ZERO_KEYS = new Set([
   'maxForecastStd',
   'minForecastProbability',
   'maxYesPrice',
-  'slBidPoints',
-  'tpBidPoints',
-  'trailingBidPoints',
-  'trailingActivationBidPoints',
+  'slPercent',
+  'tpPercent',
+  'trailingPercent',
+  'trailingActivationPercent',
 ]);
 
 /**

@@ -98,10 +98,23 @@ backfill (migration `0107`/`0108`) et ne sont plus modifiables via l'API
 (`weatherConfigUpdateSchema` rejette les champs per-strategy via `.strict()`).
 Onglet **Paramètres** : uniquement les globaux structurels (toggles, `pollMs`,
 `selectionMode`, `maxSignalsPerEvent`, recording/retention, `simInitialCapital`).
-Les knobs nullables (`maxForecastStd`, `minForecastProbability`, `slBidPoints`,
-`tpBidPoints`, `trailingBidPoints`, `trailingActivationBidPoints`) utilisent
+Les knobs nullables (`maxForecastStd`, `minForecastProbability`, `slPercent`,
+`tpPercent`, `trailingPercent`, `trailingActivationPercent`) utilisent
 `NullableNumberField` en UI — une valeur vide = `null` (désactivé) ; une
 valeur `0` stockée est coercée à `null` au runtime par `getStrategyParams`.
+
+**SL/TP/Trailing en pourcentage de la mise investie** : pour le weather-algo,
+les seuils SL (`slPercent`), TP (`tpPercent`) et trailing (`trailingPercent` /
+`trailingActivationPercent`) sont exprimés en **pourcentage du cost basis**
+(prix d'entrée + frais) — la "mise investie" — et non en distance absolue de
+prix (`bid points`). Le copy-trading et le crypto-algo conservent leurs `bid
+points`. SL déclenche quand le closure PnL ≤ `-slPercent` ; TP quand ≥
+`tpPercent` ; trailing arme quand le closure PnL ≥ `trailingActivationPercent`
+et déclenche quand le drawdown depuis le pic de closure PnL ≥ `trailingPercent`.
+Les défauts (`WEATHER_EXIT_DEFAULTS`) sont `slPercent: 20`, `tpPercent: 25`,
+`trailingPercent: 10`, `trailingActivationPercent: 12`. Sur `CopiedPosition`,
+les colonnes `sl_percent`/`tp_percent`/`trailing_percent`/
+`trailing_activation_percent` stockent les seuils résolus à l'entrée.
 
 **Sorties** (paramètres lus depuis le bag de la stratégie d'origine, via
 `snapshot.strategyId ?? pos.strategyId` ; legacy `null` → fallback

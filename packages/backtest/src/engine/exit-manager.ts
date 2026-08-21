@@ -17,12 +17,15 @@ export interface ExitDecision {
   fees: number;
 }
 
+/** Float tolerance for closure-PnL threshold comparisons (percent). */
+const CLOSURE_PNL_EPSILON = 1e-9;
+
 /** Clé de throttle ré-entrée : stratifiée par stratégie pour ne pas croiser les stratégies. */
 function reentryKey(city: string, targetDateIso: string, strategyId: string | null): string {
   return `${city}|${targetDateIso}|${strategyId ?? 'default'}`;
 }
 
-function readResolvedBidPoints(
+function readResolvedPercent(
   meta: Record<string, unknown>,
   key: string,
 ): number | null {
@@ -35,7 +38,8 @@ function readResolvedBidPoints(
  * touches an open position. Mirrors live WeatherExitEvaluator behaviour:
  * - re-entry throttle for bucket/drift exits and resolution
  * - bucket hysteresis advances at most once per weatherAlgoPollMs
- * - SL/TP/trailing use thresholds resolved at entry (meta.*BidPoints)
+ * - SL/TP/trailing use percentage thresholds (of invested amount) resolved
+ *   at entry (meta.*Percent)
  */
 export class WeatherExitManager {
   /** positionId (conditionId) -> consecutive out-of-bucket polls. */
@@ -168,43 +172,42 @@ export class WeatherExitManager {
   ): ExitDecision | null {
     const bid = input.yesPrice;
     const entry = pos.entryPrice;
-    const slBidPoints = readResolvedBidPoints(pos.meta, 'slBidPoints');
-    const tpBidPoints = readResolvedBidPoints(pos.meta, 'tpBidPoints');
-    const trailingBidPoints = readResolvedBidPoints(pos.meta, 'trailingBidPoints');
-    const trailingActivationBidPoints = readResolvedBidPoints(
+    const slPercent = readResolvedPercent(pos.meta, 'slPercent');
+    const tpPercent = readResolvedPercent(pos.meta, 'tpPercent');
+    const trailingPercent = readResolvedPercent(pos.meta, 'trailingPercent');
+    const trailingActivationPercent = readResolvedPercent(
       pos.meta,
-      'trailingActivationBidPoints',
+      'trailingActivationPercent',
     );
 
-    if (slBidPoints != null) {
-      const slBidAbsolute = entry - slBidPoints;
-      if (bid <= slBidAbsolute) {
-        const { exitPrice, fees } = simulateWeatherExitFill({
-          qty: pos.qty,
-          yesPrice: input.yesPrice,
-          slippageBps: input.slippageBps,
-        });
-        return { reason: 'SL', exitPrice, fees };
-      }
+    const costBasis = pos.qty > 0 ? entry + pos.fees / pos.qty : 0;
+    const closurePnl = costBasis > 0 ? ((bid - costBasis) / costBasis) * 100 : 0;
+    // Market-move PnL without fees — mirrors live `effectiveTrigger` guard on TP.
+    const triggerPnl = entry > 0 ? ((bid - entry) / entry) * 100 : 0;
+
+    if (slPercent != null && slPercent > 0 && closurePnl <= -slPercent + CLOSURE_PNL_EPSILON) {
+      const { exitPrice, fees } = simulateWeatherExitFill({
+        qty: pos.qty,
+        yesPrice: input.yesPrice,
+        slippageBps: input.slippageBps,
+      });
+      return { reason: 'SL', exitPrice, fees };
     }
 
-    if (tpBidPoints != null) {
-      const tpBidAbsolute = Math.min(entry + tpBidPoints, 1);
-      if (bid >= tpBidAbsolute) {
-        const { exitPrice, fees } = simulateWeatherExitFill({
-          qty: pos.qty,
-          yesPrice: input.yesPrice,
-          slippageBps: input.slippageBps,
-        });
-        return { reason: 'TP', exitPrice, fees };
-      }
+    if (tpPercent != null && tpPercent > 0 && triggerPnl >= 0 && closurePnl >= tpPercent - CLOSURE_PNL_EPSILON) {
+      const { exitPrice, fees } = simulateWeatherExitFill({
+        qty: pos.qty,
+        yesPrice: input.yesPrice,
+        slippageBps: input.slippageBps,
+      });
+      return { reason: 'TP', exitPrice, fees };
     }
 
-    if (trailingBidPoints != null && trailingBidPoints > 0) {
+    if (trailingPercent != null && trailingPercent > 0) {
       const armed =
-        trailingActivationBidPoints == null ||
-        bid >= entry + trailingActivationBidPoints;
-      if (armed && pos.peakBid - bid >= trailingBidPoints) {
+        trailingActivationPercent == null ||
+        closurePnl >= trailingActivationPercent - CLOSURE_PNL_EPSILON;
+      if (armed && pos.peakClosurePnl - closurePnl >= trailingPercent - CLOSURE_PNL_EPSILON) {
         const { exitPrice, fees } = simulateWeatherExitFill({
           qty: pos.qty,
           yesPrice: input.yesPrice,

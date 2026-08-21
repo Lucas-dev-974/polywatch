@@ -11,8 +11,8 @@ export interface LedgerPosition {
   entryAt: Date;
   /** Last known bid for mark-to-market (not peak). */
   markPrice: number;
-  /** Running high bid for trailing-stop evaluation. */
-  peakBid: number;
+  /** Running peak of closure PnL % (relative to invested amount) for trailing. */
+  peakClosurePnl: number;
   fees: number;
   entryReason: string | null;
   meta: Record<string, unknown>;
@@ -120,7 +120,14 @@ export class Ledger {
       entryPrice: input.entryPrice,
       entryAt: input.entryAt,
       markPrice: input.entryPrice,
-      peakBid: input.entryPrice,
+      // Initialize peak closure PnL from the entry fill (may be negative due to fees).
+      peakClosurePnl:
+        input.qty > 0
+          ? (() => {
+              const cb = input.entryPrice + input.fees / input.qty;
+              return cb > 0 ? ((input.entryPrice - cb) / cb) * 100 : 0;
+            })()
+          : 0,
       fees: input.fees,
       entryReason: input.entryReason ?? null,
       meta: input.meta ?? {},
@@ -132,8 +139,15 @@ export class Ledger {
     const pos = this.open.get(conditionId);
     if (!pos) return;
     pos.markPrice = bid;
-    if (bid > pos.peakBid) {
-      pos.peakBid = bid;
+    // Track the peak of the closure PnL (%) for percentage trailing-stop.
+    if (pos.qty > 0) {
+      const costBasis = pos.entryPrice + pos.fees / pos.qty;
+      if (costBasis > 0) {
+        const closurePnl = ((bid - costBasis) / costBasis) * 100;
+        if (closurePnl > pos.peakClosurePnl) {
+          pos.peakClosurePnl = closurePnl;
+        }
+      }
     }
   }
 

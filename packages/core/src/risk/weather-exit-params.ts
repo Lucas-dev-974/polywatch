@@ -9,29 +9,30 @@ import {
  * Fixed exit defaults for weather-algo positions.
  *
  * Weather markets have no interval (no `5m`/`10m`/...), so defaults are
- * scalar constants rather than an interval-keyed table.
+ * scalar constants rather than an interval-keyed table. Percentages are
+ * relative to the invested amount (cost basis + fees).
  */
 export const WEATHER_EXIT_DEFAULTS = {
-  trailingBidPoints: 0.05,
-  trailingActivationBidPoints: 0.06,
-  slBidPoints: 0.10,
-  tpBidPoints: 0.12,
+  trailingPercent: 10,
+  trailingActivationPercent: 12,
+  slPercent: 20,
+  tpPercent: 25,
 };
 
 export interface WeatherEntryExitParams {
-  trailingBidPoints: number | null;
-  trailingActivationBidPoints: number | null;
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
+  trailingPercent: number | null;
+  trailingActivationPercent: number | null;
+  slPercent: number | null;
+  tpPercent: number | null;
 }
 
 /**
- * Resolve a bid-points SL/TP override for a binary market.
+ * Resolve a percentage-of-invested-amount SL/TP override.
  * Override (including 0/negative = disabled) → fixed default → null.
  *
  * Simplified copy of the crypto-algo equivalent — no interval dimension.
  */
-function pickAlgoBidPointsThreshold(
+function pickAlgoPercentThreshold(
   algoOverride: number | null | undefined,
   fallbackDefault: number | undefined,
 ): number | null {
@@ -45,7 +46,7 @@ function pickAlgoBidPointsThreshold(
 }
 
 /**
- * Resolve SL/TP/trailing bid points for a weather-algo position at entry
+ * Resolve SL/TP/trailing percentages for a weather-algo position at entry
  * time.
  *
  * Each leg is gated by its own enable flag on `WeatherConfig`; when enabled:
@@ -65,30 +66,30 @@ export function resolveWeatherEntryExitParams(
   const bag = strategyId
     ? getStrategyParams(weatherConfig, strategyId)
     : DEFAULT_WEATHER_STRATEGY_PARAMS;
-  const slBidPoints = isExitLegEnabled(bag.slEnabled)
-    ? pickAlgoBidPointsThreshold(bag.slBidPoints, WEATHER_EXIT_DEFAULTS.slBidPoints)
+  const slPercent = isExitLegEnabled(bag.slEnabled)
+    ? pickAlgoPercentThreshold(bag.slPercent, WEATHER_EXIT_DEFAULTS.slPercent)
     : null;
 
-  const tpBidPoints = isExitLegEnabled(bag.tpEnabled)
-    ? pickAlgoBidPointsThreshold(bag.tpBidPoints, WEATHER_EXIT_DEFAULTS.tpBidPoints)
+  const tpPercent = isExitLegEnabled(bag.tpEnabled)
+    ? pickAlgoPercentThreshold(bag.tpPercent, WEATHER_EXIT_DEFAULTS.tpPercent)
     : null;
 
   const trailingEnabled = isExitLegEnabled(bag.trailingEnabled);
 
   return {
-    trailingBidPoints: trailingEnabled
-      ? pickAlgoBidPointsThreshold(
-          bag.trailingBidPoints,
-          WEATHER_EXIT_DEFAULTS.trailingBidPoints,
+    trailingPercent: trailingEnabled
+      ? pickAlgoPercentThreshold(
+          bag.trailingPercent,
+          WEATHER_EXIT_DEFAULTS.trailingPercent,
         )
       : null,
-    trailingActivationBidPoints: trailingEnabled
-      ? pickAlgoBidPointsThreshold(
-          bag.trailingActivationBidPoints,
-          WEATHER_EXIT_DEFAULTS.trailingActivationBidPoints,
+    trailingActivationPercent: trailingEnabled
+      ? pickAlgoPercentThreshold(
+          bag.trailingActivationPercent,
+          WEATHER_EXIT_DEFAULTS.trailingActivationPercent,
         )
       : null,
-    slBidPoints,
-    tpBidPoints,
+    slPercent,
+    tpPercent,
   };
 }

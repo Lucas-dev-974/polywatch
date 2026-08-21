@@ -101,6 +101,14 @@ export interface AlgoEntryExitParams {
   slBidPoints: number | null;
   /** Take-profit in bid points (absolute) for binary markets. */
   tpBidPoints: number | null;
+  /** Stop-loss as % of invested amount (weather-algo; optional). */
+  slPercent?: number | null;
+  /** Take-profit as % of invested amount (weather-algo; optional). */
+  tpPercent?: number | null;
+  /** Trailing drawdown as % of invested amount (weather-algo; optional). */
+  trailingPercent?: number | null;
+  /** Trailing activation as % of invested amount (weather-algo; optional). */
+  trailingActivationPercent?: number | null;
 }
 
 /**

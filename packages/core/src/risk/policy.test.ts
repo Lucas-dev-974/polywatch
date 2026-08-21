@@ -414,6 +414,126 @@ describe('evaluateSlTpTrailing - trailing stop', () => {
   });
 });
 
+describe('evaluateSlTpTrailing - percentage mode (weather-algo)', () => {
+  it('SL fires when closure PnL drops below -slPercent of invested amount', () => {
+    const result = evaluateSlTpTrailing({
+      trailingBidPoints: null,
+      slBidPoints: null,
+      tpBidPoints: null,
+      slPercent: 20,
+      tpPercent: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: -25,
+      effectiveClosure: -22,
+      peakBidVwap: 0.50,
+    });
+    expect(result).toBe('SL');
+  });
+
+  it('SL does not fire when closure PnL is above -slPercent', () => {
+    const result = evaluateSlTpTrailing({
+      trailingBidPoints: null,
+      slBidPoints: null,
+      tpBidPoints: null,
+      slPercent: 20,
+      tpPercent: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: -15,
+      effectiveClosure: -15,
+      peakBidVwap: 0.50,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('TP fires when closure PnL reaches tpPercent and trigger is positive', () => {
+    const result = evaluateSlTpTrailing({
+      trailingBidPoints: null,
+      slBidPoints: null,
+      tpBidPoints: null,
+      slPercent: null,
+      tpPercent: 25,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: 30,
+      effectiveClosure: 28,
+      peakBidVwap: 0.50,
+    });
+    expect(result).toBe('TP');
+  });
+
+  it('TP does not fire when closure PnL is below tpPercent', () => {
+    const result = evaluateSlTpTrailing({
+      trailingBidPoints: null,
+      slBidPoints: null,
+      tpBidPoints: null,
+      slPercent: null,
+      tpPercent: 25,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: 20,
+      effectiveClosure: 18,
+      peakBidVwap: 0.50,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('trailing fires on percentage drawdown from peak closure when armed', () => {
+    // peak closure 40%, current closure 30% => drawdown 10% >= trailingPercent 10
+    const result = evaluateSlTpTrailing({
+      trailingBidPoints: null,
+      slBidPoints: null,
+      tpBidPoints: null,
+      slPercent: null,
+      tpPercent: null,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
+      trailingActivationBidPoints: null,
+      effectiveTrigger: 30,
+      effectiveClosure: 30,
+      peakBidVwap: 0.70,
+      peakClosurePnlPercent: 40,
+    });
+    expect(result).toBe('TRAILING');
+  });
+
+  it('trailing does not fire when not armed (closure below activation)', () => {
+    const result = evaluateSlTpTrailing({
+      trailingBidPoints: null,
+      slBidPoints: null,
+      tpBidPoints: null,
+      slPercent: null,
+      tpPercent: null,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
+      trailingActivationBidPoints: null,
+      effectiveTrigger: 8,
+      effectiveClosure: 8,
+      peakBidVwap: 0.70,
+      peakClosurePnlPercent: 40,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('SL does not fire for copy positions (no percentage set)', () => {
+    const result = evaluateSlTpTrailing({
+      trailingBidPoints: null,
+      slBidPoints: 0.10,
+      tpBidPoints: null,
+      slPercent: null,
+      tpPercent: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: -15,
+      effectiveClosure: -15,
+      peakBidVwap: 0.50,
+      entryBidVwap: 0.50,
+    });
+    expect(result).toBeNull();
+  });
+});
+
 describe('isExitLegEnabled', () => {
   it('is fail-closed: only explicit true enables', () => {
     expect(isExitLegEnabled(true)).toBe(true);

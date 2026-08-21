@@ -15,10 +15,10 @@ const NULLABLE_PARAM_KEYS = new Set([
   'maxForecastStd',
   'minForecastProbability',
   'maxYesPrice',
-  'slBidPoints',
-  'tpBidPoints',
-  'trailingBidPoints',
-  'trailingActivationBidPoints',
+  'slPercent',
+  'tpPercent',
+  'trailingPercent',
+  'trailingActivationPercent',
 ]);
 
 /** Regroupement logique des paramètres pour un affichage professionnel. */
@@ -45,10 +45,10 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
       'slEnabled',
       'tpEnabled',
       'trailingEnabled',
-      'slBidPoints',
-      'tpBidPoints',
-      'trailingBidPoints',
-      'trailingActivationBidPoints',
+      'slPercent',
+      'tpPercent',
+      'trailingPercent',
+      'trailingActivationPercent',
     ],
   },
   {

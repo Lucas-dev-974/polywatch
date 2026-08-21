@@ -10,10 +10,10 @@ const mocks = vi.hoisted(() => {
     hasAlgoEntryCooldown: vi.fn(async () => false),
     hasWeatherReentryThrottle: vi.fn(async () => false),
     resolveWeatherEntryExitParams: vi.fn(() => ({
-      trailingBidPoints: null,
-      trailingActivationBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      slPercent: null,
+      tpPercent: null,
     })),
     hashAlgoLogicalKey: vi.fn((p: unknown) => `logical:${JSON.stringify(p)}`),
     hashAlgoOrderSignalId: vi.fn((p: unknown) => `orderSignal:${JSON.stringify(p)}`),
@@ -229,10 +229,10 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     mocks.hasAlgoEntryCooldown.mockResolvedValue(false);
     mocks.hasWeatherReentryThrottle.mockResolvedValue(false);
     mocks.resolveWeatherEntryExitParams.mockReturnValue({
-      trailingBidPoints: null,
-      trailingActivationBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      slPercent: null,
+      tpPercent: null,
     });
     mocks.hashAlgoLogicalKey.mockImplementation((p: unknown) => `logical:${JSON.stringify(p)}`);
     mocks.hashAlgoOrderSignalId.mockImplementation((p: unknown) => `orderSignal:${JSON.stringify(p)}`);

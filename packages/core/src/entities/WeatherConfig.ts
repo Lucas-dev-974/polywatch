@@ -74,20 +74,6 @@ export class WeatherConfig {
   @Column({ type: 'boolean', name: 'weather_algo_trailing_enabled', default: true })
   weatherAlgoTrailingEnabled!: boolean;
 
-  // ── SL/TP/Trailing bid points (weather, nullable → default code) ──
-
-  @Column({ type: 'real', name: 'weather_algo_sl_bid_points', nullable: true })
-  weatherAlgoSlBidPoints!: number | null;
-
-  @Column({ type: 'real', name: 'weather_algo_tp_bid_points', nullable: true })
-  weatherAlgoTpBidPoints!: number | null;
-
-  @Column({ type: 'real', name: 'weather_algo_trailing_bid_points', nullable: true })
-  weatherAlgoTrailingBidPoints!: number | null;
-
-  @Column({ type: 'real', name: 'weather_algo_trailing_activation_bid_points', nullable: true })
-  weatherAlgoTrailingActivationBidPoints!: number | null;
-
   // ── Master toggles ────────────────────────────────────────────────
 
   @Column({ type: 'boolean', name: 'weather_algo_enabled', default: false })

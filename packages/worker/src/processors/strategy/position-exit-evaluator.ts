@@ -313,6 +313,11 @@ export class PositionExitEvaluator {
         slBidPoints: pos.slBidPoints,
         tpBidPoints: pos.tpBidPoints,
         entryBidVwap: pos.entryBidVwap,
+        slPercent: pos.slPercent,
+        tpPercent: pos.tpPercent,
+        trailingPercent: pos.trailingPercent,
+        trailingActivationPercent: pos.trailingActivationPercent,
+        peakClosurePnlPercent: peakClosure,
       },
       preCloseInput: {
         preCloseEnabled: preClose.preCloseEnabled,

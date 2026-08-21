@@ -81,10 +81,10 @@ describe('strategy-catalog', () => {
           'weather-forecast': {
             maxForecastStd: 0,
             minForecastProbability: 0,
-            slBidPoints: 0,
-            tpBidPoints: 0,
-            trailingBidPoints: 0,
-            trailingActivationBidPoints: 0,
+            slPercent: 0,
+            tpPercent: 0,
+            trailingPercent: 0,
+            trailingActivationPercent: 0,
           },
         }),
       },
@@ -92,10 +92,10 @@ describe('strategy-catalog', () => {
     );
     expect(params.maxForecastStd).toBeNull();
     expect(params.minForecastProbability).toBeNull();
-    expect(params.slBidPoints).toBeNull();
-    expect(params.tpBidPoints).toBeNull();
-    expect(params.trailingBidPoints).toBeNull();
-    expect(params.trailingActivationBidPoints).toBeNull();
+    expect(params.slPercent).toBeNull();
+    expect(params.tpPercent).toBeNull();
+    expect(params.trailingPercent).toBeNull();
+    expect(params.trailingActivationPercent).toBeNull();
   });
 
   it('getStrategyParams keeps non-nullable 0 values untouched', () => {
@@ -145,7 +145,7 @@ describe('strategy-catalog', () => {
       [WEATHER_HIGHEST_YES_STRATEGY_ID, WEATHER_FORECAST_STRATEGY_ID],
       {
         'weather-highest-yes': { maxYesPrice: null },
-        'weather-forecast': { slBidPoints: null, maxForecastStd: null },
+        'weather-forecast': { slPercent: null, maxForecastStd: null },
       },
     );
     expect(errors).toEqual([]);

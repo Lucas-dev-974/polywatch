@@ -38,10 +38,10 @@ import { AdapterWarnings } from './adapter-warnings.js';
 function resolvedExitMeta(risk: WeatherConfig, strategyId?: string | null): Record<string, number | null> {
   const p = resolveWeatherEntryExitParams(risk, 'sim', null, strategyId);
   return {
-    slBidPoints: p.slBidPoints,
-    tpBidPoints: p.tpBidPoints,
-    trailingBidPoints: p.trailingBidPoints,
-    trailingActivationBidPoints: p.trailingActivationBidPoints,
+    slPercent: p.slPercent,
+    tpPercent: p.tpPercent,
+    trailingPercent: p.trailingPercent,
+    trailingActivationPercent: p.trailingActivationPercent,
   };
 }
 

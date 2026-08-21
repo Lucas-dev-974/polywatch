@@ -10,7 +10,7 @@ import {
   type ReservationService,
   type SimulationService,
   type TradingMode,
-  type AlgoEntryExitParams,
+  type WeatherEntryExitParams,
   type SignalScore,
   hashAlgoLogicalKey,
   hashAlgoOrderSignalId,
@@ -216,7 +216,7 @@ async function runMode(args: {
 
   const bag = getStrategyParams(risk, signal.strategyId);
 
-  const exit: AlgoEntryExitParams = resolveWeatherEntryExitParams(
+  const exit: WeatherEntryExitParams = resolveWeatherEntryExitParams(
     risk,
     mode,
     null,
@@ -421,10 +421,10 @@ async function runMode(args: {
     notionalUsdc: finalQty * finalAskVwap,
     reason: 'WEATHER_OPEN',
     outcome: signal.outcome,
-    trailingBidPoints: exit.trailingBidPoints ?? undefined,
-    trailingActivationBidPoints: exit.trailingActivationBidPoints ?? undefined,
-    slBidPoints: exit.slBidPoints ?? undefined,
-    tpBidPoints: exit.tpBidPoints ?? undefined,
+    slPercent: exit.slPercent ?? undefined,
+    tpPercent: exit.tpPercent ?? undefined,
+    trailingPercent: exit.trailingPercent ?? undefined,
+    trailingActivationPercent: exit.trailingActivationPercent ?? undefined,
     strategyId: signal.strategyId,
   });
 

@@ -9,10 +9,6 @@ function risk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
     weatherAlgoSlEnabled: true,
     weatherAlgoTpEnabled: true,
     weatherAlgoTrailingEnabled: true,
-    weatherAlgoSlBidPoints: null,
-    weatherAlgoTpBidPoints: null,
-    weatherAlgoTrailingBidPoints: null,
-    weatherAlgoTrailingActivationBidPoints: null,
     weatherAlgoForecastChangeThreshold: 2,
     weatherAlgoBucketHysteresisPolls: 2,
     weatherAlgoPollMs: 1_800_000,
@@ -33,7 +29,7 @@ function pos(meta: Record<string, unknown> = {}): LedgerPosition {
     entryPrice: 0.5,
     entryAt: new Date('2026-01-01T00:00:00Z'),
     markPrice: 0.5,
-    peakBid: 0.5,
+    peakClosurePnl: 0,
     fees: 0,
     entryReason: 'signal',
     meta: {
@@ -41,44 +37,111 @@ function pos(meta: Record<string, unknown> = {}): LedgerPosition {
       entryMean: 12,
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12, low: null, high: null },
-      slBidPoints: resolved.slBidPoints,
-      tpBidPoints: resolved.tpBidPoints,
-      trailingBidPoints: resolved.trailingBidPoints,
-      trailingActivationBidPoints: resolved.trailingActivationBidPoints,
+      slPercent: resolved.slPercent,
+      tpPercent: resolved.tpPercent,
+      trailingPercent: resolved.trailingPercent,
+      trailingActivationPercent: resolved.trailingActivationPercent,
       ...meta,
     },
   };
 }
 
 describe('WeatherExitManager SL/TP defaults (B1)', () => {
-  it('applies WEATHER_EXIT_DEFAULTS when bidPoints are null and flags true', () => {
+  it('applies WEATHER_EXIT_DEFAULTS when percents are null and flags true', () => {
     const mgr = new WeatherExitManager();
     const p = pos();
-    expect(p.meta.slBidPoints).toBe(WEATHER_EXIT_DEFAULTS.slBidPoints);
+    expect(p.meta.slPercent).toBe(WEATHER_EXIT_DEFAULTS.slPercent);
+    // cost basis = 0.5 (fees 0); SL at -20% => bid <= 0.4
     const sl = mgr.evaluateSlTpTrailing(p, {
-      yesPrice: 0.5 - WEATHER_EXIT_DEFAULTS.slBidPoints!,
+      yesPrice: 0.4,
       now: new Date('2026-01-01T01:00:00Z'),
       slippageBps: 0,
     });
     expect(sl?.reason).toBe('SL');
   });
 
-  it('disables SL when flag is false even if bidPoints set', () => {
+  it('disables SL when flag is false even if percent set', () => {
     const cfg = risk({
       weatherAlgoStrategyParams: JSON.stringify({
-        'weather-forecast': { slEnabled: false, slBidPoints: 0.05 },
+        'weather-forecast': { slEnabled: false, slPercent: 20 },
       }),
     });
     const resolved = resolveWeatherEntryExitParams(cfg, 'sim', null, 'weather-forecast');
-    expect(resolved.slBidPoints).toBeNull();
+    expect(resolved.slPercent).toBeNull();
     const mgr = new WeatherExitManager();
-    const p = pos({ slBidPoints: resolved.slBidPoints });
+    const p = pos({ slPercent: resolved.slPercent });
     const sl = mgr.evaluateSlTpTrailing(p, {
       yesPrice: 0.1,
       now: new Date('2026-01-01T01:00:00Z'),
       slippageBps: 0,
     });
     expect(sl).toBeNull();
+  });
+
+  it('TP fires when closure PnL reaches tpPercent and trigger is positive', () => {
+    const mgr = new WeatherExitManager();
+    // entry 0.5, fees 0 => cost basis 0.5; TP at 25% => bid >= 0.625
+    // trigger = (0.625 - 0.5) / 0.5 * 100 = 25% >= 0 ✓
+    const p = pos({ slPercent: null, tpPercent: 25 });
+    const tp = mgr.evaluateSlTpTrailing(p, {
+      yesPrice: 0.625,
+      now: new Date('2026-01-01T01:00:00Z'),
+      slippageBps: 0,
+    });
+    expect(tp?.reason).toBe('TP');
+  });
+
+  it('TP does not fire when trigger is negative (market below entry)', () => {
+    const mgr = new WeatherExitManager();
+    // entry 0.5; bid 0.4 => closure -20% (below TP), trigger -20% < 0
+    const p = pos({ slPercent: null, tpPercent: 25 });
+    const tp = mgr.evaluateSlTpTrailing(p, {
+      yesPrice: 0.4,
+      now: new Date('2026-01-01T01:00:00Z'),
+      slippageBps: 0,
+    });
+    expect(tp).toBeNull();
+  });
+
+  it('trailing fires on percentage drawdown from peak when armed', () => {
+    const mgr = new WeatherExitManager();
+    // entry 0.5, fees 0 => cost basis 0.5
+    // peak closure 40% => peak bid = 0.7; current bid 0.65 => closure 30%
+    // drawdown = 40 - 30 = 10% >= trailingPercent 10, armed (30 >= 12) => TRAILING
+    const p = pos({
+      slPercent: null,
+      tpPercent: null,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
+    });
+    p.peakClosurePnl = 40;
+    const trailing = mgr.evaluateSlTpTrailing(p, {
+      yesPrice: 0.65,
+      now: new Date('2026-01-01T01:00:00Z'),
+      slippageBps: 0,
+    });
+    expect(trailing?.reason).toBe('TRAILING');
+  });
+
+  it('trailing does not fire when not armed (closure below activation)', () => {
+    const mgr = new WeatherExitManager();
+    // entry 0.5; bid 0.56 => closure 12%, peak 40%
+    // armed requires closure >= 12 (boundary: 12 >= 12 - eps => true)
+    // But drawdown = 40 - 12 = 28 >= 10, so it WOULD fire if armed.
+    // Use bid 0.55 => closure 10% < 12 => not armed
+    const p = pos({
+      slPercent: null,
+      tpPercent: null,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
+    });
+    p.peakClosurePnl = 40;
+    const trailing = mgr.evaluateSlTpTrailing(p, {
+      yesPrice: 0.55,
+      now: new Date('2026-01-01T01:00:00Z'),
+      slippageBps: 0,
+    });
+    expect(trailing).toBeNull();
   });
 });
 
@@ -87,7 +150,7 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
     const mgr = new WeatherExitManager();
     const now = new Date('2026-01-01T01:00:00Z');
     mgr.evaluateSlTpTrailing(pos(), {
-      yesPrice: 0.5 - WEATHER_EXIT_DEFAULTS.slBidPoints!,
+      yesPrice: 0.4, // -20% on cost basis 0.5 => SL
       now,
       slippageBps: 0,
     });

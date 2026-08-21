@@ -147,6 +147,8 @@ import { AddCryptoAlgoRecordingToggle1700000000113 } from '../migrations/AddCryp
 import { AddUnitToWeatherBucketTick1700000000114 } from '../migrations/AddUnitToWeatherBucketTick1700000000114.js';
 import { AddBacktestExcludedTicks1700000000115 } from '../migrations/AddBacktestExcludedTicks1700000000115.js';
 import { DropWeatherPreClose1700000000116 } from '../migrations/DropWeatherPreClose1700000000116.js';
+import { AddWeatherExitPercentColumns1700000000117 } from '../migrations/AddWeatherExitPercentColumns1700000000117.js';
+import { DropWeatherAlgoBidPointsColumns1700000000118 } from '../migrations/DropWeatherAlgoBidPointsColumns1700000000118.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -259,6 +261,8 @@ export const migrations = [
   AddUnitToWeatherBucketTick1700000000114,
   AddBacktestExcludedTicks1700000000115,
   DropWeatherPreClose1700000000116,
+  AddWeatherExitPercentColumns1700000000117,
+  DropWeatherAlgoBidPointsColumns1700000000118,
 ];
 
 export const entities = [

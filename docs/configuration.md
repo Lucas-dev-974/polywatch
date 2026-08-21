@@ -200,10 +200,10 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `slEnabled` | `true` | Jambe SL (par stratégie) |
 | `tpEnabled` | `true` | Jambe TP (par stratégie) |
 | `trailingEnabled` | `true` | Jambe trailing (par stratégie) |
-| `slBidPoints` | `null` | Seuil SL en points de bid absolus (null = hérite default) |
-| `tpBidPoints` | `null` | Seuil TP en points de bid absolus (null = hérite default) |
-| `trailingBidPoints` | `null` | Trailing stop en points de bid (null = hérite) |
-| `trailingActivationBidPoints` | `null` | Seuil activation trailing en points de bid (null = hérite) |
+| `slPercent` | `null` | Seuil SL en % de la mise investie (null = hérite default 20%) |
+| `tpPercent` | `null` | Seuil TP en % de la mise investie (null = hérite default 25%) |
+| `trailingPercent` | `null` | Drawdown trailing en % de la mise investie (null = hérite 10%) |
+| `trailingActivationPercent` | `null` | Gain en % pour armer le trailing (null = hérite 12%) |
 | `slConfirmationTicks` | `2` | Evaluations consecutives SL avant signal |
 | `slCloseMaxRetries` | `5` | Max tentatives cloture SL/TRAILING/PRE_CLOSE_LOSS/KILL_SWITCH |
 | `forecastChangeThreshold` | `2` | Drift du forecast mean (°C) → `WEATHER_FORECAST_CHANGE` |

@@ -203,6 +203,16 @@ export function evaluateSlTpTrailing(input: {
   slBidPoints?: number | null;
   tpBidPoints?: number | null;
   entryBidVwap?: number;
+  /** Stop-loss threshold as % of invested amount (weather-algo). */
+  slPercent?: number | null;
+  /** Take-profit threshold as % of invested amount (weather-algo). */
+  tpPercent?: number | null;
+  /** Trailing drawdown threshold as % of invested amount (weather-algo). */
+  trailingPercent?: number | null;
+  /** Trailing activation threshold as % of invested amount (weather-algo). */
+  trailingActivationPercent?: number | null;
+  /** Peak closure PnL % reached during the position lifetime. */
+  peakClosurePnlPercent?: number | null;
 }): Extract<OrderReason, 'SL' | 'TP' | 'TRAILING'> | null {
   const {
     trailingBidPoints,
@@ -213,8 +223,37 @@ export function evaluateSlTpTrailing(input: {
     slBidPoints,
     tpBidPoints,
     entryBidVwap,
+    slPercent,
+    tpPercent,
+    trailingPercent,
+    trailingActivationPercent,
+    peakClosurePnlPercent,
   } = input;
 
+  // Percentage mode (weather-algo): thresholds relative to the invested amount.
+  if (slPercent != null && slPercent > 0) {
+    if (effectiveClosure <= -slPercent + BID_POINTS_EPSILON) {
+      return 'SL';
+    }
+  }
+
+  if (tpPercent != null && tpPercent > 0) {
+    if (effectiveClosure >= tpPercent - BID_POINTS_EPSILON && effectiveTrigger >= 0) {
+      return 'TP';
+    }
+  }
+
+  if (trailingPercent != null && trailingPercent > 0) {
+    const armed =
+      trailingActivationPercent == null ||
+      effectiveClosure >= trailingActivationPercent - BID_POINTS_EPSILON;
+    const peak = peakClosurePnlPercent ?? effectiveClosure;
+    if (armed && peak - effectiveClosure >= trailingPercent - BID_POINTS_EPSILON) {
+      return 'TRAILING';
+    }
+  }
+
+  // Bid points mode (copy/crypto): absolute price distance on [0,1].
   if (slBidPoints != null && entryBidVwap != null && entryBidVwap > 0) {
     const slBidAbsolute = entryBidVwap - slBidPoints;
     const impliedBid = entryBidVwap * (1 + effectiveTrigger / 100);

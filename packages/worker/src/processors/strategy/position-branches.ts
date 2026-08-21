@@ -155,14 +155,23 @@ export function buildPositionExitContext(params: {
   // This detects silent danger: positions that have breached SL but haven't
   // been closed (e.g. due to no_liquidity or retry exhaustion).
   if (pos.status === 'open' && exitMark > 0) {
+    // Bid points mode (copy/crypto): mark price below entry - slBidPoints.
     const slBidPoints = pos.slBidPoints;
     let slThresholdPrice: number | null = null;
-
     if (slBidPoints != null && pos.entryBidVwap != null && pos.entryBidVwap > 0) {
       slThresholdPrice = pos.entryBidVwap - slBidPoints;
     }
+    const slBreachedByBidPoints =
+      slThresholdPrice != null && exitMark <= slThresholdPrice;
 
-    if (slThresholdPrice != null && exitMark <= slThresholdPrice) {
+    // Percentage mode (weather-algo): closure PnL below -slPercent of invested amount.
+    const slPercent = pos.slPercent;
+    const slBreachedByPercent =
+      slPercent != null &&
+      slPercent > 0 &&
+      exitSnap.closure <= -slPercent;
+
+    if (slBreachedByBidPoints || slBreachedByPercent) {
       const lastWarnAt = lastConservativeMarkWarnAt.get(pos.id) ?? 0;
       if (now - lastWarnAt >= CONSERVATIVE_MARK_DRIFT_THROTTLE_MS) {
         lastConservativeMarkWarnAt.set(pos.id, now);
@@ -174,8 +183,9 @@ export function buildPositionExitContext(params: {
             slThresholdPrice,
             slBidPoints,
             entryBidVwap: pos.entryBidVwap,
-            trigger,
+            slPercent,
             closure,
+            trigger,
             liquidityStatus: bookPrices.liquidityStatus,
             suppressSlTp: lifecycleFlags.suppressSlTp,
           },

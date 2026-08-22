@@ -11,6 +11,7 @@ export function RidgeToolbar(props: {
   targetDateFilter: Signal<string>;
   maxTicks: Signal<number>;
   cutGaps: Signal<boolean>;
+  minAvgYes: Signal<number>;
   showEntryExit: Signal<boolean>;
   showExcluded: Signal<boolean>;
   playerEnabled: Signal<boolean>;
@@ -20,6 +21,7 @@ export function RidgeToolbar(props: {
   const [targetDateFilter, setTargetDateFilter] = props.targetDateFilter;
   const [maxTicks, setMaxTicks] = props.maxTicks;
   const [cutGaps, setCutGaps] = props.cutGaps;
+  const [minAvgYes, setMinAvgYes] = props.minAvgYes;
   const [showEntryExit, setShowEntryExit] = props.showEntryExit;
   const [showExcluded, setShowExcluded] = props.showExcluded;
   const [playerEnabled, setPlayerEnabled] = props.playerEnabled;
@@ -54,6 +56,21 @@ export function RidgeToolbar(props: {
             <option value="100">100</option>
             <option value="200">200</option>
           </select>
+        </label>
+        <label class="backtest-ridge-filter">
+          <span>Prix min (%)</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={minAvgYes()}
+            onChange={(e) => {
+              const v = Number(e.currentTarget.value);
+              setMinAvgYes(Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0);
+            }}
+            class="backtest-ridge-filter-input"
+          />
         </label>
         <label class="backtest-ridge-filter">
           <span>Couper sur les trous</span>

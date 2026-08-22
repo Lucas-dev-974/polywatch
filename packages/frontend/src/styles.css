@@ -12160,6 +12160,16 @@ body.is-resizing-columns .position-market-split-handle::after {
   border-radius: var(--radius-sm, 0.25rem);
 }
 
+.backtest-ridge-filter input[type='number'] {
+  width: 3.5rem;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--bg, var(--surface));
+  color: var(--text, var(--text-primary));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm, 0.25rem);
+}
+
 .backtest-ridge-hint {
   font-size: 0.625rem;
   color: var(--text-secondary, var(--text-muted));

@@ -37,11 +37,12 @@ export function bucketLabel(s: BacktestMarketSeriesDto): string {
 
 /**
  * Regroupe les séries par (ville, date cible), ne garde que celles dont le
- * prix moyen > MIN_AVG_YES, et trie les buckets de chaque row par borne.
+ * prix moyen > `minAvgYes`, et trie les buckets de chaque row par borne.
  */
 export function groupVoies(
   series: BacktestMarketSeriesDto[],
   positions: BacktestPositionDto[],
+  minAvgYes = MIN_AVG_YES,
 ): VoieGroup[] {
   const posByCondition = new Map<string, BacktestPositionDto>();
   for (const p of positions) {
@@ -49,7 +50,7 @@ export function groupVoies(
   }
   const map = new Map<string, VoieGroup>();
   for (const s of series) {
-    if (avgYesPrice(s) <= MIN_AVG_YES) continue;
+    if (avgYesPrice(s) <= minAvgYes) continue;
     const city = s.city ?? '_';
     const date = s.targetDateIso ? s.targetDateIso.slice(0, 10) : '_';
     const key = `${city}|${date}`;

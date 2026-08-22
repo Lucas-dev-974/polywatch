@@ -1,7 +1,6 @@
 import { createMemo, For } from 'solid-js';
 import type { BacktestPositionDto } from '../../../api';
 import type { RidgeScale, VoieGroup } from './types';
-import { VOIE_H } from './scale';
 
 interface Marker {
   x: number;
@@ -23,18 +22,27 @@ export function RidgePositionMarkers(props: {
 }) {
   const markers = createMemo<Marker[]>(() => {
     const out: Marker[] = [];
-    const y = props.voieTop + VOIE_H / 2;
     for (const bucket of props.voie.positionBuckets) {
       const pos = bucket.position;
       if (!pos) continue;
       const entryT = Date.parse(pos.entryAt);
       if (!Number.isNaN(entryT)) {
-        out.push({ x: props.scale.xPos(entryT), y, kind: 'entry', position: pos });
+        out.push({
+          x: props.scale.xPos(entryT),
+          y: props.scale.yPos(pos.entryPrice, props.voieTop),
+          kind: 'entry',
+          position: pos,
+        });
       }
       if (pos.exitAt) {
         const exitT = Date.parse(pos.exitAt);
         if (!Number.isNaN(exitT)) {
-          out.push({ x: props.scale.xPos(exitT), y, kind: 'exit', position: pos });
+          out.push({
+            x: props.scale.xPos(exitT),
+            y: props.scale.yPos(pos.exitPrice ?? pos.entryPrice, props.voieTop),
+            kind: 'exit',
+            position: pos,
+          });
         }
       }
     }

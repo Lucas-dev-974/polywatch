@@ -1,7 +1,6 @@
 import { createMemo, For } from 'solid-js';
 import type { BacktestPositionDto } from '../../../api';
 import type { RidgeScale, VoieGroup } from './types';
-import { VOIE_H } from './scale';
 
 interface RidgePlayMarkersProps {
   positions: BacktestPositionDto[];
@@ -46,12 +45,22 @@ export function RidgePlayMarkers(props: RidgePlayMarkersProps) {
       if (voieIndex == null) continue;
       const entryT = Date.parse(pos.entryAt);
       if (Number.isNaN(entryT) || t < entryT) continue;
-      const y = props.scale.top(voieIndex) + VOIE_H / 2;
-      out.push({ x: props.scale.xPos(entryT), y, kind: 'entry', position: pos });
+      const voieTop = props.scale.top(voieIndex);
+      out.push({
+        x: props.scale.xPos(entryT),
+        y: props.scale.yPos(pos.entryPrice, voieTop),
+        kind: 'entry',
+        position: pos,
+      });
       if (pos.exitAt) {
         const exitT = Date.parse(pos.exitAt);
         if (!Number.isNaN(exitT) && t >= exitT) {
-          out.push({ x: props.scale.xPos(exitT), y, kind: 'exit', position: pos });
+          out.push({
+            x: props.scale.xPos(exitT),
+            y: props.scale.yPos(pos.exitPrice ?? pos.entryPrice, voieTop),
+            kind: 'exit',
+            position: pos,
+          });
         }
       }
     }

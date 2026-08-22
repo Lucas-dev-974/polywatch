@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 import type { RidgeScale, VisibleVoie } from './types';
-import { MARGIN_TOP, Y_TICKS } from './scale';
+import { MARGIN_TOP, VOIE_H, yTicksForVoieH } from './scale';
 
 /** Grille temporelle (verticale) + grille prix par row (horizontale). */
 export function RidgeGrid(props: {
@@ -10,6 +10,7 @@ export function RidgeGrid(props: {
   /** Hauteur totale du plot (toutes les voies), pour les lignes verticales. */
   plotH: number;
 }) {
+  const yTicks = () => yTicksForVoieH(VOIE_H);
   return (
     <>
       <For each={props.xTicks}>
@@ -28,7 +29,7 @@ export function RidgeGrid(props: {
           const voieTop = props.scale.top(visible.globalIndex);
           return (
             <g>
-              <For each={Y_TICKS}>
+              <For each={yTicks()}>
                 {(yt) => (
                   <line
                     x1={0}

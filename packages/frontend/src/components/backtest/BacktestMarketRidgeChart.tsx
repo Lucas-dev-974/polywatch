@@ -41,6 +41,8 @@ export function BacktestMarketRidgeChart(props: {
   const [targetDateFilter, setTargetDateFilter] = createSignal<string>('all');
   const [maxTicks, setMaxTicks] = createSignal<number>(0);
   const [cutGaps, setCutGaps] = createSignal<boolean>(true);
+  // Seuil de prix YES moyen (en %, 0 = aucun filtre) pour retenir les buckets.
+  const [minAvgYes, setMinAvgYes] = createSignal<number>(20);
   // true = points d'entrée/sortie au survol uniquement ; false = en permanence.
   const [showEntryExit, setShowEntryExit] = createSignal<boolean>(true);
   // Tracer vertical des ticks exclus.
@@ -52,7 +54,9 @@ export function BacktestMarketRidgeChart(props: {
       .filter((n) => Number.isFinite(n)),
   );
 
-  const allGroups = createMemo(() => groupVoies(props.series, props.positions));
+  const allGroups = createMemo(() =>
+    groupVoies(props.series, props.positions, minAvgYes() / 100),
+  );
 
   const targetDates = createMemo(() => {
     const set = new Set<string>();
@@ -260,7 +264,10 @@ export function BacktestMarketRidgeChart(props: {
       );
       if (voieIndex >= 0) {
         setHoveredPlayXY(
-          hover.svgToContainer(scale().xPos(entryT), scale().top(voieIndex) + VOIE_H / 2),
+          hover.svgToContainer(
+            scale().xPos(entryT),
+            scale().yPos(pos.entryPrice, scale().top(voieIndex)),
+          ),
         );
       }
     } else {
@@ -275,6 +282,7 @@ export function BacktestMarketRidgeChart(props: {
         targetDateFilter={[targetDateFilter, setTargetDateFilter]}
         maxTicks={[maxTicks, setMaxTicks]}
         cutGaps={[cutGaps, setCutGaps]}
+        minAvgYes={[minAvgYes, setMinAvgYes]}
         showEntryExit={[showEntryExit, setShowEntryExit]}
         showExcluded={[showExcluded, setShowExcluded]}
         playerEnabled={[playerEnabled, setPlayerEnabled]}

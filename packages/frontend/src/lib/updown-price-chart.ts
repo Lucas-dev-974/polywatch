@@ -153,7 +153,7 @@ const X_TICK_LABEL_WIDTH_PX = 60;
 export function buildChartXTicks(
   minT: number,
   maxT: number,
-  tickCount = UPDOWN_CHART_CONFIG.xTickCount,
+  tickCount: number = UPDOWN_CHART_CONFIG.xTickCount,
   plotWidth?: number,
 ): Array<{ t: number; label: string }> {
   if (maxT <= minT) return [];

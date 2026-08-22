@@ -56,8 +56,19 @@ export function groupVoies(
     const key = `${city}|${date}`;
     let group = map.get(key);
     if (!group) {
-      group = { city: s.city ?? null, date, buckets: [], positionBuckets: [] };
+      group = {
+        city: s.city ?? null,
+        date,
+        forecastMean: s.forecastMean ?? null,
+        forecastStdDev: s.forecastStdDev ?? null,
+        buckets: [],
+        positionBuckets: [],
+      };
       map.set(key, group);
+    } else if (group.forecastMean == null && s.forecastMean != null) {
+      // Un bucket du même groupe apporte la prévision manquante.
+      group.forecastMean = s.forecastMean;
+      group.forecastStdDev = s.forecastStdDev ?? null;
     }
     const bucketLine = {
       series: s,

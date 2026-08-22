@@ -6,7 +6,7 @@ const PAD_L = 8;
 const Y_AXIS_W = 148;
 const X_AXIS_H = 40;
 
-/** Axe Y : labels des rows (ville · date) par voie visible, virtualisé. */
+/** Axe Y : labels des rows (ville · date · prévision) par voie visible, virtualisé. */
 export function RidgeAxisY(props: {
   visibleVoies: VisibleVoie[];
   scale: RidgeScale;
@@ -19,19 +19,39 @@ export function RidgeAxisY(props: {
       width={Y_AXIS_W}
       height={props.heightPlot}
       role="img"
-      aria-label="Axe Y : marchés par date cible"
+      aria-label="Axe Y : marchés par date cible et prévision"
     >
       <For each={props.visibleVoies}>
-        {(visible) => (
-          <text
-            x={PAD_L}
-            y={props.scale.top(visible.globalIndex) + VOIE_H / 2 + 4}
-            class={props.hoveredVoieIndex === visible.globalIndex ? 'backtest-ridge-label backtest-ridge-label-focused' : 'backtest-ridge-label'}
-            text-anchor="start"
-          >
-            {visible.voie.city ?? '—'} · {visible.voie.date}
-          </text>
-        )}
+        {(visible) => {
+          const voie = visible.voie;
+          const cy = props.scale.top(visible.globalIndex) + VOIE_H / 2;
+          const hasForecast = voie.forecastMean != null;
+          const forecastLabel = hasForecast
+            ? `FC ${voie.forecastMean!.toFixed(1)}${voie.forecastStdDev != null ? ` ± ${voie.forecastStdDev.toFixed(1)}` : ''}`
+            : null;
+          return (
+            <>
+              <text
+                x={PAD_L}
+                y={hasForecast ? cy - 2 : cy + 4}
+                class={props.hoveredVoieIndex === visible.globalIndex ? 'backtest-ridge-label backtest-ridge-label-focused' : 'backtest-ridge-label'}
+                text-anchor="start"
+              >
+                {voie.city ?? '—'} · {voie.date}
+              </text>
+              <Show when={forecastLabel != null}>
+                <text
+                  x={PAD_L}
+                  y={cy + 8}
+                  class="backtest-ridge-label-forecast"
+                  text-anchor="start"
+                >
+                  {forecastLabel}
+                </text>
+              </Show>
+            </>
+          );
+        }}
       </For>
       <text
         x={10}

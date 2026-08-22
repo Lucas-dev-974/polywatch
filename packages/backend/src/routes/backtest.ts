@@ -286,6 +286,11 @@ export function createBacktestRouter(ds: DataSource): Router {
     }
 
     // 1. Marchés distincts sur la fenêtre.
+    // On joint weather_market_snapshots pour récupérer la prévision météo
+    // (forecast_mean / forecast_std_dev) associée à chaque marché. Comme un
+    // même conditionId peut porter plusieurs snapshots au fil du temps, on
+    // prend le dernier (MAX(s.id)) par marché — l'identifiant étant croissant,
+    // c'est le snapshot le plus récent qui porte la prévision la plus à jour.
     const marketQb = ds
       .getRepository(WeatherBucketTick)
       .createQueryBuilder('t')
@@ -298,6 +303,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       .addSelect('t.bucketLow', 'bucketLow')
       .addSelect('t.bucketHigh', 'bucketHigh')
       .addSelect('t.question', 'question')
+      .addSelect('MAX(s.id)', 'snapshotId')
+      .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
       .where('t.recordedAt >= :from', { from })
       .andWhere('t.recordedAt <= :to', { to })
       .groupBy('t.conditionId')
@@ -323,9 +330,30 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketLow: number | null;
       bucketHigh: number | null;
       question: string | null;
+      snapshotId: number | null;
     }>();
+
     const markets = allMarkets.slice(offset, offset + limit);
     const truncated = allMarkets.length > offset + limit;
+
+    // Résolution de la prévision : on récupère forecast_mean / forecast_std_dev
+    // du snapshot le plus récent de chaque marché de la page affichée en une
+    // seule requête (borné par la page, pas par la fenêtre complète).
+    const snapshotIds = [...new Set(markets.map((m) => m.snapshotId).filter((id): id is number => id != null))];
+    const forecastBySnapshot = new Map<number, { forecastMean: number | null; forecastStdDev: number | null }>();
+    if (snapshotIds.length > 0) {
+      const snapRows = await ds
+        .getRepository(WeatherMarketSnapshot)
+        .createQueryBuilder('s')
+        .select('s.id', 'id')
+        .addSelect('s.forecastMean', 'forecastMean')
+        .addSelect('s.forecastStdDev', 'forecastStdDev')
+        .where('s.id IN (:...ids)', { ids: snapshotIds })
+        .getRawMany<{ id: number; forecastMean: number | null; forecastStdDev: number | null }>();
+      for (const r of snapRows) {
+        forecastBySnapshot.set(r.id, { forecastMean: r.forecastMean, forecastStdDev: r.forecastStdDev });
+      }
+    }
 
     // 2. Ticks par batch de conditionId, triés par recorded_at.
     const BATCH = 200;
@@ -339,6 +367,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketLow: number | null;
       bucketHigh: number | null;
       unit: string | null;
+      forecastMean: number | null;
+      forecastStdDev: number | null;
       points: { t: string; yesPrice: number | null }[];
     }>();
     for (let i = 0; i < markets.length; i += BATCH) {
@@ -366,6 +396,9 @@ export function createBacktestRouter(ds: DataSource): Router {
         let entry = series.get(t.conditionId);
         if (!entry) {
           const meta = markets.find((m) => m.conditionId === t.conditionId);
+          const forecast = meta?.snapshotId != null
+            ? forecastBySnapshot.get(meta.snapshotId)
+            : undefined;
           entry = {
             conditionId: t.conditionId,
             city: meta?.city ?? null,
@@ -376,6 +409,8 @@ export function createBacktestRouter(ds: DataSource): Router {
             bucketLow: meta?.bucketLow ?? null,
             bucketHigh: meta?.bucketHigh ?? null,
             unit: meta?.question ? (parseWeatherQuestion(meta.question)?.unit ?? null) : null,
+            forecastMean: forecast?.forecastMean ?? null,
+            forecastStdDev: forecast?.forecastStdDev ?? null,
             points: [],
           };
           series.set(t.conditionId, entry);
@@ -433,6 +468,8 @@ export function createBacktestRouter(ds: DataSource): Router {
     }
 
     // 1. Marchés distincts sur la plage (borné par la plage + filtres).
+    // Jointure sur weather_market_snapshots pour récupérer la prévision
+    // (forecast_mean / forecast_std_dev) la plus récente par marché.
     const marketQb = ds
       .getRepository(WeatherBucketTick)
       .createQueryBuilder('t')
@@ -445,6 +482,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       .addSelect('t.bucketLow', 'bucketLow')
       .addSelect('t.bucketHigh', 'bucketHigh')
       .addSelect('t.question', 'question')
+      .addSelect('MAX(s.id)', 'snapshotId')
+      .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
       .where('t.recordedAt >= :from', { from })
       .andWhere('t.recordedAt <= :to', { to })
       .groupBy('t.conditionId')
@@ -475,9 +514,29 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketLow: number | null;
       bucketHigh: number | null;
       question: string | null;
+      snapshotId: number | null;
     }>();
+
     const markets = allMarkets.slice(offset, offset + limit);
     const truncated = allMarkets.length > offset + limit;
+
+    // Résolution de la prévision en une seule requête sur les snapshots de la
+    // page affichée (borné par la page, pas par la fenêtre complète).
+    const snapshotIds = [...new Set(markets.map((m) => m.snapshotId).filter((id): id is number => id != null))];
+    const forecastBySnapshot = new Map<number, { forecastMean: number | null; forecastStdDev: number | null }>();
+    if (snapshotIds.length > 0) {
+      const snapRows = await ds
+        .getRepository(WeatherMarketSnapshot)
+        .createQueryBuilder('s')
+        .select('s.id', 'id')
+        .addSelect('s.forecastMean', 'forecastMean')
+        .addSelect('s.forecastStdDev', 'forecastStdDev')
+        .where('s.id IN (:...ids)', { ids: snapshotIds })
+        .getRawMany<{ id: number; forecastMean: number | null; forecastStdDev: number | null }>();
+      for (const r of snapRows) {
+        forecastBySnapshot.set(r.id, { forecastMean: r.forecastMean, forecastStdDev: r.forecastStdDev });
+      }
+    }
 
     // 2. Ticks par batch de conditionId, triés par recorded_at.
     const BATCH = 200;
@@ -491,6 +550,8 @@ export function createBacktestRouter(ds: DataSource): Router {
       bucketLow: number | null;
       bucketHigh: number | null;
       unit: string | null;
+      forecastMean: number | null;
+      forecastStdDev: number | null;
       points: { t: string; yesPrice: number | null }[];
     }>();
     for (let i = 0; i < markets.length; i += BATCH) {
@@ -518,6 +579,9 @@ export function createBacktestRouter(ds: DataSource): Router {
         let entry = series.get(t.conditionId);
         if (!entry) {
           const meta = markets.find((m) => m.conditionId === t.conditionId);
+          const forecast = meta?.snapshotId != null
+            ? forecastBySnapshot.get(meta.snapshotId)
+            : undefined;
           entry = {
             conditionId: t.conditionId,
             city: meta?.city ?? null,
@@ -528,6 +592,8 @@ export function createBacktestRouter(ds: DataSource): Router {
             bucketLow: meta?.bucketLow ?? null,
             bucketHigh: meta?.bucketHigh ?? null,
             unit: meta?.question ? (parseWeatherQuestion(meta.question)?.unit ?? null) : null,
+            forecastMean: forecast?.forecastMean ?? null,
+            forecastStdDev: forecast?.forecastStdDev ?? null,
             points: [],
           };
           series.set(t.conditionId, entry);

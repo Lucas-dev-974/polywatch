@@ -1217,6 +1217,8 @@ export interface BacktestMarketSeriesDto {
   bucketLow: number | null;
   bucketHigh: number | null;
   unit: 'celsius' | 'fahrenheit' | null;
+  forecastMean: number | null;
+  forecastStdDev: number | null;
   points: BacktestMarketSeriesPoint[];
 }
 

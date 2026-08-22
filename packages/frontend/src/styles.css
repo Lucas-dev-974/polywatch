@@ -12277,6 +12277,12 @@ body.is-resizing-columns .position-market-split-handle::after {
   font-weight: 600;
 }
 
+.backtest-ridge-label-forecast {
+  font-size: 0.5625rem;
+  fill: var(--text-muted, var(--text-secondary));
+  font-family: var(--mono);
+}
+
 .backtest-ridge-line {
   transition: stroke 0.12s ease, stroke-width 0.12s ease, opacity 0.12s ease;
 }
@@ -12380,6 +12386,13 @@ body.is-resizing-columns .position-market-split-handle::after {
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--text, var(--text-primary));
+}
+
+.backtest-ridge-tooltip-forecast {
+  font-size: 0.625rem;
+  color: var(--text-secondary, var(--text-muted));
+  font-family: var(--mono);
+  margin-bottom: 0.25rem;
 }
 
 .backtest-ridge-tooltip-grid {

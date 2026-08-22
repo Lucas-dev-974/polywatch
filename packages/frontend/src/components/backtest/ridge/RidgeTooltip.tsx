@@ -9,6 +9,12 @@ export function RidgeTooltip(props: { info: TooltipInfo | null }) {
       {(info) => (
         <div class="backtest-ridge-tooltip">
           <div class="backtest-ridge-tooltip-title">{info().city} · {info().date}</div>
+          <Show when={info().forecastMean != null}>
+            <div class="backtest-ridge-tooltip-forecast">
+              Prévision {info().forecastMean!.toFixed(1)}
+              {info().forecastStdDev != null ? ` ± ${info().forecastStdDev!.toFixed(1)}` : ''}
+            </div>
+          </Show>
           <Show when={info().buckets.length > 0}>
             <dl class="backtest-ridge-tooltip-grid">
               <dt>Date/heure</dt>

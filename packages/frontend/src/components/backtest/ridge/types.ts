@@ -11,6 +11,9 @@ export interface BucketLine {
 export interface VoieGroup {
   city: string | null;
   date: string;
+  /** Prévision météo enregistrée pour la date cible (du dernier snapshot). */
+  forecastMean: number | null;
+  forecastStdDev: number | null;
   buckets: BucketLine[];
   /** Buckets ayant une position, précalculés pour éviter un .filter() à chaque rendu. */
   positionBuckets: BucketLine[];
@@ -52,6 +55,8 @@ export interface TooltipBucket {
 export interface TooltipInfo {
   city: string;
   date: string;
+  forecastMean: number | null;
+  forecastStdDev: number | null;
   cursorLabel: string;
   buckets: TooltipBucket[];
   hasPositions: boolean;

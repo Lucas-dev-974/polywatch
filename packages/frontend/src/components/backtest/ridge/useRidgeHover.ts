@@ -133,6 +133,8 @@ export function useRidgeHover(deps: HoverDeps) {
     return {
       city: group.city ?? '—',
       date: group.date,
+      forecastMean: group.forecastMean,
+      forecastStdDev: group.forecastStdDev,
       cursorLabel: formatTs(new Date(t).toISOString()),
       buckets,
       hasPositions: positionBuckets.length > 0,

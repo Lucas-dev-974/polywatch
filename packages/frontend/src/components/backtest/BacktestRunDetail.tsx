@@ -21,6 +21,7 @@ interface BacktestRunDetailProps {
   positions: BacktestPositionDto[];
   marketSeries: BacktestMarketSeriesDto[];
   marketTotal: number;
+  marketLoading: boolean;
   error: string | null;
   capital: number;
   onBack: () => void;
@@ -30,6 +31,10 @@ interface BacktestRunDetailProps {
 
 export function BacktestRunDetail(props: BacktestRunDetailProps) {
   const isRunning = () => props.run.status === 'running' || props.run.status === 'queued';
+  // Les marchés sont "en cours" tant que le run n'est pas terminé (il produit
+  // encore des données) ou qu'un fetch est en vol. Évite d'afficher à tort
+  // « Aucun marché » pendant l'exécution.
+  const marketsBusy = () => isRunning() || props.marketLoading;
   // Période paramétrée de la run (params.from/to), source de vérité de l'étendue
   // des marchés affichés — pas la plage effective des données consommées.
   const runFrom = () => {
@@ -116,19 +121,37 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
         </CollapsibleSection>
       </Show>
 
-      <Show when={props.marketSeries.length > 0 && runFrom() && runTo()}>
+      <Show when={runFrom() && runTo()}>
         <CollapsibleSection
-          title={`Marchés parcourus (${props.marketTotal})`}
+          title={`Marchés parcourus (${marketsBusy() && props.marketSeries.length === 0 ? '…' : props.marketTotal})`}
           defaultCollapsed={false}
           persistKey="backtest-detail-markets"
+          headerActions={
+            <Show when={marketsBusy() && props.marketSeries.length === 0}>
+              <span class="backtest-detail-header-loader" aria-label="Chargement des marchés">
+                <span class="backtest-detail-header-loader-spinner" aria-hidden="true" />
+              </span>
+            </Show>
+          }
         >
-          <BacktestMarketRidgeChart
-            series={props.marketSeries}
-            positions={props.positions}
-            excludedTicks={props.excludedTicks}
-            from={runFrom()!}
-            to={runTo()!}
-          />
+          <Show
+            when={props.marketSeries.length > 0}
+            fallback={
+              <p class="form-hint">
+                {marketsBusy()
+                  ? 'Chargement des marchés…'
+                  : 'Aucun marché parcouru sur cette plage.'}
+              </p>
+            }
+          >
+            <BacktestMarketRidgeChart
+              series={props.marketSeries}
+              positions={props.positions}
+              excludedTicks={props.excludedTicks}
+              from={runFrom()!}
+              to={runTo()!}
+            />
+          </Show>
         </CollapsibleSection>
       </Show>
 

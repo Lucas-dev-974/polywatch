@@ -4,8 +4,8 @@ import { CollapsibleSection } from './CollapsibleSection';
 import { Icon } from './Icon';
 import {
   WeatherPositionGroupedList,
-  buildWeatherPositionGroups,
-} from './WeatherPositionGroupedList';
+} from './weather-position-group/WeatherPositionGroupedList';
+import { buildWeatherPositionGroups } from './weather-position-group/buildGroups';
 
 export interface WeatherAlgoPositionsPanelProps {
   positions: ReturnType<typeof useWeatherAlgoPositions>;

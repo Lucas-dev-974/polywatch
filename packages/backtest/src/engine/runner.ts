@@ -154,10 +154,25 @@ export class BacktestRunner {
     };
     const adapter = spec.adapterFactory(ctx);
 
-    const totalEstimated = (await spec.estimateTotalEvents?.()) ?? 0;
-    if (totalEstimated === 0) {
-      fidelityWarnings.push('no_events_in_range: Aucune donnée sur la plage demandée');
-    }
+    // Lance le comptage en parallèle pour ne pas bloquer le démarrage de la
+    // boucle d'événements. Sans ça, la barre reste à 0% pendant les COUNT(*)
+    // sur les tables weather (potentiellement longs).
+    let totalEstimated = 0;
+    const countPromise = spec.estimateTotalEvents
+      ? spec
+          .estimateTotalEvents()
+          .then((n) => {
+            totalEstimated = n;
+            if (n === 0) {
+              fidelityWarnings.push('no_events_in_range: Aucune donnée sur la plage demandée');
+            }
+            return n;
+          })
+          .catch((err) => {
+            log.warn({ runId, err }, 'backtest: event count failed, progress will be approximate');
+            return 0;
+          })
+      : Promise.resolve(0);
 
     let processed = 0;
     let lastSampleAt = -Infinity;
@@ -182,13 +197,18 @@ export class BacktestRunner {
     };
 
     const persistProgress = async (finalPct?: number) => {
-      const pct =
-        finalPct ??
-        (totalEstimated > 0
-          ? Math.min(99, Math.round((processed / totalEstimated) * 100))
-          : processed > 0
-            ? 99
-            : 0);
+      let pct: number;
+      if (finalPct != null) {
+        pct = finalPct;
+      } else if (totalEstimated > 0) {
+        pct = Math.min(99, Math.round((processed / totalEstimated) * 100));
+      } else if (processed > 0) {
+        // Comptage encore en cours : on borne à 5% pour signaler l'activité
+        // sans donner l'impression que le run est presque terminé.
+        pct = Math.min(5, Math.max(1, Math.round((processed / 10_000) * 5)));
+      } else {
+        pct = 0;
+      }
       await service.updateProgress(runId, pct);
       if (pendingEquityFlush.length > 0) {
         await service.appendEquity(runId, pendingEquityFlush);
@@ -292,6 +312,10 @@ export class BacktestRunner {
         await new Promise((resolve) => setImmediate(resolve));
       }
     }
+
+    // S'assurer que le comptage est résolu avant de finaliser (pour que le
+    // progressPct final soit correct).
+    await countPromise;
 
     // §7 : check d'abort final après épuisement des événements. Sans ce check,
     // un cancel/timeout demandé pendant le dernier événement terminerait le run

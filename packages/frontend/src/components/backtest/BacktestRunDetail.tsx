@@ -79,11 +79,15 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
       </div>
 
       <Show when={isRunning()}>
-        <div class="backtest-progress backtest-progress--wide">
+        <div class={`backtest-progress backtest-progress--wide${props.run.progressPct === 0 ? ' backtest-progress--preparing' : ''}`}>
           <div class="backtest-progress-track">
             <div class="backtest-progress-fill" style={{ width: `${props.run.progressPct}%` }} />
           </div>
-          <span>{props.run.progressPct}%</span>
+          <span>
+            {props.run.progressPct === 0
+              ? 'Préparation des données…'
+              : `${props.run.progressPct}%`}
+          </span>
         </div>
       </Show>
 

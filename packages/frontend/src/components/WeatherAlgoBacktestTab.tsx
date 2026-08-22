@@ -277,7 +277,13 @@ export function WeatherAlgoBacktestTab() {
       const res = await launchBacktestRun(body);
       setPage(0);
       setSelectedId(res.id);
-      await refreshList(0);
+      setDetail(null);
+      setEquity([]);
+      setExcludedTicks([]);
+      setPositions([]);
+      setMarketSeries([]);
+      setMarketTotal(0);
+      await Promise.all([refreshDetail(res.id), refreshList(0)]);
       startPolling();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Échec du lancement';

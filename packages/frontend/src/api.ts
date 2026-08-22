@@ -31,7 +31,8 @@ function shouldUseGetCache(path: string): boolean {
     !path.startsWith('/system/crypto-algo-monitor') &&
     !path.startsWith('/weather-algo-discover') &&
     !path.startsWith('/weather-algo-history/jobs') &&
-    !path.startsWith('/backtest/markets-series')
+    !path.startsWith('/backtest/markets-series') &&
+    !path.startsWith('/backtest/runs')
   );
 }
 

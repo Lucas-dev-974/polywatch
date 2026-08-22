@@ -1,6 +1,6 @@
 import { onCleanup } from 'solid-js';
 
-const POLL_MS = 4000;
+const POLL_MS = 1000;
 
 /**
  * Encapsule le polling d'un backtest : un timer qui appelle `onTick` à

@@ -12977,6 +12977,30 @@ body.is-resizing-columns .position-market-split-handle::after {
   transition: width 0.3s;
 }
 
+.backtest-progress--preparing .backtest-progress-track {
+  position: relative;
+}
+
+.backtest-progress--preparing .backtest-progress-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 30%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent, #4f8cff),
+    transparent
+  );
+  animation: backtest-progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes backtest-progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 .backtest-toolbar-left {
   display: flex;
   align-items: center;

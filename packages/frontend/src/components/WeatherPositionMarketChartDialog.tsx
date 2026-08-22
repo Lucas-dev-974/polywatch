@@ -1,7 +1,6 @@
 import { createEffect, createSignal, Show } from 'solid-js';
 import {
   fetchBucketTickTimeline,
-  fetchWeatherConfig,
   type BucketTimelineCity,
 } from '../api';
 import type { WeatherPosition } from '../hooks/useWeatherAlgoPositions';
@@ -33,23 +32,28 @@ export function WeatherPositionMarketChartDialog(
   const conditionId = () => pos().conditionId;
   const targetDateIso = () => wf()?.targetDate?.slice(0, 10) ?? '';
 
-  /**
-   * Filtre les ticks sur la cadence d'écriture réelle du runner (weatherAlgoPollMs).
-   * Sans ce filtre, la requête renvoie tous les intervalles mélangés (1/5/15/60 min),
-   * ce qui effondre l'écart médian et coupe abusivement les lignes sur les trous de
-   * données (voir splitSegments : seuil = 3× l'écart médian).
-   */
-  async function resolveFidelityMinutes(): Promise<number | undefined> {
-    try {
-      const cfg = await fetchWeatherConfig();
-      const pollMs = cfg.weatherAlgoPollMs;
-      if (Number.isFinite(pollMs) && pollMs > 0) {
-        return Math.max(1, Math.round(pollMs / 60_000));
-      }
-    } catch {
-      /* config indisponible : on laisse undefined (toutes cadences) */
+  // Borne la fenêtre temporelle pour garantir que toute l'agrégation pré-target
+  // soit chargée. Les ticks d'une date cible s'enregistrent sur ~4 jours AVANT
+  // la résolution (le marché cote bien avant). Ancrer `from` sur openedAt
+  // tronquerait la période d'activité et masquerait le contexte de l'entrée.
+  // On remonte donc 4 jours avant la date cible, et on borne `to` à la clôture
+  // de la position (si fermée) ou au maintenant (si ouverte).
+  const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
+  function windowFromTo(): { from?: string; to?: string } {
+    const p = pos();
+    const out: { from?: string; to?: string } = {};
+    // La date cible porte la résolution : on remonte 4 jours avant.
+    const target = targetDateIso();
+    if (target) {
+      out.from = new Date(new Date(target).getTime() - FOUR_DAYS_MS).toISOString();
+    } else if (p.openedAt) {
+      out.from = new Date(new Date(p.openedAt).getTime() - FOUR_DAYS_MS).toISOString();
     }
-    return undefined;
+    if (p.closedAt) {
+      // Petite marge après la sortie pour que le marker ne colle pas au bord.
+      out.to = new Date(new Date(p.closedAt).getTime() + 2 * 60_000).toISOString();
+    }
+    return out;
   }
 
   async function load() {
@@ -61,8 +65,8 @@ export function WeatherPositionMarketChartDialog(
     setError(null);
     setCity(null);
     try {
-      const fidelityMinutes = await resolveFidelityMinutes();
       const city = wf()?.city ?? undefined;
+      const timeWindow = windowFromTo();
       const res = await fetchBucketTickTimeline(targetDateIso(), {
         // Affiche tous les buckets de la date cible / ville de la position.
         // On filtre par ville (et non par conditionId) pour ne pas réduire le
@@ -70,8 +74,15 @@ export function WeatherPositionMarketChartDialog(
         // position n'a pas de ville renseignée.
         city,
         conditionId: city ? undefined : conditionId(),
-        maxTicks: 2000,
-        fidelityMinutes,
+        from: timeWindow.from,
+        to: timeWindow.to,
+        // maxTicks est ignoré par le backend quand from/to est fourni (tous les
+        // points de la fenêtre sont retournés). On ne filtre PAS par
+        // fidelityMinutes : la cadence de la position (ouverte il y a
+        // potentiellement longtemps) peut différer de la cadence actuelle
+        // (weatherAlgoPollMs). Filtrer à la cadence actuelle exclurait les
+        // ticks de la période d'entrée.
+        fidelityMinutes: undefined,
       });
       const match = res.dates[0]?.cities?.[0];
       if (!match || match.buckets.length === 0) {

@@ -489,7 +489,15 @@ export class WeatherAlgoDataService {
     const target = options.targetDateIso.trim();
     if (!target) return { dates: [] };
 
-    const maxTicks = Math.max(1, Math.min(options.maxTicks ?? 2000, 5000));
+    // Quand une fenêtre temporelle explicite (from/to) est fournie (dialog de
+    // position), on retourne TOUS les points de cette fenêtre sans LIMIT : le
+    // maxTicks tronquerait les points les plus anciens (période d'entrée) et
+    // empêcherait l'affichage du marker d'entrée. La vue timeline non bornée
+    // (onglet Données) n'envoie jamais from/to et garde le LIMIT maxTicks.
+    const hasWindow = options.from != null || options.to != null;
+    const maxTicks = hasWindow
+      ? undefined
+      : Math.max(1, Math.min(options.maxTicks ?? 2000, 5000));
 
     // D.1 — Requête bornée mono-table sur les colonnes dénormalisées du tick.
     // (city_normalized / target_date_iso sont backfillées depuis le snapshot parent.)
@@ -518,14 +526,15 @@ export class WeatherAlgoDataService {
       tickQb.andWhere('t.recordedAt <= :to', { to: options.to });
     }
 
-    // D.2 — Fetch the most recent `maxTicks` ticks (DESC) so the resolution
-    // tail (winning bucket at 1.00) is never truncated, then re-sort ASC for
-    // chronological series and coherent first/lastRecordedAt.
-    const ticks = await tickQb
+    // D.2 — Fetch ticks. Sans fenêtre bornée (from/to), on récupère les
+    // `maxTicks` plus récents (DESC) pour préserver la queue de résolution
+    // (bucket gagnant à 1.00) puis re-tri ASC. Avec une fenêtre bornée, tous
+    // les points de la période sont retournés (pas de LIMIT).
+    const tickQuery = tickQb
       .orderBy('t.recordedAt', 'DESC')
-      .addOrderBy('t.id', 'DESC')
-      .limit(maxTicks)
-      .getMany();
+      .addOrderBy('t.id', 'DESC');
+    if (maxTicks != null) tickQuery.limit(maxTicks);
+    const ticks = await tickQuery.getMany();
 
     sortByRecordedAtAsc(ticks);
 
@@ -535,7 +544,7 @@ export class WeatherAlgoDataService {
 
     // Snapshots distincts requis pour résoudre forecastMean/forecastStdDev
     // (non dénormalisés sur le tick) : on ne charge que ceux effectivement
-    // référencés par les ticks retournés (borne ≤ maxTicks).
+    // référencés par les ticks retournés.
     const snapshotIds = [...new Set(ticks.map((t) => t.snapshotId))];
     const snapshots = await this.ds
       .getRepository(WeatherMarketSnapshot)

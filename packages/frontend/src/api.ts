@@ -933,6 +933,8 @@ export async function fetchBucketTickTimeline(
   params?: {
     city?: string;
     conditionId?: string;
+    from?: string;
+    to?: string;
     maxTicks?: number;
     fidelityMinutes?: number;
   },
@@ -941,6 +943,8 @@ export async function fetchBucketTickTimeline(
     targetDateIso,
     city: params?.city,
     conditionId: params?.conditionId,
+    from: params?.from,
+    to: params?.to,
     maxTicks: params?.maxTicks,
     fidelityMinutes: params?.fidelityMinutes,
   });

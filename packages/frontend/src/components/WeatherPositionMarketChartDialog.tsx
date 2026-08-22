@@ -7,21 +7,8 @@ import {
 import type { WeatherPosition } from '../hooks/useWeatherAlgoPositions';
 import { Dialog } from './Dialog';
 import { SeriesChart, type SeriesChartMarker } from './WeatherTimelineView';
-import { formatTimelineBucketLabel, formatBucketTargetLabel } from '../lib/weather-position';
-import { formatShortDateTime } from '../lib/date';
-import { formatPnlAmount, pnlClass as genericPnlClass } from '../lib/position';
-import type {
-  WeatherTimelineSeriesPoint,
-} from './WeatherTimelineView';
-
-function toChartPoints(
-  series: Array<{ recordedAt: string; yesPrice: number | null }>,
-): WeatherTimelineSeriesPoint[] {
-  return series.map((p) => ({
-    t: new Date(p.recordedAt).getTime(),
-    y: p.yesPrice,
-  }));
-}
+import { formatTimelineBucketLabel, formatBucketTargetLabel, toChartPoints } from '../lib/weather-position';
+import { WeatherPositionChartSummary } from './weather-position-group/WeatherPositionChartSummary';
 
 export interface WeatherPositionMarketChartDialogProps {
   position: WeatherPosition;
@@ -41,7 +28,7 @@ export function WeatherPositionMarketChartDialog(
   const [city, setCity] = createSignal<BucketTimelineCity | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  const [minPrice, setMinPrice] = createSignal(0.1);
+  const [minPrice, setMinPrice] = createSignal(0.2);
 
   const conditionId = () => pos().conditionId;
   const targetDateIso = () => wf()?.targetDate?.slice(0, 10) ?? '';
@@ -75,8 +62,14 @@ export function WeatherPositionMarketChartDialog(
     setCity(null);
     try {
       const fidelityMinutes = await resolveFidelityMinutes();
+      const city = wf()?.city ?? undefined;
       const res = await fetchBucketTickTimeline(targetDateIso(), {
-        conditionId: conditionId(),
+        // Affiche tous les buckets de la date cible / ville de la position.
+        // On filtre par ville (et non par conditionId) pour ne pas réduire le
+        // graph au seul bucket de la position. Fallback conditionId si la
+        // position n'a pas de ville renseignée.
+        city,
+        conditionId: city ? undefined : conditionId(),
         maxTicks: 2000,
         fidelityMinutes,
       });
@@ -146,7 +139,6 @@ export function WeatherPositionMarketChartDialog(
       <Show when={!loading() && !error() && city()}>
         {(c) => {
           const data = c();
-          const p = pos();
           return (
             <>
               <SeriesChart
@@ -164,42 +156,7 @@ export function WeatherPositionMarketChartDialog(
                   </Show>
                 )}
               />
-              <div class="weather-position-chart-summary">
-                <span>
-                  Outcome : <strong>{p.outcome}</strong>
-                </span>
-                <span>
-                  Entrée : <strong>{p.entryPrice.toFixed(3)}</strong> USDC
-                  {p.openedAt ? ` · ${formatShortDateTime(p.openedAt)}` : ''}
-                </span>
-                <Show when={p.status === 'open' && p.executableBidVwap != null && p.executableBidVwap > 0}>
-                  <span>
-                    Bid actuel :{' '}
-                    <strong>{(p.executableBidVwap as number).toFixed(3)}</strong> USDC
-                  </span>
-                </Show>
-                <Show when={p.status === 'closed'}>
-                  <span>
-                    Sortie :{' '}
-                    <strong>
-                      {p.exitBidVwap != null ? p.exitBidVwap.toFixed(3) : '—'}
-                    </strong>{' '}
-                    USDC
-                    {p.closedAt ? ` · ${formatShortDateTime(p.closedAt)}` : ''}
-                  </span>
-                  <span>
-                    PnL :{' '}
-                    <strong class={genericPnlClass(p.realizedPnl)}>
-                      {formatPnlAmount(p.realizedPnl, true)}
-                    </strong>
-                  </span>
-                  <Show when={p.closeReason}>
-                    <span>
-                      Raison : <strong>{p.closeReason}</strong>
-                    </span>
-                  </Show>
-                </Show>
-              </div>
+              <WeatherPositionChartSummary position={pos()} />
               <label class="weather-data-filter weather-bucket-min-price">
                 <span>Prix min</span>
                 <input

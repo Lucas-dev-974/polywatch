@@ -8,20 +8,10 @@ import {
   UI_KEYS,
   WeatherTimelineView,
   type WeatherTimelineDateEntry,
-  type WeatherTimelineSeriesPoint,
   type WeatherTimelineSource,
 } from './WeatherTimelineView';
-import { formatTimelineBucketLabel, formatBucketTargetLabel } from '../lib/weather-position';
+import { formatTimelineBucketLabel, formatBucketTargetLabel, toChartPoints } from '../lib/weather-position';
 import { FIDELITY_OPTIONS } from '../lib/fidelity-options';
-
-function toChartPoints(
-  series: Array<{ recordedAt: string; yesPrice: number | null }>,
-): WeatherTimelineSeriesPoint[] {
-  return series.map((p) => ({
-    t: new Date(p.recordedAt).getTime(),
-    y: p.yesPrice,
-  }));
-}
 
 const source: WeatherTimelineSource<BucketTimelineCity> = {
   dateKey: UI_KEYS.weatherAlgoTimelineDate,

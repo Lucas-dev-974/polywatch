@@ -93,3 +93,22 @@ export function formatBucketTargetLabel(
   }
   return fmt(bucket.bucketTarget);
 }
+
+export interface WeatherChartPoint {
+  t: number;
+  y: number | null;
+}
+
+/**
+ * Projette une série de ticks bucket (`recordedAt` + `yesPrice`) vers les
+ * points utilisés par les graphiques `SeriesChart`. Mutualisé entre le dialog
+ * de position et la vue timeline bucket de l'onglet Données.
+ */
+export function toChartPoints(
+  series: Array<{ recordedAt: string; yesPrice: number | null }>,
+): WeatherChartPoint[] {
+  return series.map((p) => ({
+    t: new Date(p.recordedAt).getTime(),
+    y: p.yesPrice,
+  }));
+}

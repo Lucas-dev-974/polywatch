@@ -1,7 +1,8 @@
 import type { BacktestMarketSeriesDto, BacktestPositionDto } from '../../../api';
 import { formatBucketLabel } from '../../../lib/weather-position';
 import { seriesColor } from '../../weather-series-chart/palette';
-import type { VoieGroup } from './types';
+import type { VoieGroup, BucketLine, EnrichedSeries } from './types';
+import { enrichSeries } from './precompute';
 
 export const MIN_AVG_YES = 0.2;
 
@@ -38,6 +39,7 @@ export function bucketLabel(s: BacktestMarketSeriesDto): string {
 /**
  * Regroupe les séries par (ville, date cible), ne garde que celles dont le
  * prix moyen > `minAvgYes`, et trie les buckets de chaque row par borne.
+ * Enrichit chaque bucket d'une version pré-calculée (timestamps numériques) pour le rendu.
  */
 export function groupVoies(
   series: BacktestMarketSeriesDto[],
@@ -70,8 +72,9 @@ export function groupVoies(
       group.forecastMean = s.forecastMean;
       group.forecastStdDev = s.forecastStdDev ?? null;
     }
-    const bucketLine = {
+    const bucketLine: BucketLine = {
       series: s,
+      enriched: enrichSeries(s),
       color: seriesColor(group.buckets.length),
       position: posByCondition.get(s.conditionId) ?? null,
     };

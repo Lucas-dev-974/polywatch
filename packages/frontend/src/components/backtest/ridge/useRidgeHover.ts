@@ -1,6 +1,6 @@
 import { createMemo, createSignal, onCleanup } from 'solid-js';
 import type { BacktestMarketSeriesDto, BacktestPositionDto } from '../../../api';
-import type { RidgeScale, TooltipInfo, VoieGroup } from './types';
+import type { RidgeScale, TooltipInfo, VoieGroup, EnrichedSeries, EnrichedPoint } from './types';
 import { MARGIN_TOP, VOIE_H } from './scale';
 import { bucketLabel } from './group';
 import { formatTs } from '../format';
@@ -48,27 +48,53 @@ export function useRidgeHover(deps: HoverDeps) {
   };
 
   // nearestPrice en recherche dichotomique (points triés par temps).
-  const nearestPrice = (s: BacktestMarketSeriesDto, t: number): number | null => {
+  // Supporte à la fois BacktestMarketSeriesDto (fallback) et EnrichedSeries (chemin chaud).
+  const nearestPrice = (s: BacktestMarketSeriesDto | EnrichedSeries, t: number): number | null => {
+    const isEnriched = 'minT' in s;
     const n = deps.maxTicks();
-    const points = n > 0 ? s.points.slice(-n) : s.points;
-    if (points.length === 0) return null;
+    const points = isEnriched
+      ? (s as EnrichedSeries).points
+      : (s as BacktestMarketSeriesDto).points;
+    const sliced = n > 0 ? points.slice(-n) : points;
+    if (sliced.length === 0) return null;
+    
+    // Early exit si hors bornes
+    if (isEnriched) {
+      const enriched = s as EnrichedSeries;
+      if (t < enriched.minT || t > enriched.maxT) return null;
+    }
+    
     let lo = 0;
-    let hi = points.length - 1;
+    let hi = sliced.length - 1;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      if (Date.parse(points[mid].t) < t) lo = mid + 1;
+      const midT = isEnriched 
+        ? (sliced[mid] as EnrichedPoint).t 
+        : Date.parse((sliced[mid] as BacktestMarketSeriesDto).t);
+      if (midT < t) lo = mid + 1;
       else hi = mid;
     }
     let best: number | null = null;
     let bestDist = Infinity;
     for (const cand of [lo - 1, lo, lo + 1]) {
-      if (cand < 0 || cand >= points.length) continue;
-      const p = points[cand];
-      if (p.yesPrice == null) continue;
-      const d = Math.abs(Date.parse(p.t) - t);
-      if (d < bestDist) {
-        bestDist = d;
-        best = p.yesPrice;
+      if (cand < 0 || cand >= sliced.length) continue;
+      const p = sliced[cand];
+      if (isEnriched) {
+        const ep = p as EnrichedPoint;
+        if (ep.price == null) continue;
+        const d = Math.abs(ep.t - t);
+        if (d < bestDist) {
+          bestDist = d;
+          best = ep.price;
+        }
+      } else {
+        const dp = p as { yesPrice: number | null; t: string };
+        if (dp.yesPrice == null) continue;
+        const d = Math.abs(Date.parse(dp.t) - t);
+        if (d < bestDist) {
+          bestDist = d;
+          best = dp.yesPrice;
+        }
       }
     }
     return best;

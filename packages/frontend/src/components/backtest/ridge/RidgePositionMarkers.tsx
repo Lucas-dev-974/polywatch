@@ -9,6 +9,12 @@ interface Marker {
   position: BacktestPositionDto;
 }
 
+interface ParsedPosition {
+  position: BacktestPositionDto;
+  entryT: number;
+  exitT: number | null;
+}
+
 /**
  * Points de position affichés au survol d'une row. Un cercle vert marque
  * l'entrée d'une position, un cercle rouge sa sortie. Remplace les barres
@@ -20,30 +26,39 @@ export function RidgePositionMarkers(props: {
   voieTop: number;
   onHover: (pos: BacktestPositionDto | null, x: number, y: number) => void;
 }) {
-  const markers = createMemo<Marker[]>(() => {
-    const out: Marker[] = [];
+  // Pré-parser les timestamps des positions une seule fois (stable pendant le run).
+  const parsedPositions = createMemo<ParsedPosition[]>(() => {
+    const out: ParsedPosition[] = [];
     for (const bucket of props.voie.positionBuckets) {
       const pos = bucket.position;
       if (!pos) continue;
-      const entryT = Date.parse(pos.entryAt);
-      if (!Number.isNaN(entryT)) {
+      out.push({
+        position: pos,
+        entryT: Date.parse(pos.entryAt),
+        exitT: pos.exitAt ? Date.parse(pos.exitAt) : null,
+      });
+    }
+    return out;
+  });
+
+  const markers = createMemo<Marker[]>(() => {
+    const out: Marker[] = [];
+    for (const parsed of parsedPositions()) {
+      if (!Number.isNaN(parsed.entryT)) {
         out.push({
-          x: props.scale.xPos(entryT),
-          y: props.scale.yPos(pos.entryPrice, props.voieTop),
+          x: props.scale.xPos(parsed.entryT),
+          y: props.scale.yPos(parsed.position.entryPrice, props.voieTop),
           kind: 'entry',
-          position: pos,
+          position: parsed.position,
         });
       }
-      if (pos.exitAt) {
-        const exitT = Date.parse(pos.exitAt);
-        if (!Number.isNaN(exitT)) {
-          out.push({
-            x: props.scale.xPos(exitT),
-            y: props.scale.yPos(pos.exitPrice ?? pos.entryPrice, props.voieTop),
-            kind: 'exit',
-            position: pos,
-          });
-        }
+      if (parsed.exitT != null && !Number.isNaN(parsed.exitT)) {
+        out.push({
+          x: props.scale.xPos(parsed.exitT),
+          y: props.scale.yPos(parsed.position.exitPrice ?? parsed.position.entryPrice, props.voieTop),
+          kind: 'exit',
+          position: parsed.position,
+        });
       }
     }
     return out;

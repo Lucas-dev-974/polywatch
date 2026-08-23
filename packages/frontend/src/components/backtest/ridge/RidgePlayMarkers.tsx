@@ -17,6 +17,12 @@ interface Marker {
   position: BacktestPositionDto;
 }
 
+interface ParsedPosition {
+  position: BacktestPositionDto;
+  entryT: number;
+  exitT: number | null;
+}
+
 /**
  * Markers de position du player de replay. Un cercle vert apparaît quand le
  * playhead atteint l'entryAt d'une position, un cercle rouge à l'exitAt.
@@ -35,33 +41,38 @@ export function RidgePlayMarkers(props: RidgePlayMarkersProps) {
     return map;
   });
 
+  // Pré-parser les timestamps des positions une seule fois (stable pendant le run).
+  const parsedPositions = createMemo<ParsedPosition[]>(() => {
+    return props.positions.map((pos) => ({
+      position: pos,
+      entryT: Date.parse(pos.entryAt),
+      exitT: pos.exitAt ? Date.parse(pos.exitAt) : null,
+    }));
+  });
+
   const markers = createMemo<Marker[]>(() => {
     const t = props.playheadT;
     if (t == null) return [];
     const map = voieIndexByCondition();
     const out: Marker[] = [];
-    for (const pos of props.positions) {
-      const voieIndex = map.get(pos.conditionId);
+    for (const parsed of parsedPositions()) {
+      const voieIndex = map.get(parsed.position.conditionId);
       if (voieIndex == null) continue;
-      const entryT = Date.parse(pos.entryAt);
-      if (Number.isNaN(entryT) || t < entryT) continue;
+      if (Number.isNaN(parsed.entryT) || t < parsed.entryT) continue;
       const voieTop = props.scale.top(voieIndex);
       out.push({
-        x: props.scale.xPos(entryT),
-        y: props.scale.yPos(pos.entryPrice, voieTop),
+        x: props.scale.xPos(parsed.entryT),
+        y: props.scale.yPos(parsed.position.entryPrice, voieTop),
         kind: 'entry',
-        position: pos,
+        position: parsed.position,
       });
-      if (pos.exitAt) {
-        const exitT = Date.parse(pos.exitAt);
-        if (!Number.isNaN(exitT) && t >= exitT) {
-          out.push({
-            x: props.scale.xPos(exitT),
-            y: props.scale.yPos(pos.exitPrice ?? pos.entryPrice, voieTop),
-            kind: 'exit',
-            position: pos,
-          });
-        }
+      if (parsed.exitT != null && !Number.isNaN(parsed.exitT) && t >= parsed.exitT) {
+        out.push({
+          x: props.scale.xPos(parsed.exitT),
+          y: props.scale.yPos(parsed.position.exitPrice ?? parsed.position.entryPrice, voieTop),
+          kind: 'exit',
+          position: parsed.position,
+        });
       }
     }
     return out;

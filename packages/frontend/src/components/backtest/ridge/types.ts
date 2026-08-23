@@ -1,8 +1,30 @@
 import type { BacktestMarketSeriesDto, BacktestPositionDto } from '../../../api';
 
+/** Point de série enrichi : timestamp pré-parsé (ms) + géométrie native. */
+export interface EnrichedPoint {
+  /** Timestamp numérique (Date.parse) — pré-calculé, ne se re-parse jamais. */
+  t: number;
+  /** Prix YES brut (0..1 ou null si trou). */
+  price: number | null;
+}
+
+export interface EnrichedSeries {
+  conditionId: string;
+  city: string | null;
+  targetDateIso: string | null;
+  forecastMean: number | null;
+  forecastStdDev: number | null;
+  points: EnrichedPoint[];   // triés par t croissant
+  /** Bornes pour accès rapide / early-exit. */
+  minT: number;
+  maxT: number;
+}
+
 /** Série (bucket) enrichie de sa couleur et de sa position éventuelle. */
 export interface BucketLine {
   series: BacktestMarketSeriesDto;
+  /** Version enrichie (timestamps numériques, bornes) — pour le chemin de rendu chaud. */
+  enriched?: EnrichedSeries;
   color: string;
   position: BacktestPositionDto | null;
 }

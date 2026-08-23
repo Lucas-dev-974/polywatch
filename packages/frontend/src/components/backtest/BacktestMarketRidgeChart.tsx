@@ -18,7 +18,7 @@ import { useRidgePlayer } from './ridge/useRidgePlayer';
 import { useRidgePlayerFocus } from './ridge/useRidgePlayerFocus';
 import { useRidgeVirtualization } from './ridge/useRidgeVirtualization';
 import { useRidgeHover } from './ridge/useRidgeHover';
-import type { RidgeScale } from './ridge/types';
+import type { RidgeScale, EnrichedSeries } from './ridge/types';
 
 export function BacktestMarketRidgeChart(props: {
   series: BacktestMarketSeriesDto[];
@@ -75,53 +75,55 @@ export function BacktestMarketRidgeChart(props: {
   const virtualization = useRidgeVirtualization(voies);
 
   // ── Player de replay ──────────────────────────────────────────────────
-  // Timeline = timestamps uniques triés des points des voies filtrées
-  // (P1/P2/P3 : synchronisée avec les courbes affichées, respecte maxTicks).
-  const playerTimeline = createMemo<number[]>(() => {
-    if (!playerActive()) return [];
-    const n = maxTicks();
-    const set = new Set<number>();
-    for (const voie of voies()) {
-      for (const b of voie.buckets) {
-        const points = n > 0 ? b.series.points.slice(-n) : b.series.points;
-        for (const p of points) {
-          const t = Date.parse(p.t);
-          if (!Number.isNaN(t)) set.add(t);
+    // Timeline = timestamps uniques triés des points des voies filtrées
+    // (P1/P2/P3 : synchronisée avec les courbes affichées, respecte maxTicks).
+    const playerTimeline = createMemo<number[]>(() => {
+      if (!playerActive()) return [];
+      const n = maxTicks();
+      const set = new Set<number>();
+      for (const voie of voies()) {
+        for (const b of voie.buckets) {
+          // Utiliser la série enrichie si dispo (t déjà numérique), sinon fallback
+          const pts = b.enriched?.points ?? b.series.points;
+          const points = n > 0 ? pts.slice(-n) : pts;
+          for (const p of points) {
+            const t = b.enriched ? p.t : Date.parse(p.t);
+            if (!Number.isNaN(t)) set.add(t);
+          }
         }
       }
-    }
-    return [...set].sort((a, b) => a - b);
-  });
-
-  const player = useRidgePlayer(playerTimeline);
-
-  // Row active au playhead : la voie de la position la plus récemment entrée
-  // (entryAt <= playhead). Stable : ne change que lors d'une nouvelle entrée,
-  // évitant le saccadement vertical dû à la première voie qui matche un tick.
-  const activeVoieIndex = createMemo<number | null>(() => {
-    const t = player.playheadT();
-    if (t == null) return null;
-    const vs = voies();
-    // Map conditionId -> index de voie.
-    const voieIndexByCondition = new Map<string, number>();
-    vs.forEach((voie, i) => {
-      for (const b of voie.buckets) {
-        if (!voieIndexByCondition.has(b.series.conditionId)) {
-          voieIndexByCondition.set(b.series.conditionId, i);
-        }
-      }
+      return [...set].sort((a, b) => a - b);
     });
-    // Position la plus récemment entrée (entryAt <= t).
-    let best: { voieIndex: number; entryT: number } | null = null;
-    for (const pos of props.positions) {
-      const entryT = Date.parse(pos.entryAt);
-      if (Number.isNaN(entryT) || entryT > t) continue;
-      const voieIndex = voieIndexByCondition.get(pos.conditionId);
-      if (voieIndex == null) continue;
-      if (!best || entryT > best.entryT) best = { voieIndex, entryT };
-    }
-    return best ? best.voieIndex : null;
-  });
+
+    const player = useRidgePlayer(playerTimeline);
+
+    // Row active au playhead : la voie de la position la plus récemment entrée
+    // (entryAt <= playhead). Stable : ne change que lors d'une nouvelle entrée,
+    // évitant le saccadement vertical dû à la première voie qui matche un tick.
+    const activeVoieIndex = createMemo<number | null>(() => {
+      const t = player.playheadT();
+      if (t == null) return null;
+      const vs = voies();
+      // Map conditionId -> index de voie.
+      const voieIndexByCondition = new Map<string, number>();
+      vs.forEach((voie, i) => {
+        for (const b of voie.buckets) {
+          if (!voieIndexByCondition.has(b.series.conditionId)) {
+            voieIndexByCondition.set(b.series.conditionId, i);
+          }
+        }
+      });
+      // Position la plus récemment entrée (entryAt <= t).
+      let best: { voieIndex: number; entryT: number } | null = null;
+      for (const pos of props.positions) {
+        const entryT = Date.parse(pos.entryAt);
+        if (Number.isNaN(entryT) || entryT > t) continue;
+        const voieIndex = voieIndexByCondition.get(pos.conditionId);
+        if (voieIndex == null) continue;
+        if (!best || entryT > best.entryT) best = { voieIndex, entryT };
+      }
+      return best ? best.voieIndex : null;
+    });
 
   const [hoveredPlayPosition, setHoveredPlayPosition] = createSignal<BacktestPositionDto | null>(null);
   const [hoveredPlayXY, setHoveredPlayXY] = createSignal<{ x: number; y: number } | null>(null);
@@ -255,25 +257,26 @@ export function BacktestMarketRidgeChart(props: {
   };
 
   // Hover d'un marker du player : positionne le tooltip près du marker.
-  const onPlayMarkerHover = (pos: BacktestPositionDto | null) => {
-    setHoveredPlayPosition(pos);
-    if (pos) {
-      const entryT = Date.parse(pos.entryAt);
-      const voieIndex = voies().findIndex((v) =>
-        v.buckets.some((b) => b.series.conditionId === pos.conditionId),
-      );
-      if (voieIndex >= 0) {
-        setHoveredPlayXY(
-          hover.svgToContainer(
-            scale().xPos(entryT),
-            scale().yPos(pos.entryPrice, scale().top(voieIndex)),
-          ),
+    const onPlayMarkerHover = (pos: BacktestPositionDto | null) => {
+      setHoveredPlayPosition(pos);
+      if (pos) {
+        // Pré-calculer les timestamps des positions pour éviter Date.parse répété
+        const entryT = Date.parse(pos.entryAt);
+        const voieIndex = voies().findIndex((v) =>
+          v.buckets.some((b) => b.series.conditionId === pos.conditionId),
         );
+        if (voieIndex >= 0) {
+          setHoveredPlayXY(
+            hover.svgToContainer(
+              scale().xPos(entryT),
+              scale().yPos(pos.entryPrice, scale().top(voieIndex)),
+            ),
+          );
+        }
+      } else {
+        setHoveredPlayXY(null);
       }
-    } else {
-      setHoveredPlayXY(null);
-    }
-  };
+    };
 
   return (
     <div class="backtest-ridge-plot" ref={setRootEl}>

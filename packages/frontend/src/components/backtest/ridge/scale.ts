@@ -1,5 +1,5 @@
 import type { BacktestMarketSeriesDto } from '../../../api';
-import type { RidgeScale } from './types';
+import type { RidgeScale, EnrichedSeries, EnrichedPoint } from './types';
 
 export const VOIE_H = 48;
 export const MARGIN_TOP = 12;
@@ -55,6 +55,9 @@ export function buildRidgeScale(
 const GAP_FACTOR = 1.5;
 const GAP_FLOOR_MS = 60_000;
 
+/** Type d'entrée pour buildPath : soit la série brute, soit la série enrichie. */
+type BuildPathInput = BacktestMarketSeriesDto | EnrichedSeries;
+
 /** Trace le `d` de la courbe d'une série pour une row donnée.
  * `maxTicks` limite le tracé aux N derniers ticks (par ordre temporel).
  * Si `cutGaps` est vrai, les lacunes de données (point sans prix, ou tick
@@ -62,24 +65,47 @@ const GAP_FLOOR_MS = 60_000;
  * `clipUntilT` (si non-null) ne trace que les points dont t <= clipUntilT :
  * utilisé par le player de replay pour révéler les courbes progressivement. */
 export function buildPath(
-  series: BacktestMarketSeriesDto,
+  series: BuildPathInput,
   voieTop: number,
   scale: RidgeScale,
   maxTicks?: number | null,
   cutGaps = true,
   clipUntilT?: number | null,
 ): string {
-  const points = maxTicks && maxTicks > 0 ? series.points.slice(-maxTicks) : series.points;
+  // Détecter si on a une série enrichie (pas de Date.parse nécessaire)
+  const isEnriched = 'minT' in series;
+  
+  // Extraire les points selon le type
+  const rawPoints = isEnriched 
+    ? (series as EnrichedSeries).points 
+    : (series as BacktestMarketSeriesDto).points;
+    
+  const points = maxTicks && maxTicks > 0 ? rawPoints.slice(-maxTicks) : rawPoints;
   if (points.length === 0) return '';
 
   // Points valides (avec prix), conservés dans l'ordre temporel.
+  // Pour les séries enrichies : t est déjà numérique, pas de Date.parse.
   const valid: { px: number; py: number; t: number }[] = [];
-  for (const p of points) {
-    if (p.yesPrice == null) continue;
-    const t = Date.parse(p.t);
-    if (clipUntilT != null && t > clipUntilT) continue;
-    valid.push({ px: scale.xPos(t), py: scale.yPos(p.yesPrice, voieTop), t });
+  
+  if (isEnriched) {
+    const enriched = series as EnrichedSeries;
+    for (const p of points) {
+      if (p.price == null) continue;
+      const t = p.t; // déjà numérique
+      if (clipUntilT != null && t > clipUntilT) continue;
+      valid.push({ px: scale.xPos(t), py: scale.yPos(p.price, voieTop), t });
+    }
+  } else {
+    // Fallback pour compatibilité (ancien code, tests, etc.)
+    const dto = series as BacktestMarketSeriesDto;
+    for (const p of points) {
+      if (p.yesPrice == null) continue;
+      const t = Date.parse(p.t);
+      if (clipUntilT != null && t > clipUntilT) continue;
+      valid.push({ px: scale.xPos(t), py: scale.yPos(p.yesPrice, voieTop), t });
+    }
   }
+  
   if (valid.length === 0) return '';
 
   // Intervalle temporel médian (cadence de poll). Un trou est un écart qui

@@ -100,25 +100,29 @@ export function BacktestMarketRidgeChart(props: {
     // Row active au playhead : la voie de la position la plus récemment entrée
     // (entryAt <= playhead). Stable : ne change que lors d'une nouvelle entrée,
     // évitant le saccadement vertical dû à la première voie qui matche un tick.
-    const activeVoieIndex = createMemo<number | null>(() => {
-      const t = player.playheadT();
-      if (t == null) return null;
-      const vs = voies();
-      // Map conditionId -> index de voie.
-      const voieIndexByCondition = new Map<string, number>();
-      vs.forEach((voie, i) => {
+    // Map conditionId -> index de voie, mémoïsée sur voies() (stable pendant un run) — P5.
+    const voieIndexByCondition = createMemo<Map<string, number>>(() => {
+      const map = new Map<string, number>();
+      voies().forEach((voie, i) => {
         for (const b of voie.buckets) {
-          if (!voieIndexByCondition.has(b.series.conditionId)) {
-            voieIndexByCondition.set(b.series.conditionId, i);
+          if (!map.has(b.series.conditionId)) {
+            map.set(b.series.conditionId, i);
           }
         }
       });
+      return map;
+    });
+
+    const activeVoieIndex = createMemo<number | null>(() => {
+      const t = player.playheadT();
+      if (t == null) return null;
+      const map = voieIndexByCondition();
       // Position la plus récemment entrée (entryAt <= t).
       let best: { voieIndex: number; entryT: number } | null = null;
       for (const pos of props.positions) {
         const entryT = Date.parse(pos.entryAt);
         if (Number.isNaN(entryT) || entryT > t) continue;
-        const voieIndex = voieIndexByCondition.get(pos.conditionId);
+        const voieIndex = map.get(pos.conditionId);
         if (voieIndex == null) continue;
         if (!best || entryT > best.entryT) best = { voieIndex, entryT };
       }

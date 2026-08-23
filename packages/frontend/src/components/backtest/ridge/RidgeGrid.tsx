@@ -10,7 +10,8 @@ export function RidgeGrid(props: {
   /** Hauteur totale du plot (toutes les voies), pour les lignes verticales. */
   plotH: number;
 }) {
-  const yTicks = () => yTicksForVoieH(VOIE_H);
+  // Résultat constant par VOIE_H — calculé une seule fois, pas dans le For (P7).
+  const yTicks = yTicksForVoieH(VOIE_H);
   return (
     <>
       <For each={props.xTicks}>
@@ -29,7 +30,7 @@ export function RidgeGrid(props: {
           const voieTop = props.scale.top(visible.globalIndex);
           return (
             <g>
-              <For each={yTicks()}>
+              <For each={yTicks}>
                 {(yt) => (
                   <line
                     x1={0}

@@ -133,13 +133,25 @@ export function BacktestMarketRidgeChart(props: {
   const [hoveredRowXY, setHoveredRowXY] = createSignal<{ x: number; y: number } | null>(null);
 
   // Le clip n'est actif qu'en mode replay (index > 0 ou playing).
-  const clipUntilT = createMemo<number | null>(() => {
-    if (!playerActive()) return null;
-    if (player.currentIndex() > 0 || player.isPlaying()) return player.playheadT();
-    return null;
-  });
+    const clipUntilT = createMemo<number | null>(() => {
+      if (!playerActive()) return null;
+      if (player.currentIndex() > 0 || player.isPlaying()) return player.playheadT();
+      return null;
+    });
 
-  const [plotEl, setPlotEl] = createSignal<HTMLDivElement>();
+    // Reveal width pour le player (clipPath rect coulissant) — remplace clipUntilT re-build
+    const revealW = createMemo<number>(() => {
+      if (!playerActive()) return 0;
+      const head = player.playheadT();
+      if (head == null) return 0;
+      const vp_ = vp();
+      const span = vp_.maxT - vp_.minT;
+      if (span <= 0) return plotW();
+      const ratio = Math.max(0, Math.min(1, (head - vp_.minT) / span));
+      return ratio * plotW();
+    });
+
+    const [plotEl, setPlotEl] = createSignal<HTMLDivElement>();
   const [plotSvgEl, setPlotSvgEl] = createSignal<SVGSVGElement>();
   const [rootEl, setRootEl] = createSignal<HTMLDivElement>();
   const plotW = useChartWidth(plotEl);
@@ -324,13 +336,25 @@ export function BacktestMarketRidgeChart(props: {
                 onPointerLeave={onPointerLeave}
               >
                 <defs>
-                  <clipPath id="backtest-ridge-clip">
-                    <rect x={0} y={MARGIN_TOP} width={plotW()} height={plotH()} />
-                  </clipPath>
-                </defs>
-                <RidgeGrid voies={virtualization.visibleVoies()} xTicks={xTicks()} scale={scale()} plotH={plotH()} />
-                <g clip-path="url(#backtest-ridge-clip)">
-                  <RidgeLines voies={virtualization.visibleVoies()} scale={scale()} hoveredVoieIndex={hover.hoveredVoieIndex} hoveredBucketKey={hover.hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} clipUntilT={clipUntilT()} showEntryExit={showEntryExit()} onPositionHover={onPositionHover} />
+                                  <clipPath id="backtest-ridge-clip">
+                                    <rect x={0} y={MARGIN_TOP} width={plotW()} height={plotH()} />
+                                  </clipPath>
+                                  <Show when={playerActive()}>
+                                    <clipPath id="backtest-ridge-reveal">
+                                      <rect x={0} y={MARGIN_TOP} width={revealW()} height={plotH()} />
+                                    </clipPath>
+                                  </Show>
+                                </defs>
+                                <RidgeGrid voies={virtualization.visibleVoies()} xTicks={xTicks()} scale={scale()} plotH={plotH()} />
+                                <g clip-path="url(#backtest-ridge-clip)">
+                                  <Show when={playerActive()}>
+                                    <g clip-path="url(#backtest-ridge-reveal)">
+                                      <RidgeLines voies={virtualization.visibleVoies()} scale={scale()} hoveredVoieIndex={hover.hoveredVoieIndex} hoveredBucketKey={hover.hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} showEntryExit={showEntryExit()} onPositionHover={onPositionHover} />
+                                    </g>
+                                  </Show>
+                                  <Show when={!playerActive()}>
+                                    <RidgeLines voies={virtualization.visibleVoies()} scale={scale()} hoveredVoieIndex={hover.hoveredVoieIndex} hoveredBucketKey={hover.hoveredBucketKey} maxTicks={maxTicks()} cutGaps={cutGaps()} showEntryExit={showEntryExit()} onPositionHover={onPositionHover} />
+                                  </Show>
                   <Show when={excludedWithinViewport().length > 0}>
                     <For each={excludedWithinViewport()}>
                       {(t) => (

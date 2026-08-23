@@ -3,11 +3,12 @@ import type { Viewport } from '../usePanZoomViewport';
 import { VOIE_H } from './scale';
 
 /**
- * Focus smooth du viewport pendant la lecture du player. Quand le player joue :
- * - Horizontalement : le viewport suit le playhead en restant centré sur lui,
- *   avec un effet de lissage (lerp) par frame.
- * - Verticalement : le conteneur scrollable défile pour garder la row active
- *   (celle contenant le playhead) visible, également avec un effet lissé.
+ * Focus smooth du viewport pendant la lecture du player.
+ * - Horizontalement : le viewport suit le playhead par PALIERS (discret), pas à chaque frame.
+ *   On recentre seulement quand le playhead sort d'une zone tampon (ex: tiers central).
+ *   Cela évite de recalculer la projection à chaque frame (P1/P2).
+ * - Verticalement : le conteneur scrollable défile pour garder la row active visible,
+ *   également avec un effet lissé (lerp) — n'affecte pas la projection X.
  * L'animation s'arrête dès que la lecture s'arrête.
  */
 export function useRidgePlayerFocus(params: {
@@ -28,6 +29,9 @@ export function useRidgePlayerFocus(params: {
     return Math.max(60_000, total * 0.25);
   };
 
+  // Zone tampon horizontale : on ne recentre que si playhead sort du tiers central
+  const BUFFER_RATIO = 1 / 3;
+
   let rafId: number | null = null;
 
   const stop = () => {
@@ -44,17 +48,33 @@ export function useRidgePlayerFocus(params: {
       return;
     }
 
-    // Suivi horizontal (lerp).
+    // Suivi horizontal DISCRET (paliers) — pas de lerp continu
     const span = focusSpan();
-    const targetMin = t - span / 2;
-    const targetMax = t + span / 2;
     const v = viewport();
-    const k = 0.18;
-    const minT = v.minT + (targetMin - v.minT) * k;
-    const maxT = v.maxT + (targetMax - v.maxT) * k;
-    setViewport({ minT, maxT });
+    const currentCenter = (v.minT + v.maxT) / 2;
+    const buffer = span * BUFFER_RATIO;
+    const minAllowed = currentCenter - buffer;
+    const maxAllowed = currentCenter + buffer;
 
-    // Suivi vertical : défiler pour garder la row active visible.
+    let newMinT = v.minT;
+    let newMaxT = v.maxT;
+
+    if (t < minAllowed) {
+      // Playhead sort à gauche → recentrer sur playhead
+      newMinT = t - span / 2;
+      newMaxT = t + span / 2;
+    } else if (t > maxAllowed) {
+      // Playhead sort à droite → recentrer sur playhead
+      newMinT = t - span / 2;
+      newMaxT = t + span / 2;
+    }
+    // Sinon : playhead dans la zone tampon → ne PAS bouger le viewport
+
+    if (newMinT !== v.minT || newMaxT !== v.maxT) {
+      setViewport({ minT: newMinT, maxT: newMaxT });
+    }
+
+    // Suivi vertical : défilement lissé pour garder la row active visible
     const el = scrollEl();
     const idx = activeVoieIndex();
     if (el && idx != null) {
@@ -62,7 +82,7 @@ export function useRidgePlayerFocus(params: {
       const clientH = el.clientHeight;
       const targetScroll = top - (clientH - VOIE_H) / 2;
       const current = el.scrollTop;
-      el.scrollTop = current + (targetScroll - current) * k;
+      el.scrollTop = current + (targetScroll - current) * 0.18;
     }
 
     rafId = requestAnimationFrame(step);

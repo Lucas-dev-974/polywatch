@@ -72,9 +72,9 @@ export function BacktestMarketRidgeChart(props: {
   });
 
   // ── Virtualisation verticale ──────────────────────────────────────────
-  const virtualization = useRidgeVirtualization(voies);
+    const virtualization = useRidgeVirtualization(voies);
 
-  // ── Player de replay ──────────────────────────────────────────────────
+    // ── Player de replay ──────────────────────────────────────────────────
     // Timeline = timestamps uniques triés des points des voies filtrées
     // (P1/P2/P3 : synchronisée avec les courbes affichées, respecte maxTicks).
     const playerTimeline = createMemo<number[]>(() => {
@@ -83,14 +83,14 @@ export function BacktestMarketRidgeChart(props: {
       const set = new Set<number>();
       for (const voie of voies()) {
         for (const b of voie.buckets) {
-          // Utiliser la série enrichie si dispo (t déjà numérique), sinon fallback
-          const pts = b.enriched?.points ?? b.series.points;
-          const points = n > 0 ? pts.slice(-n) : pts;
-          for (const p of points) {
-            const t = b.enriched ? p.t : Date.parse(p.t);
-            if (!Number.isNaN(t)) set.add(t);
-          }
-        }
+                  // Utiliser la série enrichie si dispo (t déjà numérique), sinon fallback
+                  const pts = b.enriched?.points ?? b.series.points;
+                  const points = n > 0 ? pts.slice(-n) : pts;
+                  for (const p of points) {
+                    const t = typeof p.t === 'number' ? p.t : Date.parse(p.t);
+                    if (!Number.isNaN(t)) set.add(t);
+                  }
+                }
       }
       return [...set].sort((a, b) => a - b);
     });

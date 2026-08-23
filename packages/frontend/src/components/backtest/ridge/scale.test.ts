@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildPath, buildRidgeScale, yTicksForVoieH } from './scale';
-import type { BacktestMarketSeriesDto, EnrichedSeries, EnrichedPoint } from './types';
+import type { BacktestMarketSeriesDto } from '../../../api';
+import type { EnrichedSeries, EnrichedPoint } from './types';
 
 // Helper to create a mock scale
 function makeScale(plotW: number, minT = 0, maxT = 500000): ReturnType<typeof buildRidgeScale> {

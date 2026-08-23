@@ -68,9 +68,9 @@ export function useRidgeHover(deps: HoverDeps) {
     let hi = sliced.length - 1;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      const midT = isEnriched 
-        ? (sliced[mid] as EnrichedPoint).t 
-        : Date.parse((sliced[mid] as BacktestMarketSeriesDto).t);
+      const midT = isEnriched
+        ? (sliced[mid] as EnrichedPoint).t
+        : Date.parse((sliced[mid] as { t: string; yesPrice: number | null }).t);
       if (midT < t) lo = mid + 1;
       else hi = mid;
     }
@@ -124,7 +124,9 @@ export function useRidgeHover(deps: HoverDeps) {
     let bestDist = Infinity;
     for (let bi = 0; bi < group.buckets.length; bi++) {
       const b = group.buckets[bi];
-      const price = nearestPrice(b.series, t);
+      // Utiliser la série enrichie si dispo pour nearestPrice
+      const seriesForNearest = b.enriched ?? b.series;
+      const price = nearestPrice(seriesForNearest, t);
       if (price == null) continue;
       const py = sc.yPos(price, voieTop);
       const d = Math.abs(py - y);

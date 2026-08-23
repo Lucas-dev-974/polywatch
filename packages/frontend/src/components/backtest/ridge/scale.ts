@@ -55,8 +55,12 @@ export function buildRidgeScale(
 const GAP_FACTOR = 1.5;
 const GAP_FLOOR_MS = 60_000;
 
-/** Type d'entrée pour buildPath : soit la série brute, soit la série enrichie. */
-type BuildPathInput = BacktestMarketSeriesDto | EnrichedSeries;
+interface RawPoint { t: string; yesPrice: number | null; }
+interface EnrichedPointInternal { t: number; price: number | null; }
+
+function isEnrichedSeries(series: BacktestMarketSeriesDto | EnrichedSeries): series is EnrichedSeries {
+  return 'minT' in series;
+}
 
 /** Trace le `d` de la courbe d'une série pour une row donnée.
  * `maxTicks` limite le tracé aux N derniers ticks (par ordre temporel).
@@ -65,18 +69,17 @@ type BuildPathInput = BacktestMarketSeriesDto | EnrichedSeries;
  * `clipUntilT` (si non-null) ne trace que les points dont t <= clipUntilT :
  * utilisé par le player de replay pour révéler les courbes progressivement. */
 export function buildPath(
-  series: BuildPathInput,
+  series: BacktestMarketSeriesDto | EnrichedSeries,
   voieTop: number,
   scale: RidgeScale,
   maxTicks?: number | null,
   cutGaps = true,
   clipUntilT?: number | null,
 ): string {
-  // Détecter si on a une série enrichie (pas de Date.parse nécessaire)
-  const isEnriched = 'minT' in series;
+  const enriched = isEnrichedSeries(series);
   
   // Extraire les points selon le type
-  const rawPoints = isEnriched 
+  const rawPoints = enriched 
     ? (series as EnrichedSeries).points 
     : (series as BacktestMarketSeriesDto).points;
     
@@ -87,9 +90,9 @@ export function buildPath(
   // Pour les séries enrichies : t est déjà numérique, pas de Date.parse.
   const valid: { px: number; py: number; t: number }[] = [];
   
-  if (isEnriched) {
-    const enriched = series as EnrichedSeries;
-    for (const p of points) {
+  if (enriched) {
+    const enrichedPoints = points as EnrichedPointInternal[];
+    for (const p of enrichedPoints) {
       if (p.price == null) continue;
       const t = p.t; // déjà numérique
       if (clipUntilT != null && t > clipUntilT) continue;
@@ -97,8 +100,8 @@ export function buildPath(
     }
   } else {
     // Fallback pour compatibilité (ancien code, tests, etc.)
-    const dto = series as BacktestMarketSeriesDto;
-    for (const p of points) {
+    const rawPointsTyped = points as RawPoint[];
+    for (const p of rawPointsTyped) {
       if (p.yesPrice == null) continue;
       const t = Date.parse(p.t);
       if (clipUntilT != null && t > clipUntilT) continue;

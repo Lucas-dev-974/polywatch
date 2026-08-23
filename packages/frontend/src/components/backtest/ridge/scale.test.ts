@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { buildPath, buildRidgeScale, yTicksForVoieH } from './scale';
-import type { BacktestMarketSeriesDto } from '../../../api';
+import { describe, it, expect } from 'vitest';
+import { buildRidgeScale, yTicksForVoieH } from './scale';
+import { projectSeries, buildPathFromProjected, computeGapThreshold } from './projection';
 import type { EnrichedSeries, EnrichedPoint } from './types';
 
 // Helper to create a mock scale
@@ -8,20 +8,32 @@ function makeScale(plotW: number, minT = 0, maxT = 500000): ReturnType<typeof bu
   return buildRidgeScale(minT, maxT, plotW);
 }
 
-describe('scale.ts', () => {
-  describe('downsampleMinMax (via buildPath integration)', () => {
-    // Test via buildPath with enriched series
-    const makeEnrichedSeries = (points: EnrichedPoint[]): EnrichedSeries => ({
-      conditionId: 'test',
-      city: 'Paris',
-      targetDateIso: '2026-08-23',
-      forecastMean: 25,
-      forecastStdDev: 2,
-      points,
-      minT: points[0]?.t ?? 0,
-      maxT: points[points.length - 1]?.t ?? 0,
-    });
+// Helper to build a full path from an enriched series (projection + gap + assembly)
+function buildPathFromSeries(
+  series: EnrichedSeries,
+  voieTop: number,
+  scale: ReturnType<typeof buildRidgeScale>,
+  clipUntilT?: number | null,
+): string {
+  const projected = projectSeries(series, scale, voieTop, clipUntilT);
+  if (projected.length === 0) return '';
+  const gapThreshold = computeGapThreshold(projected);
+  return buildPathFromProjected(projected, gapThreshold);
+}
 
+describe('ridge projection (projection.ts)', () => {
+  const makeEnrichedSeries = (points: EnrichedPoint[]): EnrichedSeries => ({
+    conditionId: 'test',
+    city: 'Paris',
+    targetDateIso: '2026-08-23',
+    forecastMean: 25,
+    forecastStdDev: 2,
+    points,
+    minT: points[0]?.t ?? 0,
+    maxT: points[points.length - 1]?.t ?? 0,
+  });
+
+  describe('downsampleMinMax (via projectSeries integration)', () => {
     it('small series (< targetMaxPoints) → no downsampling, all points kept', () => {
       const scale = makeScale(400); // targetMaxPoints = ceil(400/4)*2 = 200
       const series = makeEnrichedSeries([
@@ -29,8 +41,8 @@ describe('scale.ts', () => {
         { t: 2000, price: 0.6 },
         { t: 3000, price: 0.55 },
       ]);
-      const path = buildPath(series, 0, scale, null, true, null);
-      
+      const path = buildPathFromSeries(series, 0, scale);
+
       // All 3 points should be in path (2 L commands after initial M)
       const commands = path.split(' ');
       expect(commands.length).toBe(3); // M + L + L
@@ -43,8 +55,8 @@ describe('scale.ts', () => {
         points.push({ t: i * 1000, price: 0.5 + Math.sin(i * 0.1) * 0.3 });
       }
       const series = makeEnrichedSeries(points);
-      const path = buildPath(series, 0, scale, null, true, null);
-      
+      const path = buildPathFromSeries(series, 0, scale);
+
       // Path should have significantly fewer commands than 500
       const commands = path.split(' ');
       expect(commands.length).toBeLessThanOrEqual(200); // bounded by ~plotW/BUCKET_PX * 2
@@ -61,8 +73,8 @@ describe('scale.ts', () => {
       points[0].price = 0.1;
       points[499].price = 0.9;
       const series = makeEnrichedSeries(points);
-      const path = buildPath(series, 0, scale, null, true, null);
-      
+      const path = buildPathFromSeries(series, 0, scale);
+
       const commands = path.split(' ');
       // First command should be M with first point's coordinates
       expect(commands[0]).toContain('M');
@@ -79,10 +91,9 @@ describe('scale.ts', () => {
         points.push({ t: i * 1000, price });
       }
       const series = makeEnrichedSeries(points);
-      const path = buildPath(series, 0, scale, null, true, null);
-      
+      const path = buildPathFromSeries(series, 0, scale);
+
       // The peak and valley should be preserved in the downsampled output
-      // (they fall in different buckets and are min/max)
       const commands = path.split(' ');
       expect(commands.length).toBeLessThan(200);
     });
@@ -95,13 +106,12 @@ describe('scale.ts', () => {
         points.push({ t: i * 1000, price: 0.5 });
       }
       // Gap: jump of 70 seconds (> GAP_FLOOR_MS = 60000ms)
-      // Add points after a large gap
       for (let i = 370; i < 670; i++) { // 370000 to 669000, gap from 299000 to 370000 = 71000ms
         points.push({ t: i * 1000, price: 0.5 });
       }
       const series = makeEnrichedSeries(points);
-      const path = buildPath(series, 0, scale, null, true, null);
-      
+      const path = buildPathFromSeries(series, 0, scale);
+
       const commands = path.split(' ');
       // Should have exactly 2 M commands (one per segment)
       const mCount = commands.filter(c => c.startsWith('M')).length;
@@ -116,70 +126,29 @@ describe('scale.ts', () => {
       }
       const series = makeEnrichedSeries(points);
       const clipUntilT = 250 * 1000; // middle
-      const path = buildPath(series, 0, scale, null, true, clipUntilT);
-      
+      const path = buildPathFromSeries(series, 0, scale, clipUntilT);
+
       // All points in path should have t <= clipUntilT
       const commands = path.split(' ');
       expect(commands.length).toBeGreaterThan(0);
     });
   });
 
-  describe('buildPath regression (non-enriched fallback)', () => {
-    const makeDto = (points: { t: string; yesPrice: number | null }[]): BacktestMarketSeriesDto => ({
-      conditionId: 'test',
-      city: 'Paris',
-      targetDateIso: '2026-08-23',
-      metric: 'temp',
-      bucketComparison: 'above',
-      bucketTarget: 25,
-      bucketLow: null,
-      bucketHigh: null,
-      unit: 'celsius',
-      forecastMean: 25,
-      forecastStdDev: 2,
-      points,
-    });
-
-    it('identical output for small series (no downsampling path)', () => {
-      const scale = makeScale(400, Date.parse('2026-08-23T10:00:00Z'), Date.parse('2026-08-23T11:00:00Z'));
-      const dto = makeDto([
-        { t: '2026-08-23T10:00:00Z', yesPrice: 0.5 },
-        { t: '2026-08-23T10:05:00Z', yesPrice: 0.55 },
-        { t: '2026-08-23T10:10:00Z', yesPrice: 0.52 },
-      ]);
-      const path = buildPath(dto, 0, scale, null, true, null);
-      
-      expect(path).toContain('M');
-      expect(path).toContain('L');
-    });
-
+  describe('buildPathFromProjected (segmentation gaps)', () => {
     it('cutGaps works with temporal gap', () => {
       const scale = makeScale(400, Date.parse('2026-08-23T10:00:00Z'), Date.parse('2026-08-23T14:00:00Z'));
-      const dto = makeDto([
-        { t: '2026-08-23T10:00:00Z', yesPrice: 0.5 },
-        { t: '2026-08-23T11:00:00Z', yesPrice: 0.55 },
-        { t: '2026-08-23T14:00:00Z', yesPrice: 0.6 }, // 3h gap from 11:00
-        { t: '2026-08-23T14:05:00Z', yesPrice: 0.52 },
+      const series = makeEnrichedSeries([
+        { t: Date.parse('2026-08-23T10:00:00Z'), price: 0.5 },
+        { t: Date.parse('2026-08-23T11:00:00Z'), price: 0.55 },
+        { t: Date.parse('2026-08-23T14:00:00Z'), price: 0.6 }, // 3h gap from 11:00
+        { t: Date.parse('2026-08-23T14:05:00Z'), price: 0.52 },
       ]);
-      const path = buildPath(dto, 0, scale, null, true, null);
-      
+      const path = buildPathFromSeries(series, 0, scale);
+
       const commands = path.split(' ');
       const mCount = commands.filter(c => c.startsWith('M')).length;
       // median step = 1h, gapThreshold = 1.5h, 3h gap > 1.5h → 2 segments
       expect(mCount).toBe(2);
-    });
-
-    it('maxTicks limits source points', () => {
-      const scale = makeScale(400, 0, 100000);
-      const points = Array.from({ length: 100 }, (_, i) => ({
-        t: new Date(i * 60000).toISOString(),
-        yesPrice: 0.5,
-      }));
-      const dto = makeDto(points);
-      const path = buildPath(dto, 0, scale, 10, true, null); // only last 10
-      
-      const commands = path.split(' ');
-      expect(commands.length).toBeLessThanOrEqual(11); // M + up to 10 L
     });
   });
 

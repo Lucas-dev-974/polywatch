@@ -2,9 +2,14 @@
 
 **Date** : 2026-08-23
 **Auteur** : Assistant IA
-**Statut** : 🟡 **Proposé** — en attente de validation utilisateur
+**Statut** : ✅ **Appliqué** — implémenté et validé (commit `d1bea64`)
 **Référence** : [`docs/audits/2026-08-23_audit-weather-backtest-complet.md`](../audits/2026-08-23_audit-weather-backtest-complet.md)
-**Engine version cible** : `0.6.0` (bump requis — changements sémantiques de replay)
+**Engine version cible** : `0.6.0` (bump appliqué — changements sémantiques de replay)
+
+> **Note de mise à jour (2026-08-23)** : ce plan a été intégralement implémenté puis commité
+> (`d1bea64`). La checklist en §3.2 est cochée au niveau de l'implémentation réelle. Une
+> section « Écarts / décisions finales » documente les points où le code livré diverge
+> légèrement du plan d'origine (volontairement ou par simplification).
 
 ---
 
@@ -533,25 +538,25 @@ Pour chaque finding fixé, vérifier :
 4. Le `engineVersion` est bumpé si la sémantique de replay change (§1.1, §1.9, §1.10).
 
 Checklist de revue (un commit par ligne) :
-- [ ] §1.1 C1/C2/M6 — marks périmés (warning + doc, pas de changement de PnL)
-- [ ] §1.2 C3 — warning strategy mode
-- [ ] §1.3 C4 — userId + IDOR + rétro-compatibilité runs hérités
-- [ ] §1.4 C5 — contrainte unique DB (cohérente avec userId §1.3)
-- [ ] §1.5 C6 — cache + pagination DB (cursor LIMIT/OFFSET + getCount)
-- [ ] §1.6 C7 — boucles bornées (MAX_PAGES)
-- [ ] §1.7 C8 — garde anti-réentrance + AbortController
-- [ ] §1.8 C9 — tests + CI
-- [ ] §1.9 M1/M7 — clamping [0,1] + retrait fallback entryPrice (vérifier tests existants)
-- [ ] §1.10 M2 — cosmétique uniquement (fees=0 aux extrêmes, pas de changement de PnL)
-- [ ] §1.11 M3/M4 — garde d'exposition cappedUsdc
-- [ ] §1.12 M9 — cibles fractionnaires (regex + parseFloat, rétro-compatible)
-- [ ] §1.13 M11/M12 — warnings (doc)
-- [ ] §1.14 M14/M15/M16 — validation frontend (timezone UTC préservé, pas de passage en local)
-- [ ] §1.15 m5/m6 — stats (m5 rétrogradé en doc, m6 doc)
-- [ ] §2.1 — dead code (hasOpen seulement ; evaluate conservé par contrat interface)
-- [ ] §3.1 — build + tests verts
-- [ ] §3.2 — revue croisée
-- [ ] §3.3 — golden snapshot (vérifier impact §1.9 clamping sur PnL)
+- [x] §1.1 C1/C2/M6 — marks périmés (warning + doc, pas de changement de PnL)
+- [x] §1.2 C3 — warning strategy mode
+- [x] §1.3 C4 — userId + IDOR + rétro-compatibilité runs hérités
+- [x] §1.4 C5 — contrainte unique DB (cohérente avec userId §1.3)
+- [x] §1.5 C6 — cache + pagination DB (cursor LIMIT/OFFSET + getCount)
+- [x] §1.6 C7 — boucles bornées (MAX_PAGES)
+- [x] §1.7 C8 — garde anti-réentrance + AbortController
+- [x] §1.8 C9 — tests + CI
+- [x] §1.9 M1/M7 — clamping [0,1] + retrait fallback entryPrice (vérifier tests existants)
+- [x] §1.10 M2 — cosmétique uniquement (fees=0 aux extrêmes, pas de changement de PnL)
+- [x] §1.11 M3/M4 — garde d'exposition cappedUsdc
+- [x] §1.12 M9 — cibles fractionnaires (regex + parseFloat, rétro-compatible)
+- [x] §1.13 M11/M12 — warnings (doc)
+- [x] §1.14 M14/M15/M16 — validation frontend (timezone UTC préservé, pas de passage en local)
+- [x] §1.15 m5/m6 — stats (m5 rétrogradé en doc, m6 doc)
+- [x] §2.1 — dead code (hasOpen seulement ; evaluate conservé par contrat interface)
+- [x] §3.1 — build + tests verts
+- [x] §3.2 — revue croisée
+- [x] §3.3 — golden snapshot (vérifier impact §1.9 clamping sur PnL)
 
 ## §3.3 — Golden snapshot
 
@@ -566,6 +571,25 @@ Checklist de revue (un commit par ligne) :
    - Section "Engine versioning" : expliquer le bump `0.6.0`.
 2. Mettre à jour `docs/code/09-backtest.md` si nécessaire.
 3. Lier ce plan et l'audit dans `docs/audits/2026-08-23_audit-weather-backtest-complet.md`.
+
+---
+
+## 📊 Écarts / décisions finales (post-implémentation)
+
+Cette section documente les points où le code livré diverge du plan d'origine. Chaque écart est volontaire ou correspond à une simplification assumée.
+
+| Section | Plan d'origine | Réalité livrée |
+|---|---|---|
+| §1.3 / §1.4 | Migration nommée `AddBacktestRunUserId1700000000120.ts` | Migration fusionnée **`AddBacktestRunUserIdAndActiveUnique1700000000119.ts`** : ajoute `user_id` + index `idx_btr_user_id` + index partiel unique `backtest_run_active_unique` en un seul fichier. |
+| §1.5 | Cache du `total` **et** de la liste complète des marchés | Le cache (`cachedMarketsSeries`, TTL 30 s) ne porte que la **fenêtre [MIN,MAX] + le count `total`**. La **page** est lue en `LIMIT/OFFSET` SQL via le helper `buildMarketsQuery(...).skip().take()` + `countMarketWindow`. Renommage : `loadMarketWindow` initial → `countMarketWindow` (retourne un `number`). |
+| §1.5 | Helper de requête dédupliqué côté backend | Un seul helper partagé `buildMarketsQuery(ds, opts)` pour les **deux** endpoints `/markets-series` et `/runs/:id/markets-series` (au lieu de deux requêtes GROUP BY dupliquées). |
+| §1.7 | `polling` (détail) passé à **2 s** | Resté à **`POLL_MS = 1000`** (défaut). Seul `livePolling` est passé à 10 s. Écart volontaire : la garde anti-réentrance + AbortController rendent le 1 s sûr, la réactivité est meilleure. |
+| §1.8 | `packages/backend/src/routes/backtest.test.ts` (nouveau) | **Non créé**. La couverture IDOR / lock singleton / cascade a été portée dans `packages/core/src/services/backtest-run.service.test.ts` (niveau service, plus stable que les routes). |
+| §1.8 | Golden snapshot fichier JSON figé `golden-run-2026-08.json` | Snapshot Vitest généré : `__snapshots__/golden-replay.test.ts.snap` (stats + `engineVersion`), rejoué sur un scénario seedé en mémoire (pas de dépendance à un fichier externe). |
+| §1.9 | Warning `fill_price_clamped` | Initialement branché uniquement sur les entrées ; l'implémentation branche aussi la **branche de sortie** (`isEntry=false`) sur les 3 chemins de sortie (kill-switch, SL/TP/trailing, drift/bucket). La branche de sortie du plan était restée morte ; elle est désormais vivante. |
+| §1.10 | Fees de résolution — cosmétique | Appliqué : résolution et ghost-close passent par `simulateWeatherExitFill` avec `slippageBps: 0`. PnL inchangé (courbe Polymarket nulle à 0/1). |
+| §1.15 | m5 : garde `peak > 0` conservée + doc | Rétrogradé en documentation uniquement (pas de changement de code `stats.ts`). La sémantique `maxDrawdown`/`profitFactor` est documentée dans `docs/backtest.md` §9.1. |
+| Bonus | — | **Test backend pré-existant corrigé** : `config.sim-execution.test.ts` référençait des champs inexistants (`cryptoAlgoTrailingActivationPercent`/`cryptoAlgoTrailingStopPercent`) → alignés sur le schéma réel (`...BidPoints`). Sans cette correction, la CI restait rouge. |
 
 ---
 

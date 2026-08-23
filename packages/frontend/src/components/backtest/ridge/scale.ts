@@ -55,11 +55,55 @@ export function buildRidgeScale(
 const GAP_FACTOR = 1.5;
 const GAP_FLOOR_MS = 60_000;
 
+/** Largeur d'un bucket en pixels pour le downsampling min-max.
+ * FIXE (pas dérivée de plotW) : 4px → ~plotW/4 points max par série. */
+const BUCKET_PX = 4;
+
 interface RawPoint { t: string; yesPrice: number | null; }
 interface EnrichedPointInternal { t: number; price: number | null; }
+interface ValidPoint { px: number; py: number; t: number; }
 
 function isEnrichedSeries(series: BacktestMarketSeriesDto | EnrichedSeries): series is EnrichedSeries {
   return 'minT' in series;
+}
+
+/**
+ * Downsampling min-max par bucket de largeur `bucketPx` pixels.
+ * Conserve min et max Y par bucket, préserve l'ordre temporel, évite les doublons.
+ * Toujours conserve le premier et le dernier point.
+ */
+function downsampleMinMax(pts: ValidPoint[], bucketPx: number): ValidPoint[] {
+  if (pts.length === 0 || bucketPx < 2) return pts;
+  
+  const buckets = new Map<number, { minIdx: number; maxIdx: number }>();
+  
+  for (let i = 0; i < pts.length; i++) {
+    const pxBucket = Math.floor(pts[i].px / bucketPx);
+    const existing = buckets.get(pxBucket);
+    if (!existing) {
+      buckets.set(pxBucket, { minIdx: i, maxIdx: i });
+    } else {
+      if (pts[i].py < pts[existing.minIdx].py) existing.minIdx = i;
+      if (pts[i].py > pts[existing.maxIdx].py) existing.maxIdx = i;
+    }
+  }
+  
+  // Collecter les indices à conserver, dans l'ordre
+  const keptIndices = new Set<number>();
+  keptIndices.add(0); // premier point
+  keptIndices.add(pts.length - 1); // dernier point
+  
+  for (const { minIdx, maxIdx } of buckets.values()) {
+    keptIndices.add(minIdx);
+    keptIndices.add(maxIdx);
+  }
+  
+  // Reconstruire dans l'ordre temporel
+  const result: ValidPoint[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    if (keptIndices.has(i)) result.push(pts[i]);
+  }
+  return result;
 }
 
 /** Trace le `d` de la courbe d'une série pour une row donnée.
@@ -88,7 +132,7 @@ export function buildPath(
 
   // Points valides (avec prix), conservés dans l'ordre temporel.
   // Pour les séries enrichies : t est déjà numérique, pas de Date.parse.
-  const valid: { px: number; py: number; t: number }[] = [];
+  const valid: ValidPoint[] = [];
   
   if (enriched) {
     const enrichedPoints = points as EnrichedPointInternal[];
@@ -122,15 +166,37 @@ export function buildPath(
     gapThreshold = Math.max(medianStep * GAP_FACTOR, GAP_FLOOR_MS);
   }
 
-  // Construit le path en cassant la ligne dès qu'une lacune est détectée.
-  const segments: string[] = [];
+  // === DOWNSAMPLING MIN-MAX ===
+  // Ne downsample que si la série est plus grande que la cible visuelle (~plotW/BUCKET_PX points)
+  const targetMaxPoints = Math.ceil(scale.plotW / BUCKET_PX) * 2;
+  let shouldDownsample = valid.length > targetMaxPoints;
+  
+  // Segmentation en segments sans trou (sur données brutes valid, AVANT downsampling)
+  const segments: ValidPoint[][] = [];
+  let currentSegment: ValidPoint[] = [];
+  
   for (let i = 0; i < valid.length; i++) {
     const p = valid[i];
-    if (i === 0 || p.t - valid[i - 1].t > gapThreshold) {
-      segments.push(`M${p.px.toFixed(1)},${p.py.toFixed(1)}`);
-    } else {
-      segments.push(`L${p.px.toFixed(1)},${p.py.toFixed(1)}`);
+    if (currentSegment.length > 0 && p.t - currentSegment[currentSegment.length - 1].t > gapThreshold) {
+      segments.push(currentSegment);
+      currentSegment = [];
+    }
+    currentSegment.push(p);
+  }
+  if (currentSegment.length) segments.push(currentSegment);
+  
+  // Downsampler chaque segment indépendamment si nécessaire
+  const processedSegments: ValidPoint[][] = shouldDownsample
+    ? segments.map(seg => downsampleMinMax(seg, BUCKET_PX))
+    : segments;
+  
+  // Reconstruire le path : premier point de chaque segment en M, suivants en L
+  const pathSegments: string[] = [];
+  for (const seg of processedSegments) {
+    for (let i = 0; i < seg.length; i++) {
+      const p = seg[i];
+      pathSegments.push((i === 0 ? 'M' : 'L') + `${p.px.toFixed(1)},${p.py.toFixed(1)}`);
     }
   }
-  return segments.join(' ');
+  return pathSegments.join(' ');
 }

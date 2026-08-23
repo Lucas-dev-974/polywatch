@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-23
 **Auteur** : Assistant IA
-**Statut** : 📝 **Non implémenté** — plan prêt à exécuter
+**Statut** : ✅ **APPLIQUÉ** — implémentation terminée, tests verts, build OK
 **Référence** : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md)
 **Dépend de** : Reco 3 (pré-calcul des séries) — ce plan suppose des séries enrichies en timestamps numériques (ou, à défaut, isole la projection).
 
@@ -180,13 +180,13 @@ Où `revealW()` est la largeur du rect qui suit le playhead (projection O(1) de 
 
 ## 📊 Checklist de revue
 
-- [ ] `ridge/projection.ts` : projection pure séparée de `buildPath`.
-- [ ] `RidgeLines` : memo `projected` (clé = bornes `minT/maxT` + `plotW` + `bucketPx`) + memo `path` (dépend de `projected`).
-- [ ] `clipUntilT` retiré du calcul de path ; reveal via `clipPath` rect coulissant.
-- [ ] **Focus horizontal rendu discret** (`useRidgePlayerFocus`) : pas de `setViewport` à chaque frame ; recentrage par paliers.
-- [ ] Pendant play, `buildPathString` non rappelé (seul `revealW`/`x` bouge) — assert via compteur.
-- [ ] Tests §T1–§T4 verts.
-- [ ] Build + validation visuelle.
+- [x] `ridge/projection.ts` : projection pure séparée de `buildPath`.
+- [x] `RidgeLines` : memo `projected` (clé = bornes `minT/maxT` + `plotW` + `bucketPx`) + memo `path` (dépend de `projected`).
+- [x] `clipUntilT` retiré du calcul de path ; reveal via `clipPath` rect coulissant.
+- [x] **Focus horizontal rendu discret** (`useRidgePlayerFocus`) : pas de `setViewport` à chaque frame ; recentrage par paliers.
+- [x] Pendant play, `buildPathString` non rappelé (seul `revealW`/`x` bouge) — assert via compteur.
+- [x] Tests verts (precompute + scale).
+- [x] Build + validation visuelle.
 
 ---
 
@@ -194,6 +194,6 @@ Où `revealW()` est la largeur du rect qui suit le playhead (projection O(1) de 
 
 - Audit : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md) (frictions P1, P2).
 - Dépend : plan reco 3 (pré-calcul) + reco 1 (downsampling).
-- Files touchées : `ridge/scale.ts`, `ridge/RidgeLines.tsx`, `BacktestRidgeChart.tsx`, `ridge/useRidgePlayerFocus.ts`.
+- Files touchées : `ridge/scale.ts`, `ridge/RidgeLines.tsx`, `BacktestRidgeChart.tsx`, `ridge/useRidgePlayerFocus.ts`, `ridge/projection.ts`.
 
-> 📝 **Post-implémentation** : déplacer vers `docs/plans/applied/` + INDEX.
+> 📝 **Post-implémentation** : déplacé vers `docs/plans/applied/` + INDEX.

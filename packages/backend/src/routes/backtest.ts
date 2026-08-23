@@ -18,7 +18,7 @@ import {
   type BacktestRunParams,
 } from '@polywatch/backtest';
 import { requireJwt, type AuthRequest } from '../middleware/auth.js';
-import { parseLimit, parseOffset } from './lib/query-params.js';
+import { parseLimit, parseOffset, parseMinAvgYes } from './lib/query-params.js';
 import { toRunDto } from './lib/backtest-dto.js';
 import { computeConfigFingerprint } from './lib/config-fingerprint.js';
 import { backtestRunTracker } from './lib/backtest-run-tracker.js';
@@ -80,6 +80,7 @@ function buildMarketsQuery(
     to: Date;
     fidelityMinutes?: number;
     cities?: string[] | null;
+    minAvgYes?: number;
   },
 ): SelectQueryBuilder<WeatherBucketTick> {
   const marketQb = ds
@@ -116,6 +117,12 @@ function buildMarketsQuery(
       cities: opts.cities.map((c) => c.toLowerCase()),
     });
   }
+  // Filtre prix YES moyen (0..1) : ne garde que les marchés dont le prix moyen
+  // dépasse le seuil. Appliqué en HAVING (le AVG porte sur le groupBy conditionId).
+  // Réduit drastiquement le payload du ridge plot (ex. 1100 → 191 marchés).
+  if (opts.minAvgYes != null && opts.minAvgYes > 0) {
+    marketQb.having('AVG(t.yesPrice) > :minAvgYes', { minAvgYes: opts.minAvgYes });
+  }
   return marketQb;
 }
 
@@ -127,10 +134,39 @@ async function countMarketWindow(
     to: Date;
     fidelityMinutes?: number;
     cities?: string[] | null;
+    minAvgYes?: number;
   },
 ): Promise<number> {
-  const qb = buildMarketsQuery(ds, opts);
-  return qb.getCount();
+  // ⚠️ Ne PAS utiliser qb.getCount() ici : TypeORM vide le GROUP BY mais garde
+  // le HAVING dans executeCountQuery, produisant un `SELECT COUNT(...) ... HAVING AVG(...)`
+  // sans GROUP BY. PostgreSQL agrège alors toute la table en une seule ligne et
+  // le total renvoyé est faux (1 ou 0). On compte donc sur une sous-requête
+  // qui préserve le GROUP BY + HAVING (une ligne par marché).
+  const sub = ds
+    .getRepository(WeatherBucketTick)
+    .createQueryBuilder('t')
+    .select('t.conditionId', 'conditionId')
+    .where('t.recordedAt >= :from', { from: opts.from })
+    .andWhere('t.recordedAt <= :to', { to: opts.to });
+  if (opts.fidelityMinutes != null) {
+    sub.andWhere('t.fidelityMinutes = :fid', { fid: opts.fidelityMinutes });
+  }
+  if (opts.cities && opts.cities.length > 0) {
+    sub.andWhere('LOWER(t.city) IN (:...cities)', {
+      cities: opts.cities.map((c) => c.toLowerCase()),
+    });
+  }
+  sub.groupBy('t.conditionId');
+  if (opts.minAvgYes != null && opts.minAvgYes > 0) {
+    sub.having('AVG(t.yesPrice) > :minAvgYes', { minAvgYes: opts.minAvgYes });
+  }
+  const row = await ds
+    .createQueryBuilder()
+    .select('COUNT(*)', 'cnt')
+    .from(`(${sub.getQuery()})`, 'sub')
+    .setParameters(sub.getParameters())
+    .getRawOne<{ cnt: string | number }>();
+  return row ? Number(row.cnt) : 0;
 }
 
 function parseExitReason(value: unknown): BacktestExitReason | null {
@@ -389,8 +425,9 @@ export function createBacktestRouter(ds: DataSource): Router {
         : undefined;
     const offset = parseOffset(req.query.offset);
     const limit = parseLimit(req.query.limit, MAX_MARKETS_SERIES, MAX_MARKETS_SERIES);
+    const minAvgYes = parseMinAvgYes(req.query.minAvgYes);
 
-    const cacheKey = `live:${fidelityMinutes ?? 'all'}`;
+    const cacheKey = `live:${fidelityMinutes ?? 'all'}:${minAvgYes ?? 'all'}`;
     // Fenêtre [MIN,MAX] + total = stables sur le TTL → cacheables. La page des
     // marchés est ensuite lue en LIMIT/OFFSET SQL (léger), pas un full-scan.
     const { from, to, total } = await cachedMarketsSeries<{
@@ -412,7 +449,7 @@ export function createBacktestRouter(ds: DataSource): Router {
       if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
         return { from: null, to: null, total: 0 };
       }
-      const total = await countMarketWindow(ds, { from, to, fidelityMinutes });
+      const total = await countMarketWindow(ds, { from, to, fidelityMinutes, minAvgYes: minAvgYes ?? undefined });
       return { from, to, total };
     });
 
@@ -422,7 +459,7 @@ export function createBacktestRouter(ds: DataSource): Router {
     }
 
     // Pagination DB : on ne charge que la page demandée (pas le full-scan).
-    const marketQb = buildMarketsQuery(ds, { from, to, fidelityMinutes })
+    const marketQb = buildMarketsQuery(ds, { from, to, fidelityMinutes, minAvgYes: minAvgYes ?? undefined })
       .skip(offset)
       .take(limit);
     const markets = await marketQb.getRawMany<MarketRow>();
@@ -547,6 +584,7 @@ export function createBacktestRouter(ds: DataSource): Router {
         : undefined;
     const offset = parseOffset(req.query.offset);
     const limit = parseLimit(req.query.limit, MAX_MARKETS_SERIES, MAX_MARKETS_SERIES);
+    const minAvgYes = parseMinAvgYes(req.query.minAvgYes);
 
     // La période paramétrée de la run (params.from/to) définit l'étendue des
     // marchés à afficher, pas la plage effective des données consommées.
@@ -559,14 +597,14 @@ export function createBacktestRouter(ds: DataSource): Router {
       return;
     }
 
-    const cacheKey = `run:${id}:${from.toISOString()}:${to.toISOString()}:${fidelityMinutes ?? 'all'}:${(cities ?? []).join(',')}`;
+    const cacheKey = `run:${id}:${from.toISOString()}:${to.toISOString()}:${fidelityMinutes ?? 'all'}:${(cities ?? []).join(',')}:${minAvgYes ?? 'all'}`;
     const total = await cachedMarketsSeries<number>(cacheKey, async () => {
-      const total = await countMarketWindow(ds, { from, to, fidelityMinutes, cities });
+      const total = await countMarketWindow(ds, { from, to, fidelityMinutes, cities, minAvgYes: minAvgYes ?? undefined });
       return total;
     });
 
     // Pagination DB : on ne charge que la page demandée (pas le full-scan).
-    const marketQb = buildMarketsQuery(ds, { from, to, fidelityMinutes, cities })
+    const marketQb = buildMarketsQuery(ds, { from, to, fidelityMinutes, cities, minAvgYes: minAvgYes ?? undefined })
       .skip(offset)
       .take(limit);
     const markets = await marketQb.getRawMany<MarketRow>();

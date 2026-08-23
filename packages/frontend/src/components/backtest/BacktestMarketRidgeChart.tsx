@@ -1,4 +1,5 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import type { Setter, Signal } from 'solid-js';
 import type { BacktestMarketSeriesDto, BacktestPositionDto, BacktestExcludedTickDto } from '../../api';
 import { useChartWidth } from '../../hooks/useChartWidth';
 import { buildChartXTicks } from '../../lib/updown-price-chart';
@@ -18,7 +19,7 @@ import { useRidgePlayer } from './ridge/useRidgePlayer';
 import { useRidgePlayerFocus } from './ridge/useRidgePlayerFocus';
 import { useRidgeVirtualization } from './ridge/useRidgeVirtualization';
 import { useRidgeHover } from './ridge/useRidgeHover';
-import type { RidgeScale, EnrichedSeries } from './ridge/types';
+import type { RidgeScale } from './ridge/types';
 
 export function BacktestMarketRidgeChart(props: {
   series: BacktestMarketSeriesDto[];
@@ -27,6 +28,8 @@ export function BacktestMarketRidgeChart(props: {
   from: string;
   to: string;
   enablePlayer?: boolean;
+  /** Signal contrôlé du seuil de prix YES moyen (0..100). Si fourni, remplace le signal interne. */
+  minAvgYes?: Signal<number>;
 }) {
   const runFrom = () => Date.parse(props.from);
   const runTo = () => Date.parse(props.to);
@@ -42,7 +45,15 @@ export function BacktestMarketRidgeChart(props: {
   const [maxTicks, setMaxTicks] = createSignal<number>(0);
   const [cutGaps, setCutGaps] = createSignal<boolean>(true);
   // Seuil de prix YES moyen (en %, 0 = aucun filtre) pour retenir les buckets.
-  const [minAvgYes, setMinAvgYes] = createSignal<number>(20);
+  // Contrôlé par le parent quand `props.minAvgYes` est fourni (le fetch backend
+  // applique le même seuil), sinon signal interne (panel live).
+  const [internalMinAvgYes, setInternalMinAvgYes] = createSignal<number>(20);
+  const minAvgYes = () => props.minAvgYes?.[0]() ?? internalMinAvgYes();
+  const setMinAvgYes: Setter<number> = (v) => {
+    const next: number = typeof v === 'function' ? v(minAvgYes()) : v;
+    if (props.minAvgYes) props.minAvgYes[1](next);
+    else setInternalMinAvgYes(next);
+  };
   // true = points d'entrée/sortie au survol uniquement ; false = en permanence.
   const [showEntryExit, setShowEntryExit] = createSignal<boolean>(true);
   // Tracer vertical des ticks exclus.
@@ -136,25 +147,6 @@ export function BacktestMarketRidgeChart(props: {
   const [hoveredRowPosition, setHoveredRowPosition] = createSignal<BacktestPositionDto | null>(null);
   const [hoveredRowXY, setHoveredRowXY] = createSignal<{ x: number; y: number } | null>(null);
 
-  // Le clip n'est actif qu'en mode replay (index > 0 ou playing).
-    const clipUntilT = createMemo<number | null>(() => {
-      if (!playerActive()) return null;
-      if (player.currentIndex() > 0 || player.isPlaying()) return player.playheadT();
-      return null;
-    });
-
-    // Reveal width pour le player (clipPath rect coulissant) — remplace clipUntilT re-build
-    const revealW = createMemo<number>(() => {
-      if (!playerActive()) return 0;
-      const head = player.playheadT();
-      if (head == null) return 0;
-      const vp_ = vp();
-      const span = vp_.maxT - vp_.minT;
-      if (span <= 0) return plotW();
-      const ratio = Math.max(0, Math.min(1, (head - vp_.minT) / span));
-      return ratio * plotW();
-    });
-
     const [plotEl, setPlotEl] = createSignal<HTMLDivElement>();
   const [plotSvgEl, setPlotSvgEl] = createSignal<SVGSVGElement>();
   const [rootEl, setRootEl] = createSignal<HTMLDivElement>();
@@ -171,6 +163,21 @@ export function BacktestMarketRidgeChart(props: {
 
   const vp = () => viewport();
   const scale = createMemo<RidgeScale>(() => buildRidgeScale(vp().minT, vp().maxT, plotW()));
+
+  // Reveal width pour le player (clipPath rect coulissant) — dépend de vp/scale.
+  // Quand le player n'a pas bougé (index 0, pas en lecture), on affiche TOUT le
+  // plot. Sinon on révèle seulement jusqu'au playhead.
+  const revealW = createMemo<number>(() => {
+    if (!playerActive()) return 0;
+    if (player.currentIndex() === 0 && !player.isPlaying()) return plotW();
+    const head = player.playheadT();
+    if (head == null) return plotW();
+    const vp_ = vp();
+    const span = vp_.maxT - vp_.minT;
+    if (span <= 0) return plotW();
+    const ratio = Math.max(0, Math.min(1, (head - vp_.minT) / span));
+    return ratio * plotW();
+  });
 
   const hover = useRidgeHover({
     plotSvgEl,

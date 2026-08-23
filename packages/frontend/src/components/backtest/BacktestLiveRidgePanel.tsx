@@ -1,4 +1,5 @@
 import { Show } from 'solid-js';
+import type { Signal } from 'solid-js';
 import type { BacktestMarketSeriesDto } from '../../api';
 import { BacktestMarketRidgeChart } from './BacktestMarketRidgeChart';
 
@@ -8,6 +9,8 @@ interface BacktestLiveRidgePanelProps {
   window: { from: string | null; to: string | null };
   loading: boolean;
   error: string | null;
+  /** Signal contrôlé du seuil de prix YES moyen (0..100) — partagé avec le fetch. */
+  minAvgYes: Signal<number>;
 }
 
 function isValidIso(value: string | null): value is string {
@@ -50,6 +53,7 @@ export function BacktestLiveRidgePanel(props: BacktestLiveRidgePanelProps) {
           from={props.window.from!}
           to={props.window.to!}
           enablePlayer={false}
+          minAvgYes={props.minAvgYes}
         />
       </Show>
     </div>

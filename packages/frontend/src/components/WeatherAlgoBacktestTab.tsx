@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount } from 'solid-js';
+import { createEffect, createSignal, Show, onCleanup, onMount } from 'solid-js';
 import {
   cancelBacktestRun,
   deleteBacktestRun,
@@ -28,6 +28,7 @@ import { BacktestRunList } from './backtest/BacktestRunList';
 import { BacktestRunDetail } from './backtest/BacktestRunDetail';
 import { BacktestLiveRidgePanel } from './backtest/BacktestLiveRidgePanel';
 import { useBacktestPolling } from './backtest/useBacktestPolling';
+import { clearEnrichCache } from './backtest/ridge/precompute';
 
 const PAGE_SIZE = 20;
 // Taille de page pour le chargement paginé des séries marché (ridge plot).
@@ -96,6 +97,10 @@ export function WeatherAlgoBacktestTab() {
   const [marketSeries, setMarketSeries] = createSignal<BacktestMarketSeriesDto[]>([]);
   const [marketTotal, setMarketTotal] = createSignal(0);
   const [marketLoading, setMarketLoading] = createSignal(false);
+  // Seuil de prix YES moyen (0..100) partagé entre le fetch backend et le ridge
+  // chart. Le backend applique le filtre (HAVING AVG(yesPrice) > seuil) pour
+  // réduire le payload ; le chart l'utilise pour le groupement local.
+  const [minAvgYes, setMinAvgYes] = createSignal<number>(20);
   const [detailError, setDetailError] = createSignal<string | null>(null);
 
   // ── Ridge plot live (toutes les données marché) ───────────────────────
@@ -146,6 +151,7 @@ export function WeatherAlgoBacktestTab() {
       for (let page = 0; page < MAX_PAGES; page++) {
         const res = await fetchLiveMarketSeries({
           fidelityMinutes: fid,
+          minAvgYes: minAvgYes() / 100,
           offset,
           limit: MARKETS_PAGE_SIZE,
         });
@@ -227,6 +233,7 @@ export function WeatherAlgoBacktestTab() {
             const mkt = await fetchBacktestMarketSeries(id, {
               offset: mktOffset,
               limit: MARKETS_PAGE_SIZE,
+              minAvgYes: minAvgYes() / 100,
               signal,
             });
             mktItems.push(...mkt.items);
@@ -279,6 +286,19 @@ export function WeatherAlgoBacktestTab() {
     polling.stop();
   }
 
+  // Re-fetch des séries marché quand le seuil de prix YES moyen change : le
+  // backend applique le filtre (HAVING AVG(yesPrice) > seuil), donc on doit
+  // recharger les données pour refléter le nouveau seuil.
+  createEffect(() => {
+    minAvgYes();
+    const id = selectedId();
+    if (id != null) {
+      void refreshDetail(id);
+    } else {
+      void refreshLiveSeries();
+    }
+  });
+
   onMount(() => {
     void refreshCoverage();
     void refreshList();
@@ -292,6 +312,10 @@ export function WeatherAlgoBacktestTab() {
       openRun(restoredId);
     }
   });
+
+  // Vide le cache d'enrichissement (module-level) au démontage pour éviter une
+  // fuite mémoire entre sessions de backtest.
+  onCleanup(() => clearEnrichCache());
 
   async function submit(e: Event) {
     e.preventDefault();
@@ -357,6 +381,7 @@ export function WeatherAlgoBacktestTab() {
 
   function openRun(id: number) {
     abortDetail();
+    clearEnrichCache();
     setSelectedId(id);
     setDetail(null);
     setEquity([]);
@@ -371,6 +396,7 @@ export function WeatherAlgoBacktestTab() {
 
   function closeRun() {
     abortDetail();
+    clearEnrichCache();
     setSelectedId(null);
     setDetail(null);
     setEquity([]);
@@ -426,6 +452,7 @@ export function WeatherAlgoBacktestTab() {
           window={liveWindow()}
           loading={liveLoading()}
           error={liveError()}
+          minAvgYes={[minAvgYes, setMinAvgYes]}
         />
         <LaunchBacktestForm
           coverage={coverage}
@@ -480,6 +507,7 @@ export function WeatherAlgoBacktestTab() {
           marketSeries={marketSeries()}
           marketTotal={marketTotal()}
           marketLoading={marketLoading()}
+          minAvgYes={[minAvgYes, setMinAvgYes]}
           error={detailError()}
           capital={resolveRunCapital(selectedRun()!.params)}
           onBack={closeRun}

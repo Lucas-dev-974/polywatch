@@ -10,6 +10,13 @@ export function parseOffset(value: unknown): number {
   return Math.max(0, Number(value ?? 0));
 }
 
+/** Parse un seuil de prix YES moyen (0..1). null si absent/invalide. */
+export function parseMinAvgYes(value: unknown): number | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(1, n);
+}
+
 export function parseOptionalDate(value: unknown): Date | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined;
   const d = new Date(value);

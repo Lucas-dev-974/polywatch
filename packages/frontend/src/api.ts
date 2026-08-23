@@ -1293,7 +1293,7 @@ export async function fetchBacktestExcludedTicks(
 
 export async function fetchBacktestMarketSeries(
   id: number,
-  params: { offset?: number; limit?: number; signal?: AbortSignal } = {},
+  params: { offset?: number; limit?: number; minAvgYes?: number; signal?: AbortSignal } = {},
 ): Promise<{ items: BacktestMarketSeriesDto[]; total: number; truncated: boolean }> {
   const { signal, ...query } = params;
   return api(`/backtest/runs/${id}/markets-series${weatherAlgoDataQuery(query)}`, signal ? { signal } : undefined);
@@ -1310,6 +1310,7 @@ export async function fetchLiveMarketSeries(params: {
   fidelityMinutes?: number;
   offset?: number;
   limit?: number;
+  minAvgYes?: number;
 }): Promise<BacktestLiveMarketSeriesResponse> {
   return api(`/backtest/markets-series${weatherAlgoDataQuery(params)}`);
 }

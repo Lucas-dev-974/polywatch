@@ -13,9 +13,8 @@ function buildPathFromSeries(
   series: EnrichedSeries,
   voieTop: number,
   scale: ReturnType<typeof buildRidgeScale>,
-  clipUntilT?: number | null,
 ): string {
-  const projected = projectSeries(series, scale, voieTop, clipUntilT);
+  const projected = projectSeries(series, scale, voieTop);
   if (projected.length === 0) return '';
   const gapThreshold = computeGapThreshold(projected);
   return buildPathFromProjected(projected, gapThreshold);
@@ -118,17 +117,16 @@ describe('ridge projection (projection.ts)', () => {
       expect(mCount).toBe(2);
     });
 
-    it('clipUntilT respected with downsampling', () => {
+    it('downsampling keeps path bounded and starts at first point', () => {
       const scale = makeScale(400);
       const points: EnrichedPoint[] = [];
       for (let i = 0; i < 500; i++) {
         points.push({ t: i * 1000, price: 0.5 });
       }
       const series = makeEnrichedSeries(points);
-      const clipUntilT = 250 * 1000; // middle
-      const path = buildPathFromSeries(series, 0, scale, clipUntilT);
+      const path = buildPathFromSeries(series, 0, scale);
 
-      // All points in path should have t <= clipUntilT
+      // All points in path should have t >= firstT and <= lastT
       const commands = path.split(' ');
       expect(commands.length).toBeGreaterThan(0);
     });

@@ -1,6 +1,6 @@
 import { createMemo, For, Show } from 'solid-js';
 import type { BacktestPositionDto } from '../../../api';
-import type { RidgeScale, VisibleVoie, EnrichedSeries } from './types';
+import type { RidgeScale, VisibleVoie } from './types';
 import { buildPathFromProjected, computeGapThreshold, projectSeries } from './projection';
 import { RidgePositionMarkers } from './RidgePositionMarkers';
 import { MARGIN_TOP } from './scale';
@@ -13,8 +13,6 @@ export function RidgeLines(props: {
   hoveredBucketKey: () => string | null;
   maxTicks?: number | null;
   cutGaps?: boolean;
-  /** @deprecated géré par clipPath parent — conservé pour compat */
-  clipUntilT?: number | null;
   showEntryExit?: boolean;
   onPositionHover: (pos: BacktestPositionDto | null, x: number, y: number) => void;
 }) {
@@ -38,7 +36,7 @@ export function RidgeLines(props: {
                 const projected = createMemo(() => {
                   const geom = geometry();
                   if (!geom) return [];
-                  return projectSeries(geom, props.scale, voieTop(), props.clipUntilT);
+                  return projectSeries(geom, props.scale, voieTop());
                 });
                 
                 // Path string : dépend de projected + gapThreshold

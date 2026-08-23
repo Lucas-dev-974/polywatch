@@ -63,20 +63,13 @@ export function projectSeries(
   enriched: EnrichedSeries,
   scale: RidgeScale,
   voieTop: number,
-  clipUntilT?: number | null,
 ): ProjectedPoint[] {
   const points = enriched.points;
   if (points.length === 0) return [];
 
-  // 1. Filtre clipUntilT sur timestamps numériques (pas de Date.parse)
-  const filtered = clipUntilT != null
-    ? points.filter(p => p.t <= clipUntilT)
-    : points;
-  if (filtered.length === 0) return [];
-
-  // 2. Projection affine vers pixels
+  // 1. Projection affine vers pixels
   const valid: ValidPoint[] = [];
-  for (const p of filtered) {
+  for (const p of points) {
     if (p.price == null) continue;
     valid.push({
       px: scale.xPos(p.t),

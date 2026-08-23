@@ -1,7 +1,7 @@
 import type { BacktestMarketSeriesDto, BacktestPositionDto } from '../../../api';
 import { formatBucketLabel } from '../../../lib/weather-position';
 import { seriesColor } from '../../weather-series-chart/palette';
-import type { VoieGroup, BucketLine, EnrichedSeries } from './types';
+import type { VoieGroup, BucketLine } from './types';
 import { enrichSeries } from './precompute';
 
 export const MIN_AVG_YES = 0.2;

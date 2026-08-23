@@ -1,4 +1,5 @@
 import { Show } from 'solid-js';
+import type { Signal } from 'solid-js';
 import type {
   BacktestEquityPointDto,
   BacktestExcludedTickDto,
@@ -22,6 +23,8 @@ interface BacktestRunDetailProps {
   marketSeries: BacktestMarketSeriesDto[];
   marketTotal: number;
   marketLoading: boolean;
+  /** Signal contrôlé du seuil de prix YES moyen (0..100) — partagé avec le fetch. */
+  minAvgYes: Signal<number>;
   error: string | null;
   capital: number;
   onBack: () => void;
@@ -150,6 +153,7 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
               excludedTicks={props.excludedTicks}
               from={runFrom()!}
               to={runTo()!}
+              minAvgYes={props.minAvgYes}
             />
           </Show>
         </CollapsibleSection>

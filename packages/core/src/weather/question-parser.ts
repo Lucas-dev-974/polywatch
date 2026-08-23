@@ -23,23 +23,23 @@ function fToC(f: number): number {
 // Regex for exact / or below / or above/higher patterns.
 // Groups: 1=city, 2=value, 3=unit(C/F), 4=below/above/higher(optional), 5=date
 const HIGHEST_TEMP_REGEX_OR =
-  /highest temperature in (.+?) be (-?\d+)°([CF])(?: or (below|above|higher))? on (.+?)\?/i;
+  /highest temperature in (.+?) be (-?\d+(?:\.\d+)?)°([CF])(?: or (below|above|higher))? on (.+?)\?/i;
 const LOWEST_TEMP_REGEX_OR =
-  /lowest temperature in (.+?) be (-?\d+)°([CF])(?: or (below|above|higher))? on (.+?)\?/i;
+  /lowest temperature in (.+?) be (-?\d+(?:\.\d+)?)°([CF])(?: or (below|above|higher))? on (.+?)\?/i;
 
 // Regex for "between X-Y°" pattern.
 // Groups: 1=city, 2=low value, 3=high value, 4=unit(C/F), 5=date
 const HIGHEST_TEMP_REGEX_BETWEEN =
-  /highest temperature in (.+?) be between (-?\d+)-(-?\d+)°([CF]) on (.+?)\?/i;
+  /highest temperature in (.+?) be between (-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)°([CF]) on (.+?)\?/i;
 const LOWEST_TEMP_REGEX_BETWEEN =
-  /lowest temperature in (.+?) be between (-?\d+)-(-?\d+)°([CF]) on (.+?)\?/i;
+  /lowest temperature in (.+?) be between (-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)°([CF]) on (.+?)\?/i;
 
 function buildOrResult(
   match: RegExpExecArray,
   metric: WeatherMetric,
 ): ParsedWeatherQuestion {
   const unit = match[3]!.toLowerCase() === 'f' ? 'fahrenheit' : 'celsius';
-  const rawVal = parseInt(match[2]!, 10);
+  const rawVal = parseFloat(match[2]!);
   const comparison: ParsedWeatherQuestion['comparison'] = match[4]
     ? (match[4].toLowerCase() === 'below' ? 'or_below' : 'or_above')
     : 'exact';
@@ -60,8 +60,8 @@ function buildBetweenResult(
   metric: WeatherMetric,
 ): ParsedWeatherQuestion {
   const unit = match[4]!.toLowerCase() === 'f' ? 'fahrenheit' : 'celsius';
-  const lowRaw = parseInt(match[2]!, 10);
-  const highRaw = parseInt(match[3]!, 10);
+  const lowRaw = parseFloat(match[2]!);
+  const highRaw = parseFloat(match[3]!);
   return {
     city: match[1]!.trim(),
     metric,

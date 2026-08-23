@@ -33,6 +33,10 @@ const PAGE_SIZE = 20;
 // Taille de page pour le chargement paginé des séries marché (ridge plot).
 // Bornée par MAX_MARKETS_SERIES côté backend.
 const MARKETS_PAGE_SIZE = 500;
+// Borne de sécurité sur les boucles de pagination : 50 pages × 500 = 25 000
+// marchés max. Au-delà, on tronque (avec warning implicite) pour éviter une
+// boucle infinie si le total croît ou si le backend renvoie une page vide.
+const MAX_PAGES = 50;
 
 export function WeatherAlgoBacktestTab() {
   // ── Coverage (disponibilité des données) ─────────────────────────
@@ -104,15 +108,30 @@ export function WeatherAlgoBacktestTab() {
   const [liveLoading, setLiveLoading] = createSignal(false);
   const [liveError, setLiveError] = createSignal<string | null>(null);
 
-  const polling = useBacktestPolling(() => {
+  // AbortController du run courant : annulé à chaque nouveau refreshDetail /
+  // openRun / closeRun pour que les réponses d'un run périmé ne résolvent pas
+  // après le switch vers un autre run (stale-after-switch).
+  let detailAbort: AbortController | null = null;
+  function abortDetail() {
+    detailAbort?.abort();
+    detailAbort = null;
+  }
+
+  const polling = useBacktestPolling(async () => {
     const id = selectedId();
-    if (id != null) void refreshDetail(id);
-    void refreshList();
+    if (id != null) await refreshDetail(id);
+    await refreshList();
   });
 
-  const livePolling = useBacktestPolling(() => {
-    void refreshLiveSeries();
-  });
+  // Ridge live pollé à 10 s : le backend cache les agrégats /markets-series
+  // pendant 30 s, donc 1 miss cache sur ~3 polls.
+  const livePolling = useBacktestPolling(
+    async () => {
+      await refreshLiveSeries();
+    },
+    () => true,
+    10_000,
+  );
 
   async function refreshLiveSeries() {
     setLiveLoading(true);
@@ -122,8 +141,9 @@ export function WeatherAlgoBacktestTab() {
       let total = 0;
       let offset = 0;
       let window: { from: string | null; to: string | null } = { from: null, to: null };
-      // Boucle paginée : on concatène les pages jusqu'à avoir tout le total.
-      for (;;) {
+      // Boucle paginée bornée par MAX_PAGES : on concatène les pages jusqu'à
+      // avoir tout le total, sans risque de boucle infinie.
+      for (let page = 0; page < MAX_PAGES; page++) {
         const res = await fetchLiveMarketSeries({
           fidelityMinutes: fid,
           offset,
@@ -175,8 +195,12 @@ export function WeatherAlgoBacktestTab() {
   }
 
   async function refreshDetail(id: number) {
+    abortDetail();
+    const controller = new AbortController();
+    detailAbort = controller;
+    const { signal } = controller;
     try {
-      const run = await fetchBacktestRun(id);
+      const run = await fetchBacktestRun(id, signal);
       setDetail(run);
       // Arrêt du polling quand le run est dans un état terminal.
       if (
@@ -188,8 +212,8 @@ export function WeatherAlgoBacktestTab() {
       }
       if (run.status === 'completed') {
         const [eq, pos] = await Promise.all([
-          fetchBacktestEquity(id),
-          fetchBacktestPositions(id, { limit: 200 }),
+          fetchBacktestEquity(id, signal),
+          fetchBacktestPositions(id, { limit: 200, signal }),
         ]);
         setEquity(eq.points);
         setPositions(pos.items);
@@ -199,10 +223,11 @@ export function WeatherAlgoBacktestTab() {
         let mktOffset = 0;
         setMarketLoading(true);
         try {
-          for (;;) {
+          for (let page = 0; page < MAX_PAGES; page++) {
             const mkt = await fetchBacktestMarketSeries(id, {
               offset: mktOffset,
               limit: MARKETS_PAGE_SIZE,
+              signal,
             });
             mktItems.push(...mkt.items);
             mktTotal = mkt.total;
@@ -217,9 +242,10 @@ export function WeatherAlgoBacktestTab() {
         // Les ticks exclus sont décoratifs : une erreur ici ne doit pas faire
         // échouer le chargement du détail (positions/marchés restent visibles).
         try {
-          const exc = await fetchBacktestExcludedTicks(id);
+          const exc = await fetchBacktestExcludedTicks(id, signal);
           setExcludedTicks(exc.ticks);
         } catch {
+          if (signal.aborted) return;
           setExcludedTicks([]);
         }
       } else {
@@ -232,6 +258,15 @@ export function WeatherAlgoBacktestTab() {
       }
       setDetailError(null);
     } catch (err) {
+      // Un abort provoqué par un switch de run (openRun/closeRun) n'est pas une
+      // erreur à afficher : le nouveau refreshDetail va remplacer l'état.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (err instanceof Error && err.message === 'not_found') {
+        // Run introuvable (supprimé ou hors périmètre utilisateur) : on
+        // nettoie la sélection persistée pour revenir à la liste.
+        closeRun();
+        return;
+      }
       setDetailError(err instanceof Error ? err.message : 'Détail indisponible');
     }
   }
@@ -264,6 +299,26 @@ export function WeatherAlgoBacktestTab() {
       setLaunchError('Sélectionnez une plage de dates');
       return;
     }
+    const cap = Number(capital());
+    if (!Number.isFinite(cap) || cap <= 0) {
+      setLaunchError('Capital initial invalide (nombre > 0 requis)');
+      return;
+    }
+    const slip = Number(slippageBps());
+    if (!Number.isFinite(slip) || slip < 0) {
+      setLaunchError('Slippage invalide (nombre ≥ 0 requis)');
+      return;
+    }
+    const entry = Number(entryUsdc());
+    if (!Number.isFinite(entry) || entry <= 0) {
+      setLaunchError('Entry / position invalide (nombre > 0 requis)');
+      return;
+    }
+    const maxp = Number(maxPos());
+    if (!Number.isFinite(maxp) || maxp < 1 || !Number.isInteger(maxp)) {
+      setLaunchError('Max positions concurrentes invalide (entier ≥ 1 requis)');
+      return;
+    }
     setLaunching(true);
     setLaunchError(null);
     try {
@@ -274,10 +329,10 @@ export function WeatherAlgoBacktestTab() {
         cities: cities().trim() ? cities().split(',').map((c) => c.trim()).filter(Boolean) : undefined,
         strategyId: strategyId(),
         backtestExecutionMode: executionMode(),
-        capital: Number(capital()) || 1000,
-        entryUsdc: Number(entryUsdc()) || 10,
-        slippageBps: Number(slippageBps()) || 0,
-        maxConcurrentPositions: Number(maxPos()) || 10,
+        capital: cap,
+        entryUsdc: entry,
+        slippageBps: slip,
+        maxConcurrentPositions: maxp,
         fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
         label: label().trim() || undefined,
       };
@@ -301,6 +356,7 @@ export function WeatherAlgoBacktestTab() {
   }
 
   function openRun(id: number) {
+    abortDetail();
     setSelectedId(id);
     setDetail(null);
     setEquity([]);
@@ -314,6 +370,7 @@ export function WeatherAlgoBacktestTab() {
   }
 
   function closeRun() {
+    abortDetail();
     setSelectedId(null);
     setDetail(null);
     setEquity([]);

@@ -60,6 +60,9 @@ export class BacktestRun {
   @Column({ type: 'text', name: 'fidelity_warnings_json', nullable: true })
   fidelityWarningsJson!: string | null;
 
+  @Column({ type: 'integer', name: 'user_id', nullable: true })
+  userId!: number | null;
+
   @Column({ type: 'text', name: 'engine_version', nullable: true })
   engineVersion!: string | null;
 

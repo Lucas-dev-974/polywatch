@@ -13,7 +13,7 @@
     "dev:weather-algo": "npm run dev -w @polywatch/weather-algo",
     "dev:frontend": "node scripts/wait-backend-health.mjs && npm run dev -w @polywatch/frontend",
     "postinstall": "patch-package && node scripts/prune-ethers-v5-deps.mjs",
-    "test": "npm run test -w @polywatch/core && npm run test -w @polywatch/worker && npm run test -w @polywatch/copy-trading && npm run test -w @polywatch/backend && npm run test -w @polywatch/frontend && npm run test -w @polywatch/crypto-algo && npm run test -w @polywatch/weather-algo",
+    "test": "npm run test -w @polywatch/core && npm run test -w @polywatch/backtest && npm run test -w @polywatch/worker && npm run test -w @polywatch/copy-trading && npm run test -w @polywatch/backend && npm run test -w @polywatch/frontend && npm run test -w @polywatch/crypto-algo && npm run test -w @polywatch/weather-algo",
     "test:compliance": "vitest run -c tools/e2e/vitest.config.ts tools/e2e",
     "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
     "migrate": "npm run migrate -w @polywatch/core",

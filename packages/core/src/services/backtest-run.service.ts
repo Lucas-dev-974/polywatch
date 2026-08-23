@@ -1,4 +1,4 @@
-import { DataSource, In } from 'typeorm';
+import { DataSource } from 'typeorm';
 import pino from 'pino';
 import {
   BacktestRun,
@@ -20,6 +20,7 @@ export interface BacktestRunInput {
   configFingerprint?: string | null;
   engineVersion?: string | null;
   label?: string | null;
+  userId?: number | null;
 }
 
 export interface ListBacktestRunsOptions {
@@ -27,6 +28,8 @@ export interface ListBacktestRunsOptions {
   status?: BacktestRunStatus | null;
   limit?: number;
   offset?: number;
+  /** Restrict to runs owned by this user (or legacy runs with null owner). */
+  userId?: number | null;
 }
 
 export interface BacktestPositionInput {
@@ -108,6 +111,7 @@ export class BacktestRunService {
       configFingerprint: input.configFingerprint ?? null,
       engineVersion: input.engineVersion ?? null,
       label: input.label ?? null,
+      userId: input.userId ?? null,
     });
     return this.runRepo.save(run);
   }
@@ -198,6 +202,10 @@ export class BacktestRunService {
     if (opts.status) {
       qb.andWhere('r.status = :status', { status: opts.status });
     }
+    if (opts.userId !== undefined && opts.userId !== null) {
+      // Runs de l'utilisateur + runs hérités (userId NULL, pré-migration).
+      qb.andWhere('(r.userId = :userId OR r.userId IS NULL)', { userId: opts.userId });
+    }
     const total = await qb.clone().getCount();
     const items = await qb
       .skip(opts.offset ?? 0)
@@ -206,8 +214,19 @@ export class BacktestRunService {
     return { items, total };
   }
 
-  async getById(id: number): Promise<BacktestRun | null> {
-    return this.runRepo.findOne({ where: { id } });
+  /**
+   * Récupère un run. Si `userId` est fourni, le run n'est visible que s'il
+   * appartient à cet utilisateur OU s'il est hérité (userId NULL). Sinon null.
+   */
+  async getById(id: number, userId?: number | null): Promise<BacktestRun | null> {
+    if (userId === undefined || userId === null) {
+      return this.runRepo.findOne({ where: { id } });
+    }
+    return this.runRepo
+      .createQueryBuilder('r')
+      .where('r.id = :id', { id })
+      .andWhere('(r.userId = :userId OR r.userId IS NULL)', { userId })
+      .getOne();
   }
 
   async listPositions(
@@ -306,10 +325,15 @@ export class BacktestRunService {
     await this.runRepo.delete(runId);
   }
 
-  async hasActiveRun(domain: BacktestDomain): Promise<BacktestRun | null> {
-    return this.runRepo.findOne({
-      where: { domain, status: In(['running', 'queued']) },
-      order: { createdAt: 'DESC' },
-    });
+  async hasActiveRun(domain: BacktestDomain, userId?: number | null): Promise<BacktestRun | null> {
+    const qb = this.runRepo
+      .createQueryBuilder('r')
+      .where('r.domain = :domain', { domain })
+      .andWhere('r.status IN (:...statuses)', { statuses: ['running', 'queued'] })
+      .orderBy('r.createdAt', 'DESC');
+    if (userId !== undefined && userId !== null) {
+      qb.andWhere('(r.userId = :userId OR r.userId IS NULL)', { userId });
+    }
+    return qb.getOne();
   }
 }

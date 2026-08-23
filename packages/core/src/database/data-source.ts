@@ -149,6 +149,7 @@ import { AddBacktestExcludedTicks1700000000115 } from '../migrations/AddBacktest
 import { DropWeatherPreClose1700000000116 } from '../migrations/DropWeatherPreClose1700000000116.js';
 import { AddWeatherExitPercentColumns1700000000117 } from '../migrations/AddWeatherExitPercentColumns1700000000117.js';
 import { DropWeatherAlgoBidPointsColumns1700000000118 } from '../migrations/DropWeatherAlgoBidPointsColumns1700000000118.js';
+import { AddBacktestRunUserIdAndActiveUnique1700000000119 } from '../migrations/AddBacktestRunUserIdAndActiveUnique1700000000119.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -263,6 +264,7 @@ export const migrations = [
   DropWeatherPreClose1700000000116,
   AddWeatherExitPercentColumns1700000000117,
   DropWeatherAlgoBidPointsColumns1700000000118,
+  AddBacktestRunUserIdAndActiveUnique1700000000119,
 ];
 
 export const entities = [

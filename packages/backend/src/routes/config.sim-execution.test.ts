@@ -54,8 +54,8 @@ describe('riskConfigUpdateSchema sim execution fields', () => {
     const parsed = riskConfigUpdateSchema.safeParse({
       cryptoAlgoSlBidPoints: 0.32,
       cryptoAlgoTrailingEnabled: true,
-      cryptoAlgoTrailingActivationPercent: 20,
-      cryptoAlgoTrailingStopPercent: 12,
+      cryptoAlgoTrailingActivationBidPoints: 0.8,
+      cryptoAlgoTrailingBidPoints: 0.88,
       cryptoAlgoPreCloseEnabled: true,
       cryptoAlgoPreCloseSeconds: 45,
       cryptoAlgoPreCloseKeepEnabled: true,

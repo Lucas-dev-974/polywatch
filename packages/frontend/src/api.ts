@@ -1253,8 +1253,8 @@ export async function fetchBacktestRuns(params: {
   );
 }
 
-export async function fetchBacktestRun(id: number): Promise<BacktestRunDto> {
-  return api<BacktestRunDto>(`/backtest/runs/${id}`);
+export async function fetchBacktestRun(id: number, signal?: AbortSignal): Promise<BacktestRunDto> {
+  return api<BacktestRunDto>(`/backtest/runs/${id}`, signal ? { signal } : undefined);
 }
 
 export async function cancelBacktestRun(id: number): Promise<{ id: number; status: string }> {
@@ -1271,28 +1271,32 @@ export async function deleteBacktestRun(id: number): Promise<{ id: number; delet
 
 export async function fetchBacktestPositions(
   id: number,
-  params: { limit?: number; offset?: number; exitReason?: string } = {},
+  params: { limit?: number; offset?: number; exitReason?: string; signal?: AbortSignal } = {},
 ): Promise<{ items: BacktestPositionDto[]; total: number }> {
+  const { signal, ...query } = params;
   return api(
-    `/backtest/runs/${id}/positions${weatherAlgoDataQuery(params)}`,
+    `/backtest/runs/${id}/positions${weatherAlgoDataQuery(query)}`,
+    signal ? { signal } : undefined,
   );
 }
 
-export async function fetchBacktestEquity(id: number): Promise<{ points: BacktestEquityPointDto[] }> {
-  return api(`/backtest/runs/${id}/equity`);
+export async function fetchBacktestEquity(id: number, signal?: AbortSignal): Promise<{ points: BacktestEquityPointDto[] }> {
+  return api(`/backtest/runs/${id}/equity`, signal ? { signal } : undefined);
 }
 
 export async function fetchBacktestExcludedTicks(
   id: number,
+  signal?: AbortSignal,
 ): Promise<{ ticks: BacktestExcludedTickDto[] }> {
-  return api(`/backtest/runs/${id}/excluded-ticks`);
+  return api(`/backtest/runs/${id}/excluded-ticks`, signal ? { signal } : undefined);
 }
 
 export async function fetchBacktestMarketSeries(
   id: number,
-  params: { offset?: number; limit?: number } = {},
+  params: { offset?: number; limit?: number; signal?: AbortSignal } = {},
 ): Promise<{ items: BacktestMarketSeriesDto[]; total: number; truncated: boolean }> {
-  return api(`/backtest/runs/${id}/markets-series${weatherAlgoDataQuery(params)}`);
+  const { signal, ...query } = params;
+  return api(`/backtest/runs/${id}/markets-series${weatherAlgoDataQuery(query)}`, signal ? { signal } : undefined);
 }
 
 export interface BacktestLiveMarketSeriesResponse {

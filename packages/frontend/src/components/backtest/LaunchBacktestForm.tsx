@@ -88,6 +88,9 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
           <span>Au</span>
           <input type="date" value={props.to()} onInput={(e) => props.setTo(e.currentTarget.value)} />
         </label>
+        <span class="form-hint" title="Les bornes sont interprétées en UTC (le backend applique new Date(params.from)).">
+          Les dates sont interprétées en <strong>UTC</strong> — un décalage peut apparaître selon votre fuseau local.
+        </span>
         <label class="backtest-field">
           <span>Villes (séparées par virgule, optionnel)</span>
           <input
@@ -125,6 +128,11 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
             <option value="strategy">Strategy (tick par bucket, rapide)</option>
             <option value="runner-sim">Runner-sim (groupe + dedup, proche live)</option>
           </select>
+          <Show when={props.executionMode() === 'strategy'}>
+            <span class="form-hint" style="color: var(--warning, #b58900);">
+              ⚠️ Strategy évalue les buckets isolément (pas de sélection de groupe) — préférer runner-sim pour fidélité live.
+            </span>
+          </Show>
         </label>
         <label class="backtest-field">
           <span>Capital initial (USDC)</span>

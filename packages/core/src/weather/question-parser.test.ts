@@ -111,4 +111,25 @@ describe('parseWeatherQuestion', () => {
     expect(result!.comparison).toBe('between');
     expect(result!.unit).toBe('celsius');
   });
+
+  it('parses fractional °C "or below" variant', () => {
+    const result = parseWeatherQuestion(
+      'Will the lowest temperature in Lyon be 12.5°C or below on May 20?',
+    );
+    expect(result).not.toBeNull();
+    expect(result!.metric).toBe('lowest_temp');
+    expect(result!.targetValue).toBe(12.5);
+    expect(result!.comparison).toBe('or_below');
+  });
+
+  it('parses negative fractional °C "between" variant', () => {
+    const result = parseWeatherQuestion(
+      'Will the highest temperature in Lyon be between -5.5-10.5°C on May 20?',
+    );
+    expect(result).not.toBeNull();
+    expect(result!.metric).toBe('highest_temp');
+    expect(result!.targetValueLow).toBe(-5.5);
+    expect(result!.targetValueHigh).toBe(10.5);
+    expect(result!.comparison).toBe('between');
+  });
 });

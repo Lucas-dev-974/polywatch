@@ -619,7 +619,7 @@ describe('runBacktest (weather replay)', () => {
     expect(pos.exitPrice).toBe(1);
   });
 
-  it('resolves highest-yes via entryPrice fallback when both tick.yesPrice and markPrice are null', async () => {
+  it('resolves highest-yes via markPrice fallback when tick.yesPrice is null', async () => {
     const now = new Date('2026-01-01T00:00:00.000Z');
     const snapRepo = ds.getRepository(WeatherMarketSnapshot);
     const tickRepo = ds.getRepository(WeatherBucketTick);
@@ -630,7 +630,7 @@ describe('runBacktest (weather replay)', () => {
       metric: 'highest_temp', forecastMean: 20, forecastStdDev: 1,
       bucketCount: 1, totalBucketCount: 3, recordedAt: now,
     }));
-    // Entry tick with yesPrice — this sets entryPrice on position
+    // Entry tick with yesPrice — this sets entryPrice (and markPrice) on position
     await tickRepo.save(tickRepo.create({
       snapshotId: snap.id, conditionId: 'cond-hy-fb2', eventSlug: 'e',
       question: 'Will the highest temperature in lyon be 20°C or above on 2026-01-02?',
@@ -641,8 +641,7 @@ describe('runBacktest (weather replay)', () => {
       recordedAt: now,
       city: 'lyon', cityNormalized: 'lyon', targetDateIso: '2026-01-02', metric: 'highest_temp',
     }));
-    // Resolution tick WITHOUT yesPrice AND no subsequent tick to update markPrice
-    // (markPrice will be null because ledger.updateMark never called with valid yesPrice)
+    // Resolution tick WITHOUT yesPrice — markPrice (initialised to entryPrice value) is the fallback
     await tickRepo.save(tickRepo.create({
       snapshotId: snap.id, conditionId: 'cond-hy-fb2', eventSlug: 'e',
       question: 'Will the highest temperature in lyon be 20°C or above on 2026-01-02?',
@@ -680,7 +679,7 @@ describe('runBacktest (weather replay)', () => {
     const positions = await service.listPositions(run.id, {});
     const pos = positions.items[0]!;
     expect(pos.exitReason).toBe('RESOLUTION');
-    // Falls back to entryPrice (0.01) → 0.01 <= 0.01 → NO wins → exitPrice = 0
+    // Falls back to markPrice (initialised to entryPrice 0.01) → 0.01 <= 0.01 → NO wins → exitPrice = 0
     expect(pos.exitPrice).toBe(0);
   });
 
@@ -992,5 +991,119 @@ describe('runBacktest (weather replay)', () => {
     // Note: replay mode dedups by city/date, so only one survives selection.
     // The test still verifies that exposure does not block entry.
     expect(positions.items.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('emits aggregated multi_position_stale_mark when positions are evaluated on aged ticks', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const evalRepo = ds.getRepository(WeatherEvaluationLog);
+
+    const snap = await snapRepo.save(snapRepo.create({
+      city: 'lyon', cityNormalized: 'lyon', targetDateIso: '2026-01-02',
+      metric: 'highest_temp', forecastMean: 20, forecastStdDev: 1,
+      bucketCount: 1, totalBucketCount: 3, recordedAt: now,
+    }));
+
+    const condId = 'cond-stale-mark';
+    // Tick d'entrée à `now` : ouvre la position (replay via signal ci-dessous).
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: condId, eventSlug: 'e',
+      question: 'Will the highest temperature in lyon be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.5, noPrice: 0.5, yesTokenId: 'y', noTokenId: 'n',
+      volume: 100, volume24hr: 50, liquidityClob: 200,
+      acceptingOrders: true, closed: false, endDate: null,
+      recordedAt: now,
+      city: 'lyon', cityNormalized: 'lyon', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+    await evalRepo.save(evalRepo.create({
+      snapshotId: snap.id, conditionId: condId, bucketComparison: 'or_above',
+      bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      strategyId: 'weather-forecast', yesPrice: 0.5, forecastProb: 0.7,
+      edge: 0.4, dynamicMinEdge: 0.1, decision: 'signal', reason: 'test',
+      evaluatedAt: now,
+    }));
+    // Un tick POST-pollMs (autre condition) force un second passage d'evaluateExits
+    // alors que la position ci-dessus est toujours ouverte avec un tick âgé > pollMs.
+    // pollMs = 1_800_000 ms (30 min) → on décale de 30 min + 1 s.
+    const staleAfter = new Date(now.getTime() + 1_800_000 + 1000);
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-other', eventSlug: 'e2',
+      question: 'Will the highest temperature in lyon be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.4, noPrice: 0.6, yesTokenId: 'y', noTokenId: 'n',
+      volume: 100, volume24hr: 50, liquidityClob: 200,
+      acceptingOrders: true, closed: false, endDate: null,
+      recordedAt: staleAfter,
+      city: 'lyon', cityNormalized: 'lyon', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'replay', paramsJson: '{}' });
+    const result = await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'replay',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-03T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    // La position (cond-stale-mark) est restée ouverte ; au passage du tick
+    // `cond-other` son tick d'entrée est âgé > pollMs → warning agrégé émis.
+    expect(result.fidelityWarnings.some((w) => w.startsWith('multi_position_stale_mark'))).toBe(true);
+  });
+
+  it('emits fill_price_clamped when slippage pushes entry price past 1.0', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const evalRepo = ds.getRepository(WeatherEvaluationLog);
+
+    const snap = await snapRepo.save(snapRepo.create({
+      city: 'nice', cityNormalized: 'nice', targetDateIso: '2026-01-02',
+      metric: 'highest_temp', forecastMean: 20, forecastStdDev: 1,
+      bucketCount: 1, totalBucketCount: 3, recordedAt: now,
+    }));
+    await tickRepo.save(tickRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-clamp', eventSlug: 'e',
+      question: 'Will the highest temperature in nice be 20°C or above on 2026-01-02?',
+      bucketComparison: 'or_above', bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      yesPrice: 0.99, noPrice: 0.01, yesTokenId: 'y', noTokenId: 'n',
+      volume: 100, volume24hr: 50, liquidityClob: 200,
+      acceptingOrders: true, closed: false, endDate: null,
+      recordedAt: now,
+      city: 'nice', cityNormalized: 'nice', targetDateIso: '2026-01-02', metric: 'highest_temp',
+    }));
+    await evalRepo.save(evalRepo.create({
+      snapshotId: snap.id, conditionId: 'cond-clamp', bucketComparison: 'or_above',
+      bucketTarget: 20, bucketLow: null, bucketHigh: null,
+      strategyId: 'weather-forecast', yesPrice: 0.99, forecastProb: 0.9,
+      edge: 0.2, dynamicMinEdge: 0.1, decision: 'signal', reason: 'test',
+      evaluatedAt: now,
+    }));
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'replay', paramsJson: '{}' });
+    // slippageBps=200 : yesPrice 0.99 → 0.99*1.02 = 1.0098 > 1 → clampé à 1.0.
+    const result = await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'replay',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-03T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 200,
+        maxConcurrentPositions: 10,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    expect(result.fidelityWarnings.some((w) => w.startsWith('fill_price_clamped'))).toBe(true);
   });
 });

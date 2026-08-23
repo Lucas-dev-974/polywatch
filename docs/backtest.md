@@ -9,11 +9,15 @@ produit positions, equity, statistiques et avertissements de fidélité.
 
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
 > Prometheus et Socket.IO décrits dans le plan d'origine ne sont **pas** implémentés.  
-> **Moteur** : `engineVersion` **`0.5.0`** (audit moteur —
+> **Moteur** : `engineVersion` **`0.6.0`** (audit moteur —
 > [`audits/2026-08-19_audit-weather-backtest-moteur.md`](./audits/2026-08-19_audit-weather-backtest-moteur.md) ;
 > per-strategy risk guards —
-> [`audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](./audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md)).  
-> Runs `< 0.5.0` non comparables (résolution per-strategy des garde-fous risk).
+> [`audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](./audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md) ;
+> audit complet —
+> [`audits/2026-08-23_audit-weather-backtest-complet.md`](./audits/2026-08-23_audit-weather-backtest-complet.md)).  
+> Runs `< 0.5.0` non comparables (résolution per-strategy des garde-fous risk).  
+> Runs `0.5.0` non comparables aux `0.6.0` (warning agrégé `multi_position_stale_mark`,
+> clamping prix [0,1], retrait du fallback `entryPrice` en résolution).
 
 ---
 
@@ -87,10 +91,13 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `kill_switch_partial_close` | `force_close_all` a échoué sur ≥1 position (close en erreur / positions restantes) — retry au prochain tick |
 | `kill_switch_block_entries` | Kill-switch actif sans force-close — entrées bloquées |
 | `exit_stale_tick` | Sortie évaluée avec un tick plus vieux que `pollMs` |
+| `multi_position_stale_mark` | N positions ouvertes évaluées avec un tick plus vieux que `pollMs` (markPrice lag-1 par condition) |
+| `fill_price_clamped` | Prix de fill clampé à la borne [0,1] (slippage hors bornes) |
+| `strategy_mode_no_group_selection` | Mode `strategy` évalue les buckets isolément (pas de `pickBestEdgeBucket`) — préférer `runner-sim` |
 | `no_events_in_range` | Aucune donnée sur la plage demandée |
 | `resolution_by_price` | Résolution par prix YES (`>= 0.99` → YES / `<= 0.01` → NO) — pas de température observée |
-| `resolution_price_fallback` | Résolution via fallback `markPrice`/`entryPrice` (`tick.yesPrice` absent) |
-| `resolution_no_price_whatsoever` | Résolution impossible — aucun prix disponible (tick, mark, entry) — position laissée ouverte |
+| `resolution_price_fallback` | Résolution via fallback `markPrice` (`tick.yesPrice` absent — plus de fallback `entryPrice` depuis 0.6.0) |
+| `resolution_no_price_whatsoever` | Résolution impossible — aucun prix disponible (tick, mark) — position laissée ouverte |
 | `markprice_stale_carry_forward` | `markPrice` confirmé à la dernière valeur connue car `tick.yesPrice` est null (garde défensive) |
 | `ghost_positions_forced_resolution` | Position(s) encore ouverte(s) en fin de run — résolution forcée (`BACKTEST_INCOMPLETE_DATA`) |
 | `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
@@ -100,6 +107,22 @@ Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
 one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, throttle re-entry **ville+date** **uniquement** après
 `WEATHER_BUCKET_EXIT` / `WEATHER_FORECAST_CHANGE`, filtre cycle de vie marché
 (`isMarketActiveForWeather`), hystérésis bucket calée sur `weatherAlgoPollMs`.
+
+### Limitations de fidélité (0.6.0)
+
+- **Mark lag-1 par condition** : le backtest ne dispose que des ticks **observés**
+  pour chaque `conditionId`. Le `markPrice` d'une position ne peut pas être plus
+  frais que son dernier tick observé. Si un tick est plus vieux que `weatherAlgoPollMs`,
+  le warning agrégé `multi_position_stale_mark` est émis.
+- **Trailing peak lag-1** : le pic du trailing stop d'une position n'avance que sur
+  son **propre** tick. Un pic favorable atteint via un autre marché ne déclenche pas
+  le trailing. Comportement conservé (limitation de replay).
+- **Equity curve plate** entre les ticks d'une position : l'equity sous-représente les
+  mouvements intra-sample des positions non-tickantes. Comportement conservé.
+- **Fill simulé** : prix YES ± slippage, clampé à [0,1]. Un clamp émet
+  `fill_price_clamped`. PnL = borne indicative, pas une exécution réelle.
+- **Résolution** : pas de fallback `entryPrice` (depuis 0.6.0) — seule `tick.yesPrice`
+  ou `markPrice`. Les fees de résolution restent 0 (courbe Polymarket nulle aux prix 0/1).
 
 > **Résolution per-strategy (depuis 0.5.0)** : `maxExposureUsdc`, `maxDailyLossUsdc`,
 > `maxPositionSizeUsdc`, `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
@@ -164,7 +187,7 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 |---------|------|
 | `data-loader.ts` | Chargement SQL (keyset) ; replay filtre `decision=signal` + `strategyId` |
 | `context-builder.ts` | Reconstruction de `MarketListItemDto` + `ForecastRevisionStore` |
-| `question-builder.ts` | Synthèse question Polymarket (targets arrondis entiers) pour la stratégie |
+| `question-builder.ts` | Synthèse question Polymarket (targets fractionnaires préservés) pour la stratégie |
 | `clocked-weather-strategy.ts` | Factory `createWeatherStrategy(strategyId)` + wrapper clock |
 | `runner-sim.ts` | Simulation runner live (groupes buckets, dedup, selectionMode) |
 | `weather-adapter.ts` | Entrées/sorties, filtre lifecycle, kill-switch, résolution par prix YES |
@@ -198,8 +221,13 @@ append positions/equity, récupération des runs orphelins (`running`/`queued` �
 
 ### Verrou singleton
 
-Un seul run weather actif à la fois : `BacktestRunService.hasActiveRun` détecte
-un run `running` **ou** `queued` → la route `POST /runs` renvoie `409`.
+Un seul run weather actif **par utilisateur** : `BacktestRunService.hasActiveRun`
+détecte un run `running` **ou** `queued` → la route `POST /runs` renvoie `409`.
+L'index unique partiel `backtest_run_active_unique(domain, user_id)` est la source
+de vérité anti-course (TOCTOU) : deux `POST` simultanés ne peuvent pas insérer deux
+runs actifs pour le même utilisateur. Les runs hérités (`user_id IS NULL`) restent
+visibles de tous (rétro-compatibilité) et ne se collisionnent pas entre eux
+(PostgreSQL traite les NULL comme distincts dans un index unique).
 
 ---
 
@@ -289,10 +317,36 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   metric non supporté, hors plage, résolution forcée ghost positions, carry-forward markPrice,
   garde highest-yes drift/bucket, **garde-fous per-strategy** (`ledger.openExposure` /
   `dailyRealizedPnl` filtrage par `strategyId`, `maxExposureUsdc` par stratégie bloque
-  2e entrée, `maxExposureUsdc` généreux autorise multiple entrées).
-- `packages/core/src/services/backtest-run.service.test.ts` : verrou singleton.
+  2e entrée, `maxExposureUsdc` généreux autorise multiple entrées), **warning
+  `multi_position_stale_mark` agrégé**, **clamping prix [0,1]**.
+- `src/adapters/weather/question-builder.test.ts` (nouveau) : cibles fractionnaires
+  préservées et re-parsées, bornes between négatives fractionnaires, entiers sans `.0`.
+- `src/engine/fill-engine.test.ts` (nouveau) : slippage entrée/sortie, plafond `maxPositionSizeUsdc`,
+  clamping prix [0,1] avec fees=0 aux extrêmes, courbe de fees exponentielle.
+- `src/engine/runner.test.ts` (nouveau) : abort coopératif — `cancelled` et `timeout` mid-stream
+  (statut persisté + equity conservée), run vide, progression 100% à completion.
+- `src/adapters/weather/data-loader.test.ts` (nouveau) : pagination keyset ordonnée
+  `(recordedAt, id)`, filtre villes, comptage `countWeatherEvents`.
+- `src/adapters/weather/golden-replay.test.ts` (nouveau) : **golden snapshot** — rejoue un scénario
+  figé et fige `totalPnl`, `winRate`, `maxDrawdown`, `totalTrades`, `byExitReason` et
+  `engineVersion`. Toute régression de sémantique de replay fait échouer le test
+  (régénération : `vitest run -u`).
+- `packages/core/src/services/backtest-run.service.test.ts` : verrou singleton (par utilisateur),
+  **isolation multi-utilisateur** (`getById`/`list` filtrent par owner, runs hérités `userId=NULL`
+  visibles par tous), delete en cascade positions/equity/excluded.
 
-Lancement : `npm run test -w @polywatch/backtest` (**45** tests).
+Lancement : `npm run test -w @polywatch/backtest`.
+
+### 9.1 Sémantique des statistiques (`stats.ts`)
+
+- **`maxDrawdown`** : relatif au peak (`(peak - equity) / peak`) **uniquement si `peak > 0`**.
+  Si l'equity passe négative (`peak <= 0`), le drawdown relatif n'est **pas** mesuré (gardé à la
+  dernière valeur positive) pour éviter une division par zéro. Comportement documenté, pas de bug.
+- **`profitFactor`** : `null` quand il n'y a **aucune** position perdante (grossLoss = 0) — encode
+  `+Infinity` de façon JSON-safe. `0` quand aucun trade. Les trades breakeven (`pnl === 0`) ne sont
+  ni wins ni losses (exclus de `avgLoss` et `grossLoss`).
+- **`avgLoss`** : valeur **négative** (moyenne des pertes), cohérent avec `avgWin` positif.
+- **`byExitReason` / `byCity`** : décomptes bruts de trades fermés.
 
 ---
 

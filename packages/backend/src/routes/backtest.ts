@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import type { DataSource } from 'typeorm';
+import type { DataSource, SelectQueryBuilder } from 'typeorm';
+import { QueryFailedError } from 'typeorm';
 import {
   BacktestRunService,
   WeatherConfigService,
@@ -16,7 +17,7 @@ import {
   BACKTEST_ENGINE_VERSION,
   type BacktestRunParams,
 } from '@polywatch/backtest';
-import { requireJwt } from '../middleware/auth.js';
+import { requireJwt, type AuthRequest } from '../middleware/auth.js';
 import { parseLimit, parseOffset } from './lib/query-params.js';
 import { toRunDto } from './lib/backtest-dto.js';
 import { computeConfigFingerprint } from './lib/config-fingerprint.js';
@@ -29,6 +30,108 @@ const log = pino({ name: 'backend:backtest' });
 // /runs/:id/markets-series (ridge plot). Les marchés au-delà sont tronqués
 // et signalés par `truncated: true` pour éviter des réponses JSON démesurées.
 const MAX_MARKETS_SERIES = Number(process.env.BACKTEST_MARKETS_SERIES_LIMIT ?? 500);
+
+// Cache court-terme pour les agrégats /markets-series et /runs/:id/markets-series.
+// La plage [MIN,MAX] et la liste des marchés distincts sont stables sur une
+// fenêtre courte (les ticks sont ingérés par batch). Le ridge live est pollé
+// toutes les ~10 s côté frontend ; avec un TTL de 30 s on ne refait la requête
+// coûteuse (DISTINCT + GROUP BY) qu'environ une fois sur trois.
+const MARKETS_SERIES_TTL_MS = 30_000;
+const marketsSeriesCache = new Map<string, { at: number; value: unknown }>();
+
+async function cachedMarketsSeries<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = marketsSeriesCache.get(key);
+  if (hit && hit.at > Date.now()) return hit.value as T;
+  const value = await load();
+  marketsSeriesCache.set(key, { at: Date.now() + MARKETS_SERIES_TTL_MS, value });
+  // Garde-fou mémoire : purge des entrées expirées si le cache grossit.
+  if (marketsSeriesCache.size > 32) {
+    const now = Date.now();
+    for (const [k, e] of marketsSeriesCache) {
+      if (e.at < now) marketsSeriesCache.delete(k);
+    }
+  }
+  return value;
+}
+
+interface MarketRow {
+  conditionId: string;
+  city: string | null;
+  targetDateIso: string | null;
+  metric: string | null;
+  bucketComparison: string | null;
+  bucketTarget: number | null;
+  bucketLow: number | null;
+  bucketHigh: number | null;
+  question: string | null;
+  snapshotId: number | null;
+}
+
+/**
+ * Construit la requête des marchés distincts sur une fenêtre [from,to],
+ * avec filtres fidelityMinutes/cities optionnels. Le QueryBuilder retourné
+ * peut être rejoué pour la pagination (page + count) sans dupliquer la logique
+ * entre /markets-series et /runs/:id/markets-series.
+ */
+function buildMarketsQuery(
+  ds: DataSource,
+  opts: {
+    from: Date;
+    to: Date;
+    fidelityMinutes?: number;
+    cities?: string[] | null;
+  },
+): SelectQueryBuilder<WeatherBucketTick> {
+  const marketQb = ds
+    .getRepository(WeatherBucketTick)
+    .createQueryBuilder('t')
+    .select('t.conditionId', 'conditionId')
+    .addSelect('t.city', 'city')
+    .addSelect('t.targetDateIso', 'targetDateIso')
+    .addSelect('t.metric', 'metric')
+    .addSelect('t.bucketComparison', 'bucketComparison')
+    .addSelect('t.bucketTarget', 'bucketTarget')
+    .addSelect('t.bucketLow', 'bucketLow')
+    .addSelect('t.bucketHigh', 'bucketHigh')
+    .addSelect('t.question', 'question')
+    .addSelect('MAX(s.id)', 'snapshotId')
+    .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
+    .where('t.recordedAt >= :from', { from: opts.from })
+    .andWhere('t.recordedAt <= :to', { to: opts.to })
+    .groupBy('t.conditionId')
+    .addGroupBy('t.city')
+    .addGroupBy('t.targetDateIso')
+    .addGroupBy('t.metric')
+    .addGroupBy('t.bucketComparison')
+    .addGroupBy('t.bucketTarget')
+    .addGroupBy('t.bucketLow')
+    .addGroupBy('t.bucketHigh')
+    .addGroupBy('t.question')
+    .orderBy('MIN(t.recordedAt)', 'ASC');
+  if (opts.fidelityMinutes != null) {
+    marketQb.andWhere('t.fidelityMinutes = :fid', { fid: opts.fidelityMinutes });
+  }
+  if (opts.cities && opts.cities.length > 0) {
+    marketQb.andWhere('LOWER(t.city) IN (:...cities)', {
+      cities: opts.cities.map((c) => c.toLowerCase()),
+    });
+  }
+  return marketQb;
+}
+
+/** Compte les marchés distincts d'une fenêtre (pour la pagination). */
+async function countMarketWindow(
+  ds: DataSource,
+  opts: {
+    from: Date;
+    to: Date;
+    fidelityMinutes?: number;
+    cities?: string[] | null;
+  },
+): Promise<number> {
+  const qb = buildMarketsQuery(ds, opts);
+  return qb.getCount();
+}
 
 function parseExitReason(value: unknown): BacktestExitReason | null {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -75,7 +178,7 @@ export function createBacktestRouter(ds: DataSource): Router {
   });
 
   // ── Launch a run ───────────────────────────────────────────────────────
-  router.post('/runs', requireJwt, async (req, res) => {
+  router.post('/runs', requireJwt, async (req: AuthRequest, res) => {
     let params: BacktestRunParams;
     try {
       params = parseBacktestParams(req.body);
@@ -96,8 +199,11 @@ export function createBacktestRouter(ds: DataSource): Router {
       return;
     }
 
-    // Singleton lock: no concurrent run for the same domain.
-    const active = await service.hasActiveRun('weather');
+    // Singleton lock per user: no concurrent run for the same domain.
+    // Fast-path check for a clear error; the unique DB index is the source of
+    // truth against TOCTOU races (see catch below).
+    const userId = req.user!.userId;
+    const active = await service.hasActiveRun('weather', userId);
     if (active) {
       res.status(409).json({ error: 'run_already_active', runId: active.id });
       return;
@@ -112,7 +218,22 @@ export function createBacktestRouter(ds: DataSource): Router {
       configFingerprint: computeConfigFingerprint(config),
       engineVersion: BACKTEST_ENGINE_VERSION,
       label: params.label ?? null,
+      userId,
+    }).catch((err: unknown) => {
+      // Violation de l'index unique backtest_run_active_unique → run déjà actif.
+      if (err instanceof QueryFailedError && (err.driverError as { code?: string })?.code === '23505') {
+        return null;
+      }
+      throw err;
     });
+    if (!run) {
+      const activeAfter = await service.hasActiveRun('weather', userId);
+      res.status(409).json({
+        error: 'run_already_active',
+        runId: activeAfter?.id ?? null,
+      });
+      return;
+    }
 
     tracker.track(run.id);
 
@@ -138,7 +259,7 @@ export function createBacktestRouter(ds: DataSource): Router {
   });
 
   // ── List runs ──────────────────────────────────────────────────────────
-  router.get('/runs', requireJwt, async (req, res) => {
+  router.get('/runs', requireJwt, async (req: AuthRequest, res) => {
     const limit = parseLimit(req.query.limit, 50, 100);
     const offset = parseOffset(req.query.offset);
     const domain = typeof req.query.domain === 'string' ? req.query.domain : 'weather';
@@ -148,18 +269,19 @@ export function createBacktestRouter(ds: DataSource): Router {
       status: status as BacktestRun['status'] | undefined,
       limit,
       offset,
+      userId: req.user!.userId,
     });
     res.json({ items: items.map(toRunDto), total });
   });
 
   // ── Get a single run ───────────────────────────────────────────────────
-  router.get('/runs/:id', requireJwt, async (req, res) => {
+  router.get('/runs/:id', requireJwt, async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) {
       res.status(400).json({ error: 'invalid_id' });
       return;
     }
-    const run = await service.getById(id);
+    const run = await service.getById(id, req.user!.userId);
     if (!run) {
       res.status(404).json({ error: 'not_found' });
       return;
@@ -168,9 +290,9 @@ export function createBacktestRouter(ds: DataSource): Router {
   });
 
   // ── Cancel a run ───────────────────────────────────────────────────────
-  router.post('/runs/:id/cancel', requireJwt, async (req, res) => {
+  router.post('/runs/:id/cancel', requireJwt, async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
-    const run = await service.getById(id);
+    const run = await service.getById(id, req.user!.userId);
     if (!run) {
       res.status(404).json({ error: 'not_found' });
       return;
@@ -184,9 +306,9 @@ export function createBacktestRouter(ds: DataSource): Router {
   });
 
   // ── Delete a run (and its positions/equity) ────────────────────────────
-  router.delete('/runs/:id', requireJwt, async (req, res) => {
+  router.delete('/runs/:id', requireJwt, async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
-    const run = await service.getById(id);
+    const run = await service.getById(id, req.user!.userId);
     if (!run) {
       res.status(404).json({ error: 'not_found' });
       return;
@@ -201,9 +323,9 @@ export function createBacktestRouter(ds: DataSource): Router {
   });
 
   // ── Positions of a run ─────────────────────────────────────────────────
-  router.get('/runs/:id/positions', requireJwt, async (req, res) => {
+  router.get('/runs/:id/positions', requireJwt, async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
-    const run = await service.getById(id);
+    const run = await service.getById(id, req.user!.userId);
     if (!run) {
       res.status(404).json({ error: 'not_found' });
       return;
@@ -216,9 +338,9 @@ export function createBacktestRouter(ds: DataSource): Router {
   });
 
   // ── Equity curve of a run ──────────────────────────────────────────────
-  router.get('/runs/:id/equity', requireJwt, async (req, res) => {
+  router.get('/runs/:id/equity', requireJwt, async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
-    const run = await service.getById(id);
+    const run = await service.getById(id, req.user!.userId);
     if (!run) {
       res.status(404).json({ error: 'not_found' });
       return;
@@ -235,9 +357,9 @@ export function createBacktestRouter(ds: DataSource): Router {
   });
 
   // ── Excluded ticks of a run (tracés orange) ──────────────────────────
-  router.get('/runs/:id/excluded-ticks', requireJwt, async (req, res) => {
+  router.get('/runs/:id/excluded-ticks', requireJwt, async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
-    const run = await service.getById(id);
+    const run = await service.getById(id, req.user!.userId);
     if (!run) {
       res.status(404).json({ error: 'not_found' });
       return;
@@ -268,73 +390,43 @@ export function createBacktestRouter(ds: DataSource): Router {
     const offset = parseOffset(req.query.offset);
     const limit = parseLimit(req.query.limit, MAX_MARKETS_SERIES, MAX_MARKETS_SERIES);
 
-    // 0. Plage réelle = [MIN, MAX] des ticks en base (avec filtre fid si présent).
-    const rangeQb = ds
-      .getRepository(WeatherBucketTick)
-      .createQueryBuilder('t')
-      .select('MIN(t.recordedAt)', 'minT')
-      .addSelect('MAX(t.recordedAt)', 'maxT');
-    if (fidelityMinutes != null) {
-      rangeQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
-    }
-    const range = await rangeQb.getRawOne<{ minT: Date | null; maxT: Date | null }>();
-    const from = range?.minT ? new Date(range.minT) : null;
-    const to = range?.maxT ? new Date(range.maxT) : null;
+    const cacheKey = `live:${fidelityMinutes ?? 'all'}`;
+    // Fenêtre [MIN,MAX] + total = stables sur le TTL → cacheables. La page des
+    // marchés est ensuite lue en LIMIT/OFFSET SQL (léger), pas un full-scan.
+    const { from, to, total } = await cachedMarketsSeries<{
+      from: Date | null;
+      to: Date | null;
+      total: number;
+    }>(cacheKey, async () => {
+      const rangeQb = ds
+        .getRepository(WeatherBucketTick)
+        .createQueryBuilder('t')
+        .select('MIN(t.recordedAt)', 'minT')
+        .addSelect('MAX(t.recordedAt)', 'maxT');
+      if (fidelityMinutes != null) {
+        rangeQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
+      }
+      const range = await rangeQb.getRawOne<{ minT: Date | null; maxT: Date | null }>();
+      const from = range?.minT ? new Date(range.minT) : null;
+      const to = range?.maxT ? new Date(range.maxT) : null;
+      if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+        return { from: null, to: null, total: 0 };
+      }
+      const total = await countMarketWindow(ds, { from, to, fidelityMinutes });
+      return { from, to, total };
+    });
+
     if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
       res.json({ items: [], total: 0, truncated: false, window: { from: null, to: null } });
       return;
     }
 
-    // 1. Marchés distincts sur la fenêtre.
-    // On joint weather_market_snapshots pour récupérer la prévision météo
-    // (forecast_mean / forecast_std_dev) associée à chaque marché. Comme un
-    // même conditionId peut porter plusieurs snapshots au fil du temps, on
-    // prend le dernier (MAX(s.id)) par marché — l'identifiant étant croissant,
-    // c'est le snapshot le plus récent qui porte la prévision la plus à jour.
-    const marketQb = ds
-      .getRepository(WeatherBucketTick)
-      .createQueryBuilder('t')
-      .select('t.conditionId', 'conditionId')
-      .addSelect('t.city', 'city')
-      .addSelect('t.targetDateIso', 'targetDateIso')
-      .addSelect('t.metric', 'metric')
-      .addSelect('t.bucketComparison', 'bucketComparison')
-      .addSelect('t.bucketTarget', 'bucketTarget')
-      .addSelect('t.bucketLow', 'bucketLow')
-      .addSelect('t.bucketHigh', 'bucketHigh')
-      .addSelect('t.question', 'question')
-      .addSelect('MAX(s.id)', 'snapshotId')
-      .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
-      .where('t.recordedAt >= :from', { from })
-      .andWhere('t.recordedAt <= :to', { to })
-      .groupBy('t.conditionId')
-      .addGroupBy('t.city')
-      .addGroupBy('t.targetDateIso')
-      .addGroupBy('t.metric')
-      .addGroupBy('t.bucketComparison')
-      .addGroupBy('t.bucketTarget')
-      .addGroupBy('t.bucketLow')
-      .addGroupBy('t.bucketHigh')
-      .addGroupBy('t.question')
-      .orderBy('MIN(t.recordedAt)', 'ASC');
-    if (fidelityMinutes != null) {
-      marketQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
-    }
-    const allMarkets = await marketQb.getRawMany<{
-      conditionId: string;
-      city: string | null;
-      targetDateIso: string | null;
-      metric: string | null;
-      bucketComparison: string | null;
-      bucketTarget: number | null;
-      bucketLow: number | null;
-      bucketHigh: number | null;
-      question: string | null;
-      snapshotId: number | null;
-    }>();
-
-    const markets = allMarkets.slice(offset, offset + limit);
-    const truncated = allMarkets.length > offset + limit;
+    // Pagination DB : on ne charge que la page demandée (pas le full-scan).
+    const marketQb = buildMarketsQuery(ds, { from, to, fidelityMinutes })
+      .skip(offset)
+      .take(limit);
+    const markets = await marketQb.getRawMany<MarketRow>();
+    const truncated = total > offset + limit;
 
     // Résolution de la prévision : on récupère forecast_mean / forecast_std_dev
     // du snapshot le plus récent de chaque marché de la page affichée en une
@@ -421,7 +513,7 @@ export function createBacktestRouter(ds: DataSource): Router {
 
     res.json({
       items: [...series.values()],
-      total: allMarkets.length,
+      total,
       truncated,
       window: { from: from.toISOString(), to: to.toISOString() },
     });
@@ -437,9 +529,9 @@ export function createBacktestRouter(ds: DataSource): Router {
   // Deux requêtes bornées (pas de LIMIT global trompeur) :
   //   1. SELECT DISTINCT condition_id, city, target_date_iso (borné par la plage)
   //   2. ticks par batch de conditionId, triés par recorded_at, agrégés en code.
-  router.get('/runs/:id/markets-series', requireJwt, async (req, res) => {
+  router.get('/runs/:id/markets-series', requireJwt, async (req: AuthRequest, res) => {
     const id = Number(req.params.id);
-    const run = await service.getById(id);
+    const run = await service.getById(id, req.user!.userId);
     if (!run) {
       res.status(404).json({ error: 'not_found' });
       return;
@@ -467,58 +559,18 @@ export function createBacktestRouter(ds: DataSource): Router {
       return;
     }
 
-    // 1. Marchés distincts sur la plage (borné par la plage + filtres).
-    // Jointure sur weather_market_snapshots pour récupérer la prévision
-    // (forecast_mean / forecast_std_dev) la plus récente par marché.
-    const marketQb = ds
-      .getRepository(WeatherBucketTick)
-      .createQueryBuilder('t')
-      .select('t.conditionId', 'conditionId')
-      .addSelect('t.city', 'city')
-      .addSelect('t.targetDateIso', 'targetDateIso')
-      .addSelect('t.metric', 'metric')
-      .addSelect('t.bucketComparison', 'bucketComparison')
-      .addSelect('t.bucketTarget', 'bucketTarget')
-      .addSelect('t.bucketLow', 'bucketLow')
-      .addSelect('t.bucketHigh', 'bucketHigh')
-      .addSelect('t.question', 'question')
-      .addSelect('MAX(s.id)', 'snapshotId')
-      .leftJoin(WeatherMarketSnapshot, 's', 's.id = t.snapshotId')
-      .where('t.recordedAt >= :from', { from })
-      .andWhere('t.recordedAt <= :to', { to })
-      .groupBy('t.conditionId')
-      .addGroupBy('t.city')
-      .addGroupBy('t.targetDateIso')
-      .addGroupBy('t.metric')
-      .addGroupBy('t.bucketComparison')
-      .addGroupBy('t.bucketTarget')
-      .addGroupBy('t.bucketLow')
-      .addGroupBy('t.bucketHigh')
-      .addGroupBy('t.question')
-      .orderBy('MIN(t.recordedAt)', 'ASC');
-    if (fidelityMinutes != null) {
-      marketQb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
-    }
-    if (cities && cities.length > 0) {
-      marketQb.andWhere('LOWER(t.city) IN (:...cities)', {
-        cities: cities.map((c) => c.toLowerCase()),
-      });
-    }
-    const allMarkets = await marketQb.getRawMany<{
-      conditionId: string;
-      city: string | null;
-      targetDateIso: string | null;
-      metric: string | null;
-      bucketComparison: string | null;
-      bucketTarget: number | null;
-      bucketLow: number | null;
-      bucketHigh: number | null;
-      question: string | null;
-      snapshotId: number | null;
-    }>();
+    const cacheKey = `run:${id}:${from.toISOString()}:${to.toISOString()}:${fidelityMinutes ?? 'all'}:${(cities ?? []).join(',')}`;
+    const total = await cachedMarketsSeries<number>(cacheKey, async () => {
+      const total = await countMarketWindow(ds, { from, to, fidelityMinutes, cities });
+      return total;
+    });
 
-    const markets = allMarkets.slice(offset, offset + limit);
-    const truncated = allMarkets.length > offset + limit;
+    // Pagination DB : on ne charge que la page demandée (pas le full-scan).
+    const marketQb = buildMarketsQuery(ds, { from, to, fidelityMinutes, cities })
+      .skip(offset)
+      .take(limit);
+    const markets = await marketQb.getRawMany<MarketRow>();
+    const truncated = total > offset + limit;
 
     // Résolution de la prévision en une seule requête sur les snapshots de la
     // page affichée (borné par la page, pas par la fenêtre complète).
@@ -604,7 +656,7 @@ export function createBacktestRouter(ds: DataSource): Router {
 
     res.json({
       items: [...series.values()],
-      total: allMarkets.length,
+      total,
       truncated,
     });
   });

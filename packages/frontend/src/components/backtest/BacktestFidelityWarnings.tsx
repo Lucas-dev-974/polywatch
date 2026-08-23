@@ -77,15 +77,25 @@ const KNOWN_WARNINGS: Record<string, FidelityWarning> = {
     title: 'Résolution par le prix',
     hint: 'Résolution par seuil de prix YES (≥0.99 → YES, ≤0.01 → NO), sans température observée.',
   },
-  exit_stale_tick: {
+  multi_position_stale_mark: {
     icon: '🧊',
-    title: 'Sortie sur tick périmé',
-    hint: 'Une sortie a été évaluée avec un tick plus vieux que la période de poll.',
+    title: 'Marks sur tick périmé',
+    hint: "Des positions ouvertes sont évaluées avec un tick plus vieux que la période de poll (markPrice en retard).",
   },
   markprice_stale_carry_forward: {
     icon: '🔁',
     title: 'markPrice reconduit',
     hint: 'markPrice confirmé à la dernière valeur connue (tick.yesPrice absent).',
+  },
+  strategy_mode_no_group_selection: {
+    icon: '🧩',
+    title: 'Mode strategy sans sélection de groupe',
+    hint: 'Le mode strategy évalue chaque bucket isolément (pas de pickBestEdgeBucket). Préférer runner-sim pour une fidélité au live.',
+  },
+  fill_price_clamped: {
+    icon: '🎯',
+    title: 'Prix de fill clampé',
+    hint: 'Le slippage a poussé le prix hors de [0,1] ; il a été clampé à la borne (1.0 à l\'entrée, 0 à la sortie).',
   },
 };
 

@@ -48,10 +48,6 @@ export class Ledger {
     this.cash = initialCapital;
   }
 
-  hasOpen(conditionId: string): boolean {
-    return this.open.has(conditionId);
-  }
-
   getOpen(conditionId: string): LedgerPosition | undefined {
     return this.open.get(conditionId);
   }
@@ -68,7 +64,7 @@ export class Ledger {
     return this.open.has(conditionId);
   }
 
-  /** Notional USDC tied up in open positions (cost basis). Optional strategy filter. */
+  /** Notional USDC tied up in open positions (cost basis = qty × entryPrice post-slippage). Optional strategy filter. */
   openExposure(strategyId?: string | null): number {
     let total = 0;
     for (const pos of this.open.values()) {
@@ -188,7 +184,8 @@ export class Ledger {
     return closed;
   }
 
-  /** Mark-to-market equity: cash + unrealized value at current mark prices. */
+  /** Mark-to-market equity: cash + unrealized value at current mark prices.
+   * @param _now unused — marks are kept current separately (lag-1 per condition). */
   equityAt(_now: Date): { equity: number; cash: number; openPositions: number } {
     let unrealized = 0;
     for (const pos of this.open.values()) {

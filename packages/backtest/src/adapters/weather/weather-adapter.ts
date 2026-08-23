@@ -108,12 +108,20 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       );
       for (const pos of open) {
         const exitPrice = pos.markPrice > 0 ? pos.markPrice : pos.entryPrice;
+        // Ghost close = settlement sans slippage. Fees restent 0 car la courbe
+        // Polymarket est nulle aux prix 0/1 ; on passe par simulateWeatherExitFill
+        // pour unifier le chemin de sortie.
+        const { fees } = simulateWeatherExitFill({
+          qty: pos.qty,
+          yesPrice: exitPrice,
+          slippageBps: 0,
+        });
         ctx.ledger.closePosition({
           conditionId: pos.conditionId,
           exitPrice,
           exitAt: ctx.clock.now(),
           exitReason: 'BACKTEST_INCOMPLETE_DATA',
-          fees: 0,
+          fees,
         });
       }
     }
@@ -192,17 +200,18 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       ? getStrategyParams(ctx.configSnapshot, strategyId)
       : this.bag;
     const slippage = ctx.params.slippageBps;
+    const cappedUsdc = Math.min(entryUsdc, bag.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY);
     const entryPrice = yesPrice * (1 + slippage / 10_000);
-    const qty = entryUsdc / entryPrice;
+    const qty = cappedUsdc / entryPrice;
     const estFees = computeTakerFee(qty, entryPrice, BACKTEST_PLATFORM_FEE);
-    const cost = entryUsdc + estFees;
+    const cost = cappedUsdc + estFees;
 
     if (ctx.ledger.cash < cost) {
       return false;
     }
 
     const maxExposure = bag.maxExposureUsdc;
-    if (maxExposure != null && ctx.ledger.openExposure(strategyId) + entryUsdc > maxExposure) {
+    if (maxExposure != null && ctx.ledger.openExposure(strategyId) + cappedUsdc > maxExposure) {
       return false;
     }
 
@@ -275,6 +284,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         try {
           const cached = this.lastTickByCondition.get(pos.conditionId);
           const yesPrice = cached?.tick.yesPrice != null ? cached.tick.yesPrice : pos.markPrice;
+          this.noteFillClampedIfNeeded(ctx, yesPrice, false);
           const { exitPrice, fees } = simulateWeatherExitFill({
             qty: pos.qty,
             yesPrice,
@@ -368,6 +378,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         slippageBps: ctx.params.slippageBps,
         maxPositionSizeUsdc: signalBag.maxPositionSizeUsdc,
       });
+      this.noteFillClampedIfNeeded(ctx, yesPrice, true);
 
       ctx.ledger.openPosition({
         conditionId: signal.conditionId,
@@ -533,6 +544,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       slippageBps: ctx.params.slippageBps,
       maxPositionSizeUsdc: this.bag.maxPositionSizeUsdc,
     });
+    this.noteFillClampedIfNeeded(ctx, data.yesPrice, true);
 
     ctx.ledger.openPosition({
       conditionId: data.conditionId,
@@ -585,6 +597,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       slippageBps: ctx.params.slippageBps,
       maxPositionSizeUsdc: getStrategyParams(risk, data.strategyId).maxPositionSizeUsdc,
     });
+    this.noteFillClampedIfNeeded(ctx, data.yesPrice, true);
 
     ctx.ledger.openPosition({
       conditionId: data.conditionId,
@@ -625,22 +638,21 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     pos: LedgerPosition,
     tick: BookTickEventData,
   ): boolean {
-    const yesPrice = tick.yesPrice ?? pos.markPrice ?? pos.entryPrice;
+    const yesPrice = tick.yesPrice ?? pos.markPrice;
     if (yesPrice == null) {
       this.warnOnce(
         ctx,
         'resolution_no_price_whatsoever',
-        'Résolution impossible — aucun prix disponible (tick, mark, entry)',
+        'Résolution impossible — aucun prix disponible (tick, mark)',
       );
       return false;
     }
 
     if (tick.yesPrice == null) {
-      const fallbackSource = pos.markPrice !== pos.entryPrice ? 'markPrice' : 'entryPrice';
       this.warnOnce(
         ctx,
         'resolution_price_fallback',
-        `Résolution via fallback ${fallbackSource}=${yesPrice.toFixed(4)} (tick.yesPrice absent)`,
+        `Résolution via fallback markPrice=${yesPrice.toFixed(4)} (tick.yesPrice absent)`,
       );
     }
 
@@ -662,12 +674,20 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     );
 
     const exitPrice = winningOutcome === 'YES' ? 1 : 0;
+    // Résolution = settlement sans slippage. Les fees restent 0 car la courbe
+    // Polymarket est nulle aux prix 0/1 ; on passe quand même par
+    // simulateWeatherExitFill pour unifier le chemin de sortie.
+    const { fees } = simulateWeatherExitFill({
+      qty: pos.qty,
+      yesPrice: exitPrice,
+      slippageBps: 0,
+    });
     ctx.ledger.closePosition({
       conditionId: pos.conditionId,
       exitPrice,
       exitAt: ctx.clock.now(),
       exitReason: 'RESOLUTION',
-      fees: 0,
+      fees,
     });
     // Une résolution est une sortie de marché : on marque le throttle de
     // ré-entrée pour la ville/date/stratégie, cohérent avec drift/bucket exit.
@@ -682,14 +702,44 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     return true;
   }
 
-  private noteStaleTickIfNeeded(ctx: RunContext, tickAt: Date): void {
-    const pollMs = ctx.configSnapshot.weatherAlgoPollMs ?? 1_800_000;
-    const age = ctx.clock.now().getTime() - tickAt.getTime();
-    if (age > pollMs) {
+  /** Émet un warning si un prix de fill a été clampé hors de [0,1] par le slippage. */
+  private noteFillClampedIfNeeded(ctx: RunContext, yesPrice: number, isEntry: boolean): void {
+    const slippage = ctx.params.slippageBps;
+    if (isEntry && yesPrice * (1 + slippage / 10_000) > 1) {
       this.warnOnce(
         ctx,
-        'exit_stale_tick',
-        `Sortie évaluée avec un tick plus vieux que pollMs (${Math.round(age / 1000)}s)`,
+        'fill_price_clamped',
+        `Prix d'entrée clampé à 1.0 (yesPrice=${yesPrice.toFixed(4)} + slippage)`,
+      );
+    } else if (!isEntry && yesPrice * (1 - slippage / 10_000) < 0) {
+      this.warnOnce(
+        ctx,
+        'fill_price_clamped',
+        `Prix de sortie clampé à 0 (yesPrice=${yesPrice.toFixed(4)} - slippage)`,
+      );
+    }
+  }
+
+  /** Émet un warning agrégé si des positions ouvertes sont marquées avec un tick périmé. */
+  private noteStaleMarks(ctx: RunContext): void {
+    const pollMs = ctx.configSnapshot.weatherAlgoPollMs ?? 1_800_000;
+    const now = ctx.clock.now().getTime();
+    let staleCount = 0;
+    let maxAgeMs = 0;
+    for (const pos of ctx.ledger.openPositions()) {
+      const cached = this.lastTickByCondition.get(pos.conditionId);
+      if (!cached) continue;
+      const age = now - cached.at.getTime();
+      if (age > pollMs) {
+        staleCount += 1;
+        if (age > maxAgeMs) maxAgeMs = age;
+      }
+    }
+    if (staleCount > 0) {
+      this.warnOnce(
+        ctx,
+        'multi_position_stale_mark',
+        `${staleCount} position(s) évaluée(s) avec un tick plus vieux que pollMs (max ${Math.round(maxAgeMs / 1000)}s)`,
       );
     }
   }
@@ -698,7 +748,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     for (const pos of ctx.ledger.openPositions()) {
       const cached = this.lastTickByCondition.get(pos.conditionId);
       if (!cached) continue;
-      const { tick, at: tickAt } = cached;
+      const { tick } = cached;
       const yesPrice = tick.yesPrice;
 
       // Si tick.yesPrice est présent, on met à jour markPrice (source la plus
@@ -726,7 +776,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
       const currentMean = this.currentForecastMean(ctx, tick);
       const isHighestYes = pos.meta?.strategyId === WEATHER_HIGHEST_YES_STRATEGY_ID;
-      if (!isHighestYes && this.tryExitByDecision(ctx, pos, tick, tickAt, yesPrice, currentMean)) continue;
+      if (!isHighestYes && this.tryExitByDecision(ctx, pos, tick, yesPrice, currentMean)) continue;
 
       const slTp = this.exitManager.evaluateSlTpTrailing(pos, {
         yesPrice,
@@ -734,7 +784,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         slippageBps: ctx.params.slippageBps,
       });
       if (slTp) {
-        this.noteStaleTickIfNeeded(ctx, tickAt);
+        this.noteFillClampedIfNeeded(ctx, yesPrice, false);
         ctx.ledger.closePosition({
           conditionId: pos.conditionId,
           exitPrice: slTp.exitPrice,
@@ -744,6 +794,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         });
       }
     }
+    this.noteStaleMarks(ctx);
   }
 
   /** Forecast mean courant (ou fallback snapshot) pour un tick. */
@@ -767,7 +818,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     ctx: RunContext,
     pos: LedgerPosition,
     tick: BookTickEventData,
-    tickAt: Date,
     yesPrice: number,
     currentMean: number | null,
   ): boolean {
@@ -787,7 +837,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       risk: ctx.configSnapshot,
     });
     if (!decision) return false;
-    this.noteStaleTickIfNeeded(ctx, tickAt);
+    this.noteFillClampedIfNeeded(ctx, yesPrice, false);
     ctx.ledger.closePosition({
       conditionId: pos.conditionId,
       exitPrice: decision.exitPrice,

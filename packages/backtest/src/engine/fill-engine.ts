@@ -27,7 +27,7 @@ export interface FillResult {
  * real liquidity — this is flagged as a fidelity warning by the runner.
  */
 export function simulateWeatherEntryFill(input: FillInput): FillResult {
-  const price = input.yesPrice * (1 + input.slippageBps / 10_000);
+  const price = Math.min(1, input.yesPrice * (1 + input.slippageBps / 10_000));
   const cappedUsdc = Math.min(
     input.entryUsdc,
     input.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY,
@@ -46,7 +46,7 @@ export function simulateWeatherExitFill(input: {
   yesPrice: number;
   slippageBps: number;
 }): { exitPrice: number; fees: number } {
-  const price = input.yesPrice * (1 - input.slippageBps / 10_000);
+  const price = Math.max(0, input.yesPrice * (1 - input.slippageBps / 10_000));
   const fees = computeTakerFee(input.qty, price, BACKTEST_PLATFORM_FEE);
   return { exitPrice: price, fees };
 }

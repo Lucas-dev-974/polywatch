@@ -32,24 +32,27 @@ export function buildWeatherQuestion(input: {
   const date = input.targetDateIso;
   const comparison = input.bucketComparison;
 
-  // parseWeatherQuestion only accepts integer °C (`-?\d+`). Round non-integers
-  // so synthesized questions remain parseable.
-  const intTarget =
-    input.bucketTarget != null ? Math.round(input.bucketTarget) : null;
-  const intLow = input.bucketLow != null ? Math.round(input.bucketLow) : null;
-  const intHigh = input.bucketHigh != null ? Math.round(input.bucketHigh) : null;
+  // parseWeatherQuestion now accepts fractional °C. Preserve the value while
+  // formatting integers without a trailing ".0".
+  const fmt = (n: number | null): string | null => {
+    if (n == null) return null;
+    return Number.isInteger(n) ? String(n) : String(n);
+  };
+  const target = fmt(input.bucketTarget);
+  const low = fmt(input.bucketLow);
+  const high = fmt(input.bucketHigh);
 
-  if (comparison === 'between' && intLow != null && intHigh != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be between ${intLow}-${intHigh}°C on ${date}?`;
+  if (comparison === 'between' && low != null && high != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be between ${low}-${high}°C on ${date}?`;
   }
-  if (comparison === 'or_below' && intTarget != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be ${intTarget}°C or below on ${date}?`;
+  if (comparison === 'or_below' && target != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be ${target}°C or below on ${date}?`;
   }
-  if (comparison === 'or_above' && intTarget != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be ${intTarget}°C or above on ${date}?`;
+  if (comparison === 'or_above' && target != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be ${target}°C or above on ${date}?`;
   }
-  if (comparison === 'exact' && intTarget != null) {
-    return `Will the ${metricWord} temperature in ${input.city} be ${intTarget}°C on ${date}?`;
+  if (comparison === 'exact' && target != null) {
+    return `Will the ${metricWord} temperature in ${input.city} be ${target}°C on ${date}?`;
   }
 
   // Unrecognized comparison/bounds — cannot synthesize a parseable question.

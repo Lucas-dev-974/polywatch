@@ -60,5 +60,12 @@ export class AdapterWarnings {
       'fill_no_book_depth',
       'Pas de profondeur de carnet — fills non plafonnés par la liquidité',
     );
+    if (ctx.params.backtestExecutionMode === 'strategy') {
+      this.warnOnce(
+        ctx,
+        'strategy_mode_no_group_selection',
+        'strategy mode évalue les buckets isolément (pas de pickBestEdgeBucket) — préférer runner-sim pour fidélité live',
+      );
+    }
   }
 }

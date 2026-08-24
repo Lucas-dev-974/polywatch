@@ -90,7 +90,6 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     entryUsdc,
     mode: params.mode,
     strategyId: params.strategyId,
-    backtestExecutionMode: params.backtestExecutionMode,
     fidelityMinutes: params.fidelityMinutes,
     service: input.service,
     getAbortReason: input.getAbortReason,

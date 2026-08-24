@@ -87,11 +87,6 @@ const KNOWN_WARNINGS: Record<string, FidelityWarning> = {
     title: 'markPrice reconduit',
     hint: 'markPrice confirmé à la dernière valeur connue (tick.yesPrice absent).',
   },
-  strategy_mode_no_group_selection: {
-    icon: '🧩',
-    title: 'Mode strategy sans sélection de groupe',
-    hint: 'Le mode strategy évalue chaque bucket isolément (pas de pickBestEdgeBucket). Préférer runner-sim pour une fidélité au live.',
-  },
   fill_price_clamped: {
     icon: '🎯',
     title: 'Prix de fill clampé',

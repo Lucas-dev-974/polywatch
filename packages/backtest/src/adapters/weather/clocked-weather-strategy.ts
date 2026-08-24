@@ -30,22 +30,6 @@ export class ClockedWeatherStrategy implements WeatherStrategy {
     this.inner.setRiskConfig?.(risk);
   }
 
-  async evaluateAt(
-    market: MarketListItemDto,
-    ctx: WeatherEvaluationContext,
-    now: Date,
-  ): Promise<WeatherEvaluationResult> {
-    return this.inner.evaluate(market, ctx, now);
-  }
-
-  // Required by the WeatherStrategy interface; the backtest adapter uses
-  // evaluateAt/evaluateGroup only (never evaluate directly).
-  // Required by the WeatherStrategy interface; the backtest adapter uses
-  // evaluateAt/evaluateGroup only.
-  // Required by the WeatherStrategy interface; the backtest adapter uses
-  // evaluateAt/evaluateGroup only.
-  // Required by the WeatherStrategy interface; the backtest adapter only uses
-  // evaluateAt/evaluateGroup. Kept for contract compliance.
   async evaluate(
     market: MarketListItemDto,
     ctx: WeatherEvaluationContext,

@@ -5,7 +5,6 @@ import type {
   BacktestMode,
   WeatherStrategyMeta,
 } from '../../api';
-import type { BacktestRunMode } from './types';
 import { formatTs } from './format';
 
 /** Stratégies affichées quand le catalogue n'est pas encore chargé (R3). */
@@ -40,8 +39,6 @@ interface LaunchBacktestFormProps {
   setLabel: Setter<string>;
   strategyId: Accessor<string>;
   setStrategyId: Setter<string>;
-  executionMode: Accessor<BacktestRunMode>;
-  setExecutionMode: Setter<BacktestRunMode>;
   launching: Accessor<boolean>;
   launchError: Accessor<string | null>;
   onFidelityChange: () => void;
@@ -116,23 +113,6 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
               </For>
             </Show>
           </select>
-        </label>
-        <label class="backtest-field">
-          <span>Exécution backtest</span>
-          <select
-            value={props.executionMode()}
-            onChange={(e) =>
-              props.setExecutionMode(e.currentTarget.value as BacktestRunMode)
-            }
-          >
-            <option value="strategy">Strategy (tick par bucket, rapide)</option>
-            <option value="runner-sim">Runner-sim (groupe + dedup, proche live)</option>
-          </select>
-          <Show when={props.executionMode() === 'strategy'}>
-            <span class="form-hint" style="color: var(--warning, #b58900);">
-              ⚠️ Strategy évalue les buckets isolément (pas de sélection de groupe) — préférer runner-sim pour fidélité live.
-            </span>
-          </Show>
         </label>
         <label class="backtest-field">
           <span>Capital initial (USDC)</span>

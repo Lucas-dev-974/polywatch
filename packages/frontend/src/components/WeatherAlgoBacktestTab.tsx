@@ -60,16 +60,11 @@ export function WeatherAlgoBacktestTab() {
   );
   const [label, setLabel] = createSignal('');
   const [strategyId, setStrategyId] = usePersistedSignal(
-    'polywatch_weather_algo_backtest_strategy_id',
-    'weather-forecast',
-    (v): v is string => typeof v === 'string' && v.length > 0,
-  );
-  const [executionMode, setExecutionMode] = usePersistedSignal(
-    'polywatch_weather_algo_backtest_execution_mode',
-    'strategy' as 'strategy' | 'runner-sim',
-    (v): v is 'strategy' | 'runner-sim' => v === 'strategy' || v === 'runner-sim',
-  );
-  const [catalog, setCatalog] = createSignal<WeatherStrategyMeta[]>([]);
+      'polywatch_weather_algo_backtest_strategy_id',
+      'weather-forecast',
+      (v): v is string => typeof v === 'string' && v.length > 0,
+    );
+    const [catalog, setCatalog] = createSignal<WeatherStrategyMeta[]>([]);
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
 
@@ -347,19 +342,18 @@ export function WeatherAlgoBacktestTab() {
     setLaunchError(null);
     try {
       const body: BacktestRunParamsInput = {
-        mode: mode(),
-        from: new Date(`${from()}T00:00:00.000Z`).toISOString(),
-        to: new Date(`${to()}T23:59:59.999Z`).toISOString(),
-        cities: cities().trim() ? cities().split(',').map((c) => c.trim()).filter(Boolean) : undefined,
-        strategyId: strategyId(),
-        backtestExecutionMode: executionMode(),
-        capital: cap,
-        entryUsdc: entry,
-        slippageBps: slip,
-        maxConcurrentPositions: maxp,
-        fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
-        label: label().trim() || undefined,
-      };
+              mode: mode(),
+              from: new Date(`${from()}T00:00:00.000Z`).toISOString(),
+              to: new Date(`${to()}T23:59:59.999Z`).toISOString(),
+              cities: cities().trim() ? cities().split(',').map((c) => c.trim()).filter(Boolean) : undefined,
+              strategyId: strategyId(),
+              capital: cap,
+              entryUsdc: entry,
+              slippageBps: slip,
+              maxConcurrentPositions: maxp,
+              fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
+              label: label().trim() || undefined,
+            };
       const res = await launchBacktestRun(body);
       setPage(0);
       setSelectedId(res.id);
@@ -455,38 +449,36 @@ export function WeatherAlgoBacktestTab() {
           minAvgYes={[minAvgYes, setMinAvgYes]}
         />
         <LaunchBacktestForm
-          coverage={coverage}
-          coverageLoading={coverageLoading}
-          catalog={catalog}
-          mode={mode}
-          setMode={setMode}
-          from={from}
-          setFrom={setFrom}
-          to={to}
-          setTo={setTo}
-          cities={cities}
-          setCities={setCities}
-          capital={capital}
-          setCapital={setCapital}
-          entryUsdc={entryUsdc}
-          setEntryUsdc={setEntryUsdc}
-          slippageBps={slippageBps}
-          setSlippageBps={setSlippageBps}
-          maxPos={maxPos}
-          setMaxPos={setMaxPos}
-          fidelityMinutes={fidelityMinutes}
-          setFidelityMinutes={setFidelityMinutes}
-          label={label}
-          setLabel={setLabel}
-          strategyId={strategyId}
-          setStrategyId={setStrategyId}
-          executionMode={executionMode}
-          setExecutionMode={setExecutionMode}
-          launching={launching}
-          launchError={launchError}
-          onFidelityChange={() => void refreshCoverage()}
-          onSubmit={submit}
-        />
+                  coverage={coverage}
+                  coverageLoading={coverageLoading}
+                  catalog={catalog}
+                  mode={mode}
+                  setMode={setMode}
+                  from={from}
+                  setFrom={setFrom}
+                  to={to}
+                  setTo={setTo}
+                  cities={cities}
+                  setCities={setCities}
+                  capital={capital}
+                  setCapital={setCapital}
+                  entryUsdc={entryUsdc}
+                  setEntryUsdc={setEntryUsdc}
+                  slippageBps={slippageBps}
+                  setSlippageBps={setSlippageBps}
+                  maxPos={maxPos}
+                  setMaxPos={setMaxPos}
+                  fidelityMinutes={fidelityMinutes}
+                  setFidelityMinutes={setFidelityMinutes}
+                  label={label}
+                  setLabel={setLabel}
+                  strategyId={strategyId}
+                  setStrategyId={setStrategyId}
+                  launching={launching}
+                  launchError={launchError}
+                  onFidelityChange={() => void refreshCoverage()}
+                  onSubmit={submit}
+                />
         <BacktestRunList
           runs={runs()}
           total={listTotal()}

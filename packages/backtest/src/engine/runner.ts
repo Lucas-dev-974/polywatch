@@ -33,13 +33,12 @@ export interface RunContext {
   excludedTicks: BacktestExcludedTick[];
   params: {
     slippageBps: number;
-    maxConcurrentPositions: number;
-    entryUsdc: number;
-    capital: number;
-    mode: 'reevaluate' | 'replay';
-    strategyId: string;
-    backtestExecutionMode: 'strategy' | 'runner-sim';
-    fidelityMinutes?: number;
+      maxConcurrentPositions: number;
+      entryUsdc: number;
+      capital: number;
+      mode: 'reevaluate' | 'replay';
+      strategyId: string;
+      fidelityMinutes?: number;
   };
   cancelRequested(): boolean;
 }
@@ -69,7 +68,6 @@ export interface RunSpec {
   entryUsdc: number;
   mode: 'reevaluate' | 'replay';
   strategyId: string;
-  backtestExecutionMode: 'strategy' | 'runner-sim';
   fidelityMinutes?: number;
   service: BacktestRunService;
   /** Cooperative abort: 'cancelled' (user) or 'timeout'. */
@@ -147,7 +145,6 @@ export class BacktestRunner {
         capital: spec.initialCapital,
         mode: spec.mode,
         strategyId: spec.strategyId,
-        backtestExecutionMode: spec.backtestExecutionMode,
         fidelityMinutes: spec.fidelityMinutes,
       },
       cancelRequested: () => (spec.getAbortReason ? spec.getAbortReason() != null : false),

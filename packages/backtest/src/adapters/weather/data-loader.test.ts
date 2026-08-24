@@ -18,7 +18,6 @@ function params(overrides: Partial<BacktestRunParams> = {}): BacktestRunParams {
     from: '2026-01-01T00:00:00.000Z',
     to: '2026-01-02T00:00:00.000Z',
     strategyId: 'weather-forecast',
-    backtestExecutionMode: 'runner-sim',
     capital: 1000,
     entryUsdc: 10,
     slippageBps: 50,

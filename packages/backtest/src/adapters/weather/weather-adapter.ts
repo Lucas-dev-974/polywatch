@@ -1,7 +1,6 @@
 import {
   type WeatherConfig,
   computeTakerFee,
-  isMarketActiveForWeather,
   resolveWeatherEntryExitParams,
   getStrategyParams,
   type WeatherStrategyParamsBag,
@@ -20,10 +19,9 @@ import {
   BACKTEST_PLATFORM_FEE,
 } from '../../engine/fill-engine.js';
 import { WeatherExitManager } from '../../engine/exit-manager.js';
-import { ClockedWeatherStrategy, createWeatherStrategy } from './clocked-weather-strategy.js';
+import { ClockedWeatherStrategy } from './clocked-weather-strategy.js';
 import type { WeatherSignal } from '@polywatch/weather-algo';
 import {
-  buildMarketListItem,
   ForecastRevisionStore,
 } from './context-builder.js';
 import {
@@ -57,7 +55,6 @@ function resolvedExitMeta(risk: WeatherConfig, strategyId?: string | null): Reco
  * are evaluated purely in-memory on each book tick.
  */
 export class WeatherBacktestAdapter implements BacktestDomainAdapter {
-  private strategy: ClockedWeatherStrategy;
   private runnerSimStrategies: ClockedWeatherStrategy[] = [];
   private readonly bucketGroupStore = new BucketGroupStore();
   private pendingRunnerSimSignals: WeatherSignal[] = [];
@@ -78,22 +75,15 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const strategyId = (ctx.params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID) as WeatherStrategyId;
     this.strategyId = strategyId;
     this.bag = getStrategyParams(ctx.configSnapshot, strategyId);
-    if (ctx.params.backtestExecutionMode === 'runner-sim') {
-      this.runnerSimStrategies = createRunnerSimStrategies(ctx.configSnapshot, strategyId);
-      this.strategy = this.runnerSimStrategies[0] ?? createWeatherStrategy(strategyId);
-    } else {
-      this.strategy = createWeatherStrategy(strategyId);
-    }
-    for (const s of this.runnerSimStrategies.length > 0 ? this.runnerSimStrategies : [this.strategy]) {
+    this.runnerSimStrategies = createRunnerSimStrategies(ctx.configSnapshot, strategyId);
+    for (const s of this.runnerSimStrategies) {
       s.setRiskConfig(getStrategyParams(ctx.configSnapshot, s.id));
     }
     this.exitManager = new WeatherExitManager();
   }
 
   async finish(ctx: RunContext): Promise<void> {
-    if (ctx.params.backtestExecutionMode === 'runner-sim') {
-      await this.flushPendingRunnerSimSignals(ctx);
-    }
+    await this.flushPendingRunnerSimSignals(ctx);
 
     // Ghost positions : positions encore ouvertes à la fin du run (aucun tick
     // de résolution reçu). On les force à la résolution pour ne pas fausser
@@ -187,7 +177,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
   /**
    * Check entry feasibility using the bag of the strategy that will own the
-   * position (signal.strategyId for runner-sim, this.strategyId for strategy mode).
+   * position (signal.strategyId for runner-sim).
    */
   private canEnter(
     ctx: RunContext,
@@ -242,19 +232,19 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     }
 
     const firedStrategies: string[] = [];
-    const blockedStrategies: string[] = [];
-    for (const [strategyId, positions] of positionsByStrategy) {
-      const bag = strategyId
-        ? getStrategyParams(ctx.configSnapshot, strategyId)
-        : this.bag;
-      if (!this.isDailyLossBreached(ctx, strategyId)) continue;
-      const action = bag.killSwitchAction;
-      if (action !== 'force_close_all') {
-        blockedStrategies.push(`${strategyId ?? 'default'}:${action}`);
-        continue;
-      }
-      firedStrategies.push(strategyId ?? 'default');
-    }
+        const blockedStrategies: string[] = [];
+        for (const [strategyId, _positions] of positionsByStrategy) {
+          const bag = strategyId
+            ? getStrategyParams(ctx.configSnapshot, strategyId)
+            : this.bag;
+          if (!this.isDailyLossBreached(ctx, strategyId)) continue;
+          const action = bag.killSwitchAction;
+          if (action !== 'force_close_all') {
+            blockedStrategies.push(`${strategyId ?? 'default'}:${action}`);
+            continue;
+          }
+          firedStrategies.push(strategyId ?? 'default');
+        }
 
     if (firedStrategies.length === 0 && blockedStrategies.length === 0) return;
 
@@ -434,6 +424,16 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       ticks,
       ctx.clock.now().getTime(),
       (tick, reason) => {
+        if (reason === 'market_lifecycle_filtered') {
+          this.noteLifecycleSkip(ctx, tick, at);
+          return; // noteLifecycleSkip pousse déjà dans excludedTicks
+        }
+        // unsupported_metric_or_bucket
+        this.warnOnce(
+          ctx,
+          'unsupported_metric_or_bucket',
+          `Marché ignoré (metric=${tick.snapshotMetric} non supporté) pour ${tick.snapshotCity}`,
+        );
         ctx.excludedTicks.push({
           t: at,
           reason,
@@ -461,8 +461,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     at: Date,
     ctx: RunContext,
   ): Promise<void> {
-    const risk = ctx.configSnapshot;
-
     this.lastTickByCondition.set(data.conditionId, { tick: data, at });
 
     this.maybeForceCloseAll(ctx);
@@ -473,99 +471,11 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const maxPos = ctx.params.maxConcurrentPositions;
     if (ctx.ledger.openCount() >= maxPos) return;
 
-    if (data.snapshotTargetDateIso && this.exitManager.isReentryBlocked(data.snapshotCity, data.snapshotTargetDateIso, ctx.clock.now(), risk, this.strategyId)) return;
+    if (data.snapshotTargetDateIso && this.exitManager.isReentryBlocked(data.snapshotCity, data.snapshotTargetDateIso, ctx.clock.now(), ctx.configSnapshot, this.strategyId)) return;
 
-    if (ctx.params.mode === 'replay') {
-      return;
-    }
+    if (ctx.params.mode === 'replay') return;
 
-    if (ctx.params.backtestExecutionMode === 'runner-sim') {
-      await this.onBookTickRunnerSim(data, at, ctx);
-      return;
-    }
-
-    const forecast = this.getCurrentForecast(
-      ctx,
-      data.snapshotCity,
-      data.snapshotTargetDateIso,
-      data.snapshotMetric,
-    );
-
-    const market = buildMarketListItem({
-      tick: data,
-      city: data.snapshotCity,
-      targetDateIso: data.snapshotTargetDateIso,
-      metric: data.snapshotMetric,
-      eventSlug: data.eventSlug,
-      tokenIdYes: data.tokenIdYes,
-    });
-    if (!market) {
-      this.warnOnce(
-        ctx,
-        'unsupported_metric_or_bucket',
-        `Marché ignoré (metric=${data.snapshotMetric} non supporté) pour ${data.snapshotCity}`,
-      );
-      ctx.excludedTicks.push({
-        t: at,
-        reason: 'unsupported_metric_or_bucket',
-        city: data.snapshotCity ?? null,
-        conditionId: data.conditionId,
-        metric: data.snapshotMetric ?? null,
-      });
-      return;
-    }
-
-    if (!isMarketActiveForWeather(market)) {
-      this.noteLifecycleSkip(ctx, data, at);
-      return;
-    }
-
-    if (data.yesPrice == null) return;
-
-    const ctxWeather = {
-      forecastMean: forecast?.forecastMean ?? data.snapshotForecastMean ?? 0,
-      forecastStdDev: forecast?.forecastStdDev ?? 0,
-    };
-
-    const result = await this.strategy.evaluateAt(market, ctxWeather, ctx.clock.now());
-    if (result.kind !== 'signal') return;
-
-    if (
-      this.openCountForCityDate(ctx, data.snapshotCity, data.snapshotTargetDateIso, this.strategyId) >=
-      Math.max(1, this.bag.maxPositionsPerCityDate ?? 1)
-    ) return;
-
-    if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice, this.strategyId)) return;
-
-    const fill = simulateWeatherEntryFill({
-      conditionId: data.conditionId,
-      yesPrice: data.yesPrice,
-      entryUsdc: ctx.params.entryUsdc,
-      slippageBps: ctx.params.slippageBps,
-      maxPositionSizeUsdc: this.bag.maxPositionSizeUsdc,
-    });
-    this.noteFillClampedIfNeeded(ctx, data.yesPrice, true);
-
-    ctx.ledger.openPosition({
-      conditionId: data.conditionId,
-      city: data.snapshotCity,
-      targetDateIso: data.snapshotTargetDateIso ?? null,
-      qty: fill.qty,
-      entryPrice: fill.entryPrice,
-      entryAt: ctx.clock.now(),
-      fees: fill.fees,
-      entryReason: 'signal',
-      meta: {
-        strategyId: result.signal.strategyId,
-        edge: result.signal.edge,
-        dynamicMinEdge: result.signal.dynamicMinEdge,
-        entryMean: ctxWeather.forecastMean,
-        entryBucketComparison: result.signal.entryBucketComparison ?? null,
-        entryBucketBounds: result.signal.entryBucketBounds ?? null,
-        detailReasons: result.signal.reasons.join(' | '),
-        ...resolvedExitMeta(risk, this.strategyId),
-      },
-    });
+    await this.onBookTickRunnerSim(data, at, ctx);
   }
 
   private async onSignal(data: SignalEventData, ctx: RunContext): Promise<void> {

@@ -38,7 +38,6 @@ function makeSpec(
     entryUsdc: 10,
     mode: 'replay',
     strategyId: 'weather-forecast',
-    backtestExecutionMode: 'runner-sim',
     service: opts.service,
     getAbortReason: opts.getAbortReason,
   };
@@ -137,7 +136,6 @@ describe('BacktestRunner', () => {
       entryUsdc: 10,
       mode: 'replay',
       strategyId: 'weather-forecast',
-      backtestExecutionMode: 'runner-sim',
       service,
       getAbortReason: () => (aborted ? 'cancelled' : null),
     };
@@ -175,7 +173,6 @@ describe('BacktestRunner', () => {
       entryUsdc: 10,
       mode: 'replay',
       strategyId: 'weather-forecast',
-      backtestExecutionMode: 'runner-sim',
       service,
       getAbortReason: () => (timedOut ? 'timeout' : null),
     };

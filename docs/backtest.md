@@ -49,8 +49,7 @@ AsyncIterable<BacktestEvent>  ──►  mergeEventStreams (k-way, heap borné)
   le throttle de persistance de progression (~2 s wall-clock).
 - **Réutilisation métier** : le mode `reevaluate` réutilise la stratégie choisie
   (`createWeatherStrategy(strategyId)` + wrapper `ClockedWeatherStrategy` qui injecte
-  `now`). Avec `backtestExecutionMode=strategy` (défaut) : évaluation **par tick /
-  bucket**. Avec `runner-sim` : regroupement ville/date + `evaluateGroup` + dedup /
+  `now`). L'exécution utilise `runner-sim` : regroupement ville/date + `evaluateGroup` + dedup /
   selectionMode (proche live ; l'UI passe un seul `strategyId`). Les seuils
   SL/TP/trailing sont résolus via `resolveWeatherEntryExitParams`. Le mode `replay`
   rejoue les décisions `signal` déjà enregistrées.
@@ -93,7 +92,6 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `exit_stale_tick` | Sortie évaluée avec un tick plus vieux que `pollMs` |
 | `multi_position_stale_mark` | N positions ouvertes évaluées avec un tick plus vieux que `pollMs` (markPrice lag-1 par condition) |
 | `fill_price_clamped` | Prix de fill clampé à la borne [0,1] (slippage hors bornes) |
-| `strategy_mode_no_group_selection` | Mode `strategy` évalue les buckets isolément (pas de `pickBestEdgeBucket`) — préférer `runner-sim` |
 | `no_events_in_range` | Aucune donnée sur la plage demandée |
 | `resolution_by_price` | Résolution par prix YES (`>= 0.99` → YES / `<= 0.01` → NO) — pas de température observée |
 | `resolution_price_fallback` | Résolution via fallback `markPrice` (`tick.yesPrice` absent — plus de fallback `entryPrice` depuis 0.6.0) |
@@ -127,8 +125,7 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
 > **Résolution per-strategy (depuis 0.5.0)** : `maxExposureUsdc`, `maxDailyLossUsdc`,
 > `maxPositionSizeUsdc`, `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
 > via `getStrategyParams(cfgSnapshot, strategyId)` pour **chaque position** — pas via
-> un bag global. En `runner-sim`, le bag de `signal.strategyId` est utilisé ; en mode
-> `strategy`, le bag de `this.strategyId`. Le kill-switch ferme uniquement les
+> un bag global. Le bag de `signal.strategyId` est utilisé pour chaque position. Le kill-switch ferme uniquement les
 > positions de la stratégie déclenchée (pas toutes les positions du ledger).
 
 ---

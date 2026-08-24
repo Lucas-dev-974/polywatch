@@ -37,6 +37,14 @@ export class AdapterWarnings {
     );
   }
 
+  warnSizingModeIgnored(ctx: RunContext, strategyId: string, sizingMode: string): void {
+    this.warnOnce(
+      ctx,
+      'risk_sizing_mode_ignored',
+      `SizingMode '${sizingMode}' non honoré pour la stratégie '${strategyId}' — taille en USDC fixe (fidélité réduite)`,
+    );
+  }
+
   emitStaticFidelityWarnings(ctx: RunContext): void {
     if (this.staticWarningsEmitted) return;
     this.staticWarningsEmitted = true;
@@ -48,7 +56,7 @@ export class AdapterWarnings {
     this.warnOnce(
       ctx,
       'risk_sizing_simplified_fixed_usdc',
-      'Sizing fixe entryUsdc (pas de signal-score sizing live)',
+      'Sizing fixe (entryUsdc ou fixedShareCount selon le mode) — pas de modulation par signal-score',
     );
     this.warnOnce(
       ctx,

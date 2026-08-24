@@ -189,19 +189,38 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const bag = strategyId
       ? getStrategyParams(ctx.configSnapshot, strategyId)
       : this.bag;
+    // Garde-fou : un sizingMode non supporté par le backtest est signalé
+    // (filet pour les modes futurs) — fixed_usdc / fixed_shares sont honorés.
+    if (bag.sizingMode !== 'fixed_usdc' && bag.sizingMode !== 'fixed_shares') {
+      this.warnings.warnSizingModeIgnored(ctx, strategyId ?? 'default', bag.sizingMode);
+    }
     const slippage = ctx.params.slippageBps;
-    const cappedUsdc = Math.min(entryUsdc, bag.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY);
     const entryPrice = yesPrice * (1 + slippage / 10_000);
-    const qty = cappedUsdc / entryPrice;
+    if (entryPrice <= 0) return false; // prix nul → pas d'entrée
+
+    // Sizing selon le mode du bag (parité avec simulateWeatherEntryFill).
+    let qty: number;
+    let costBasisUsdc: number;
+    if (bag.sizingMode === 'fixed_shares') {
+      const maxSharesByBudget =
+        Math.min(bag.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY, entryUsdc) / entryPrice;
+      qty = Math.floor(Math.min(bag.fixedShareCount ?? 0, maxSharesByBudget));
+      if (qty <= 0) return false; // pas assez de budget pour 1 token → skip
+      costBasisUsdc = qty * entryPrice;
+    } else {
+      const cappedUsdc = Math.min(entryUsdc, bag.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY);
+      qty = cappedUsdc / entryPrice;
+      costBasisUsdc = cappedUsdc;
+    }
     const estFees = computeTakerFee(qty, entryPrice, BACKTEST_PLATFORM_FEE);
-    const cost = cappedUsdc + estFees;
+    const cost = costBasisUsdc + estFees;
 
     if (ctx.ledger.cash < cost) {
       return false;
     }
 
     const maxExposure = bag.maxExposureUsdc;
-    if (maxExposure != null && ctx.ledger.openExposure(strategyId) + cappedUsdc > maxExposure) {
+    if (maxExposure != null && ctx.ledger.openExposure(strategyId) + costBasisUsdc > maxExposure) {
       return false;
     }
 
@@ -367,6 +386,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         entryUsdc: ctx.params.entryUsdc,
         slippageBps: ctx.params.slippageBps,
         maxPositionSizeUsdc: signalBag.maxPositionSizeUsdc,
+        sizingMode: signalBag.sizingMode,
+        fixedShareCount: signalBag.fixedShareCount,
       });
       this.noteFillClampedIfNeeded(ctx, yesPrice, true);
 
@@ -500,12 +521,15 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
     if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice, data.strategyId)) return;
 
+    const dataBag = getStrategyParams(risk, data.strategyId);
     const fill = simulateWeatherEntryFill({
       conditionId: data.conditionId,
       yesPrice: data.yesPrice,
       entryUsdc: ctx.params.entryUsdc,
       slippageBps: ctx.params.slippageBps,
-      maxPositionSizeUsdc: getStrategyParams(risk, data.strategyId).maxPositionSizeUsdc,
+      maxPositionSizeUsdc: dataBag.maxPositionSizeUsdc,
+      sizingMode: dataBag.sizingMode,
+      fixedShareCount: dataBag.fixedShareCount,
     });
     this.noteFillClampedIfNeeded(ctx, data.yesPrice, true);
 

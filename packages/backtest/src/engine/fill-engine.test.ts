@@ -81,6 +81,55 @@ describe('simulateWeatherEntryFill', () => {
     expect(expected).toBeGreaterThan(0);
     expect(expected).toBeLessThan(computeTakerFee(qty, price, BACKTEST_PLATFORM_FEE));
   });
+
+  it('fixed_shares buys exactly fixedShareCount tokens regardless of price', () => {
+    const r = simulateWeatherEntryFill({
+      conditionId: 'c1',
+      yesPrice: 0.0005,
+      entryUsdc: 10,
+      slippageBps: 0,
+      sizingMode: 'fixed_shares',
+      fixedShareCount: 5,
+    });
+    expect(r.qty).toBe(5);
+    expect(r.entryPrice).toBeCloseTo(0.0005, 6);
+  });
+
+  it('fixed_shares caps qty by budget when maxPositionSizeUsdc is tight', () => {
+    const r = simulateWeatherEntryFill({
+      conditionId: 'c1',
+      yesPrice: 0.5,
+      entryUsdc: 10,
+      slippageBps: 0,
+      sizingMode: 'fixed_shares',
+      fixedShareCount: 100,
+      maxPositionSizeUsdc: 1,
+    });
+    // budget = min(1, 10) = 1 → maxShares = 1/0.5 = 2 → qty = min(100, 2) = 2
+    expect(r.qty).toBe(2);
+  });
+
+  it('fixed_shares with zero fixedShareCount yields zero qty', () => {
+    const r = simulateWeatherEntryFill({
+      conditionId: 'c1',
+      yesPrice: 0.5,
+      entryUsdc: 10,
+      slippageBps: 0,
+      sizingMode: 'fixed_shares',
+      fixedShareCount: 0,
+    });
+    expect(r.qty).toBe(0);
+  });
+
+  it('defaults to fixed_usdc when sizingMode is absent', () => {
+    const r = simulateWeatherEntryFill({
+      conditionId: 'c1',
+      yesPrice: 0.5,
+      entryUsdc: 100,
+      slippageBps: 0,
+    });
+    expect(r.qty).toBeCloseTo(100 / 0.5, 5);
+  });
 });
 
 describe('simulateWeatherExitFill', () => {

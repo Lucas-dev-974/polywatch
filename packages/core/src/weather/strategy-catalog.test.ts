@@ -55,6 +55,32 @@ describe('strategy-catalog', () => {
     );
     expect(params.minYesPrice).toBe(0.7);
   });
+
+  it('getStrategyParams falls back to default when stored minYesPrice is null', () => {
+    // Un `null` stocké ne doit pas désactiver le plancher : il retombe sur le
+    // défaut 0.5 (sinon les prix YES quasi nuls passent — bug run #40).
+    const params = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          [WEATHER_HIGHEST_YES_STRATEGY_ID]: { minYesPrice: null },
+        }),
+      },
+      WEATHER_HIGHEST_YES_STRATEGY_ID,
+    );
+    expect(params.minYesPrice).toBe(0.5);
+  });
+
+  it('getStrategyParams falls back to default when stored entryUsdc is null', () => {
+    const params = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          'weather-forecast': { entryUsdc: null },
+        }),
+      },
+      'weather-forecast',
+    );
+    expect(params.entryUsdc).toBe(10);
+  });
   it('parseWeatherAlgoStrategies falls back to default on invalid JSON', () => {
     expect(parseWeatherAlgoStrategies('not-json')).toEqual([WEATHER_FORECAST_STRATEGY_ID]);
   });

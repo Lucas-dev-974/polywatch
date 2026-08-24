@@ -367,6 +367,18 @@ const NULLABLE_ZERO_KEYS = new Set([
 ]);
 
 /**
+ * Keys whose catalogue default is NOT null. A stored `null` on such a key
+ * would otherwise override the default and silently disable the gate (e.g.
+ * `minYesPrice: null` disables the floor, letting near-zero YES prices
+ * through). We force these back to the catalogue default when stored null.
+ */
+const NON_NULLABLE_DEFAULTS: (keyof WeatherStrategyParamsBag)[] = (
+  Object.entries(DEFAULT_WEATHER_STRATEGY_PARAMS) as [keyof WeatherStrategyParamsBag, unknown][]
+)
+  .filter(([, v]) => v !== null)
+  .map(([k]) => k);
+
+/**
  * Resolve the full per-strategy params bag: catalogue defaults overlaid with
  * the stored partial bag for the strategy. Absent keys fall back to catalogue
  * defaults — never to global WeatherConfig columns.
@@ -380,6 +392,14 @@ export function getStrategyParams(
   for (const key of NULLABLE_ZERO_KEYS) {
     if ((merged as Record<string, unknown>)[key] === 0) {
       (merged as Record<string, unknown>)[key] = null;
+    }
+  }
+  // Un `null` stocké sur un champ à défaut non-null retombe sur le défaut
+  // (ex. minYesPrice: null → 0.5). Les champs nullable par conception
+  // (défaut null) restent null = désactivé.
+  for (const key of NON_NULLABLE_DEFAULTS) {
+    if ((merged as Record<string, unknown>)[key] === null) {
+      (merged as Record<string, unknown>)[key] = DEFAULT_WEATHER_STRATEGY_PARAMS[key];
     }
   }
   return merged;

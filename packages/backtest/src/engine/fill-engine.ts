@@ -12,6 +12,10 @@ export interface FillInput {
   entryUsdc: number;
   slippageBps: number;
   maxPositionSizeUsdc?: number;
+  /** Sizing mode from the emitting strategy's bag (defaults to fixed_usdc). */
+  sizingMode?: 'fixed_usdc' | 'fixed_shares';
+  /** Fixed share count when sizingMode === 'fixed_shares'. */
+  fixedShareCount?: number;
 }
 
 export interface FillResult {
@@ -25,14 +29,35 @@ export interface FillResult {
  * Simulates a buy-YES fill at the recorded yes price plus a synthetic
  * slippage buffer. No book depth is available, so fills are not capped by
  * real liquidity — this is flagged as a fidelity warning by the runner.
+ *
+ * Sizing honours the strategy's `sizingMode`:
+ * - `fixed_usdc` (default): qty = cappedUsdc / price
+ * - `fixed_shares`: qty = min(fixedShareCount, budget/price), floored —
+ *   mirrors `computeFixedSharesQuantity` in core/src/sizing/compute.ts.
  */
 export function simulateWeatherEntryFill(input: FillInput): FillResult {
   const price = Math.min(1, input.yesPrice * (1 + input.slippageBps / 10_000));
-  const cappedUsdc = Math.min(
-    input.entryUsdc,
-    input.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY,
-  );
-  const qty = cappedUsdc / price;
+  if (price <= 0) return { conditionId: input.conditionId, qty: 0, entryPrice: 0, fees: 0 };
+
+  let qty: number;
+  if (input.sizingMode === 'fixed_shares') {
+    const maxSharesByBudget =
+      Math.min(
+        input.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY,
+        input.entryUsdc,
+      ) / price;
+    qty = Math.floor(Math.min(input.fixedShareCount ?? 0, maxSharesByBudget));
+    // Miroir de computeFixedSharesQuantity : 0 tokens = pas d'entrée.
+    // L'appelant doit vérifier qty > 0 avant d'ouvrir la position.
+    if (qty <= 0) return { conditionId: input.conditionId, qty: 0, entryPrice: price, fees: 0 };
+  } else {
+    const cappedUsdc = Math.min(
+      input.entryUsdc,
+      input.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY,
+    );
+    qty = cappedUsdc / price;
+  }
+
   const fees = computeTakerFee(qty, price, BACKTEST_PLATFORM_FEE);
   return { conditionId: input.conditionId, qty, entryPrice: price, fees };
 }

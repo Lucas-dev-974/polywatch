@@ -53,6 +53,11 @@ AsyncIterable<BacktestEvent>  ──►  mergeEventStreams (k-way, heap borné)
   selectionMode (proche live ; l'UI passe un seul `strategyId`). Les seuils
   SL/TP/trailing sont résolus via `resolveWeatherEntryExitParams`. Le mode `replay`
   rejoue les décisions `signal` déjà enregistrées.
+- **Sizing par stratégie** : le fill d'entrée honore le `sizingMode` du bag de la
+  stratégie émettrice — `fixed_usdc` (défaut, `qty = entryUsdc / price`) ou
+  `fixed_shares` (`qty = min(fixedShareCount, budget/price)`, miroir du live
+  `computeFixedSharesQuantity`). Un `sizingMode` non supporté émet le warning
+  `risk_sizing_mode_ignored` et retombe en USDC fixe.
 - **Fidélité explicite** : chaque approximation est consignée dans
   `fidelity_warnings` et affichée dans l'UI du run.
 - **Mémoire bornée** : pagination keyset `(timestamp, id)` par source + **merge k-way**
@@ -83,7 +88,8 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 |------|---------------|
 | `fill_no_book_depth` | Pas de profondeur L2 — fills non plafonnés par liquidité |
 | `risk_sl_confirmation_ignored` | SL déclenché au 1er tick (pas de confirmation ticks live) |
-| `risk_sizing_simplified_fixed_usdc` | Taille fixe `entryUsdc` (pas de signal-score sizing) |
+| `risk_sizing_simplified_fixed_usdc` | Taille fixe (`entryUsdc` ou `fixedShareCount` selon le mode) — pas de signal-score sizing |
+| `risk_sizing_mode_ignored` | `sizingMode` non supporté par le backtest → taille en USDC fixe (fidélité réduite) |
 | `risk_min_time_to_close_ignored` | `minTimeToClose` non appliqué (`closeBeforeHours` l’est à l’entrée) |
 | `market_lifecycle_filtered` | Ticks exclus (`closed` / `acceptingOrders` / token / minHours) — compteur |
 | `kill_switch_force_close` | `force_close_all` a clôturé les positions ouvertes |

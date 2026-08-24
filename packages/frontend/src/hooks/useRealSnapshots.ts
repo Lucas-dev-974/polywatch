@@ -17,10 +17,6 @@ import {
 } from '../lib/real-snapshots';
 import { useSnapshots, type SnapshotPanelView, type UseSnapshotsApi } from './useSnapshots';
 
-export const SNAPSHOT_PAGE_SIZE = 12;
-export const SNAPSHOT_CHART_LIMIT = 200;
-export const SESSION_PAGE_SIZE = 12;
-
 export type { SnapshotPanelView };
 
 export function useRealSnapshots() {

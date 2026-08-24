@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-24
 **Auteur** : Assistant IA
-**Statut** : ⏳ **Proposé** — non implémenté
+**Statut** : ⛔ **Non factorisé** — diff préalable < seuil (vérifié le 2026-08-24)
 **Référence** : [`docs/audits/2026-08-24_audit-frontend-architecture-taille.md`](../audits/2026-08-24_audit-frontend-architecture-taille.md) — Proposition 3
 **Type** : déduction
 
@@ -45,3 +45,27 @@ Extraire le **sous-ensemble réellement identique** des deux gros onglets de don
 ## 📌 Note
 
 Effort moyen, risque moyen, impact net. En bonus derrière les propositions B et 4.
+
+## ⛔ Décision finale (2026-08-24)
+
+**Non factorisé.** Le diff préalable obligatoire (étape 1) a mesuré le squelette
+réellement commun à ~7 % du code (≈ 80-120 l sur 1 674 totales), très en-dessous
+du seuil de 40 % que ce plan s'impose. `DetailRow`, `DetailHeaders`, `TABLE_META`
+et `loadDetail` divergent sur les types et les rendus de cellules (weather:
+celsius, bucket bounds, timelines; crypto: readOnly, spread, status). Un
+`DataTableExplorer` générique ajouterait une couche d'abstraction sans réduire
+le code métier et deviendrait un 3ᵉ gros fichier — exactement le cas de
+sur-ingénierie que le plan met en garde dans ses risques. Les deux onglets
+fonctionnent et ne partagent que des helpers triviaux.
+
+## ⛔ Plan 5 — annulé (2026-08-24)
+
+**Non implémenté.** La réorganisation de `components/` en sous-dossiers a été
+tentée par script de migration déterministe (127 fichiers à déplacer, ~252
+imports relatifs à réécrire). Le script a corrompu les imports dans tout `src/`
+(`os.path.relpath` supprimait le préfixe `./` des specifiers, transformant
+`./api/http` en `api/http`). Deux tentatives ont échoué. Le refactor mécanique
+de 127 fichiers avec réécriture d'imports relatifs est trop risqué sans outil
+dédié (tsconfig path aliases ou codemod TypeScript). Le bénéfice (navigabilité)
+ne justifie pas le risque de casser 389 fichiers. **Décision : abandonner le
+Plan 5.** Les composants restent à plat dans `components/`.

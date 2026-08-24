@@ -615,7 +615,7 @@ export function useSnapshots(backend: SnapshotsBackend, options: UseSnapshotsOpt
     const confirmed = confirm(
       view() === 'snapshots'
         ? `Supprimer tous les snapshots (${count}) ?\n\nCette action est irréversible.`
-        : `Supprimer tous les snapshots ?\n\nLes ${backend.labels.sessions} fermé${backend.labels.session === 'session' ? 'es' : 'es'} resteront (sans snapshots).`,
+        : `Supprimer tous les snapshots ?\n\nLes ${backend.labels.sessions} fermées resteront (sans snapshots).`,
     );
     if (!confirmed) return false;
     setDeleting(true);

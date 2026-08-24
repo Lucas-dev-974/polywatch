@@ -1,4 +1,4 @@
-import { createEffect, createSignal, Show, onMount, onCleanup, on } from 'solid-js';
+import { createEffect, createSignal, Show, onMount, onCleanup, on, lazy } from 'solid-js';
 
 import { isLoggedIn, clearTokens, onSessionExpired, refreshSessionTokens } from './api';
 
@@ -7,25 +7,11 @@ import { disconnectSocket, connectSocket } from './socket';
 import { Login } from './components/Login';
 
 import { WatchlistEditor } from './components/WatchlistEditor';
-import { PositionCard } from './components/PositionCard';
-
-import { RealHero } from './components/RealHero';
-import { SimulationPage } from './components/SimulationPage';
-
-import { ExecutionLog } from './components/ExecutionLog';
-
-import { EventsPanel } from './components/EventsPanel';
 
 import { NotificationCenter } from './components/NotificationCenter';
 import { MarketChartDialogHost } from './components/MarketChartDialogHost';
 
-import { Leaderboard } from './components/Leaderboard';
 import { CountdownProvider } from './components/CountdownContext';
-import { MarketsPage } from './components/MarketsPage';
-import { WalletPage } from './components/WalletPage';
-import { CryptoAlgoPage } from './components/CryptoAlgoPage';
-import { WeatherAlgoPage } from './components/WeatherAlgoPage';
-import { SystemPage } from './components/SystemPage';
 import { NavClock } from './components/NavClock';
 import {
   APP_PAGES,
@@ -37,6 +23,23 @@ import {
   usePersistedEnum,
 } from './lib/ui-persistence';
 import { closeMarketChart } from './stores/marketChartStore';
+
+// Pages chargées paresseusement (code-splitting par route) — le bundle initial
+// ne contient que le shell, le header et la page active.
+const SimulationPage = lazy(() => import('./components/SimulationPage').then((m) => ({ default: m.SimulationPage })));
+const RealPage = lazy(() => import('./components/RealHero').then((m) => ({ default: m.RealHero })));
+const Leaderboard = lazy(() => import('./components/Leaderboard').then((m) => ({ default: m.Leaderboard })));
+const MarketsPage = lazy(() => import('./components/MarketsPage').then((m) => ({ default: m.MarketsPage })));
+const WalletPage = lazy(() => import('./components/WalletPage').then((m) => ({ default: m.WalletPage })));
+const CryptoAlgoPage = lazy(() => import('./components/CryptoAlgoPage').then((m) => ({ default: m.CryptoAlgoPage })));
+const WeatherAlgoPage = lazy(() => import('./components/WeatherAlgoPage').then((m) => ({ default: m.WeatherAlgoPage })));
+const SystemPage = lazy(() => import('./components/SystemPage').then((m) => ({ default: m.SystemPage })));
+
+// Sous-composants de la page "real" (partagés avec SimulationPage, qui les
+// importe aussi en lazy) — dédupliqués par Vite en un chunk commun.
+const PositionCard = lazy(() => import('./components/PositionCard').then((m) => ({ default: m.PositionCard })));
+const EventsPanel = lazy(() => import('./components/EventsPanel').then((m) => ({ default: m.EventsPanel })));
+const ExecutionLog = lazy(() => import('./components/ExecutionLog').then((m) => ({ default: m.ExecutionLog })));
 
 export function App() {
   const [loggedIn, setLoggedIn] = createSignal(isLoggedIn());
@@ -201,7 +204,7 @@ export function App() {
 
         <Show when={page() === 'real'}>
           <main class="page page-real">
-            <RealHero />
+            <RealPage />
             <div class="page-grid page-grid-single">
               <div class="page-col">
                 <PositionCard mode="real" />

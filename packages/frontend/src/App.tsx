@@ -35,8 +35,9 @@ const CryptoAlgoPage = lazy(() => import('./components/CryptoAlgoPage').then((m)
 const WeatherAlgoPage = lazy(() => import('./components/WeatherAlgoPage').then((m) => ({ default: m.WeatherAlgoPage })));
 const SystemPage = lazy(() => import('./components/SystemPage').then((m) => ({ default: m.SystemPage })));
 
-// Sous-composants de la page "real" (partagés avec SimulationPage, qui les
-// importe aussi en lazy) — dédupliqués par Vite en un chunk commun.
+// Sous-composants de la page "real" (PositionCard/EventsPanel/ExecutionLog).
+// SimulationPage (lazy) les importe en statique → ils vivent dans son chunk ;
+// ces imports lazy les retirent aussi du bundle initial pour la page "real".
 const PositionCard = lazy(() => import('./components/PositionCard').then((m) => ({ default: m.PositionCard })));
 const EventsPanel = lazy(() => import('./components/EventsPanel').then((m) => ({ default: m.EventsPanel })));
 const ExecutionLog = lazy(() => import('./components/ExecutionLog').then((m) => ({ default: m.ExecutionLog })));

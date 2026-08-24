@@ -45,7 +45,7 @@ export function resolveSignalExecutionStatus(
   point: UpDownPricePoint,
   conditionId: string,
   executions: Execution[],
-  nowMs: number,
+  _nowMs: number,
 ): SignalExecutionStatus {
   const m = point.metrics;
   const age = m?.signalAgeMs;

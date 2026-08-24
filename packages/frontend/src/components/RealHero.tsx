@@ -13,11 +13,6 @@ import { ModeHeroBalanceStat } from './ModeHeroBalanceStat';
 import { RealSnapshotDialog } from './RealSnapshotDialog';
 import { RealPeriodCloseDialog } from './RealPeriodCloseDialog';
 
-interface RealHeroRiskFlags {
-  realTradingEnabled: boolean;
-  realCopyTradingEnabled: boolean;
-}
-
 export function RealHero() {
   const creds = useClobCredentials();
   const { snapshot, refresh: refreshWallet } = useTradingWallet();

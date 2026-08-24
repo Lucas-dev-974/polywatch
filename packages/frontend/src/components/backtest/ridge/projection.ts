@@ -1,4 +1,4 @@
-import type { RidgeScale, EnrichedSeries, EnrichedPoint } from './types';
+import type { RidgeScale, EnrichedSeries } from './types';
 
 /** Point projeté en coordonnées pixel (prêt pour assemblage path). */
 export interface ProjectedPoint {

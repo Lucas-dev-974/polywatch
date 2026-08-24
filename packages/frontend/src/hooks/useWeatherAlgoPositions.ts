@@ -134,7 +134,6 @@ export function useWeatherAlgoPositions() {
       await api(`/copied-positions/${id}/close`, { method: 'POST' });
       await refresh();
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Failed to close weather position', id, err);
       throw err;
     }

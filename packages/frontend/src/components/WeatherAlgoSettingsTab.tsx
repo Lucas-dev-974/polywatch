@@ -13,7 +13,6 @@ import { CollapsibleSection } from './CollapsibleSection';
 export function WeatherAlgoSettingsTab() {
   const [config, setConfig] = createSignal<WeatherConfig | null>(null);
   const [saving, setSaving] = createSignal(false);
-  const [loaded, setLoaded] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
   async function loadConfig() {
@@ -23,7 +22,6 @@ export function WeatherAlgoSettingsTab() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Chargement impossible');
     }
-    setLoaded(true);
   }
 
   async function saveConfig() {

@@ -7,7 +7,6 @@ import {
   Show,
 } from 'solid-js';
 import { debounceFn } from '../lib/debounce';
-import { formatPnlAmount, pnlClass } from '../lib/position';
 import {
   compareMarkets,
   defaultSortDirForKey,
@@ -17,7 +16,6 @@ import {
 import {
   aggregateMarketAnalyticsTotals,
   fetchMarketAnalytics,
-  marketDisplayLabel,
   type MarketAnalyticsRow,
 } from '../lib/market-analytics';
 import { connectSocket } from '../socket';

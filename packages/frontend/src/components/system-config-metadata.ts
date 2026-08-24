@@ -443,7 +443,6 @@ export function groupSystemConfigEntries<
 
   const byGroup = new Map<string, T[]>();
   for (const entry of filtered) {
-    const cat = entry.category ?? 'other';
     const meta = getSystemConfigMeta(entry.key);
     const group = meta.group;
     const list = byGroup.get(group) ?? [];

@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js';
+import { For } from 'solid-js';
 import type { CompareAnalysisReportsResult } from '@polywatch/core';
 import { formatShortDateTime } from '../lib/date';
 

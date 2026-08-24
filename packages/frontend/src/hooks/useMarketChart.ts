@@ -105,7 +105,7 @@ export function useMarketChart(
   }
 
   createEffect(() => {
-    const _ = timeframe?.();
+    void timeframe?.();
     void reload();
   });
 

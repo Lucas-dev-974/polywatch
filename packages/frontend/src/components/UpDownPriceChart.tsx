@@ -8,7 +8,6 @@ import {
   formatUpDownChartTime,
   formatUpDownPriceCents,
   computePositionLevelThresholds,
-  interpolateOutcomePriceAtTime,
   bidToDisplayPrice,
   resolveLevelLabelYs,
   xPosFromTime,

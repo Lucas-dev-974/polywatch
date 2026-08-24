@@ -1,4 +1,4 @@
-import { createSignal, For, Show, type JSX } from 'solid-js';
+import { createSignal, Show, type JSX } from 'solid-js';
 import { useChartWidth } from '../hooks/useChartWidth';
 import { WeatherSeriesLegend } from './WeatherSeriesLegend';
 import type {

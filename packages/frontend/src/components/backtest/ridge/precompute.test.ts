@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { enrichSeries, clearEnrichCache } from './precompute';
 import type { BacktestMarketSeriesDto } from '../../../api';
 
@@ -223,7 +223,6 @@ describe('enrichSeries', () => {
   describe('§T4 — Invalidation du cache (zone d\'ombre Z1)', () => {
     it('même conditionId + même référence points → cache hit (même référence retournée)', () => {
       const dto = makeDto();
-      const pointsRef = dto.points; // même référence
 
       const enriched1 = enrichSeries(dto);
       const enriched2 = enrichSeries(dto);

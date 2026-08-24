@@ -1,11 +1,6 @@
 import type { BacktestMarketSeriesDto } from '../../../api';
 import type { EnrichedSeries, EnrichedPoint } from './types';
 
-interface BacktestMarketSeriesPoint {
-  t: string;
-  yesPrice: number | null;
-}
-
 // Cache simple en mémoire (module-level) — durée de vie = session de backtest.
 const enrichCache = new Map<string, EnrichedSeries>();
 

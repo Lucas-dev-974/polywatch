@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js';
+import { Show } from 'solid-js';
 import { formatCloseReasonBreakdown, type MarketAnalyticsRow } from '../lib/market-analytics';
 
 interface Props {

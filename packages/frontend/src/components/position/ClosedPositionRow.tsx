@@ -5,7 +5,6 @@ import { closeReasonTooltip, POSITION_TOOLTIPS } from '../../lib/position-toolti
 import {
   closeReasonBadgeClass,
   closeReasonLabel,
-  formatPnlPercent,
   investedAmount,
   pnlPercent,
   type Position,

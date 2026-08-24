@@ -3,7 +3,6 @@ import { fetchCopyConfig, updateCopyConfig } from '../api';
 import { debounceFn } from '../lib/debounce';
 import {
   fetchSimBalance,
-  fetchSimInitialCapital,
   type SimBalance,
   type SimAlgoKind,
 } from '../lib/simulation';
@@ -38,7 +37,6 @@ type Props = {
 
 export function SimHero(props: Props) {
   const [simBalance, setSimBalance] = createSignal<SimBalance | null>(null);
-  const [initialCapital, setInitialCapital] = createSignal<number | null>(null);
   const [snapshotOpen, setSnapshotOpen] = createSignal(false);
   const [resetDialogOpen, setResetDialogOpen] = createSignal(false);
   const [simExecSettingsOpen, setSimExecSettingsOpen] = createSignal(false);
@@ -75,18 +73,9 @@ export function SimHero(props: Props) {
     }
   }
 
-  async function loadInitialCapitalForAlgo(ak: SimAlgoKind) {
-    try {
-      setInitialCapital(await fetchSimInitialCapital(ak));
-    } catch {
-      setInitialCapital(null);
-    }
-  }
-
   onMount(() => {
     void loadRisk();
     void loadExecStats();
-    void loadInitialCapitalForAlgo(props.activeAlgo);
     const socket = connectSocket();
     const refreshBalance = debounceFn(() => void loadSimBalance(), BALANCE_REFRESH_DEBOUNCE_MS);
     const refreshExecStats = debounceFn(
@@ -144,7 +133,6 @@ export function SimHero(props: Props) {
     props.onAlgoChange(algo);
     setSimBalance(null);
     void loadSimBalance();
-    void loadInitialCapitalForAlgo(algo);
   }
 
   const balance = () => simBalance();

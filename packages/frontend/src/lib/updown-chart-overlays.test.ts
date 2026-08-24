@@ -17,7 +17,6 @@ import {
   PRICE_GAP_MARKER_THRESHOLD,
   SIGNAL_MARKER_MAX_AGE_MS,
   SIGNAL_MATCH_TOLERANCE_MS,
-  EXECUTION_GRACE_MS,
 } from './updown-chart-overlays';
 
 function point(

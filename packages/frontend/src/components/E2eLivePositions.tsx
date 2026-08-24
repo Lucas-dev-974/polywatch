@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { For, Show } from 'solid-js';
 import {
   type E2ePositionDto,
   formatPrice,

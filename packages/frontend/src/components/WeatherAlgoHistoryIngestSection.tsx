@@ -253,8 +253,6 @@ export function WeatherAlgoHistoryIngestSection(props: WeatherAlgoHistoryIngestS
   }
 
   async function handleDeleteInterval(city: string, fidelityMinutes: number) {
-    const key = city.toLowerCase();
-    const row = rowState()[key] ?? emptyRow();
     if (
       !confirm(
         `Supprimer toutes les données de ${city} à l'intervalle ${formatFidelityLabel(fidelityMinutes)} ?\n\n` +

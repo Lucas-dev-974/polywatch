@@ -73,28 +73,6 @@ export function EventsPanel(props: Props) {
     return `/algo/events?${params.toString()}`;
   }
 
-  async function load() {
-    const source = sourceFilter();
-    if (source === 'all' || source === 'copy') {
-      const data = await api<MoveEventsResponse>(buildCopyQuery());
-      setCopyEvents(data.items);
-    }
-    if (source === 'all' || source === 'algo') {
-      const data = await api<AlgoEventsResponse>(buildAlgoQuery());
-      setAlgoEvents(data.items);
-    }
-    // For simplicity, total tracks the union count (approx when mixed)
-    const copyTotal = source === 'copy'
-      ? copyEvents().length
-      : source === 'all'
-        ? (await api<MoveEventsResponse>(buildCopyQuery())).total
-        : 0;
-    const algoTotal = source === 'algo'
-      ? (await api<AlgoEventsResponse>(buildAlgoQuery())).total
-      : 0;
-    setTotal(source === 'copy' ? copyTotal : source === 'algo' ? algoTotal : copyTotal);
-  }
-
   // Simplified load for single source to avoid double-fetching
   async function loadSingleSource() {
     const source = sourceFilter();
@@ -177,14 +155,6 @@ export function EventsPanel(props: Props) {
       setClearing(false);
     }
   }
-
-  const currentEvents = () => {
-    const source = sourceFilter();
-    if (source === 'copy') return copyEvents();
-    if (source === 'algo') return algoEvents();
-    // 'all' — interleave or just show copy events first, then algo
-    return copyEvents();
-  };
 
   const emptyMessage = () => {
     const source = sourceFilter();

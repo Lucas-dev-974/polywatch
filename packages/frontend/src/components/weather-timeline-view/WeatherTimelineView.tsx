@@ -6,7 +6,6 @@ import {
 import { Dialog } from '../Dialog';
 import { SeriesChart } from '../WeatherSeriesChart';
 import type {
-  WeatherTimelineCityData,
   WeatherTimelineDateEntry,
   WeatherTimelineSource,
 } from '../weather-timeline-types';

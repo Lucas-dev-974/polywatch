@@ -3,7 +3,6 @@ import { SimulationSnapshotsPanel } from './SimulationSnapshotsPanel';
 import { RealSnapshotsPanel } from './RealSnapshotsPanel';
 import {
   SNAPSHOTS_PAGE_MODES,
-  type SnapshotsPageMode,
   UI_KEYS,
   usePersistedEnum,
 } from '../lib/ui-persistence';

@@ -5,7 +5,7 @@ import {
   type MarketSyncConfig,
 } from '../lib/market-sync-config';
 import { Dialog } from './Dialog';
-import { ToggleField, NumberField } from './settings-fields';
+import { NumberField } from './settings-fields';
 
 interface Props {
   open: boolean;

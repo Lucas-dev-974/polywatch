@@ -103,10 +103,6 @@ export function RealSnapshotsPanel() {
     void snap.removeSession(id, deleteSnapshots);
   }
 
-  function deleteSelectedSessions() {
-    void snap.deleteSelectedSessions();
-  }
-
   return (
     <>
       <section class="panel">

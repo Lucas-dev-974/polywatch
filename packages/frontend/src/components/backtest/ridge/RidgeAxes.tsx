@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js';
 import type { RidgeScale, VisibleVoie } from './types';
-import { MARGIN_TOP, VOIE_H } from './scale';
+import { VOIE_H } from './scale';
 
 const PAD_L = 8;
 const Y_AXIS_W = 148;

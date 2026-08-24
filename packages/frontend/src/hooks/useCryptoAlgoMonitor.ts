@@ -11,7 +11,6 @@ import type {
   CryptoAlgoMonitorLogEvent,
   CryptoAlgoMonitorRunResponse,
   CryptoAlgoMonitorSnapshot,
-  CryptoAlgoMonitorSnapshotEvent,
   CryptoAlgoMonitorStartRequest,
 } from '../lib/system-overview';
 

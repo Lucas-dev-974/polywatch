@@ -1,4 +1,4 @@
-import type { MarketMetricsDto, MarketTick } from '@polywatch/core/types';
+import type { MarketMetricsDto } from '@polywatch/core/types';
 
 import { api } from '../api';
 import { formatAdaptiveAmount } from './position';

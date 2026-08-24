@@ -1,5 +1,4 @@
 import { formatShortDateTime } from './date';
-import { formatCopySlippage, copySlippageClass } from './move-events';
 import type { AlgoEvent as CoreAlgoEvent, AlgoEventStatus } from '@polywatch/core/types';
 
 export type { AlgoEventStatus };

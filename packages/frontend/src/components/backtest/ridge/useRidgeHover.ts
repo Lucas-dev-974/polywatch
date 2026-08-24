@@ -1,5 +1,5 @@
 import { createMemo, createSignal, onCleanup } from 'solid-js';
-import type { BacktestMarketSeriesDto, BacktestPositionDto } from '../../../api';
+import type { BacktestMarketSeriesDto } from '../../../api';
 import type { RidgeScale, TooltipInfo, VoieGroup, EnrichedSeries, EnrichedPoint } from './types';
 import { MARGIN_TOP, VOIE_H } from './scale';
 import { bucketLabel } from './group';

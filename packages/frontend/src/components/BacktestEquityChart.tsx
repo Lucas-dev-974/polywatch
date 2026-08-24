@@ -5,7 +5,6 @@ import { formatAdaptiveAmount } from '../lib/position';
 import {
   CHART_CONFIG,
   type PlotLayout,
-  type Point,
   areaPath,
   computeLayout,
   extremeIndices,

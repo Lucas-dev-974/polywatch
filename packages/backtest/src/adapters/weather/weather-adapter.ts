@@ -376,8 +376,26 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       if (signal.city && this.exitManager.isReentryBlocked(signal.city, signal.targetDate.toISOString().slice(0, 10), ctx.clock.now(), risk, signal.strategyId)) continue;
 
       const cached = this.lastTickByCondition.get(signal.conditionId);
-      const yesPrice = cached?.tick.yesPrice;
+      // Utiliser le prix de DÉCISION de la stratégie (signal.marketPrice),
+      // pas le dernier tick du cache. `lastTickByCondition` peut porter un
+      // tick post-résolution (yesPrice ~0.0005) quand le signal a été émis
+      // plus tôt pendant que le marché était sain — le flush relirait alors
+      // un prix éphémère et ouvrirait une position fantôme à ~0.
+      const yesPrice = signal.marketPrice ?? cached?.tick.yesPrice;
       if (yesPrice == null) continue;
+      // Garde anti-entrée sur marché résolu (même règle que tryResolveByPrice) :
+      // un marché collé aux bornes (yesPrice <= 0.01 ou >= 0.99) est déjà résolu
+      // et ne doit plus recevoir de nouvelle position, même si le CLOB ne le
+      // signale pas encore (acceptingOrders/closed inchangés).
+      const cachedTick = cached?.tick;
+      if (cachedTick && (yesPrice <= 0.01 || yesPrice >= 0.99)) {
+        this.warnOnce(
+          ctx,
+          'entry_skipped_market_resolved',
+          `Entrée ignorée pour ${signal.conditionId} (${signal.city ?? '?'}) : marché déjà résolu (yesPrice=${yesPrice.toFixed(4)})`,
+        );
+        continue;
+      }
       if (!this.canEnter(ctx, ctx.params.entryUsdc, yesPrice, signal.strategyId)) continue;
 
       const fill = simulateWeatherEntryFill({

@@ -105,6 +105,7 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `markprice_stale_carry_forward` | `markPrice` confirmé à la dernière valeur connue car `tick.yesPrice` est null (garde défensive) |
 | `ghost_positions_forced_resolution` | Position(s) encore ouverte(s) en fin de run — résolution forcée (`BACKTEST_INCOMPLETE_DATA`) |
 | `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
+| `entry_skipped_market_resolved` | Entrée runner-sim ignorée car le marché est déjà résolu (`yesPrice <= 0.01` ou `>= 0.99`) — prix de décision du signal utilisé à la place du dernier tick du cache (corrige le fill fantôme post-résolution) |
 
 Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
 `maxExposure`, `maxDailyLoss` (+ `force_close_all` → `KILL_SWITCH`), cash insuffisant,

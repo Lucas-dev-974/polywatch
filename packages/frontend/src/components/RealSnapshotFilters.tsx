@@ -1,9 +1,9 @@
 import { SnapshotFilters } from './SnapshotFilters';
-import type { RealSnapshotListFilters } from '../lib/real-snapshots';
+import type { SnapshotFiltersShape } from '../hooks/useSnapshots';
 
 interface Props {
-  filters: RealSnapshotListFilters;
-  onSourceChange: (source: RealSnapshotListFilters['source']) => void;
+  filters: SnapshotFiltersShape;
+  onSourceChange: (source: string | undefined) => void;
   onLabelChange: (label: string) => void;
   onFromChange: (from: string) => void;
   onToChange: (to: string) => void;
@@ -19,7 +19,7 @@ export function RealSnapshotFilters(props: Props) {
         { value: 'auto', label: 'Automatique' },
         { value: 'rotate', label: 'Clôture période' },
       ]}
-      onSourceChange={(source) => props.onSourceChange(source as RealSnapshotListFilters['source'])}
+      onSourceChange={props.onSourceChange}
       onLabelChange={props.onLabelChange}
       onFromChange={props.onFromChange}
       onToChange={props.onToChange}

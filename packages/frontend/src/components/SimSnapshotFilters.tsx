@@ -1,9 +1,9 @@
 import { SnapshotFilters } from './SnapshotFilters';
-import type { SimulationSnapshotListFilters } from '../lib/simulation-snapshots';
+import type { SnapshotFiltersShape } from '../hooks/useSnapshots';
 
 interface Props {
-  filters: SimulationSnapshotListFilters;
-  onSourceChange: (source: SimulationSnapshotListFilters['source']) => void;
+  filters: SnapshotFiltersShape;
+  onSourceChange: (source: string | undefined) => void;
   onLabelChange: (label: string) => void;
   onFromChange: (from: string) => void;
   onToChange: (to: string) => void;
@@ -19,7 +19,7 @@ export function SimSnapshotFilters(props: Props) {
         { value: 'auto', label: 'Automatique' },
         { value: 'reset', label: 'Reset' },
       ]}
-      onSourceChange={(source) => props.onSourceChange(source as SimulationSnapshotListFilters['source'])}
+      onSourceChange={props.onSourceChange}
       onLabelChange={props.onLabelChange}
       onFromChange={props.onFromChange}
       onToChange={props.onToChange}

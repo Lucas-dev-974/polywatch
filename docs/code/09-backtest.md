@@ -112,10 +112,9 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
 ### `weather-adapter.ts`
 - Mode `reevaluate` : à chaque **`book_tick`**, reconstruit le contexte, filtre via
   `isMarketActiveForWeather` (`closed` / `acceptingOrders` / `tokenIdYes` /
-  `closeBeforeHours` sur horloge virtuelle), puis selon `backtestExecutionMode` :
-  - `strategy` (défaut) : `ClockedWeatherStrategy.evaluate` par bucket ;
-  - `runner-sim` : `runner-sim.ts` regroupe les ticks, `evaluateGroup`, dedup /
-    selectionMode (un `strategyId` forcé depuis les params UI).
+  `closeBeforeHours` sur horloge virtuelle), puis exécute en `runner-sim`
+  (uniquement) : `runner-sim.ts` regroupe les ticks, `evaluateGroup`, dedup /
+  selectionMode (un `strategyId` forcé depuis les params UI).
   Les events `forecast` mettent à jour le store (pas d'évaluation stratégie).
 - Mode `replay` : entre sur les décisions `signal` de `weather_evaluation_log`.
 - **Garde-fous** (les deux modes) : `maxExposure`, `maxDailyLoss` (+

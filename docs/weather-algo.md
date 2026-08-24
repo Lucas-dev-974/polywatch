@@ -204,10 +204,7 @@ Depuis l'onglet **Villes**, la section **Données télécharger** permet de char
 
 Doc API : [`api.md`](./api.md) § Weather Algo history. Modèle : [`modele-donnees.md`](./modele-donnees.md).
 
-Le **backtest** supporte deux modes d'exécution (`backtestExecutionMode`) :
-- **`strategy`** : ré-évalue bucket par bucket (rapide, non équivalent live) ;
-- **`runner-sim`** : regroupe les buckets par ville/date, `evaluateGroup`, dedup
-  et selectionMode comme le runner live.
+Le **backtest** s'exécute désormais uniquement en **`runner-sim`** (consolidation 2026-08-24) : regroupement des buckets par ville/date, `evaluateGroup`, dedup et selectionMode comme le runner live. Le mode `strategy` (ré-évaluation bucket par bucket, non équivalent live) a été retiré du moteur ; le champ `backtestExecutionMode` reste accepté par le schéma pour rétro-compat API mais est **ignoré**.
 
 Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.5.0` — garde-fous risk résolus par stratégie).
 

@@ -8,7 +8,7 @@ export const backtestRunParamsSchema = z
     to: z.string().datetime({ offset: true }),
     cities: z.array(z.string()).optional(),
     strategyId: z.string().optional().default('weather-forecast'),
-    backtestExecutionMode: z.enum(['strategy', 'runner-sim']).default('strategy'),
+    backtestExecutionMode: z.enum(['strategy', 'runner-sim']).default('runner-sim'),
     configOverrides: z.record(z.unknown()).optional(),
     capital: z.number().positive().default(1000),
     entryUsdc: z.number().positive().optional(),

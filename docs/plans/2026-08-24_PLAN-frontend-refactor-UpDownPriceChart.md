@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-24
 **Auteur** : Assistant IA
-**Statut** : ⏳ **Proposé** — non implémenté
+**Statut** : ✅ **Implémenté** (commit `9e2d014`) — vérifié 2026-08-24
 **Référence** : [`docs/audits/2026-08-24_audit-frontend-architecture-taille.md`](../audits/2026-08-24_audit-frontend-architecture-taille.md) — Proposition A
 **Type** : architecture / maintenabilité
 

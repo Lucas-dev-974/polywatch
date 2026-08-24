@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-24
 **Auteur** : Assistant IA
-**Statut** : ⏳ **Proposé** — non implémenté
+**Statut** : ✅ **Implémenté** (commit `9aa66f0` + `9108578`) — vérifié 2026-08-24
 **Référence** : [`docs/audits/2026-08-24_audit-frontend-architecture-taille.md`](../audits/2026-08-24_audit-frontend-architecture-taille.md) — Proposition 4
 **Type** : refactor lib pure (quick win sans risque)
 

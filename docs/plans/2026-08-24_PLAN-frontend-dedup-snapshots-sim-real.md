@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-24
 **Auteur** : Assistant IA
-**Statut** : ⏳ **Proposé** — non implémenté
+**Statut** : ✅ **Implémenté** (commits `eba1c6b`, `3bf8bb4`, `0e49a71`) — vérifié 2026-08-24
 **Référence** : [`docs/audits/2026-08-24_audit-frontend-architecture-taille.md`](../audits/2026-08-24_audit-frontend-architecture-taille.md) — Proposition B
 **Type** : dé-duplication (le plus gros gisement du frontend)
 

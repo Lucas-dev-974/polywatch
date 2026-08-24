@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-24
 **Auteur** : Assistant IA
-**Statut** : ⏳ **Proposé** — non implémenté
+**Statut** : ⛔ **Annulé** — migration scriptée a corrompu les imports (2026-08-24)
 **Référence** : [`docs/audits/2026-08-24_audit-frontend-architecture-taille.md`](../audits/2026-08-24_audit-frontend-architecture-taille.md) — Proposition 5
 **Type** : architecture / navigabilité
 

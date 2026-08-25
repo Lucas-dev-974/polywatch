@@ -21,6 +21,29 @@ const NULLABLE_PARAM_KEYS = new Set([
   'trailingActivationPercent',
 ]);
 
+/** Paramètres stockés en millisecondes — affichés et saisis en minutes. */
+const DURATION_MS_KEYS = new Set([
+  'reentryThrottleMs',
+  'reentryThrottleAfterSlMs',
+  'entryDepthRetryDelayMs',
+]);
+
+function isDurationMsParam(key: string): boolean {
+  return DURATION_MS_KEYS.has(key);
+}
+
+function msToMin(ms: number): number {
+  return ms / 60_000;
+}
+
+function minToMs(min: number): number {
+  return min * 60_000;
+}
+
+function durationLabel(label: string): string {
+  return label.replace(/\s*\(ms\)\s*$/i, ' (min)');
+}
+
 /** Regroupement logique des paramètres pour un affichage professionnel. */
 const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
   {
@@ -239,21 +262,45 @@ export function WeatherAlgoStrategiesTab() {
                                                 when={NULLABLE_PARAM_KEYS.has(param.key)}
                                                 fallback={
                                                   <NumberField
-                                                    label={param.label}
-                                                    value={Number(
-                                                      (c().weatherAlgoStrategyParams?.[
-                                                        activeStrategy()!.id
-                                                      ] ?? {})[param.key] ?? param.default,
-                                                    )}
-                                                    min={param.min}
-                                                    max={param.max}
-                                                    step={param.step ?? 0.01}
+                                                    label={durationLabel(param.label)}
+                                                    value={
+                                                      isDurationMsParam(param.key)
+                                                        ? msToMin(
+                                                            Number(
+                                                              (c().weatherAlgoStrategyParams?.[
+                                                                activeStrategy()!.id
+                                                              ] ?? {})[param.key] ?? param.default,
+                                                            ),
+                                                          )
+                                                        : Number(
+                                                            (c().weatherAlgoStrategyParams?.[
+                                                              activeStrategy()!.id
+                                                            ] ?? {})[param.key] ?? param.default,
+                                                          )
+                                                    }
+                                                    min={
+                                                      isDurationMsParam(param.key) && param.min != null
+                                                        ? msToMin(param.min)
+                                                        : param.min
+                                                    }
+                                                    max={
+                                                      isDurationMsParam(param.key) && param.max != null
+                                                        ? msToMin(param.max)
+                                                        : param.max
+                                                    }
+                                                    step={
+                                                      isDurationMsParam(param.key) && param.step != null
+                                                        ? msToMin(param.step)
+                                                        : (param.step ?? 0.01)
+                                                    }
                                                     hint={param.hint}
                                                     onChange={(value) =>
                                                       updateStrategyParam(
                                                         activeStrategy()!.id,
                                                         param.key,
-                                                        value,
+                                                        isDurationMsParam(param.key)
+                                                          ? minToMs(value)
+                                                          : value,
                                                       )
                                                     }
                                                   />

@@ -95,7 +95,12 @@ export function WeatherAlgoBacktestTab() {
   // Seuil de prix YES moyen (0..100) partagé entre le fetch backend et le ridge
   // chart. Le backend applique le filtre (HAVING AVG(yesPrice) > seuil) pour
   // réduire le payload ; le chart l'utilise pour le groupement local.
-  const [minAvgYes, setMinAvgYes] = createSignal<number>(20);
+  const [minAvgYes, setMinAvgYes] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestRidgeMinAvgYes,
+    20,
+    (value): value is number =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100,
+  );
   const [detailError, setDetailError] = createSignal<string | null>(null);
 
   // ── Ridge plot live (toutes les données marché) ───────────────────────

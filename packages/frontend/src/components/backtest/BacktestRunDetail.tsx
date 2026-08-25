@@ -1,4 +1,4 @@
-import { Show } from 'solid-js';
+import { Show, createSignal } from 'solid-js';
 import type { Signal } from 'solid-js';
 import type {
   BacktestEquityPointDto,
@@ -9,10 +9,13 @@ import type {
 } from '../../api';
 import { BacktestEquityChart } from '../BacktestEquityChart';
 import { CollapsibleSection } from '../CollapsibleSection';
+import { Icon } from '../Icon';
 import { BacktestFidelityWarnings } from './BacktestFidelityWarnings';
+import { BacktestMarketsFallback } from './BacktestMarketsFallback';
 import { BacktestMarketRidgeChart } from './BacktestMarketRidgeChart';
 import { BacktestMetrics } from './BacktestMetrics';
 import { BacktestPositionsTable } from './BacktestPositionsTable';
+import { BacktestRidgeFullscreenDialog } from './BacktestRidgeFullscreenDialog';
 import { formatTs } from './format';
 
 interface BacktestRunDetailProps {
@@ -48,6 +51,9 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
     const t = props.run.params?.to;
     return typeof t === 'string' ? t : null;
   };
+  const [ridgeFullscreen, setRidgeFullscreen] = createSignal(false);
+  const marketsTitle = () =>
+    `Marchés parcourus (${marketsBusy() && props.marketSeries.length === 0 ? '…' : props.marketTotal})`;
 
   return (
     <div class="backtest-detail">
@@ -126,37 +132,58 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
 
       <Show when={runFrom() && runTo()}>
         <CollapsibleSection
-          title={`Marchés parcourus (${marketsBusy() && props.marketSeries.length === 0 ? '…' : props.marketTotal})`}
+          title={marketsTitle()}
           defaultCollapsed={false}
           persistKey="backtest-detail-markets"
           headerActions={
-            <Show when={marketsBusy() && props.marketSeries.length === 0}>
-              <span class="backtest-detail-header-loader" aria-label="Chargement des marchés">
-                <span class="backtest-detail-header-loader-spinner" aria-hidden="true" />
-              </span>
-            </Show>
+            <>
+              <Show when={marketsBusy() && props.marketSeries.length === 0}>
+                <span class="backtest-detail-header-loader" aria-label="Chargement des marchés">
+                  <span class="backtest-detail-header-loader-spinner" aria-hidden="true" />
+                </span>
+              </Show>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm backtest-ridge-fullscreen-btn"
+                title="Ouvrir le graphique en plein écran"
+                aria-label="Ouvrir le graphique Marchés parcourus en plein écran"
+                onClick={() => setRidgeFullscreen(true)}
+              >
+                <Icon name="maximize" size={14} />
+                <span>Plein écran</span>
+              </button>
+            </>
           }
         >
-          <Show
-            when={props.marketSeries.length > 0}
-            fallback={
-              <p class="form-hint">
-                {marketsBusy()
-                  ? 'Chargement des marchés…'
-                  : 'Aucun marché parcouru sur cette plage.'}
-              </p>
-            }
-          >
-            <BacktestMarketRidgeChart
-              series={props.marketSeries}
-              positions={props.positions}
-              excludedTicks={props.excludedTicks}
-              from={runFrom()!}
-              to={runTo()!}
-              minAvgYes={props.minAvgYes}
-            />
+          <Show when={!ridgeFullscreen()}>
+            <Show
+              when={props.marketSeries.length > 0}
+              fallback={<BacktestMarketsFallback busy={marketsBusy()} />}
+            >
+              <BacktestMarketRidgeChart
+                series={props.marketSeries}
+                positions={props.positions}
+                excludedTicks={props.excludedTicks}
+                from={runFrom()!}
+                to={runTo()!}
+                minAvgYes={props.minAvgYes}
+              />
+            </Show>
           </Show>
         </CollapsibleSection>
+        <Show when={ridgeFullscreen()}>
+          <BacktestRidgeFullscreenDialog
+            series={props.marketSeries}
+            positions={props.positions}
+            excludedTicks={props.excludedTicks}
+            from={runFrom()!}
+            to={runTo()!}
+            minAvgYes={props.minAvgYes}
+            title={marketsTitle()}
+            marketsBusy={marketsBusy()}
+            onClose={() => setRidgeFullscreen(false)}
+          />
+        </Show>
       </Show>
 
       <Show when={props.run.fidelityWarnings && props.run.fidelityWarnings.length > 0}>

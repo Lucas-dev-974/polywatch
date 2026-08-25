@@ -120,6 +120,9 @@ export type WeatherAlgoDataTableId = (typeof WEATHER_ALGO_DATA_TABLE_IDS)[number
 
 export const WEATHER_ALGO_TIMELINE_MAX_TICKS = [500, 2000, 5000] as const;
 
+/** Options « Derniers ticks » du ridge plot backtest (0 = tous). */
+export const BACKTEST_RIDGE_MAX_TICKS = [0, 25, 50, 100, 200] as const;
+
 export const POSITION_TABS = ['open', 'redemption', 'failed', 'history'] as const;
 
 export const POSITION_LIST_LAYOUTS = ['flat', 'split'] as const;
@@ -169,6 +172,13 @@ export const UI_KEYS = {
   weatherAlgoClobTimelineFidelity: 'polywatch_weather_algo_clob_timeline_fidelity',
   weatherAlgoBacktestSelectedId: 'polywatch_weather_algo_backtest_selected_id',
   weatherAlgoBacktestPage: 'polywatch_weather_algo_backtest_page',
+  weatherAlgoBacktestRidgeTargetDate: 'polywatch_weather_algo_backtest_ridge_target_date',
+  weatherAlgoBacktestRidgeMaxTicks: 'polywatch_weather_algo_backtest_ridge_max_ticks',
+  weatherAlgoBacktestRidgeCutGaps: 'polywatch_weather_algo_backtest_ridge_cut_gaps',
+  weatherAlgoBacktestRidgeMinAvgYes: 'polywatch_weather_algo_backtest_ridge_min_avg_yes',
+  weatherAlgoBacktestRidgeShowEntryExit: 'polywatch_weather_algo_backtest_ridge_show_entry_exit',
+  weatherAlgoBacktestRidgeShowExcluded: 'polywatch_weather_algo_backtest_ridge_show_excluded',
+  weatherAlgoBacktestRidgePlayerEnabled: 'polywatch_weather_algo_backtest_ridge_player_enabled',
   positionsTab: (mode: UiMode) => `polywatch_positions_tab_${mode}`,
   positionsListLayout: (mode: UiMode) => `polywatch_positions_list_layout_${mode}`,
   positionsMarketNavWidth: (mode: UiMode) =>

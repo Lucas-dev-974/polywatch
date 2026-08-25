@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js';
 import type { Signal } from 'solid-js';
+import { BACKTEST_RIDGE_MAX_TICKS } from '../../../lib/ui-persistence';
 
 /**
  * Toolbar du ridge plot : filtres (date cible, derniers ticks, coupure des
@@ -50,11 +51,9 @@ export function RidgeToolbar(props: {
             value={maxTicks()}
             onChange={(e) => setMaxTicks(Number(e.currentTarget.value))}
           >
-            <option value="0">Tous</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
+            <For each={BACKTEST_RIDGE_MAX_TICKS}>
+              {(n) => <option value={n}>{n === 0 ? 'Tous' : n}</option>}
+            </For>
           </select>
         </label>
         <label class="backtest-ridge-filter">

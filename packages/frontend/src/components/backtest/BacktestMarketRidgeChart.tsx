@@ -1,8 +1,13 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
-import type { Setter, Signal } from 'solid-js';
+import type { Signal } from 'solid-js';
 import type { BacktestMarketSeriesDto, BacktestPositionDto, BacktestExcludedTickDto } from '../../api';
 import { useChartWidth } from '../../hooks/useChartWidth';
 import { buildChartXTicks } from '../../lib/updown-price-chart';
+import {
+  BACKTEST_RIDGE_MAX_TICKS,
+  UI_KEYS,
+  usePersistedSignal,
+} from '../../lib/ui-persistence';
 import { usePanZoomViewport } from './usePanZoomViewport';
 import { groupVoies } from './ridge/group';
 import { buildRidgeScale, MARGIN_TOP, VOIE_H } from './ridge/scale';
@@ -28,8 +33,8 @@ export function BacktestMarketRidgeChart(props: {
   from: string;
   to: string;
   enablePlayer?: boolean;
-  /** Signal contrôlé du seuil de prix YES moyen (0..100). Si fourni, remplace le signal interne. */
-  minAvgYes?: Signal<number>;
+  /** Signal contrôlé du seuil de prix YES moyen (0..100), partagé avec le fetch backend. */
+  minAvgYes: Signal<number>;
 }) {
   const runFrom = () => Date.parse(props.from);
   const runTo = () => Date.parse(props.to);
@@ -37,27 +42,45 @@ export function BacktestMarketRidgeChart(props: {
   // Le player est activé par défaut ; le panel live le désactive explicitement.
   const enablePlayer = () => props.enablePlayer !== false;
   // Checkbox d'activation/désactivation du player dans la toolbar.
-  const [playerEnabled, setPlayerEnabled] = createSignal<boolean>(true);
+  const [playerEnabled, setPlayerEnabled] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestRidgePlayerEnabled,
+    true,
+    isBoolean,
+  );
   // Le player est actif si disponible ET activé par la checkbox.
   const playerActive = () => enablePlayer() && playerEnabled();
 
-  const [targetDateFilter, setTargetDateFilter] = createSignal<string>('all');
-  const [maxTicks, setMaxTicks] = createSignal<number>(0);
-  const [cutGaps, setCutGaps] = createSignal<boolean>(true);
+  const [targetDateFilter, setTargetDateFilter] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestRidgeTargetDate,
+    'all',
+    (value): value is string => typeof value === 'string',
+  );
+  const [maxTicks, setMaxTicks] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestRidgeMaxTicks,
+    0,
+    (value): value is number =>
+      typeof value === 'number' &&
+      (BACKTEST_RIDGE_MAX_TICKS as readonly number[]).includes(value),
+  );
+  const [cutGaps, setCutGaps] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestRidgeCutGaps,
+    true,
+    isBoolean,
+  );
   // Seuil de prix YES moyen (en %, 0 = aucun filtre) pour retenir les buckets.
-  // Contrôlé par le parent quand `props.minAvgYes` est fourni (le fetch backend
-  // applique le même seuil), sinon signal interne (panel live).
-  const [internalMinAvgYes, setInternalMinAvgYes] = createSignal<number>(20);
-  const minAvgYes = () => props.minAvgYes?.[0]() ?? internalMinAvgYes();
-  const setMinAvgYes: Setter<number> = (v) => {
-    const next: number = typeof v === 'function' ? v(minAvgYes()) : v;
-    if (props.minAvgYes) props.minAvgYes[1](next);
-    else setInternalMinAvgYes(next);
-  };
+  const [minAvgYes, setMinAvgYes] = props.minAvgYes;
   // true = points d'entrée/sortie au survol uniquement ; false = en permanence.
-  const [showEntryExit, setShowEntryExit] = createSignal<boolean>(true);
+  const [showEntryExit, setShowEntryExit] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestRidgeShowEntryExit,
+    true,
+    isBoolean,
+  );
   // Tracer vertical des ticks exclus.
-  const [showExcluded, setShowExcluded] = createSignal<boolean>(true);
+  const [showExcluded, setShowExcluded] = usePersistedSignal(
+    UI_KEYS.weatherAlgoBacktestRidgeShowExcluded,
+    true,
+    isBoolean,
+  );
 
   const excludedTs = createMemo<number[]>(() =>
     (props.excludedTicks ?? [])
@@ -75,9 +98,16 @@ export function BacktestMarketRidgeChart(props: {
     return [...set].filter((d) => d !== '_').sort();
   });
 
+  // Date persistée absente de ce run → « Toutes », sans écraser la préférence.
+  const effectiveTargetDate = createMemo(() => {
+    const filter = targetDateFilter();
+    if (filter === 'all') return 'all';
+    return targetDates().includes(filter) ? filter : 'all';
+  });
+
   const voies = createMemo(() => {
     const groups = allGroups();
-    const filter = targetDateFilter();
+    const filter = effectiveTargetDate();
     if (filter === 'all') return groups;
     return groups.filter((g) => g.date === filter);
   });
@@ -305,7 +335,7 @@ export function BacktestMarketRidgeChart(props: {
     <div class="backtest-ridge-plot" ref={setRootEl}>
       <RidgeToolbar
         targetDates={targetDates()}
-        targetDateFilter={[targetDateFilter, setTargetDateFilter]}
+        targetDateFilter={[effectiveTargetDate, setTargetDateFilter]}
         maxTicks={[maxTicks, setMaxTicks]}
         cutGaps={[cutGaps, setCutGaps]}
         minAvgYes={[minAvgYes, setMinAvgYes]}
@@ -435,4 +465,8 @@ export function BacktestMarketRidgeChart(props: {
       </Show>
     </div>
   );
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
 }

@@ -10,6 +10,8 @@ interface DialogProps {
   titleId: string;
   class?: string;
   bodyClass?: string;
+  /** Overlay + dialog occupy the full viewport (no margin, no radius). */
+  fullscreen?: boolean;
   headerExtra?: JSX.Element;
   children: JSX.Element;
 }
@@ -21,13 +23,17 @@ export function Dialog(props: DialogProps) {
     <Portal>
       <div
         class="dialog-overlay"
-        classList={{ 'is-open': props.open }}
+        classList={{
+          'is-open': props.open,
+          'dialog-overlay--fullscreen': !!props.fullscreen,
+        }}
         onClick={(e) => {
           if (e.target === e.currentTarget) props.onClose();
         }}
       >
         <div
           class={`dialog ${props.class ?? ''}`.trim()}
+          classList={{ 'dialog--fullscreen': !!props.fullscreen }}
           role="dialog"
           aria-modal="true"
           aria-hidden={!props.open}

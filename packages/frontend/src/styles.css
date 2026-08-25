@@ -2340,6 +2340,12 @@ body {
   pointer-events: auto;
 }
 
+.dialog-overlay.dialog-overlay--fullscreen {
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
 .dialog {
   display: flex;
   flex-direction: column;
@@ -2359,6 +2365,19 @@ body {
 
 .dialog-overlay.is-open .dialog {
   transform: translateY(0);
+}
+
+.dialog.dialog--fullscreen {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  transform: none;
+}
+
+.dialog-overlay.is-open .dialog.dialog--fullscreen {
+  transform: none;
 }
 
 .dialog-header {
@@ -12316,6 +12335,28 @@ body.is-resizing-columns .position-market-split-handle::after {
   stroke-width: 2;
   stroke-dasharray: 4 3;
   pointer-events: none;
+}
+
+.backtest-ridge-fullscreen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.dialog-body-backtest-ridge-fullscreen {
+  padding: 0.75rem 1rem 1rem;
+  overflow: hidden;
+}
+
+.dialog-body-backtest-ridge-fullscreen .backtest-ridge-plot {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.dialog-body-backtest-ridge-fullscreen .backtest-ridge-scroll {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
 }
 
 .backtest-ridge-now-label {

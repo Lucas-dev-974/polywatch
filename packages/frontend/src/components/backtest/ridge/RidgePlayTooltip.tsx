@@ -31,6 +31,7 @@ export function RidgePlayTooltip(props: RidgePlayTooltipProps) {
               <span class={`ridge-play-tooltip-side ${sideClass}`}>{p.side}</span>
               <span class="ridge-play-tooltip-city">{p.city ?? '—'}</span>
             </div>
+            <div class="ridge-play-tooltip-id">Position #{p.id}</div>
             <div class="ridge-play-tooltip-cond">{p.conditionId.slice(0, 20)}…</div>
 
             <div class="ridge-play-tooltip-pnl-row">

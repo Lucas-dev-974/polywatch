@@ -39,6 +39,8 @@ export function RidgeTooltip(props: { info: TooltipInfo | null }) {
                     <div class="backtest-ridge-tooltip-pos-row">
                       <span class="backtest-ridge-legend-swatch" style={{ '--ridge-color': b.color }} />
                       <dl class="backtest-ridge-tooltip-grid">
+                        <dt>Position</dt>
+                        <dd>#{b.position!.id}</dd>
                         <dt>Côté</dt>
                         <dd>{b.position!.side}</dd>
                         <dt>Qté</dt>

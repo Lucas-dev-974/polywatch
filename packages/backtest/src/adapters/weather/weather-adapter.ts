@@ -44,6 +44,19 @@ function resolvedExitMeta(risk: WeatherConfig, strategyId?: string | null): Reco
 }
 
 /**
+ * Les ticks d'un même poll sont souvent horodatés à quelques ms d'écart
+ * (`Date.now()` par marché). Un flush à chaque changement de timestamp
+ * ouvre la position, puis le tick suivant (10–20 ms) la ferme (RESOLUTION/SL) :
+ * le tooltip affiche la même seconde et « 0 min ».
+ */
+const RUNNER_SIM_BATCH_COALESCE_MS = 1_000;
+
+/** Écart max (prix YES) entre le prix de décision et le tick courant au flush.
+ * Au-delà, le signal est périmé (ex. ré-entrée fillée à 0.58 sur un marché à 0.98)
+ * et le marker d'entrée flotterait hors de la courbe. */
+const STALE_DECISION_PRICE_DELTA = 0.10;
+
+/**
  * Weather backtest adapter.
  *
  * - reevaluate mode: on each book_tick, reconstruct the market + forecast
@@ -57,7 +70,10 @@ function resolvedExitMeta(risk: WeatherConfig, strategyId?: string | null): Reco
 export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   private runnerSimStrategies: ClockedWeatherStrategy[] = [];
   private readonly bucketGroupStore = new BucketGroupStore();
-  private pendingRunnerSimSignals: WeatherSignal[] = [];
+  /** Signaux runner-sim en attente de flush, avec le timestamp de décision
+   * (le `at` du tick qui a généré le signal). Utilisé comme `entryAt` au flush
+   * pour ne pas rétrodater l'entrée au timestamp du flush. */
+  private pendingRunnerSimSignals: { signal: WeatherSignal; decidedAt: Date }[] = [];
   private lastRunnerSimBatchAt: number | null = null;
   private exitManager: WeatherExitManager;
   private forecastStore = new ForecastRevisionStore();
@@ -231,6 +247,19 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     return true;
   }
 
+  /** True si le tick courant déclencherait le SL au moment même de l'entrée. */
+  private isImmediateStopLoss(
+    currentYes: number | null | undefined,
+    fill: { qty: number; entryPrice: number; fees: number },
+    slPercent: number | null,
+  ): boolean {
+    if (currentYes == null || slPercent == null || slPercent <= 0 || fill.qty <= 0) return false;
+    const costBasis = fill.entryPrice + fill.fees / fill.qty;
+    if (costBasis <= 0) return false;
+    const closurePnl = ((currentYes - costBasis) / costBasis) * 100;
+    return closurePnl <= -slPercent + 1e-9;
+  }
+
   /**
    * Close positions when their owning strategy's kill-switch is triggered.
    * Iterates per-position with the position's own bag, mirroring live behaviour
@@ -251,19 +280,19 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     }
 
     const firedStrategies: string[] = [];
-        const blockedStrategies: string[] = [];
-        for (const [strategyId, _positions] of positionsByStrategy) {
-          const bag = strategyId
-            ? getStrategyParams(ctx.configSnapshot, strategyId)
-            : this.bag;
-          if (!this.isDailyLossBreached(ctx, strategyId)) continue;
-          const action = bag.killSwitchAction;
-          if (action !== 'force_close_all') {
-            blockedStrategies.push(`${strategyId ?? 'default'}:${action}`);
-            continue;
-          }
-          firedStrategies.push(strategyId ?? 'default');
-        }
+    const blockedStrategies: string[] = [];
+    for (const [strategyId, _positions] of positionsByStrategy) {
+      const bag = strategyId
+        ? getStrategyParams(ctx.configSnapshot, strategyId)
+        : this.bag;
+      if (!this.isDailyLossBreached(ctx, strategyId)) continue;
+      const action = bag.killSwitchAction;
+      if (action !== 'force_close_all') {
+        blockedStrategies.push(`${strategyId ?? 'default'}:${action}`);
+        continue;
+      }
+      firedStrategies.push(strategyId ?? 'default');
+    }
 
     if (firedStrategies.length === 0 && blockedStrategies.length === 0) return;
 
@@ -350,7 +379,15 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     if (this.pendingRunnerSimSignals.length === 0) return;
 
     const risk = ctx.configSnapshot;
-    const selected = selectRunnerSimSignals(this.pendingRunnerSimSignals, risk);
+    // Déballer les signaux pour la sélection (qui retourne des références
+    // d'origine, pas des clones), puis re-pairer le decidedAt par conditionId.
+    const selected = selectRunnerSimSignals(
+      this.pendingRunnerSimSignals.map((x) => x.signal),
+      risk,
+    );
+    const decidedByCondition = new Map(
+      this.pendingRunnerSimSignals.map((x) => [x.signal.conditionId, x.decidedAt]),
+    );
     this.pendingRunnerSimSignals = [];
 
     const seenCityDates = new Map<string, number>();
@@ -376,38 +413,55 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       if (signal.city && this.exitManager.isReentryBlocked(signal.city, signal.targetDate.toISOString().slice(0, 10), ctx.clock.now(), risk, signal.strategyId)) continue;
 
       const cached = this.lastTickByCondition.get(signal.conditionId);
-      // Utiliser le prix de DÉCISION de la stratégie (signal.marketPrice),
-      // pas le dernier tick du cache. `lastTickByCondition` peut porter un
-      // tick post-résolution (yesPrice ~0.0005) quand le signal a été émis
-      // plus tôt pendant que le marché était sain — le flush relirait alors
-      // un prix éphémère et ouvrirait une position fantôme à ~0.
-      const yesPrice = signal.marketPrice ?? cached?.tick.yesPrice;
-      if (yesPrice == null) continue;
-      // Garde anti-entrée sur marché résolu (même règle que tryResolveByPrice) :
-      // un marché collé aux bornes (yesPrice <= 0.01 ou >= 0.99) est déjà résolu
-      // et ne doit plus recevoir de nouvelle position, même si le CLOB ne le
-      // signale pas encore (acceptingOrders/closed inchangés).
-      const cachedTick = cached?.tick;
-      if (cachedTick && (yesPrice <= 0.01 || yesPrice >= 0.99)) {
+      // Fill au prix de DÉCISION (signal.marketPrice). Le cache peut porter un
+      // tick post-résolution (~0.0005) si le signal a été émis plus tôt.
+      const decisionPrice = signal.marketPrice ?? cached?.tick.yesPrice;
+      if (decisionPrice == null) continue;
+      // La garde anti-marché-résolu doit lire le tick COURANT, pas le prix de
+      // décision. Sinon un signal émis à 0.60 est flushé sur un tick déjà à
+      // 0.99 et la position s'ouvre puis se résout 10 ms plus tard.
+      const currentPrice = cached?.tick.yesPrice;
+      if (currentPrice != null && (currentPrice <= 0.01 || currentPrice >= 0.99)) {
         this.warnOnce(
           ctx,
           'entry_skipped_market_resolved',
-          `Entrée ignorée pour ${signal.conditionId} (${signal.city ?? '?'}) : marché déjà résolu (yesPrice=${yesPrice.toFixed(4)})`,
+          `Entrée ignorée pour ${signal.conditionId} (${signal.city ?? '?'}) : marché déjà résolu (yesPrice=${currentPrice.toFixed(4)})`,
         );
         continue;
       }
-      if (!this.canEnter(ctx, ctx.params.entryUsdc, yesPrice, signal.strategyId)) continue;
+      if (
+        currentPrice != null &&
+        Math.abs(currentPrice - decisionPrice) > STALE_DECISION_PRICE_DELTA
+      ) {
+        this.warnOnce(
+          ctx,
+          'entry_skipped_stale_price',
+          `Entrée ignorée pour ${signal.conditionId} (${signal.city ?? '?'}) : prix de décision (${decisionPrice.toFixed(4)}) trop éloigné du tick courant (${currentPrice.toFixed(4)})`,
+        );
+        continue;
+      }
+      if (!this.canEnter(ctx, ctx.params.entryUsdc, decisionPrice, signal.strategyId)) continue;
 
       const fill = simulateWeatherEntryFill({
         conditionId: signal.conditionId,
-        yesPrice,
+        yesPrice: decisionPrice,
         entryUsdc: ctx.params.entryUsdc,
         slippageBps: ctx.params.slippageBps,
         maxPositionSizeUsdc: signalBag.maxPositionSizeUsdc,
         sizingMode: signalBag.sizingMode,
         fixedShareCount: signalBag.fixedShareCount,
       });
-      this.noteFillClampedIfNeeded(ctx, yesPrice, true);
+      this.noteFillClampedIfNeeded(ctx, decisionPrice, true);
+
+      const exitMeta = resolvedExitMeta(risk, signal.strategyId);
+      if (this.isImmediateStopLoss(currentPrice, fill, exitMeta.slPercent)) {
+        this.warnOnce(
+          ctx,
+          'entry_skipped_immediate_sl',
+          `Entrée ignorée pour ${signal.conditionId} (${signal.city ?? '?'}) : le tick courant déclencherait le SL immédiatement`,
+        );
+        continue;
+      }
 
       ctx.ledger.openPosition({
         conditionId: signal.conditionId,
@@ -415,7 +469,11 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         targetDateIso: signal.targetDate ? signal.targetDate.toISOString().slice(0, 10) : null,
         qty: fill.qty,
         entryPrice: fill.entryPrice,
-        entryAt: ctx.clock.now(),
+        // Horodater l'entrée à la DÉCISION (le tick qui a généré le signal),
+        // pas au flush. Sans ça, une position décidée à T1 mais flushée à T2
+        // serait rétrodatée à T2 et pourrait être fermée au même timestamp
+        // (entryAt === exitAt, holding 0).
+        entryAt: decidedByCondition.get(signal.conditionId) ?? ctx.clock.now(),
         fees: fill.fees,
         entryReason: 'signal',
         meta: {
@@ -426,7 +484,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           entryBucketComparison: signal.entryBucketComparison ?? null,
           entryBucketBounds: signal.entryBucketBounds ?? null,
           detailReasons: signal.reasons.join(' | '),
-          ...resolvedExitMeta(risk, signal.strategyId),
+          ...exitMeta,
         },
       });
 
@@ -440,10 +498,15 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     ctx: RunContext,
   ): Promise<void> {
     const batchAt = at.getTime();
-    if (this.lastRunnerSimBatchAt != null && batchAt !== this.lastRunnerSimBatchAt) {
+    if (
+      this.lastRunnerSimBatchAt != null &&
+      Math.abs(batchAt - this.lastRunnerSimBatchAt) > RUNNER_SIM_BATCH_COALESCE_MS
+    ) {
       await this.flushPendingRunnerSimSignals(ctx);
+      this.lastRunnerSimBatchAt = batchAt;
+    } else if (this.lastRunnerSimBatchAt == null) {
+      this.lastRunnerSimBatchAt = batchAt;
     }
-    this.lastRunnerSimBatchAt = batchAt;
 
     const groupKey = this.bucketGroupStore.upsert(data);
 
@@ -491,7 +554,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       ctx.clock.now(),
     );
     if (signal) {
-      this.pendingRunnerSimSignals.push(signal);
+      this.pendingRunnerSimSignals.push({ signal, decidedAt: at });
     }
   }
 

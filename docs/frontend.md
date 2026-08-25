@@ -132,7 +132,8 @@ src/
 │   │   ├── WeatherAlgoHistoryIngestSection.tsx  Villes → Données télécharger : ingestion historique CLOB (période, intervalle, Charger, statut job, couverture)
 │   │   ├── WeatherAlgoDataTab.tsx      Données : cards tables, drill-down, purge
 │   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire, liste, détail (poll `onCleanup` ; capital chart = `run.params` ; equity/positions si `completed` ; métriques byExit/byCity)
-│   │   │   └── BacktestEquityChart.tsx courbe d'equity (SVG, axe X = champ `t`)
+│   │   │   ├── BacktestEquityChart.tsx courbe d'equity (SVG, axe X = champ `t`)
+│   │   │   └── backtest/ridge/         ridge plot : `RidgePlayTooltip` / `RidgeTooltip` affichent `Position #{id}` ; `fmtHolding` en ms/s sous 1 min
 │   │   ├── WeatherAlgoSettingsTab.tsx  toggles recording + rétention
 │   ├── AlgoMarketCard.tsx, AlgoCarousel.tsx, AlgoCarouselNav.tsx
 │   ├── AlgoMarketChartTrigger.tsx / SurveillanceHistoryCard.tsx

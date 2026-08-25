@@ -6,6 +6,7 @@
 > **Audit fidélité/correctude 0.3.0** : [`../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md) + [`../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md`](../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md).  
 > **Audit moteur 0.4.0** : [`../audits/2026-08-19_audit-weather-backtest-moteur.md`](../audits/2026-08-19_audit-weather-backtest-moteur.md).  
 > **Per-strategy risk guards 0.5.0** : [`../audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](../audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md).  
+> **Entrée runner-sim 0.7.0** : [`../audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`](../audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md).  
 > **Périmètre v1** : domaine **weather uniquement** (crypto/copy hors scope).
 
 ## 1. Topologie du package
@@ -14,7 +15,7 @@
 packages/backtest/src/
 ├── index.ts                       runBacktest + parseBacktestParams + BACKTEST_ENGINE_VERSION
 ├── params.ts                      schéma Zod backtestRunParamsSchema (+ configOverrides)
-├── engine-version.ts              semver moteur (`0.5.0`)
+├── engine-version.ts              semver moteur (`0.7.0`)
 ├── adapters/
 │   ├── backtest-domain-adapter.ts interface BacktestDomainAdapter
 │   └── weather/
@@ -128,22 +129,27 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
   `maybeForceCloseAll` groupe les positions par `strategyId` et n'évalue le
   kill-switch que pour les stratégies dont le daily loss est atteint, en ne fermant
   que leurs positions.
-- À l’entrée : `resolveWeatherEntryExitParams` → `meta.slBidPoints` / `tp*` / `trailing*`.
+- À l’entrée : `resolveWeatherEntryExitParams` → `meta.slPercent` / `tpPercent` / `trailing*`.
 - **Sorties** : évaluées pour **toutes** les positions ouvertes à chaque
   `book_tick`, via `lastTickByCondition` (+ `at` pour warning `exit_stale_tick`).
   `evaluateExits` opère une **garde explicite `isHighestYes`** : drift/bucket-exit
   ne sont **pas** appliqués à `weather-highest-yes` (aligné sur le live). En
   `runner-sim` multi-stratégies, chaque position utilise son bag
   (`getStrategyParams(risk, pos.meta.strategyId)`) — voir `exit-manager.ts`.
+- **Entrée runner-sim (0.7.0)** : signaux bufferisés avec `decidedAt` ; flush
+  coalescé (1 s) ; `entryAt` = décision ; gardes `entry_skipped_market_resolved`,
+  `entry_skipped_stale_price`, `entry_skipped_immediate_sl` ; flush du batch
+  précédent avant duplicate / maxPos / throttle.
 - `markPrice` / `peakBid` : si `tick.yesPrice == null`, garde défensive
   `markprice_stale_carry_forward` (confirme la dernière valeur connue, `peakBid`
   non touché — invariant `fallbackPrice <= peakBid`).
 - Résolution par prix YES : `yesPrice >= 0.99` → YES (`exitPrice = 1`),
   `yesPrice <= 0.01` → NO (`exitPrice = 0`), **1 tick suffit** (pas de durée de
-  maintien). Fallback si `tick.yesPrice` absent : `markPrice` → `entryPrice`
+  maintien). Fallback si `tick.yesPrice` absent : `markPrice` uniquement
   (warnings `resolution_by_price` / `resolution_price_fallback` /
-  `resolution_no_price_whatsoever`). Le forecast n'est plus utilisé pour la
-  résolution (abandon total).
+  `resolution_no_price_whatsoever`) — **plus de fallback `entryPrice` depuis 0.6.0**.
+  Le forecast n'est plus utilisé pour la résolution (abandon total).
+  Une résolution appelle `exitManager.markClosed` (throttle ville+date+stratégie).
 - **Ghost positions** : à la fin du run (`finish`), les positions encore ouvertes
   sont fermées au dernier `markPrice` (ou `entryPrice`) avec
   `exitReason = BACKTEST_INCOMPLETE_DATA` + warning
@@ -165,9 +171,9 @@ néanmoins `configSnapshotJson` / fingerprint **avant** overrides (config live).
 | `WEATHER_PRE_CLOSE` | `hoursToEnd <= closeBeforeResolutionHours` (prioritaire) | Non |
 | `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > threshold` | **Oui** — *non applicable à `weather-highest-yes` en live (évalué en backtest)* |
 | `WEATHER_BUCKET_EXIT` | hors palier + `close_and_reenter` après `hysteresisPolls` avancées espacées de `weatherAlgoPollMs` | **Oui** — *non applicable à `weather-highest-yes` en live (évalué en backtest)* |
-| `SL` / `TP` / `TRAILING` | seuils résolus à l’entrée (`meta.*BidPoints`) ; `peakBid` pour trailing | Non |
+| `SL` / `TP` / `TRAILING` | seuils résolus à l’entrée (`meta.*Percent`) ; `peakBid` pour trailing | Non |
 | `KILL_SWITCH` | géré dans l'adapter (daily loss per-strategy + `force_close_all`) — ferme **uniquement** les positions de la stratégie déclenchée | Non |
-| `RESOLUTION` | marché résolu (adapter, pas ExitManager) | Non |
+| `RESOLUTION` | marché résolu (adapter, pas ExitManager) ; `tryResolveByPrice` appelle `markClosed` | **Oui** (throttle ville+date+stratégie) |
 
 ## 5. Intégration backend
 
@@ -198,7 +204,8 @@ Le live ne dépend jamais du backtest.
   résolution forcée ghost positions, garde highest-yes drift/bucket,
   **garde-fous per-strategy** (filtrage `openExposure`/`dailyRealizedPnl` par `strategyId`,
   `maxExposureUsdc` par stratégie bloque 2e entrée, `maxExposureUsdc` généreux autorise
-  multiple entrées).
+  multiple entrées), **entrée runner-sim 0.7.0** (décision vs flush, coalesce, skip
+  marché résolu / prix stale).
 - `packages/core/src/services/backtest-run.service.test.ts` — verrou singleton.
 
-Lancement : `npm run test -w @polywatch/backtest` (**45** tests).
+Lancement : `npm run test -w @polywatch/backtest`.

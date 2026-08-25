@@ -9,15 +9,20 @@ produit positions, equity, statistiques et avertissements de fidélité.
 
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
 > Prometheus et Socket.IO décrits dans le plan d'origine ne sont **pas** implémentés.  
-> **Moteur** : `engineVersion` **`0.6.0`** (audit moteur —
+> **Moteur** : `engineVersion` **`0.7.0`** (audit moteur —
 > [`audits/2026-08-19_audit-weather-backtest-moteur.md`](./audits/2026-08-19_audit-weather-backtest-moteur.md) ;
 > per-strategy risk guards —
 > [`audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](./audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md) ;
 > audit complet —
-> [`audits/2026-08-23_audit-weather-backtest-complet.md`](./audits/2026-08-23_audit-weather-backtest-complet.md)).  
+> [`audits/2026-08-23_audit-weather-backtest-complet.md`](./audits/2026-08-23_audit-weather-backtest-complet.md) ;
+> zero-holding / fill stale —
+> [`audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`](./audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md)).  
 > Runs `< 0.5.0` non comparables (résolution per-strategy des garde-fous risk).  
 > Runs `0.5.0` non comparables aux `0.6.0` (warning agrégé `multi_position_stale_mark`,
-> clamping prix [0,1], retrait du fallback `entryPrice` en résolution).
+> clamping prix [0,1], retrait du fallback `entryPrice` en résolution).  
+> Runs `0.6.0` non comparables aux `0.7.0` (entrée runner-sim : `entryAt` = décision,
+> coalesce 1 s, gardes marché résolu / prix stale / SL immédiat, flush avant
+> duplicate/maxPos/throttle).
 
 ---
 
@@ -105,7 +110,9 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `markprice_stale_carry_forward` | `markPrice` confirmé à la dernière valeur connue car `tick.yesPrice` est null (garde défensive) |
 | `ghost_positions_forced_resolution` | Position(s) encore ouverte(s) en fin de run — résolution forcée (`BACKTEST_INCOMPLETE_DATA`) |
 | `unsupported_metric_or_bucket` | Marché ignoré (metric non `highest_temp`/`lowest_temp`) |
-| `entry_skipped_market_resolved` | Entrée runner-sim ignorée car le marché est déjà résolu (`yesPrice <= 0.01` ou `>= 0.99`) — prix de décision du signal utilisé à la place du dernier tick du cache (corrige le fill fantôme post-résolution) |
+| `entry_skipped_market_resolved` | Entrée runner-sim ignorée : le **tick courant** est déjà collé aux bornes (`yesPrice <= 0.01` ou `>= 0.99`). Le fill reste au prix de décision ; cette garde lit le cache courant pour ne pas ouvrir puis résoudre 10 ms plus tard |
+| `entry_skipped_stale_price` | Entrée runner-sim ignorée : écart prix de décision vs tick courant > 0.10 au flush (fill hors courbe évité) |
+| `entry_skipped_immediate_sl` | Entrée runner-sim ignorée : le tick courant déclencherait le SL dès l’ouverture |
 
 Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
 `maxExposure`, `maxDailyLoss` (+ `force_close_all` → `KILL_SWITCH`), cash insuffisant,
@@ -113,7 +120,7 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
 `WEATHER_BUCKET_EXIT` / `WEATHER_FORECAST_CHANGE`, filtre cycle de vie marché
 (`isMarketActiveForWeather`), hystérésis bucket calée sur `weatherAlgoPollMs`.
 
-### Limitations de fidélité (0.6.0)
+### Limitations de fidélité (0.7.0)
 
 - **Mark lag-1 par condition** : le backtest ne dispose que des ticks **observés**
   pour chaque `conditionId`. Le `markPrice` d'une position ne peut pas être plus
@@ -128,6 +135,13 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
   `fill_price_clamped`. PnL = borne indicative, pas une exécution réelle.
 - **Résolution** : pas de fallback `entryPrice` (depuis 0.6.0) — seule `tick.yesPrice`
   ou `markPrice`. Les fees de résolution restent 0 (courbe Polymarket nulle aux prix 0/1).
+- **Entrée runner-sim (depuis 0.7.0)** : les ticks d’un même poll (~10–20 ms d’écart)
+  sont coalescés (`RUNNER_SIM_BATCH_COALESCE_MS = 1000`). `entryAt` = timestamp du
+  tick de décision, pas du flush. Un signal n’est pas fillé si le marché est déjà
+  résolu, si le prix a divergé de plus de 0.10, ou si le tick courant déclencherait
+  le SL immédiatement. Le flush du batch précédent n’est plus bloqué par
+  duplicate / max concurrent / throttle (ces gardes s’appliquent ensuite, pour
+  le tick courant).
 
 > **Résolution per-strategy (depuis 0.5.0)** : `maxExposureUsdc`, `maxDailyLossUsdc`,
 > `maxPositionSizeUsdc`, `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
@@ -255,6 +269,8 @@ Paramètres lus depuis le bag per-strategy
 
 > **Note** : les runs avec `engineVersion < 0.5.0` ont été produits avant l’alignement
 > SL/TP/throttle/filtres/résolution forcée/résolution par prix/garde-fous per-strategy — **non comparables** aux runs ≥ `0.5.0`.
+> Les runs `0.6.0` (et inférieurs) incluent des trades runner-sim de durée nulle
+> ou de fill stale — **non comparables** aux runs ≥ `0.7.0`.
 
 ---
 
@@ -303,10 +319,15 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   `backtest_equity_points`), pas un index.
 - **Timeline des marchés parcourus** (`BacktestMarketRidgeChart`, ridge plot) :
   une voie par marché (ville + date cible), courbe du prix YES au fil du temps,
-  marqueurs vert/rouge pour les entrées/sorties des positions tradées. Données
-  dérivées de `weather_bucket_ticks` via `GET /runs/:id/markets-series` (même
-  filtre `fidelityMinutes` que le moteur) — chargées **uniquement** si
-  `status === 'completed'` et que `dataRangeFrom`/`dataRangeTo` sont renseignés.
+  marqueurs vert/rouge pour les entrées/sorties des positions tradées. Le tooltip
+  player (`RidgePlayTooltip`) et le tooltip voie (`RidgeTooltip`) affichent
+  `Position #{id}` ; `fmtHolding` formate les holds `< 1 min` en `ms` / `s`
+  (plus « 0 min »). Les markers sont placés à `(entryAt, entryPrice)` — le fill
+  inclut le slippage, donc le point vert peut s’écarter légèrement de la courbe
+  YES brute. Données dérivées de `weather_bucket_ticks` via
+  `GET /runs/:id/markets-series` (même filtre `fidelityMinutes` que le moteur) —
+  chargées **uniquement** si `status === 'completed'` et que
+  `dataRangeFrom`/`dataRangeTo` sont renseignés.
 
 ---
 
@@ -322,7 +343,8 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   garde highest-yes drift/bucket, **garde-fous per-strategy** (`ledger.openExposure` /
   `dailyRealizedPnl` filtrage par `strategyId`, `maxExposureUsdc` par stratégie bloque
   2e entrée, `maxExposureUsdc` généreux autorise multiple entrées), **warning
-  `multi_position_stale_mark` agrégé**, **clamping prix [0,1]**.
+  `multi_position_stale_mark` agrégé**, **clamping prix [0,1]**, **entrée runner-sim
+  0.7.0** (`entryAt` = décision, coalesce 1 s, skip marché résolu / prix stale).
 - `src/adapters/weather/question-builder.test.ts` (nouveau) : cibles fractionnaires
   préservées et re-parsées, bornes between négatives fractionnaires, entiers sans `.0`.
 - `src/engine/fill-engine.test.ts` (nouveau) : slippage entrée/sortie, plafond `maxPositionSizeUsdc`,

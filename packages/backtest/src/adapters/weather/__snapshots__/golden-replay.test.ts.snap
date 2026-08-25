@@ -5,7 +5,7 @@ exports[`golden replay (regression canary) > produces a stable stats signature 1
   "byExitReason": {
     "RESOLUTION": 1,
   },
-  "engineVersion": "0.6.0",
+  "engineVersion": "0.7.0",
   "maxDrawdown": 0,
   "totalPnl": 9.85,
   "totalTrades": 1,

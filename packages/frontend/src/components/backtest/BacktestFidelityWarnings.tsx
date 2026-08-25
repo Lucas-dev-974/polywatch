@@ -97,6 +97,21 @@ const KNOWN_WARNINGS: Record<string, FidelityWarning> = {
     title: 'Prix de fill clampé',
     hint: 'Le slippage a poussé le prix hors de [0,1] ; il a été clampé à la borne (1.0 à l\'entrée, 0 à la sortie).',
   },
+  entry_skipped_market_resolved: {
+    icon: '⛔',
+    title: 'Entrée ignorée : marché résolu',
+    hint: 'Le tick courant est déjà collé aux bornes (≤0.01 ou ≥0.99) ; pas de nouvelle position.',
+  },
+  entry_skipped_stale_price: {
+    icon: '📉',
+    title: 'Entrée ignorée : prix périmé',
+    hint: 'Le prix de décision s’écarte trop du tick courant au flush (> 0.10) ; fill hors courbe évité.',
+  },
+  entry_skipped_immediate_sl: {
+    icon: '🛑',
+    title: 'Entrée ignorée : SL immédiat',
+    hint: 'Le tick courant déclencherait le stop-loss dès l’ouverture.',
+  },
 };
 
 function parseWarning(raw: string): { code: string; message: string } {

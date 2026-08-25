@@ -13,6 +13,8 @@ export function fmtUsd(value: number | null | undefined): string {
 
 export function fmtHolding(ms: number | null | undefined): string {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return '—';
+  if (ms < 1_000) return `${Math.round(ms)} ms`;
+  if (ms < 60_000) return `${(ms / 1_000).toFixed(0)} s`;
   const h = ms / 3_600_000;
   if (h >= 1) return `${h.toFixed(1)} h`;
   const m = ms / 60_000;

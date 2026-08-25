@@ -1,5 +1,29 @@
 # Change History
 
+## 2026-08-25 — Backtest runner-sim zero-holding / fill stale (engineVersion 0.7.0)
+
+### Fixed
+- Adapter weather (`weather-adapter.ts`) : les signaux runner-sim flushés au
+  tick suivant étaient horodatés à `clock.now()` → `entryAt === exitAt` ou holds
+  de 10–20 ms (jitter de poll). `entryAt` = timestamp de décision ; coalesce 1 s ;
+  gardes marché résolu (tick **courant**), prix stale (> 0.10) et SL immédiat.
+  Le flush du batch précédent n’est plus bloqué par duplicate / maxPos / throttle
+  (cause des fills hors courbe, ex. Austin #5808).
+- UI ridge : tooltip `Position #{id}` ; `fmtHolding` affiche `ms` / `s` sous 1 min.
+
+### Changed
+- Engine version bump : `0.6.0` → **`0.7.0`** (sémantique d’entrée runner-sim —
+  runs non comparables).
+
+### Tests Added
+- `weather-adapter.test.ts` : décision vs flush, skip jitter 10 ms, skip sibling
+  tick, skip prix stale.
+
+### Notes
+- Doc : `docs/backtest.md`, `docs/code/09-backtest.md`, `docs/weather-algo.md`,
+  `docs/modele-donnees.md`, `docs/api.md`, `docs/frontend.md`, `docs/architecture.md`.
+- Audit : `docs/audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`.
+
 ## 2026-08-21 — Backtest per-strategy risk guards (engineVersion 0.5.0)
 
 ### Fixed

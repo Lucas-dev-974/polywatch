@@ -80,6 +80,9 @@ kill switch, limites d'exposition).
 > [`code/09-backtest.md`](./code/09-backtest.md) ·
 > [`plans/2026-08-05_PLAN-backtest-engine-universel.md`](./plans/2026-08-05_PLAN-backtest-engine-universel.md)
 >
+> Zero-holding / fill stale runner-sim (`engineVersion` 0.7.0, 2026-08-25) :
+> [`audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`](./audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md)
+>
 > Sim-reset Redis hygiene (2026-07-12 + fixes 4.5) — **appliqué** (abort worker in-flight inclus, 2026-08-07) :
 > [`plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](./plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)
 >

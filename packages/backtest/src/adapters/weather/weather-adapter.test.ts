@@ -399,6 +399,486 @@ describe('runBacktest (weather replay)', () => {
     expect(result.fidelityWarnings.some((w) => w.startsWith('unsupported_metric_or_bucket'))).toBe(true);
   });
 
+  it('reevaluate: entry is timestamped at decision, not at flush (no zero-holding)', async () => {
+    // Scénario du bug : un signal décidé à T1 est flushé à T2 (changement de
+    // timestamp), puis un tick suivant au même T2 déclenche l'exit. Sans le
+    // fix, entryAt = T2 (flush) et exitAt = T2 → holding 0. Avec le fix,
+    // entryAt = T1 (décision) et exitAt = T2 > T1.
+    const t1 = new Date('2026-01-01T00:00:00.000Z');
+    const t2 = new Date('2026-01-03T00:00:00.000Z');
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const histRepo = ds.getRepository(WeatherForecastHistory);
+
+    const snap = await snapRepo.save(
+      snapRepo.create({
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-02',
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        bucketCount: 1,
+        totalBucketCount: 3,
+        ruleId: 1,
+        recordedAt: t1,
+      }),
+    );
+
+    await histRepo.save(
+      histRepo.create({
+        city: 'london',
+        forecastDate: new Date('2026-01-02T12:00:00Z'),
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        modelValuesJson: '{}',
+        latitude: 51.5,
+        longitude: -0.1,
+        fetchedAt: t1,
+      }),
+    );
+
+    const baseTick = {
+      snapshotId: snap.id,
+      eventSlug: 'evt-1',
+      question: 'Will the highest temperature in london be 12°C or above on 2026-01-02?',
+      bucketComparison: 'or_above',
+      bucketTarget: 12,
+      bucketLow: null,
+      bucketHigh: null,
+      yesTokenId: 'yes',
+      noTokenId: 'no',
+      volume: 100,
+      volume24hr: 50,
+      liquidityClob: 200,
+      city: 'london',
+      cityNormalized: 'london',
+      targetDateIso: '2026-01-02',
+      metric: 'highest_temp',
+    };
+
+    // Tick A @ T1 : émet le signal (décision). Prix sain.
+    await tickRepo.save(
+      tickRepo.create({
+        ...baseTick,
+        conditionId: 'cond-reeval',
+        yesPrice: 0.3,
+        noPrice: 0.7,
+        acceptingOrders: true,
+        closed: false,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t1,
+      }),
+    );
+    // Tick B @ T2 : premier tick du nouveau timestamp → flush (ouvre la position).
+    await tickRepo.save(
+      tickRepo.create({
+        ...baseTick,
+        conditionId: 'cond-reeval',
+        yesPrice: 0.3,
+        noPrice: 0.7,
+        acceptingOrders: true,
+        closed: false,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t2,
+      }),
+    );
+    // Tick C @ T2 : second tick du même timestamp → evaluateExits → résolution.
+    await tickRepo.save(
+      tickRepo.create({
+        ...baseTick,
+        conditionId: 'cond-reeval',
+        yesPrice: 0.99,
+        noPrice: 0.01,
+        acceptingOrders: false,
+        closed: true,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t2,
+      }),
+    );
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'reevaluate', paramsJson: '{}' });
+    await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'reevaluate',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    const positions = await service.listPositions(run.id, {});
+    expect(positions.items.length).toBe(1);
+    const pos = positions.items[0]!;
+    // entryAt = timestamp de décision (T1), pas le flush (T2).
+    expect(new Date(pos.entryAt).getTime()).toBe(t1.getTime());
+    // exitAt = T2 (résolution) > entryAt = T1 → plus de zero-holding.
+    expect(new Date(pos.exitAt!).getTime()).toBe(t2.getTime());
+    expect(new Date(pos.exitAt!).getTime()).toBeGreaterThan(new Date(pos.entryAt).getTime());
+    expect(pos.exitReason).toBe('RESOLUTION');
+  });
+
+  it('reevaluate: does not open a position that would resolve 10ms later (same-poll jitter)', async () => {
+    // Run #51 Atlanta : signal à T, tick résolu à T+10ms. decidedAt rend
+    // entryAt = T et exitAt = T+10ms (même seconde à l'affichage, durée 0 min).
+    // Coalesce + garde sur le prix COURANT : pas d'entrée.
+    const t1 = new Date('2026-01-01T00:00:00.000Z');
+    const t1b = new Date(t1.getTime() + 10);
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const histRepo = ds.getRepository(WeatherForecastHistory);
+
+    const snap = await snapRepo.save(
+      snapRepo.create({
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-02',
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        bucketCount: 1,
+        totalBucketCount: 3,
+        ruleId: 1,
+        recordedAt: t1,
+      }),
+    );
+
+    await histRepo.save(
+      histRepo.create({
+        city: 'london',
+        forecastDate: new Date('2026-01-02T12:00:00Z'),
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        modelValuesJson: '{}',
+        latitude: 51.5,
+        longitude: -0.1,
+        fetchedAt: t1,
+      }),
+    );
+
+    const baseTick = {
+      snapshotId: snap.id,
+      eventSlug: 'evt-1',
+      question: 'Will the highest temperature in london be 12°C or above on 2026-01-02?',
+      bucketComparison: 'or_above',
+      bucketTarget: 12,
+      bucketLow: null,
+      bucketHigh: null,
+      yesTokenId: 'yes',
+      noTokenId: 'no',
+      volume: 100,
+      volume24hr: 50,
+      liquidityClob: 200,
+      city: 'london',
+      cityNormalized: 'london',
+      targetDateIso: '2026-01-02',
+      metric: 'highest_temp',
+    };
+
+    await tickRepo.save(
+      tickRepo.create({
+        ...baseTick,
+        conditionId: 'cond-jitter',
+        yesPrice: 0.3,
+        noPrice: 0.7,
+        acceptingOrders: true,
+        closed: false,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t1,
+      }),
+    );
+    await tickRepo.save(
+      tickRepo.create({
+        ...baseTick,
+        conditionId: 'cond-jitter',
+        yesPrice: 0.99,
+        noPrice: 0.01,
+        acceptingOrders: false,
+        closed: true,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t1b,
+      }),
+    );
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'reevaluate', paramsJson: '{}' });
+    await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'reevaluate',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    const positions = await service.listPositions(run.id, {});
+    expect(positions.items.length).toBe(0);
+  });
+
+  it('reevaluate: sibling tick 10ms later does not flush into an immediate resolution', async () => {
+    // Premier tick d'un nouveau timestamp = autre marché, 10 ms plus tard le
+    // marché signalé est déjà à 0.99. Sans coalesce, flush puis RESOLUTION.
+    const t1 = new Date('2026-01-01T00:00:00.000Z');
+    const t1b = new Date(t1.getTime() + 10);
+    const t1c = new Date(t1.getTime() + 20);
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const histRepo = ds.getRepository(WeatherForecastHistory);
+
+    const snapL = await snapRepo.save(
+      snapRepo.create({
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-02',
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        bucketCount: 1,
+        totalBucketCount: 3,
+        ruleId: 1,
+        recordedAt: t1,
+      }),
+    );
+    const snapP = await snapRepo.save(
+      snapRepo.create({
+        city: 'paris',
+        cityNormalized: 'paris',
+        targetDateIso: '2026-01-02',
+        metric: 'highest_temp',
+        forecastMean: 8,
+        forecastStdDev: 1.5,
+        bucketCount: 1,
+        totalBucketCount: 3,
+        ruleId: 1,
+        recordedAt: t1b,
+      }),
+    );
+
+    await histRepo.save(
+      histRepo.create({
+        city: 'london',
+        forecastDate: new Date('2026-01-02T12:00:00Z'),
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        modelValuesJson: '{}',
+        latitude: 51.5,
+        longitude: -0.1,
+        fetchedAt: t1,
+      }),
+    );
+    await histRepo.save(
+      histRepo.create({
+        city: 'paris',
+        forecastDate: new Date('2026-01-02T12:00:00Z'),
+        metric: 'highest_temp',
+        forecastMean: 8,
+        forecastStdDev: 1.5,
+        modelValuesJson: '{}',
+        latitude: 48.8,
+        longitude: 2.3,
+        fetchedAt: t1b,
+      }),
+    );
+
+    const tickFields = {
+      eventSlug: 'evt-1',
+      bucketComparison: 'or_above' as const,
+      bucketLow: null,
+      bucketHigh: null,
+      yesTokenId: 'yes',
+      noTokenId: 'no',
+      volume: 100,
+      volume24hr: 50,
+      liquidityClob: 200,
+      metric: 'highest_temp',
+      targetDateIso: '2026-01-02',
+    };
+
+    await tickRepo.save(
+      tickRepo.create({
+        ...tickFields,
+        snapshotId: snapL.id,
+        question: 'Will the highest temperature in london be 12°C or above on 2026-01-02?',
+        bucketTarget: 12,
+        city: 'london',
+        cityNormalized: 'london',
+        conditionId: 'cond-london',
+        yesPrice: 0.3,
+        noPrice: 0.7,
+        acceptingOrders: true,
+        closed: false,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t1,
+      }),
+    );
+    await tickRepo.save(
+      tickRepo.create({
+        ...tickFields,
+        snapshotId: snapP.id,
+        question: 'Will the highest temperature in paris be 8°C or above on 2026-01-02?',
+        bucketTarget: 8,
+        city: 'paris',
+        cityNormalized: 'paris',
+        conditionId: 'cond-paris',
+        yesPrice: 0.5,
+        noPrice: 0.5,
+        acceptingOrders: true,
+        closed: false,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t1b,
+      }),
+    );
+    await tickRepo.save(
+      tickRepo.create({
+        ...tickFields,
+        snapshotId: snapL.id,
+        question: 'Will the highest temperature in london be 12°C or above on 2026-01-02?',
+        bucketTarget: 12,
+        city: 'london',
+        cityNormalized: 'london',
+        conditionId: 'cond-london',
+        yesPrice: 0.99,
+        noPrice: 0.01,
+        acceptingOrders: false,
+        closed: true,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t1c,
+      }),
+    );
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'reevaluate', paramsJson: '{}' });
+    await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'reevaluate',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    const positions = await service.listPositions(run.id, {});
+    const london = positions.items.filter((p) => p.conditionId === 'cond-london');
+    expect(london.length).toBe(0);
+  });
+
+  it('reevaluate: skips flush when decision price has gone stale vs current tick', async () => {
+    // Austin #5808 : fill à 0.58 alors que le tick à entryAt est à 0.98 —
+    // le marker flotte entre les courbes. Un saut de prix > 0.10 entre
+    // décision et flush doit empêcher l'entrée.
+    const t1 = new Date('2026-01-01T00:00:00.000Z');
+    const t2 = new Date(t1.getTime() + 5 * 60_000);
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const histRepo = ds.getRepository(WeatherForecastHistory);
+
+    const snap = await snapRepo.save(
+      snapRepo.create({
+        city: 'london',
+        cityNormalized: 'london',
+        targetDateIso: '2026-01-02',
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        bucketCount: 1,
+        totalBucketCount: 3,
+        ruleId: 1,
+        recordedAt: t1,
+      }),
+    );
+
+    await histRepo.save(
+      histRepo.create({
+        city: 'london',
+        forecastDate: new Date('2026-01-02T12:00:00Z'),
+        metric: 'highest_temp',
+        forecastMean: 12,
+        forecastStdDev: 1.5,
+        modelValuesJson: '{}',
+        latitude: 51.5,
+        longitude: -0.1,
+        fetchedAt: t1,
+      }),
+    );
+
+    const baseTick = {
+      snapshotId: snap.id,
+      eventSlug: 'evt-1',
+      question: 'Will the highest temperature in london be 12°C or above on 2026-01-02?',
+      bucketComparison: 'or_above',
+      bucketTarget: 12,
+      bucketLow: null,
+      bucketHigh: null,
+      yesTokenId: 'yes',
+      noTokenId: 'no',
+      volume: 100,
+      volume24hr: 50,
+      liquidityClob: 200,
+      city: 'london',
+      cityNormalized: 'london',
+      targetDateIso: '2026-01-02',
+      metric: 'highest_temp',
+      conditionId: 'cond-stale',
+    };
+
+    await tickRepo.save(
+      tickRepo.create({
+        ...baseTick,
+        yesPrice: 0.3,
+        noPrice: 0.7,
+        acceptingOrders: true,
+        closed: false,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t1,
+      }),
+    );
+    await tickRepo.save(
+      tickRepo.create({
+        ...baseTick,
+        yesPrice: 0.85,
+        noPrice: 0.15,
+        acceptingOrders: false,
+        closed: true,
+        endDate: new Date('2026-01-02T23:59:00Z'),
+        recordedAt: t2,
+      }),
+    );
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'reevaluate', paramsJson: '{}' });
+    await runBacktest({
+      runId: run.id,
+      ds,
+      params: {
+        domain: 'weather', mode: 'reevaluate',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 10,
+      },
+      configSnapshot: baseRisk(),
+      service,
+    });
+
+    const positions = await service.listPositions(run.id, {});
+    expect(positions.items.length).toBe(0);
+  });
+
   it('replay mode allows only one open position per city', async () => {
     const now = new Date('2026-01-01T00:00:00.000Z');
     const snapRepo = ds.getRepository(WeatherMarketSnapshot);

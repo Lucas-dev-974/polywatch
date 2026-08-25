@@ -186,7 +186,10 @@ semver). Détail : [`backtest.md`](./backtest.md) · [`docs/code/09-backtest.md`
 - Verrou singleton (un run weather actif) ; DELETE refusé si run actif ; orphelins → `failed` au boot.
 - Timeout (`BACKTEST_TIMEOUT_MS`, défaut 30 min) et cancel coopératif avec flush final
   (cancel conserve les stats ; timeout → `failed` sans stats).
-- Kill-switch `force_close_all` → sorties `KILL_SWITCH` ; throttle re-entry = bucket/drift seulement.
+- Kill-switch `force_close_all` → sorties `KILL_SWITCH` ; throttle re-entry =
+  bucket/drift **et** résolution (`tryResolveByPrice` → `markClosed`).
+  Entrée runner-sim `engineVersion` **0.7.0** : `entryAt` = décision, coalesce 1 s,
+  gardes marché résolu / prix stale / SL immédiat.
 - Résultats persistés dans `backtest_runs` / `backtest_positions` / `backtest_equity_points`.
 
 ### Frontend (`packages/frontend`)

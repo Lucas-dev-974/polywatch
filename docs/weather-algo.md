@@ -200,13 +200,18 @@ Depuis l'onglet **Villes**, la section **Données télécharger** permet de char
 - **Affichage timeline** : les vues timeline (`getClobPriceHistoryTimeline` / `getBucketTicksTimeline`) récupèrent les `maxTicks` points **les plus récents** (tri DESC) puis les re-trient chronologiquement, pour ne jamais tronquer la queue de résolution.
 - **Filtrage / suppression par intervalle — `weather_bucket_ticks`** : comme pour le CLOB, la timeline bucket accepte un filtre `fidelityMinutes` (sélecteur « Intervalle » **obligatoire** dans l'UI, pas d'option « Tous »), et la suppression ciblée **ville × intervalle** est possible via `deleteBucketTickCityInterval(city, fidelityMinutes)` (route `DELETE /api/weather-algo-data/bucket-ticks/interval?city=&fidelityMinutes=`). En backtest, `fidelityMinutes` (paramètre optionnel) filtre les `book_tick` en mode `reevaluate` uniquement ; en `replay` il est ignoré avec un warning `replay_fidelity_filter_unsupported` (`weather_evaluation_log` ne porte pas `fidelity_minutes`) — cf. [`backtest.md`](./backtest.md).
 
-**Résolution `weather-highest-yes` en backtest (fix 2026-08-15)** : la stratégie `weather-highest-yes` n'utilise pas de forecast — elle résout via le prix YES final du marché. Si le tick de résolution n'a pas de `yesPrice` (données incomplètes), l'adapter backtest applique une chaîne de fallback : `tick.yesPrice` → `pos.markPrice` (mis à jour à chaque book_tick) → `pos.entryPrice`. Cela évite les positions "zombies" non résolues qui faussaient le PnL.
+**Résolution `weather-highest-yes` en backtest** : la stratégie n'utilise pas de
+forecast — elle résout via le prix YES final du marché. Si le tick de résolution
+n'a pas de `yesPrice`, l'adapter applique `tick.yesPrice` → `pos.markPrice`
+(mis à jour à chaque `book_tick`). **Pas de fallback `entryPrice` depuis
+`engineVersion` 0.6.0** (warning `resolution_no_price_whatsoever` si aucun prix).
 
 Doc API : [`api.md`](./api.md) § Weather Algo history. Modèle : [`modele-donnees.md`](./modele-donnees.md).
 
 Le **backtest** s'exécute désormais uniquement en **`runner-sim`** (consolidation 2026-08-24) : regroupement des buckets par ville/date, `evaluateGroup`, dedup et selectionMode comme le runner live. Le mode `strategy` (ré-évaluation bucket par bucket, non équivalent live) a été retiré du moteur ; le champ `backtestExecutionMode` reste accepté par le schéma pour rétro-compat API mais est **ignoré**.
 
-Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.5.0` — garde-fous risk résolus par stratégie).
+Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.7.0` — entrée runner-sim
+horodatée à la décision, coalesce 1 s, gardes marché résolu / prix stale / SL immédiat).
 
 ---
 

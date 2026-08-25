@@ -342,7 +342,7 @@ export function BacktestMarketRidgeChart(props: {
     };
 
   return (
-    <div class="backtest-ridge-plot" ref={setRootEl}>
+    <div class="backtest-ridge-plot" ref={setRootEl} onPointerLeave={onPointerLeave}>
       <RidgeToolbar
         targetDates={targetDates()}
         targetDateFilter={[effectiveTargetDate, setTargetDateFilter]}
@@ -384,7 +384,6 @@ export function BacktestMarketRidgeChart(props: {
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
-                onPointerLeave={onPointerLeave}
               >
                 <defs>
                                   <clipPath id="backtest-ridge-clip">

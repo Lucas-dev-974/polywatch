@@ -12415,7 +12415,7 @@ body.is-resizing-columns .position-market-split-handle::after {
   border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
   border-radius: var(--radius-md, 0.5rem);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  pointer-events: none;
+  pointer-events: auto;
   font-size: 0.625rem;
   color: var(--text-secondary, var(--text-muted));
   max-width: 280px;

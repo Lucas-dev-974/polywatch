@@ -1,7 +1,25 @@
 # Inventaire des plans — Polywatch
 
-> Dernière mise à jour : 2026-08-18  
+> Dernière mise à jour : 2026-08-25  
 > Critère `applied/` : plan d'implémentation dont les livrables concrets sont présents dans le code (vérification codebase, pas seulement les cases `[x]` du markdown).
+
+## Weather algo live (2026-08-25) — à implémenter
+
+Orchestration : [`2026-08-25_PLAN-weather-algo-implementation-master.md`](2026-08-25_PLAN-weather-algo-implementation-master.md) (vagues **A→F**, ne pas inverser).
+
+| Fichier | Vague | Résumé |
+|---------|-------|--------|
+| [2026-08-25_PLAN-weather-algo-implementation-master.md](2026-08-25_PLAN-weather-algo-implementation-master.md) | — | Ordre, décisions verrouillées, DoD, collisions de fichiers |
+| [2026-08-25_PLAN-weather-algo-robustesse-snapshot-ttl-throttle-shutdown.md](2026-08-25_PLAN-weather-algo-robustesse-snapshot-ttl-throttle-shutdown.md) | A | Snapshot alerte Redis, TTL compteur, throttle per-strategy, `stopped` intra-cycle |
+| [2026-08-25_PLAN-weather-algo-date-unique-et-multi-lanes.md](2026-08-25_PLAN-weather-algo-date-unique-et-multi-lanes.md) | B | `dateKey` autorité ; Phase 2 **annulée** (→ modes) |
+| [2026-08-25_PLAN-weather-algo-prix-clob-knobs-morts-doc-preclose.md](2026-08-25_PLAN-weather-algo-prix-clob-knobs-morts-doc-preclose.md) | C | Edge CLOB, knobs morts, doc pre-close |
+| [2026-08-25_PLAN-weather-algo-default-aligned-strategy.md](2026-08-25_PLAN-weather-algo-default-aligned-strategy.md) | D | Default aligned + minEdge 0.08 |
+| [2026-08-25_PLAN-weather-algo-qualite-forecast-buy-yes-cadences.md](2026-08-25_PLAN-weather-algo-qualite-forecast-buy-yes-cadences.md) | E (+ B pour l'année) | BUY YES, geocode, std, cadences |
+| [2026-08-25_PLAN-weather-algo-modes-selection-strategie.md](2026-08-25_PLAN-weather-algo-modes-selection-strategie.md) | F | 4 modes ; consensus live-only |
+
+Audit source : [`docs/audits/2026-08-25_audit-weather-algo-moteur-live.md`](../audits/2026-08-25_audit-weather-algo-moteur-live.md).
+
+---
 
 ## Structure des dossiers
 
@@ -76,6 +94,7 @@
 
 | Fichier | Résumé | Écart principal |
 |---------|--------|-----------------|
+| [2026-08-25_PLAN-weather-algo-implementation-master.md](2026-08-25_PLAN-weather-algo-implementation-master.md) | Weather algo live vagues A–F | **À coder** — voir tableau en tête d'INDEX |
 | [2026-08-05_PLAN-backtest-engine-universel.md](2026-08-05_PLAN-backtest-engine-universel.md) | Moteur backtest universel event-driven | **Weather v1 livré** (`packages/backtest`, UI, API) ; crypto/copy, Socket.IO, Prometheus hors scope |
 | [2026-08-06_PLAN-phase3-data-stream-rtds.md](2026-08-06_PLAN-phase3-data-stream-rtds.md) | Phase 3 RTDS/oracle data stream | **Désimplémenté / reporté 2026-08-07** — spec conservée, aucun code en repo |
 
@@ -110,5 +129,6 @@
 ## Liens croisés
 
 Plans parent/enfant :
+- `2026-08-25_PLAN-weather-algo-implementation-master.md` ← parent des 6 plans weather-algo 2026-08-25 (vagues A–F)
 - `applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md` ← parent de `applied/2026-08-06_PLAN-p0-implementation.md` et `reference/2026-08-06_ANNEXE-risques-mitigations.md`
 - `2026-08-05_PLAN-strategies-crypto-algo-5min.md` ← dépend de `2026-08-06_PLAN-phase3-data-stream-rtds.md` (Phase 3, reportée)

@@ -1,8 +1,8 @@
 # Documentation du code — Polywatch
 
 Documentation technique du code (dernière mise à jour : 2026-08-25 — sync
-`09-backtest.md` : engineVersion 0.7.0, entrée runner-sim, résolution sans
-fallback `entryPrice`).
+`09-backtest.md` : engineVersion 0.8.0, entrée runner-sim F4/F5/F8,
+`maybeFlushRunnerSimBatch`, `pairDecidedAtBySignal`, résolution sans fallback `entryPrice`).
 
 ## Sommaire
 

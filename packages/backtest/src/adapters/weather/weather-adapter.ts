@@ -57,6 +57,19 @@ const RUNNER_SIM_BATCH_COALESCE_MS = 1_000;
 const STALE_DECISION_PRICE_DELTA = 0.10;
 
 /**
+ * Re-paire chaque signal avec son timestamp de décision par identité d'objet.
+ * Deux signaux du même conditionId dans un batch gardent chacun leur decidedAt :
+ * le dernier tick ne doit pas écraser le premier si la sélection retient le
+ * premier (meilleur edge). `selectRunnerSimSignals` ne clone pas les signaux,
+ * donc la clé objet reste valide.
+ */
+export function pairDecidedAtBySignal(
+  pending: { signal: WeatherSignal; decidedAt: Date }[],
+): Map<WeatherSignal, Date> {
+  return new Map(pending.map((x) => [x.signal, x.decidedAt]));
+}
+
+/**
  * Weather backtest adapter.
  *
  * - reevaluate mode: on each book_tick, reconstruct the market + forecast
@@ -380,14 +393,15 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
     const risk = ctx.configSnapshot;
     // Déballer les signaux pour la sélection (qui retourne des références
-    // d'origine, pas des clones), puis re-pairer le decidedAt par conditionId.
+    // d'origine, pas des clones), puis re-pairer le decidedAt par identité
+    // d'objet signal. Deux signaux du même conditionId dans un batch gardent
+    // chacun leur propre decidedAt (le dernier tick ne doit pas écraser le
+    // premier si la sélection retient le premier).
     const selected = selectRunnerSimSignals(
       this.pendingRunnerSimSignals.map((x) => x.signal),
       risk,
     );
-    const decidedByCondition = new Map(
-      this.pendingRunnerSimSignals.map((x) => [x.signal.conditionId, x.decidedAt]),
-    );
+    const decidedAtBySignal = pairDecidedAtBySignal(this.pendingRunnerSimSignals);
     this.pendingRunnerSimSignals = [];
 
     const seenCityDates = new Map<string, number>();
@@ -451,7 +465,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         sizingMode: signalBag.sizingMode,
         fixedShareCount: signalBag.fixedShareCount,
       });
-      this.noteFillClampedIfNeeded(ctx, decisionPrice, true);
 
       const exitMeta = resolvedExitMeta(risk, signal.strategyId);
       if (this.isImmediateStopLoss(currentPrice, fill, exitMeta.slPercent)) {
@@ -462,6 +475,9 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         );
         continue;
       }
+      // Warning de clamp émis seulement si la position va réellement s'ouvrir
+      // (après la garde SL immédiat), pour ne pas signaler un fill jamais exécuté.
+      this.noteFillClampedIfNeeded(ctx, decisionPrice, true);
 
       ctx.ledger.openPosition({
         conditionId: signal.conditionId,
@@ -473,7 +489,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         // pas au flush. Sans ça, une position décidée à T1 mais flushée à T2
         // serait rétrodatée à T2 et pourrait être fermée au même timestamp
         // (entryAt === exitAt, holding 0).
-        entryAt: decidedByCondition.get(signal.conditionId) ?? ctx.clock.now(),
+        entryAt: decidedAtBySignal.get(signal) ?? ctx.clock.now(),
         fees: fill.fees,
         entryReason: 'signal',
         meta: {
@@ -492,22 +508,31 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     }
   }
 
+  /**
+   * Flush le batch runner-sim précédent quand le timestamp sort de la fenêtre
+   * de coalesce. Appelé depuis onBookTick AVANT les gardes duplicate / maxPos /
+   * throttle : un tick bloqué ne doit pas retenir les signaux pending (sinon ils
+   * seraient fillés plus tard sur un marché déjà ailleurs — cause des fills
+   * hors courbe, ex. Austin #5808). Les signaux non retenus au flush sont
+   * simplement droppés (pas de file) : le prochain tick non bloqué re-évalue.
+   */
+  private async maybeFlushRunnerSimBatch(at: Date, ctx: RunContext): Promise<void> {
+    const batchAt = at.getTime();
+    if (this.lastRunnerSimBatchAt == null) {
+      this.lastRunnerSimBatchAt = batchAt;
+      return;
+    }
+    if (Math.abs(batchAt - this.lastRunnerSimBatchAt) > RUNNER_SIM_BATCH_COALESCE_MS) {
+      await this.flushPendingRunnerSimSignals(ctx);
+      this.lastRunnerSimBatchAt = batchAt;
+    }
+  }
+
   private async onBookTickRunnerSim(
     data: BookTickEventData,
     at: Date,
     ctx: RunContext,
   ): Promise<void> {
-    const batchAt = at.getTime();
-    if (
-      this.lastRunnerSimBatchAt != null &&
-      Math.abs(batchAt - this.lastRunnerSimBatchAt) > RUNNER_SIM_BATCH_COALESCE_MS
-    ) {
-      await this.flushPendingRunnerSimSignals(ctx);
-      this.lastRunnerSimBatchAt = batchAt;
-    } else if (this.lastRunnerSimBatchAt == null) {
-      this.lastRunnerSimBatchAt = batchAt;
-    }
-
     const groupKey = this.bucketGroupStore.upsert(data);
 
     const forecast = this.getCurrentForecast(
@@ -567,6 +592,12 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
     this.maybeForceCloseAll(ctx);
     await this.evaluateExits(ctx);
+
+    // Flush le batch précédent AVANT les gardes duplicate / maxPos / throttle :
+    // un tick bloqué ne doit pas retenir les signaux pending (fills hors courbe).
+    if (ctx.params.mode !== 'replay') {
+      await this.maybeFlushRunnerSimBatch(at, ctx);
+    }
 
     if (ctx.ledger.isDuplicateOpen(data.conditionId)) return;
 

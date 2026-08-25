@@ -6,7 +6,7 @@
 > **Audit fidélité/correctude 0.3.0** : [`../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md) + [`../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md`](../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md).  
 > **Audit moteur 0.4.0** : [`../audits/2026-08-19_audit-weather-backtest-moteur.md`](../audits/2026-08-19_audit-weather-backtest-moteur.md).  
 > **Per-strategy risk guards 0.5.0** : [`../audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](../audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md).  
-> **Entrée runner-sim 0.7.0** : [`../audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`](../audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md).  
+> **Entrée runner-sim 0.8.0** : [`../audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`](../audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md).  
 > **Périmètre v1** : domaine **weather uniquement** (crypto/copy hors scope).
 
 ## 1. Topologie du package
@@ -15,7 +15,7 @@
 packages/backtest/src/
 ├── index.ts                       runBacktest + parseBacktestParams + BACKTEST_ENGINE_VERSION
 ├── params.ts                      schéma Zod backtestRunParamsSchema (+ configOverrides)
-├── engine-version.ts              semver moteur (`0.7.0`)
+├── engine-version.ts              semver moteur (`0.8.0`)
 ├── adapters/
 │   ├── backtest-domain-adapter.ts interface BacktestDomainAdapter
 │   └── weather/
@@ -136,10 +136,13 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
   ne sont **pas** appliqués à `weather-highest-yes` (aligné sur le live). En
   `runner-sim` multi-stratégies, chaque position utilise son bag
   (`getStrategyParams(risk, pos.meta.strategyId)`) — voir `exit-manager.ts`.
-- **Entrée runner-sim (0.7.0)** : signaux bufferisés avec `decidedAt` ; flush
-  coalescé (1 s) ; `entryAt` = décision ; gardes `entry_skipped_market_resolved`,
-  `entry_skipped_stale_price`, `entry_skipped_immediate_sl` ; flush du batch
-  précédent avant duplicate / maxPos / throttle.
+- **Entrée runner-sim (0.8.0)** : signaux bufferisés avec `decidedAt` ; flush
+  coalescé (1 s) via `maybeFlushRunnerSimBatch` ; `entryAt` = décision ; gardes
+  `entry_skipped_market_resolved`, `entry_skipped_stale_price`,
+  `entry_skipped_immediate_sl` ; flush du batch précédent **avant** duplicate /
+  maxPos / throttle (signaux non retenus **droppés**, pas de file) ; `decidedAt`
+  re-pairé par identité d’objet (`pairDecidedAtBySignal`) ; `fill_price_clamped`
+  seulement si la position s’ouvre (après garde SL immédiat).
 - `markPrice` / `peakBid` : si `tick.yesPrice == null`, garde défensive
   `markprice_stale_carry_forward` (confirme la dernière valeur connue, `peakBid`
   non touché — invariant `fallbackPrice <= peakBid`).
@@ -204,8 +207,9 @@ Le live ne dépend jamais du backtest.
   résolution forcée ghost positions, garde highest-yes drift/bucket,
   **garde-fous per-strategy** (filtrage `openExposure`/`dailyRealizedPnl` par `strategyId`,
   `maxExposureUsdc` par stratégie bloque 2e entrée, `maxExposureUsdc` généreux autorise
-  multiple entrées), **entrée runner-sim 0.7.0** (décision vs flush, coalesce, skip
-  marché résolu / prix stale).
+  multiple entrées), **entrée runner-sim 0.8.0** (`entryAt` = décision, coalesce, skip marché résolu /
+  prix stale / SL immédiat, `maybeFlushRunnerSimBatch` avant gardes — drop pas de file,
+  `pairDecidedAtBySignal`, tests F4 throttle + F5 pairing).
 - `packages/core/src/services/backtest-run.service.test.ts` — verrou singleton.
 
 Lancement : `npm run test -w @polywatch/backtest`.

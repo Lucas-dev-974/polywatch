@@ -445,8 +445,9 @@ Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` |
 
 Config weather (`PUT /api/config/weather`) accepte `weatherAlgoStrategies` (array d'IDs catalogue, min 1) et `weatherAlgoStrategyParams` (objet par strategyId, validé contre le schéma catalogue). **Per-strategy** : chaque stratégie porte sa config complète (gates d'entrée, sizing, sorties, SL/TP/trailing, risk limits, kill-switch, pre-close) — voir [`configuration.md`](./configuration.md) § Weather Algo. Les champs legacy (`weatherAlgoMinEdge`, `weatherAlgoEntryUsdc`, …) sont **rejetés** par `weatherConfigUpdateSchema` (`.strict()`). Refonte : [`weather-algo-audits-plans/2026-08-11_PLAN-weather-per-strategy-config.md`](./weather-algo-audits-plans/2026-08-11_PLAN-weather-per-strategy-config.md).
 
-`engine_version` du run = `BACKTEST_ENGINE_VERSION` du package (`0.7.0`). Runs
-`< 0.7.0` non comparables (sémantique d’entrée runner-sim). `stats.profitFactor`
+`engine_version` du run = `BACKTEST_ENGINE_VERSION` du package (`0.8.0`). Runs
+`< 0.8.0` non comparables (sémantique d’entrée runner-sim ; les runs `0.7.0` n’avaient
+pas F4/F5/F8 malgré la doc). `stats.profitFactor`
 peut être `null` (= +∞, aucun trade perdant).
 
 Timeout : si `BACKTEST_TIMEOUT_MS` est dépassé, flush equity + positions puis `status=failed` / `error=timeout` (sans `statsJson`).

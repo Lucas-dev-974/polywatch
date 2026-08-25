@@ -9,7 +9,7 @@ produit positions, equity, statistiques et avertissements de fidélité.
 
 > **Périmètre v1** : domaine **weather uniquement**. Les adaptateurs crypto/copy,
 > Prometheus et Socket.IO décrits dans le plan d'origine ne sont **pas** implémentés.  
-> **Moteur** : `engineVersion` **`0.7.0`** (audit moteur —
+> **Moteur** : `engineVersion` **`0.8.0`** (audit moteur —
 > [`audits/2026-08-19_audit-weather-backtest-moteur.md`](./audits/2026-08-19_audit-weather-backtest-moteur.md) ;
 > per-strategy risk guards —
 > [`audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](./audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md) ;
@@ -21,8 +21,9 @@ produit positions, equity, statistiques et avertissements de fidélité.
 > Runs `0.5.0` non comparables aux `0.6.0` (warning agrégé `multi_position_stale_mark`,
 > clamping prix [0,1], retrait du fallback `entryPrice` en résolution).  
 > Runs `0.6.0` non comparables aux `0.7.0` (entrée runner-sim : `entryAt` = décision,
-> coalesce 1 s, gardes marché résolu / prix stale / SL immédiat, flush avant
-> duplicate/maxPos/throttle).
+> coalesce 1 s, gardes marché résolu / prix stale / SL immédiat).  
+> Runs `0.7.0` non comparables aux `0.8.0` (flush avant duplicate/maxPos/throttle,
+> pairing `decidedAt` par identité d’objet, `fill_price_clamped` après la garde SL).
 
 ---
 
@@ -102,7 +103,7 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `kill_switch_block_entries` | Kill-switch actif sans force-close — entrées bloquées |
 | `exit_stale_tick` | Sortie évaluée avec un tick plus vieux que `pollMs` |
 | `multi_position_stale_mark` | N positions ouvertes évaluées avec un tick plus vieux que `pollMs` (markPrice lag-1 par condition) |
-| `fill_price_clamped` | Prix de fill clampé à la borne [0,1] (slippage hors bornes) |
+| `fill_price_clamped` | Prix de fill clampé à la borne [0,1] (slippage hors bornes) ; entrée runner-sim : émis seulement si la position s’ouvre (après garde SL immédiat, depuis 0.8.0) |
 | `no_events_in_range` | Aucune donnée sur la plage demandée |
 | `resolution_by_price` | Résolution par prix YES (`>= 0.99` → YES / `<= 0.01` → NO) — pas de température observée |
 | `resolution_price_fallback` | Résolution via fallback `markPrice` (`tick.yesPrice` absent — plus de fallback `entryPrice` depuis 0.6.0) |
@@ -120,7 +121,7 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
 `WEATHER_BUCKET_EXIT` / `WEATHER_FORECAST_CHANGE`, filtre cycle de vie marché
 (`isMarketActiveForWeather`), hystérésis bucket calée sur `weatherAlgoPollMs`.
 
-### Limitations de fidélité (0.7.0)
+### Limitations de fidélité (0.8.0)
 
 - **Mark lag-1 par condition** : le backtest ne dispose que des ticks **observés**
   pour chaque `conditionId`. Le `markPrice` d'une position ne peut pas être plus
@@ -135,13 +136,16 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
   `fill_price_clamped`. PnL = borne indicative, pas une exécution réelle.
 - **Résolution** : pas de fallback `entryPrice` (depuis 0.6.0) — seule `tick.yesPrice`
   ou `markPrice`. Les fees de résolution restent 0 (courbe Polymarket nulle aux prix 0/1).
-- **Entrée runner-sim (depuis 0.7.0)** : les ticks d’un même poll (~10–20 ms d’écart)
+- **Entrée runner-sim (depuis 0.8.0)** : les ticks d’un même poll (~10–20 ms d’écart)
   sont coalescés (`RUNNER_SIM_BATCH_COALESCE_MS = 1000`). `entryAt` = timestamp du
   tick de décision, pas du flush. Un signal n’est pas fillé si le marché est déjà
   résolu, si le prix a divergé de plus de 0.10, ou si le tick courant déclencherait
-  le SL immédiatement. Le flush du batch précédent n’est plus bloqué par
-  duplicate / max concurrent / throttle (ces gardes s’appliquent ensuite, pour
-  le tick courant).
+  le SL immédiatement. Le flush du batch précédent est appelé **avant** les gardes
+  duplicate / max concurrent / throttle (`maybeFlushRunnerSimBatch`) ; les signaux
+  non retenus sont **droppés** (pas de file) pour ne pas être fillés plus tard sur
+  un marché déjà ailleurs. `decidedAt` est re-pairé par identité d’objet signal
+  (`pairDecidedAtBySignal`). `fill_price_clamped` n’est émis qu’après la garde SL
+  immédiat (entrée réellement ouverte).
 
 > **Résolution per-strategy (depuis 0.5.0)** : `maxExposureUsdc`, `maxDailyLossUsdc`,
 > `maxPositionSizeUsdc`, `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
@@ -270,7 +274,7 @@ Paramètres lus depuis le bag per-strategy
 > **Note** : les runs avec `engineVersion < 0.5.0` ont été produits avant l’alignement
 > SL/TP/throttle/filtres/résolution forcée/résolution par prix/garde-fous per-strategy — **non comparables** aux runs ≥ `0.5.0`.
 > Les runs `0.6.0` (et inférieurs) incluent des trades runner-sim de durée nulle
-> ou de fill stale — **non comparables** aux runs ≥ `0.7.0`.
+> ou de fill stale — **non comparables** aux runs ≥ `0.8.0`.
 
 ---
 
@@ -344,7 +348,9 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   `dailyRealizedPnl` filtrage par `strategyId`, `maxExposureUsdc` par stratégie bloque
   2e entrée, `maxExposureUsdc` généreux autorise multiple entrées), **warning
   `multi_position_stale_mark` agrégé**, **clamping prix [0,1]**, **entrée runner-sim
-  0.7.0** (`entryAt` = décision, coalesce 1 s, skip marché résolu / prix stale).
+  0.8.0** (`entryAt` = décision, coalesce 1 s, skip marché résolu / prix stale /
+  SL immédiat, flush avant gardes + drop sans file, `pairDecidedAtBySignal` ;
+  tests F4 throttle + F5 pairing).
 - `src/adapters/weather/question-builder.test.ts` (nouveau) : cibles fractionnaires
   préservées et re-parsées, bornes between négatives fractionnaires, entiers sans `.0`.
 - `src/engine/fill-engine.test.ts` (nouveau) : slippage entrée/sortie, plafond `maxPositionSizeUsdc`,

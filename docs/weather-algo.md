@@ -210,8 +210,9 @@ Doc API : [`api.md`](./api.md) § Weather Algo history. Modèle : [`modele-donne
 
 Le **backtest** s'exécute désormais uniquement en **`runner-sim`** (consolidation 2026-08-24) : regroupement des buckets par ville/date, `evaluateGroup`, dedup et selectionMode comme le runner live. Le mode `strategy` (ré-évaluation bucket par bucket, non équivalent live) a été retiré du moteur ; le champ `backtestExecutionMode` reste accepté par le schéma pour rétro-compat API mais est **ignoré**.
 
-Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.7.0` — entrée runner-sim
-horodatée à la décision, coalesce 1 s, gardes marché résolu / prix stale / SL immédiat).
+Voir [`backtest.md`](./backtest.md) (`engineVersion` ≥ `0.8.0` — entrée runner-sim
+horodatée à la décision, coalesce 1 s, gardes marché résolu / prix stale / SL immédiat,
+flush avant gardes, pairing `decidedAt`, `fill_price_clamped` après garde SL).
 
 ---
 

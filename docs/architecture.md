@@ -188,8 +188,11 @@ semver). Détail : [`backtest.md`](./backtest.md) · [`docs/code/09-backtest.md`
   (cancel conserve les stats ; timeout → `failed` sans stats).
 - Kill-switch `force_close_all` → sorties `KILL_SWITCH` ; throttle re-entry =
   bucket/drift **et** résolution (`tryResolveByPrice` → `markClosed`).
-  Entrée runner-sim `engineVersion` **0.7.0** : `entryAt` = décision, coalesce 1 s,
-  gardes marché résolu / prix stale / SL immédiat.
+  Entrée runner-sim `engineVersion` **0.8.0** : `entryAt` = décision, coalesce 1 s,
+  gardes marché résolu / prix stale / SL immédiat ; `maybeFlushRunnerSimBatch` avant
+  les gardes duplicate / maxPos / throttle (signaux non retenus **droppés**, pas de file) ;
+  `pairDecidedAtBySignal` pour le pairing `decidedAt` ; `fill_price_clamped` seulement
+  si la position s’ouvre (après garde SL immédiat).
 - Résultats persistés dans `backtest_runs` / `backtest_positions` / `backtest_equity_points`.
 
 ### Frontend (`packages/frontend`)

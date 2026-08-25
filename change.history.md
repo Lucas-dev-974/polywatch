@@ -1,5 +1,33 @@
 # Change History
 
+## 2026-08-25 — Backtest runner-sim : flush avant gardes, pairing decidedAt (engineVersion 0.8.0)
+
+### Fixed
+- Adapter weather (`weather-adapter.ts`) : le flush du batch runner-sim précédent
+  est maintenant appelé **avant** les gardes duplicate / maxPos / throttle (via
+  `maybeFlushRunnerSimBatch` extrait de `onBookTickRunnerSim`). Un tick bloqué ne
+  retient plus les signaux pending — ils sont **droppés** (pas de file) pour ne
+  pas être fillés plus tard sur un marché déjà ailleurs (fills hors courbe,
+  ex. Austin #5808). `onBookTickRunnerSim` ne flush plus : évaluation + push.
+- `pairDecidedAtBySignal` : le `decidedAt` est re-pairé par **identité d’objet
+  signal** au lieu de `conditionId` — deux signaux du même marché gardent chacun
+  leur timestamp de décision.
+- `noteFillClampedIfNeeded` (entrée) n’est émis qu’**après** la garde SL immédiat,
+  pour ne pas signaler `fill_price_clamped` sur une entrée jamais ouverte.
+
+### Changed
+- Engine version bump : `0.7.0` → **`0.8.0`** (sémantique d’entrée runner-sim —
+  runs non comparables ; les runs `0.7.0` n’avaient pas F4/F5/F8 malgré la doc).
+
+### Tests Added
+- `weather-adapter.test.ts` : `pairDecidedAtBySignal` (F5) et
+  `flush runs before reentry throttle guard and drops pending signal` (F4).
+- Snapshot golden replay régénéré : `engineVersion` `0.7.0` → `0.8.0` (stats inchangées).
+
+### Notes
+- Audit : `docs/audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`
+  (passe 0.8.0 — F4/F5/F8 réellement implémentés).
+
 ## 2026-08-25 — Backtest runner-sim zero-holding / fill stale (engineVersion 0.7.0)
 
 ### Fixed
@@ -23,6 +51,9 @@
 - Doc : `docs/backtest.md`, `docs/code/09-backtest.md`, `docs/weather-algo.md`,
   `docs/modele-donnees.md`, `docs/api.md`, `docs/frontend.md`, `docs/architecture.md`.
 - Audit : `docs/audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`.
+- **Complété en 0.8.0** : F4 (flush via `maybeFlushRunnerSimBatch` avant gardes,
+  drop sans file), F5 (`pairDecidedAtBySignal`), F8 (`fill_price_clamped` après garde SL).
+  La doc de cette passe annonçait F4 comme corrigé — implémentation réelle en 0.8.0.
 
 ## 2026-08-21 — Backtest per-strategy risk guards (engineVersion 0.5.0)
 

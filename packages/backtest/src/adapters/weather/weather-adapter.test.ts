@@ -3,6 +3,7 @@ import type { DataSource } from 'typeorm';
 import { createTestDataSource, initializeDataSource, type WeatherConfig } from '@polywatch/core';
 import { WeatherMarketSnapshot, WeatherBucketTick, WeatherEvaluationLog, WeatherForecastHistory } from '@polywatch/core';
 import { runBacktest } from '../../index.js';
+import { pairDecidedAtBySignal } from './weather-adapter.js';
 import { BacktestRunService } from '@polywatch/core';
 
 function baseRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
@@ -1585,5 +1586,106 @@ describe('runBacktest (weather replay)', () => {
     });
 
     expect(result.fidelityWarnings.some((w) => w.startsWith('fill_price_clamped'))).toBe(true);
+  });
+
+  it('pairDecidedAtBySignal keeps each signal own decidedAt by object identity (F5)', () => {
+    const t1 = new Date('2026-01-01T00:00:00.000Z');
+    const t2 = new Date('2026-01-01T00:00:00.500Z');
+    const s1 = { conditionId: 'cond-x', edge: 0.3 } as never;
+    const s2 = { conditionId: 'cond-x', edge: 0.2 } as never;
+    const map = pairDecidedAtBySignal([
+      { signal: s1, decidedAt: t1 },
+      { signal: s2, decidedAt: t2 },
+    ]);
+    // Deux signaux du même conditionId : chacun garde son decidedAt.
+    expect(map.get(s1)).toBe(t1);
+    expect(map.get(s2)).toBe(t2);
+  });
+
+  it('reevaluate: flush runs before reentry throttle guard and drops pending signal (F4)', async () => {
+    // Deux buckets london (cond-12 ouvert, cond-13 en pending). À la résolution
+    // de cond-12, markClosed active le throttle ville/date. Le flush doit se faire
+    // AVANT la garde throttle de onBookTick et dropper cond-13 (isReentryBlocked
+    // dans flushPendingRunnerSimSignals). Sans le fix, le tick throttle retourne
+    // avant le flush → S13 reste pending jusqu'à finish() ou un tick post-throttle.
+    const t0 = new Date('2026-01-01T00:00:00.000Z');
+    const t1 = new Date(t0.getTime() + 2_000);
+    const t1b = new Date(t0.getTime() + 2_100);
+    const t2 = new Date(t0.getTime() + 4_000);
+    const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+    const tickRepo = ds.getRepository(WeatherBucketTick);
+    const histRepo = ds.getRepository(WeatherForecastHistory);
+
+    const snap12 = await snapRepo.save(snapRepo.create({
+      city: 'london', cityNormalized: 'london', targetDateIso: '2026-01-02',
+      metric: 'highest_temp', forecastMean: 12, forecastStdDev: 1.5,
+      bucketCount: 1, totalBucketCount: 3, ruleId: 1, recordedAt: t0,
+    }));
+    const snap13 = await snapRepo.save(snapRepo.create({
+      city: 'london', cityNormalized: 'london', targetDateIso: '2026-01-02',
+      metric: 'highest_temp', forecastMean: 12, forecastStdDev: 1.5,
+      bucketCount: 1, totalBucketCount: 3, ruleId: 1, recordedAt: t0,
+    }));
+
+    await histRepo.save(histRepo.create({
+      city: 'london', forecastDate: new Date('2026-01-02T12:00:00Z'),
+      metric: 'highest_temp', forecastMean: 12, forecastStdDev: 1.5,
+      modelValuesJson: '{}', latitude: 51.5, longitude: -0.1, fetchedAt: t0,
+    }));
+
+    const tickFields = {
+      eventSlug: 'evt-london', bucketComparison: 'or_above' as const,
+      bucketLow: null, bucketHigh: null, yesTokenId: 'yes', noTokenId: 'no',
+      volume: 100, volume24hr: 50, liquidityClob: 200, metric: 'highest_temp',
+      targetDateIso: '2026-01-02', city: 'london', cityNormalized: 'london',
+      acceptingOrders: true, closed: false,
+      endDate: new Date('2026-01-02T23:59:00Z'),
+    };
+    const tick12 = (price: number, recordedAt: Date) => tickRepo.create({
+      ...tickFields, snapshotId: snap12.id,
+      question: 'Will the highest temperature in london be 12°C or above on 2026-01-02?',
+      bucketTarget: 12, conditionId: 'cond-london-12',
+      yesPrice: price, noPrice: 1 - price, recordedAt,
+    });
+    const tick13 = (price: number, recordedAt: Date) => tickRepo.create({
+      ...tickFields, snapshotId: snap13.id,
+      question: 'Will the highest temperature in london be 13°C or above on 2026-01-02?',
+      bucketTarget: 13, conditionId: 'cond-london-13',
+      yesPrice: price, noPrice: 1 - price, recordedAt,
+    });
+
+    // t0 : signal cond-12 pending. t1 : flush ouvre cond-12. t1b : signal cond-13
+    // pending (autre bucket, maxPositionsPerCityDate=2). t2 : résolution cond-12 +
+    // flush droppe cond-13 (throttle actif).
+    await tickRepo.save(tick12(0.3, t0));
+    await tickRepo.save(tick12(0.3, t1));
+    await tickRepo.save(tick13(0.35, t1b));
+    await tickRepo.save(tick12(0.99, t2));
+
+    const service = new BacktestRunService(ds);
+    const run = await service.create({ domain: 'weather', mode: 'reevaluate', paramsJson: '{}' });
+    await runBacktest({
+      runId: run.id, ds,
+      params: {
+        domain: 'weather', mode: 'reevaluate',
+        from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
+        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        maxConcurrentPositions: 2,
+      },
+      configSnapshot: baseRisk({
+        weatherAlgoReentryThrottleMs: 60_000,
+        weatherAlgoStrategyParams: JSON.stringify({
+          'weather-forecast': { maxPositionsPerCityDate: 2 },
+        }),
+      }),
+      service,
+    });
+
+    const positions = await service.listPositions(run.id, {});
+    expect(positions.items.some((p) => p.conditionId === 'cond-london-12')).toBe(true);
+    // cond-13 ne doit jamais s'ouvrir : droppé au flush (throttle) sur le tick de
+    // résolution de cond-12, pas re-fillé à finish() ni plus tard.
+    expect(positions.items.some((p) => p.conditionId === 'cond-london-13')).toBe(false);
+    expect(positions.items.length).toBe(1);
   });
 });

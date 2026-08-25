@@ -26,6 +26,7 @@ export function RidgeTooltip(props: { info: TooltipInfo | null }) {
                   <div class="backtest-ridge-legend-row">
                     <span class="backtest-ridge-legend-swatch" style={{ '--ridge-color': b.color }} />
                     <span class="backtest-ridge-legend-label">{b.label}</span>
+                    <span class="backtest-ridge-legend-ticks">{b.tickCount} ticks</span>
                     <strong class="backtest-ridge-legend-price">{b.price != null ? b.price.toFixed(3) : '—'}</strong>
                   </div>
                 )}

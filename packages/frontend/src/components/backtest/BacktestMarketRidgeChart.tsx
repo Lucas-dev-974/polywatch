@@ -259,6 +259,16 @@ export function BacktestMarketRidgeChart(props: {
   };
 
   const onPointerDown = (e: PointerEvent) => {
+    // Alt+clic gauche : épingle/dé-épingle la row/bucket sous le curseur
+    // (maintien du focus = tooltip/crosshair/highlight restent fixés).
+    if (e.altKey && e.button === 0) {
+      const local = toLocalXY(e.currentTarget as SVGSVGElement, e.clientX, e.clientY);
+      hover.togglePin(
+        vp().minT + (local.x / plotW()) * (vp().maxT - vp().minT),
+        local.y,
+      );
+      return;
+    }
     setDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);

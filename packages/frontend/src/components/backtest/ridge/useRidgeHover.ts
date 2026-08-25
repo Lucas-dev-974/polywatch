@@ -29,8 +29,18 @@ interface HoverDeps {
  * - Throttling rAF : un seul update par frame pendant le survol.
  */
 export function useRidgeHover(deps: HoverDeps) {
-  const [hoveredT, setHoveredT] = createSignal<number | null>(null);
-  const [hoveredY, setHoveredY] = createSignal<number | null>(null);
+  const [hoveredTRaw, setHoveredT] = createSignal<number | null>(null);
+  const [hoveredYRaw, setHoveredY] = createSignal<number | null>(null);
+
+  // ── Pin (focus) : Alt+clic gauche épingle une row/bucket ─────────────
+  // Tant qu'un pin est actif, le tooltip/crosshair/highlight restent fixés
+  // sur la row/bucket épinglée, même quand le curseur bouge ou sort du plot.
+  // On stocke des clés STABLES (clé de row `city|date`, conditionId du bucket)
+  // plutôt que des index, pour que le pin survive aux changements de filtre
+  // qui réordonnent/réduisent la liste des voies.
+  const [pinnedT, setPinnedT] = createSignal<number | null>(null);
+  const [pinnedVoieKey, setPinnedVoieKey] = createSignal<string | null>(null);
+  const [pinnedConditionId, setPinnedConditionId] = createSignal<string | null>(null);
 
   const svgToContainer = (svgX: number, svgY: number): { x: number; y: number } => {
     const svg = deps.plotSvgEl();
@@ -100,21 +110,18 @@ export function useRidgeHover(deps: HoverDeps) {
     return best;
   };
 
-  const hoveredVoieIndex = createMemo<number | null>(() => {
-    const y = hoveredY();
+  // Index de la row sous une ordonnée pixel (null si hors de toute row).
+  const computeVoieIndex = (y: number | null): number | null => {
     const list = deps.voies();
     if (y == null || list.length === 0) return null;
     const rel = y - MARGIN_TOP;
     if (rel < 0 || rel >= deps.heightPlot()) return null;
     return Math.floor(rel / VOIE_H);
-  });
+  };
 
   // Clé unique d'un bucket dans une row : `${voieIndex}:${bucketIndex}`.
   // null si le curseur n'est sur aucune courbe spécifique.
-  const hoveredBucketKey = createMemo<string | null>(() => {
-    const t = hoveredT();
-    const y = hoveredY();
-    const idx = hoveredVoieIndex();
+  const computeBucketKey = (t: number | null, y: number | null, idx: number | null): string | null => {
     if (t == null || y == null || idx == null) return null;
     const sc = deps.scale();
     const group = deps.voies()[idx];
@@ -136,7 +143,66 @@ export function useRidgeHover(deps: HoverDeps) {
       }
     }
     return bestDist <= HOVER_BUCKET_TOLERANCE_PX ? bestKey : null;
+  };
+
+  const hoveredVoieIndexRaw = createMemo<number | null>(() => computeVoieIndex(hoveredYRaw()));
+  const hoveredBucketKeyRaw = createMemo<string | null>(() =>
+    computeBucketKey(hoveredTRaw(), hoveredYRaw(), hoveredVoieIndexRaw()),
+  );
+
+  // Valeurs effectives : le pin prime sur le hover.
+  const hoveredT = createMemo<number | null>(() => pinnedT() ?? hoveredTRaw());
+  // Résout la clé de row épinglée vers son index courant dans voies() (null si
+  // la row a disparu après un changement de filtre → le pin devient inactif).
+  const pinnedVoieIndex = createMemo<number | null>(() => {
+    const key = pinnedVoieKey();
+    if (key == null) return null;
+    const idx = deps.voies().findIndex((g) => `${g.city ?? '_'}|${g.date}` === key);
+    return idx >= 0 ? idx : null;
   });
+  const hoveredVoieIndex = createMemo<number | null>(() => pinnedVoieIndex() ?? hoveredVoieIndexRaw());
+  // Quand un pin est actif, on fige le bucket épinglé (null = tous les buckets
+  // de la row épinglée), indépendamment du curseur.
+  const hoveredBucketKey = createMemo<string | null>(() => {
+    if (pinnedVoieIndex() == null) return hoveredBucketKeyRaw();
+    const conditionId = pinnedConditionId();
+    if (conditionId == null) return null;
+    const idx = pinnedVoieIndex()!;
+    const group = deps.voies()[idx];
+    if (!group) return null;
+    const bi = group.buckets.findIndex((b) => b.series.conditionId === conditionId);
+    return bi >= 0 ? `${idx}:${bi}` : null;
+  });
+
+  // Alt+clic gauche : épingle la row/bucket sous le curseur, ou dé-épingle
+  // si on re-clique sur la même cible (ou hors de toute row).
+  const togglePin = (t: number, y: number) => {
+    const voieIndex = computeVoieIndex(y);
+    if (voieIndex == null) {
+      setPinnedT(null);
+      setPinnedVoieKey(null);
+      setPinnedConditionId(null);
+      return;
+    }
+    const group = deps.voies()[voieIndex];
+    if (!group) return;
+    const voieKey = `${group.city ?? '_'}|${group.date}`;
+    const bucketKey = computeBucketKey(t, y, voieIndex);
+    // Clé stable du bucket épinglé : conditionId (null = toute la row).
+    const conditionId = bucketKey != null
+      ? group.buckets[Number(bucketKey.split(':')[1])]?.series.conditionId ?? null
+      : null;
+    const same = pinnedVoieKey() === voieKey && pinnedConditionId() === conditionId;
+    if (same) {
+      setPinnedT(null);
+      setPinnedVoieKey(null);
+      setPinnedConditionId(null);
+    } else {
+      setPinnedT(t);
+      setPinnedVoieKey(voieKey);
+      setPinnedConditionId(conditionId);
+    }
+  };
 
   const tooltipInfo = createMemo<TooltipInfo | null>(() => {
     // P10 : masquer le tooltip hover pendant le replay ou au survol d'un marker.
@@ -146,7 +212,7 @@ export function useRidgeHover(deps: HoverDeps) {
     const group = idx == null ? null : deps.voies()[idx];
     if (t == null || !group) return null;
     const key = hoveredBucketKey();
-    // Si une courbe précise est survolée, on ne garde que son bucket.
+    // Si une courbe précise est survolée (ou épinglée), on ne garde que son bucket.
     // Sinon, on affiche tous les buckets de la row.
     const selectedBuckets = key != null
       ? group.buckets.filter((_, bi) => `${idx}:${bi}` === key)
@@ -155,6 +221,7 @@ export function useRidgeHover(deps: HoverDeps) {
       color: b.color,
       label: bucketLabel(b.series),
       price: nearestPrice(b.series, t),
+      tickCount: b.series.points.length,
       position: b.position,
     }));
     const positionBuckets = buckets.filter((b) => b.position);
@@ -201,12 +268,12 @@ export function useRidgeHover(deps: HoverDeps) {
 
   return {
     hoveredT,
-    hoveredY,
     hoveredVoieIndex,
     hoveredBucketKey,
     tooltipInfo,
     svgToContainer,
     scheduleHover,
     clearHover,
+    togglePin,
   };
 }

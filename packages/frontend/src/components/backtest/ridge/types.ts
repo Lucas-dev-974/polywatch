@@ -71,6 +71,8 @@ export interface TooltipBucket {
   color: string;
   label: string;
   price: number | null;
+  /** Nombre total de ticks enregistrés pour ce bucket. */
+  tickCount: number;
   position: BacktestPositionDto | null;
 }
 

@@ -12502,6 +12502,12 @@ body.is-resizing-columns .position-market-split-handle::after {
   color: var(--text-secondary, var(--text-muted));
 }
 
+.backtest-ridge-legend-ticks {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted, var(--text-secondary));
+}
+
 .backtest-ridge-legend-price {
   flex: 0 0 auto;
   font-variant-numeric: tabular-nums;

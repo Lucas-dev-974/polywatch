@@ -46,29 +46,63 @@ export class WeatherExitManager {
   private bucketHysteresis = new Map<string, number>();
   /** positionId -> last virtual time hysteresis was advanced. */
   private lastHysteresisAdvanceAt = new Map<string, number>();
-  /** `city|dateIso|strategyId` -> last close timestamp (re-entry throttle). */
-  private reentryThrottle = new Map<string, number>();
+  /** `city|dateIso|strategyId` -> re-entry blocked until (epoch ms). */
+  private reentryBlockedUntil = new Map<string, number>();
+  /** `city|dateIso|strategyId` -> cumulative entry count for the run. */
+  private cityDateEntryCounts = new Map<string, number>();
 
   isReentryBlocked(
     city: string,
     targetDateIso: string | null,
     now: Date,
-    risk: WeatherConfig,
     strategyId: string | null,
   ): boolean {
     if (!targetDateIso) return false;
-    const last = this.reentryThrottle.get(reentryKey(city, targetDateIso, strategyId));
-    if (last == null) return false;
-    const bag = strategyId
-      ? getStrategyParams(risk, strategyId)
-      : DEFAULT_WEATHER_STRATEGY_PARAMS;
-    return now.getTime() - last < bag.reentryThrottleMs;
+    const until = this.reentryBlockedUntil.get(reentryKey(city, targetDateIso, strategyId));
+    return until != null && now.getTime() < until;
   }
 
-  /** Throttle une ville/date pour une stratégie donnée (résolution et sorties drift/bucket). */
-  markClosed(city: string, targetDateIso: string | null, now: Date, strategyId: string | null): void {
-    if (!targetDateIso) return;
-    this.reentryThrottle.set(reentryKey(city, targetDateIso, strategyId), now.getTime());
+  /** Throttle re-entry until `now + throttleMs` (extends an existing longer block). */
+  markReentryBlocked(
+    city: string,
+    targetDateIso: string | null,
+    now: Date,
+    strategyId: string | null,
+    throttleMs: number,
+  ): void {
+    if (!targetDateIso || throttleMs <= 0) return;
+    const key = reentryKey(city, targetDateIso, strategyId);
+    const until = now.getTime() + throttleMs;
+    const prev = this.reentryBlockedUntil.get(key) ?? 0;
+    if (until > prev) this.reentryBlockedUntil.set(key, until);
+  }
+
+  /** Throttle une ville/date pour une stratégie (résolution et sorties drift/bucket). */
+  markClosed(
+    city: string,
+    targetDateIso: string | null,
+    now: Date,
+    strategyId: string | null,
+    throttleMs: number,
+  ): void {
+    this.markReentryBlocked(city, targetDateIso, now, strategyId, throttleMs);
+  }
+
+  isEntryCapReached(
+    city: string | null,
+    targetDateIso: string | null,
+    strategyId: string | null,
+    maxEntries: number,
+  ): boolean {
+    if (!city || !targetDateIso || maxEntries <= 0) return false;
+    const count = this.cityDateEntryCounts.get(reentryKey(city, targetDateIso, strategyId)) ?? 0;
+    return count >= maxEntries;
+  }
+
+  noteEntry(city: string | null, targetDateIso: string | null, strategyId: string | null): void {
+    if (!city || !targetDateIso) return;
+    const key = reentryKey(city, targetDateIso, strategyId);
+    this.cityDateEntryCounts.set(key, (this.cityDateEntryCounts.get(key) ?? 0) + 1);
   }
 
   /**
@@ -151,7 +185,13 @@ export class WeatherExitManager {
       slippageBps: input.slippageBps,
     });
     if (pos.city) {
-      this.markClosed(pos.city, pos.targetDateIso, now, strategyId);
+      this.markReentryBlocked(
+        pos.city,
+        pos.targetDateIso,
+        now,
+        strategyId,
+        bag.reentryThrottleMs,
+      );
     }
     this.bucketHysteresis.delete(pos.conditionId);
     this.lastHysteresisAdvanceAt.delete(pos.conditionId);

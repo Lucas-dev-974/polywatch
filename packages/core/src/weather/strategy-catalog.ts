@@ -85,6 +85,13 @@ export type WeatherStrategyParamsBag = {
   bucketHysteresisPolls: number;
   /** Pause after bucket/drift close before re-entering the same city. */
   reentryThrottleMs: number;
+  /** Pause after SL close before re-entering the same city+date. 0 = disabled. */
+  reentryThrottleAfterSlMs: number;
+  /**
+   * Max entries (including the first) per city+date+strategy for the run.
+   * 0 = unlimited.
+   */
+  maxReentriesPerCityDate: number;
   /** City-follow switch mode on bucket exit. */
   cityFollowSwitchMode: 'close_and_reenter' | 'hold';
   // ── SL / TP / Trailing ─────────────────────────────────────────────
@@ -137,6 +144,8 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   forecastChangeThreshold: 2,
   bucketHysteresisPolls: 2,
   reentryThrottleMs: 1_800_000,
+  reentryThrottleAfterSlMs: 1_800_000,
+  maxReentriesPerCityDate: 2,
   cityFollowSwitchMode: 'close_and_reenter',
   slEnabled: true,
   tpEnabled: true,
@@ -193,7 +202,9 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     // Exit
     { key: 'forecastChangeThreshold', label: 'Seuil de dérive forecast (°C)', kind: 'number', min: 0.5, max: 20, step: 0.5, default: 2, hint: 'Déclenche WEATHER_FORECAST_CHANGE.' },
     { key: 'bucketHysteresisPolls', label: 'Hystérésis bucket (polls)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
-    { key: 'reentryThrottleMs', label: 'Ré-entrée ville (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000 },
+    { key: 'reentryThrottleMs', label: 'Ré-entrée après sortie bucket/drift (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: 'Pause après WEATHER_BUCKET_EXIT ou WEATHER_FORECAST_CHANGE.' },
+    { key: 'reentryThrottleAfterSlMs', label: 'Ré-entrée après stop-loss (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: '0 = désactivé. Pause après une sortie SL avant de rouvrir le même couple ville+date.' },
+    { key: 'maxReentriesPerCityDate', label: 'Max entrées par ville+date', kind: 'number', min: 0, max: 20, step: 1, default: 2, hint: '0 = illimité. Nombre max de positions ouvertes (cumul) sur un même couple ville+date — limite les allers-retours SL.' },
     { key: 'cityFollowSwitchMode', label: 'Mode suivi ville', kind: 'select', options: CITY_FOLLOW_OPTIONS, default: 'close_and_reenter' },
     // SL / TP / Trailing
     { key: 'slEnabled', label: 'Stop-loss actif', kind: 'boolean', default: true },
@@ -260,6 +271,10 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     { key: 'tpPercent', label: 'TP (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Pourcentage de la mise investie.' },
     { key: 'trailingPercent', label: 'Trailing (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Drawdown en % de la mise investie.' },
     { key: 'trailingActivationPercent', label: 'Trailing activation (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Gain en % de la mise investie pour armer le trailing.' },
+    // Re-entry guards
+    { key: 'reentryThrottleMs', label: 'Ré-entrée après sortie bucket/drift (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: 'Pause après WEATHER_BUCKET_EXIT ou WEATHER_FORECAST_CHANGE.' },
+    { key: 'reentryThrottleAfterSlMs', label: 'Ré-entrée après stop-loss (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: '0 = désactivé. Pause après une sortie SL.' },
+    { key: 'maxReentriesPerCityDate', label: 'Max entrées par ville+date', kind: 'number', min: 0, max: 20, step: 1, default: 2, hint: '0 = illimité. Limite les re-entrées après SL sur le même marché ville+date.' },
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
     { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },

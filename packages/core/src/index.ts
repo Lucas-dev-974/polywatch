@@ -388,6 +388,13 @@ export {
   hasWeatherReentryThrottle,
 } from './redis/weather-reentry-throttle.js';
 export {
+  weatherReentryCountKey,
+  getWeatherReentryCount,
+  incrementWeatherReentryCount,
+  isWeatherReentryCountBlocked,
+} from './redis/weather-reentry-count.js';
+export { applyWeatherReentryThrottleAfterSl } from './weather/weather-reentry-after-sl.js';
+export {
   cryptoReentryThrottleKey,
   normalizeCryptoReentryOutcome,
   parseCryptoReentryRedisState,

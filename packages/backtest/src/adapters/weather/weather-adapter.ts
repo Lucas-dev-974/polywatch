@@ -424,7 +424,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       if (cityDateKey && (seenCityDates.get(cityDateKey) ?? 0) >= maxPerCityDate) continue;
       if (ctx.ledger.isDuplicateOpen(signal.conditionId)) continue;
       if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) break;
-      if (signal.city && this.exitManager.isReentryBlocked(signal.city, signal.targetDate.toISOString().slice(0, 10), ctx.clock.now(), risk, signal.strategyId)) continue;
+      if (this.isWeatherEntryBlocked(ctx, signal.city, signal.targetDate.toISOString().slice(0, 10), signal.strategyId, risk)) continue;
 
       const cached = this.lastTickByCondition.get(signal.conditionId);
       // Fill au prix de DÉCISION (signal.marketPrice). Le cache peut porter un
@@ -504,6 +504,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         },
       });
 
+      this.exitManager.noteEntry(signal.city, signal.targetDate.toISOString().slice(0, 10), signal.strategyId);
       if (cityDateKey) seenCityDates.set(cityDateKey, (seenCityDates.get(cityDateKey) ?? 0) + 1);
     }
   }
@@ -604,7 +605,10 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const maxPos = ctx.params.maxConcurrentPositions;
     if (ctx.ledger.openCount() >= maxPos) return;
 
-    if (data.snapshotTargetDateIso && this.exitManager.isReentryBlocked(data.snapshotCity, data.snapshotTargetDateIso, ctx.clock.now(), ctx.configSnapshot, this.strategyId)) return;
+    if (
+      data.snapshotTargetDateIso &&
+      this.isWeatherEntryBlocked(ctx, data.snapshotCity, data.snapshotTargetDateIso, this.strategyId, ctx.configSnapshot)
+    ) return;
 
     if (ctx.params.mode === 'replay') return;
 
@@ -625,7 +629,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const cached = this.lastTickByCondition.get(data.conditionId);
     const targetDateIso = cached?.tick.snapshotTargetDateIso ?? data.snapshotTargetDateIso ?? null;
 
-    if (data.city && targetDateIso && this.exitManager.isReentryBlocked(data.city, targetDateIso, ctx.clock.now(), risk, data.strategyId)) return;
+    if (data.city && targetDateIso && this.isWeatherEntryBlocked(ctx, data.city, targetDateIso, data.strategyId, risk)) return;
     if (
       this.openCountForCityDate(ctx, data.city, targetDateIso, data.strategyId) >=
       Math.max(1, (getStrategyParams(risk, data.strategyId).maxPositionsPerCityDate ?? 1))
@@ -669,6 +673,28 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         ...resolvedExitMeta(ctx.configSnapshot, data.strategyId),
       },
     });
+    this.exitManager.noteEntry(data.city, targetDateIso, data.strategyId);
+  }
+
+  /** Block re-entry when throttle or per-city-date entry cap applies. */
+  private isWeatherEntryBlocked(
+    ctx: RunContext,
+    city: string | null | undefined,
+    targetDateIso: string | null,
+    strategyId: string | null,
+    risk: WeatherConfig,
+  ): boolean {
+    if (!city || !targetDateIso) return false;
+    if (this.exitManager.isReentryBlocked(city, targetDateIso, ctx.clock.now(), strategyId)) {
+      return true;
+    }
+    const bag = getStrategyParams(risk, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
+    return this.exitManager.isEntryCapReached(
+      city,
+      targetDateIso,
+      strategyId,
+      bag.maxReentriesPerCityDate,
+    );
   }
 
   /**
@@ -738,11 +764,14 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     // Une résolution est une sortie de marché : on marque le throttle de
     // ré-entrée pour la ville/date/stratégie, cohérent avec drift/bucket exit.
     if (pos.city) {
+      const strategyId = (pos.meta.strategyId as string | undefined) ?? null;
+      const bag = getStrategyParams(ctx.configSnapshot, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
       this.exitManager.markClosed(
         pos.city,
         pos.targetDateIso,
         ctx.clock.now(),
-        (pos.meta.strategyId as string | undefined) ?? null,
+        strategyId,
+        bag.reentryThrottleMs,
       );
     }
     return true;
@@ -838,6 +867,17 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           exitReason: slTp.reason,
           fees: slTp.fees,
         });
+        if (slTp.reason === 'SL' && pos.city) {
+          const strategyId = (pos.meta.strategyId as string | undefined) ?? null;
+          const bag = getStrategyParams(ctx.configSnapshot, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
+          this.exitManager.markReentryBlocked(
+            pos.city,
+            pos.targetDateIso,
+            ctx.clock.now(),
+            strategyId,
+            bag.reentryThrottleAfterSlMs,
+          );
+        }
       }
     }
     this.noteStaleMarks(ctx);

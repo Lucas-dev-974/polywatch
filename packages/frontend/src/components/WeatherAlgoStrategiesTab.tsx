@@ -35,6 +35,8 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
       'forecastChangeThreshold',
       'bucketHysteresisPolls',
       'reentryThrottleMs',
+      'reentryThrottleAfterSlMs',
+      'maxReentriesPerCityDate',
       'cityFollowSwitchMode',
     ],
   },

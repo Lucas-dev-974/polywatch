@@ -2,6 +2,7 @@ import type { CopiedPosition, Market, GlobalConfig, CopyConfig, CryptoConfig, We
 import {
   buildCloseOrderSignal,
   evaluatePositionExit,
+  applyWeatherReentryThrottleAfterSl,
   getCopySlCloseMaxRetries,
   getCryptoSlCloseMaxRetries,
   getWeatherSlCloseMaxRetries,
@@ -20,6 +21,8 @@ import {
   type TradingMode,
   getAlgoKindForPosition,
 } from '@polywatch/core';
+import type { DataSource } from 'typeorm';
+import type { Redis } from 'ioredis';
 import type { RedisQueue } from '../../queue/redis-queue.js';
 import pino from 'pino';
 import { resolveCloseBid } from './close-bid.js';
@@ -85,6 +88,8 @@ export class PositionExitEvaluator {
     private readonly recordExitEmitBlock?: ExitEmitBlockRecorder,
     private readonly clearExitEmitBlock?: ExitEmitBlockClearer,
     private readonly alertExitEmitBlock?: ExitEmitBlockAlerter,
+    private readonly redis?: Pick<Redis, 'set'>,
+    private readonly ds?: DataSource,
   ) { }
 
   shouldRunCloseEval(positionId: number, now: number): boolean {
@@ -476,7 +481,7 @@ export class PositionExitEvaluator {
 
       try {
         // Do NOT clear exit-emit block on enqueue — wait for fill / terminal close.
-        await this.emitCloseSignal(pos, closeReason, emitBid, lastTradePrice);
+        await this.emitCloseSignal(pos, closeReason, emitBid, lastTradePrice, algoConfig);
       } catch (err) {
         // Enqueue failed (e.g. Redis down): do NOT arm the cooldown marker so
         // the next evaluation can retry the critical exit immediately.
@@ -544,9 +549,29 @@ export class PositionExitEvaluator {
     reason: TotalCloseReason,
     bidVwap: number,
     lastTradePrice?: number,
+    algoConfig?: CopyConfig | CryptoConfig | WeatherConfig,
   ): Promise<void> {
     await this.closeQueue.enqueue(
       buildCloseOrderSignal({ pos, reason, bidVwap, lastTradePrice }),
     );
+    if (
+      reason === 'SL' &&
+      pos.reason === 'WEATHER_OPEN' &&
+      getAlgoKindForPosition(pos) === 'weather' &&
+      algoConfig &&
+      this.redis &&
+      this.ds
+    ) {
+      try {
+        await applyWeatherReentryThrottleAfterSl({
+          redis: this.redis,
+          ds: this.ds,
+          position: pos,
+          weatherConfig: algoConfig as WeatherConfig,
+        });
+      } catch (err) {
+        log.warn({ err, positionId: pos.id }, 'failed to set weather SL re-entry throttle');
+      }
+    }
   }
 }

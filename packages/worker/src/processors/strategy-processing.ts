@@ -1,4 +1,3 @@
-import type { DataSource } from 'typeorm';
 import { In } from 'typeorm';
 import {
   CopiedPosition,
@@ -44,6 +43,8 @@ import {
   loadRealClobMarketInfoLookup,
   minSellQuantityViolation,
 } from '../clob/min-order-size.js';
+import type { DataSource } from 'typeorm';
+import type { Redis } from 'ioredis';
 import pino from 'pino';
 import { notifyBackendAlert } from '../clob/notify-alert.js';
 import { buildStrategyCycleMetricsSnapshot } from '../strategy-cycle-metrics.js';
@@ -83,6 +84,7 @@ export class StrategyProcessing {
     private readonly connectionManager: PolymarketConnectionManager,
     private readonly closeQueue: RedisQueue<OrderSignal>,
     onCycleComplete?: StrategyProcessing['onCycleComplete'],
+    private readonly redis?: Pick<Redis, 'set'>,
   ) {
     this.onCycleComplete = onCycleComplete;
     this.positionService = new CopiedPositionService(ds);
@@ -130,6 +132,8 @@ export class StrategyProcessing {
         );
         return Promise.resolve();
       },
+      redis,
+      ds,
     );
   }
 

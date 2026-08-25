@@ -22,6 +22,9 @@ import {
   enqueueEntrySignal,
   resolveEntryEnqueueBlocked,
   hasAlgoEntryCooldown,
+  getWeatherReentryCount,
+  incrementWeatherReentryCount,
+  isWeatherReentryCountBlocked,
   hasWeatherReentryThrottle,
   MIN_ORDER_SHARES,
   resumeEntryFromReservation,
@@ -55,7 +58,7 @@ export interface WeatherEntryPipelineParams {
   simulationService: SimulationService;
   marketService: MarketService;
   orderQueue: RedisQueue<OrderSignal>;
-  redisCmd: Pick<Redis, 'exists'>;
+  redisCmd: Pick<Redis, 'exists' | 'get' | 'incr'>;
   ds: DataSource;
   backendUrl: string;
   serviceToken: string;
@@ -169,7 +172,7 @@ async function runMode(args: {
   reservationService: ReservationService;
   simulationService: SimulationService;
   orderQueue: RedisQueue<OrderSignal>;
-  redisCmd: Pick<Redis, 'exists'>;
+  redisCmd: Pick<Redis, 'exists' | 'get' | 'incr'>;
   ds: DataSource;
   backendUrl: string;
   serviceToken: string;
@@ -240,6 +243,24 @@ async function runMode(args: {
     mode,
     reason: 'WEATHER_OPEN',
   });
+
+  if (!existingReservation) {
+    const targetDateIso = signal.targetDate.toISOString().slice(0, 10);
+    const entryCount = await getWeatherReentryCount(
+      redisCmd,
+      signal.city,
+      targetDateIso,
+      signal.strategyId,
+      mode,
+    );
+    if (isWeatherReentryCountBlocked(entryCount, bag.maxReentriesPerCityDate)) {
+      log.debug(
+        { city: signal.city, targetDateIso, mode, entryCount, max: bag.maxReentriesPerCityDate },
+        'entry skipped — city+date entry cap reached',
+      );
+      return 'Cap entrées ville+date atteint';
+    }
+  }
 
   if (existingReservation) {
     const executionService = new ExecutionService(ds);
@@ -487,6 +508,13 @@ async function runMode(args: {
   });
 
   if (blockedReason === null) {
+    await incrementWeatherReentryCount(
+      redisCmd,
+      signal.city,
+      signal.targetDate.toISOString().slice(0, 10),
+      signal.strategyId,
+      mode,
+    );
     log.info(
       {
         conditionId: signal.conditionId,

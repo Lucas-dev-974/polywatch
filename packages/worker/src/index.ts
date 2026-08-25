@@ -146,7 +146,7 @@ async function main() {
       illiquidPositions: snapshot.illiquidPositions,
       spreadMean: snapshot.spreadMean,
     });
-  });
+  }, redisCmd);
   resultsConsumer.setOnPositionClosed((positionId) =>
     strategy.clearExitState(positionId),
   );

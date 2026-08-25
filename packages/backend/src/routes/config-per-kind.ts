@@ -259,6 +259,8 @@ const weatherStrategyParamsBagSchema = z
     forecastChangeThreshold: z.number().finite().min(0.5).max(20),
     bucketHysteresisPolls: z.number().int().min(1).max(10),
     reentryThrottleMs: z.number().int().min(0).max(86_400_000),
+    reentryThrottleAfterSlMs: z.number().int().min(0).max(86_400_000),
+    maxReentriesPerCityDate: z.number().int().min(0).max(20),
     cityFollowSwitchMode: weatherCityFollowSwitchMode,
     // SL / TP / trailing
     slEnabled: z.boolean(),

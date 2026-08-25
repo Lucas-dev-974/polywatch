@@ -11,6 +11,8 @@ import { resolveMarketInterval } from '../risk/crypto-algo-exit.js';
 import { deadLetterQueueKey, WORKER_QUEUES } from '../queue/worker-queues.js';
 import { algoEntryCooldownKey } from './algo-entry-cooldown.js';
 import { weatherReentryThrottleKey } from './weather-reentry-throttle.js';
+import { weatherReentryCountKey } from './weather-reentry-count.js';
+import { WEATHER_STRATEGY_IDS } from '../weather/strategy-catalog.js';
 import { weatherBucketHysteresisKey } from './weather-bucket-hysteresis.js';
 import { normalizeWeatherCity } from '../weather/weather-exit-helpers.js';
 import type { ExecutionResult, OrderSignal } from '../types/index.js';
@@ -57,6 +59,7 @@ export interface SimResetRedisPurgeResult {
   cooldownKeysRemoved: number;
   moveEventsRemoved?: number;
   weatherReentryKeysRemoved?: number;
+  weatherEntryCountKeysRemoved?: number;
   weatherHysteresisKeysRemoved?: number;
   /** Sim-filtered jobs removed from `${queue}:dead` lists. */
   deadLetterRemoved?: number;
@@ -612,11 +615,15 @@ export async function purgeSimExecutionRedisState(
   }
 
   let weatherReentryKeysRemoved = 0;
+  let weatherEntryCountKeysRemoved = 0;
   let weatherHysteresisKeysRemoved = 0;
   if (algoKind === 'weather') {
     const keysToDelete: string[] = [];
     for (const { city, dateIso } of hints.weatherCityDates ?? []) {
       keysToDelete.push(weatherReentryThrottleKey(city, dateIso, 'sim'));
+      for (const strategyId of WEATHER_STRATEGY_IDS) {
+        keysToDelete.push(weatherReentryCountKey(city, dateIso, strategyId, 'sim'));
+      }
     }
     for (const id of hints.copiedPositionIds) {
       keysToDelete.push(weatherBucketHysteresisKey(id));
@@ -625,6 +632,7 @@ export async function purgeSimExecutionRedisState(
       const n = await redis.del(key);
       if (n > 0) {
         if (key.startsWith('weather-reentry:')) weatherReentryKeysRemoved += n;
+        else if (key.startsWith('weather-entry-count:')) weatherEntryCountKeysRemoved += n;
         else weatherHysteresisKeysRemoved += n;
       }
     }
@@ -640,6 +648,7 @@ export async function purgeSimExecutionRedisState(
     cooldownKeysRemoved,
     moveEventsRemoved,
     weatherReentryKeysRemoved,
+    weatherEntryCountKeysRemoved,
     weatherHysteresisKeysRemoved,
     deadLetterRemoved,
     jobRetryKeysRemoved,

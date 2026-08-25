@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => {
   return {
     hasAlgoEntryCooldown: vi.fn(async () => false),
     hasWeatherReentryThrottle: vi.fn(async () => false),
+    getWeatherReentryCount: vi.fn(async () => 0),
+    incrementWeatherReentryCount: vi.fn(async () => 1),
+    isWeatherReentryCountBlocked: vi.fn((count: number, max: number) => max > 0 && count >= max),
     resolveWeatherEntryExitParams: vi.fn(() => ({
       trailingPercent: null,
       trailingActivationPercent: null,
@@ -40,6 +43,7 @@ const mocks = vi.hoisted(() => {
       cityFollowSwitchMode: null,
       bucketHysteresisPolls: null,
       reentryThrottleMs: null,
+      maxReentriesPerCityDate: 0,
     })),
     enqueueEntrySignal: vi.fn(async () => ({ enqueued: true })),
     resolveEntryEnqueueBlocked: vi.fn(async () => null),
@@ -66,6 +70,9 @@ const mocks = vi.hoisted(() => {
 vi.mock('@polywatch/core', () => ({
   hasAlgoEntryCooldown: mocks.hasAlgoEntryCooldown,
   hasWeatherReentryThrottle: mocks.hasWeatherReentryThrottle,
+  getWeatherReentryCount: mocks.getWeatherReentryCount,
+  incrementWeatherReentryCount: mocks.incrementWeatherReentryCount,
+  isWeatherReentryCountBlocked: mocks.isWeatherReentryCountBlocked,
   resolveWeatherEntryExitParams: mocks.resolveWeatherEntryExitParams,
   hashAlgoLogicalKey: mocks.hashAlgoLogicalKey,
   hashAlgoOrderSignalId: mocks.hashAlgoOrderSignalId,

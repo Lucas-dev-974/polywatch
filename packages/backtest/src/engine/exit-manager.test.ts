@@ -146,16 +146,14 @@ describe('WeatherExitManager SL/TP defaults (B1)', () => {
 });
 
 describe('WeatherExitManager re-entry throttle (B3)', () => {
-  it('does not throttle after SL', () => {
+  it('throttles after SL via markReentryBlocked', () => {
     const mgr = new WeatherExitManager();
     const now = new Date('2026-01-01T01:00:00Z');
-    mgr.evaluateSlTpTrailing(pos(), {
-      yesPrice: 0.4, // -20% on cost basis 0.5 => SL
-      now,
-      slippageBps: 0,
-    });
-    // evaluateSlTpTrailing no longer calls markClosed — throttle stays clear
-    expect(mgr.isReentryBlocked('london', '2026-01-01', now, risk(), null)).toBe(false);
+    mgr.markReentryBlocked('london', '2026-01-01', now, 'weather-forecast', 1_800_000);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast')).toBe(true);
+    expect(
+      mgr.isReentryBlocked('london', '2026-01-01', new Date(now.getTime() + 1_800_000), 'weather-forecast'),
+    ).toBe(false);
   });
 
   it('throttles after forecast drift exit', () => {
@@ -172,9 +170,9 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
       risk: risk(),
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('london', '2026-01-01', now, risk(), 'weather-forecast')).toBe(true);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast')).toBe(true);
     expect(
-      mgr.isReentryBlocked('london', '2026-01-01', new Date(now.getTime() + 1_800_000), risk(), 'weather-forecast'),
+      mgr.isReentryBlocked('london', '2026-01-01', new Date(now.getTime() + 1_800_000), 'weather-forecast'),
     ).toBe(false);
   });
 
@@ -199,23 +197,35 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
 
     // Strategy A is blocked on the same city/date.
     expect(
-      mgr.isReentryBlocked('london', '2026-01-01', now, risk(), 'weather-forecast'),
+      mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast'),
     ).toBe(true);
 
     // A different strategy on the same city/date is NOT blocked.
     expect(
-      mgr.isReentryBlocked('london', '2026-01-01', now, risk(), 'weather-forecast-aligned'),
+      mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast-aligned'),
+    ).toBe(false);
+  });
+
+  it('blocks further entries when city-date entry cap is reached', () => {
+    const mgr = new WeatherExitManager();
+    mgr.noteEntry('london', '2026-01-01', 'weather-highest-yes');
+    mgr.noteEntry('london', '2026-01-01', 'weather-highest-yes');
+    expect(
+      mgr.isEntryCapReached('london', '2026-01-01', 'weather-highest-yes', 2),
+    ).toBe(true);
+    expect(
+      mgr.isEntryCapReached('london', '2026-01-01', 'weather-highest-yes', 0),
     ).toBe(false);
   });
 
   it('marks the throttle on resolution via markClosed (P1-2)', () => {
     const mgr = new WeatherExitManager();
     const now = new Date('2026-01-01T12:00:00Z');
-    mgr.markClosed('london', '2026-01-01', now, 'weather-forecast');
-    expect(mgr.isReentryBlocked('london', '2026-01-01', now, risk(), 'weather-forecast')).toBe(true);
+    mgr.markClosed('london', '2026-01-01', now, 'weather-forecast', 1_800_000);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast')).toBe(true);
     // Another strategy remains unblocked.
     expect(
-      mgr.isReentryBlocked('london', '2026-01-01', now, risk(), 'weather-forecast-aligned'),
+      mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast-aligned'),
     ).toBe(false);
   });
 });
@@ -237,7 +247,7 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       risk: risk(),
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('', null, now, risk(), null)).toBe(false);
+    expect(mgr.isReentryBlocked('', null, now, null)).toBe(false);
   });
 
   it('still throttles for city position (regression)', () => {
@@ -254,7 +264,7 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       risk: risk(),
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
-    expect(mgr.isReentryBlocked('london', '2026-01-01', now, risk(), 'weather-forecast')).toBe(true);
+    expect(mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast')).toBe(true);
   });
 });
 

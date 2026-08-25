@@ -11975,6 +11975,64 @@ body.is-resizing-columns .position-market-split-handle::after {
   line-height: 1.5;
 }
 
+.backtest-metrics-strategy {
+  margin-top: 0.75rem;
+}
+
+.backtest-metrics-strategy.algo-panel {
+  background: var(--bg-elevated, var(--surface));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  box-shadow: none;
+}
+
+.backtest-strategy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.backtest-strategy-id {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.backtest-strategy-desc {
+  margin: 0;
+}
+
+.backtest-strategy-params {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+}
+
+.backtest-strategy-param {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--bg, var(--surface));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius, 0.375rem);
+}
+
+.backtest-strategy-param dt {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.backtest-strategy-param dd {
+  margin: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, var(--text-primary));
+}
+
 .backtest-section {
   display: flex;
   flex-direction: column;

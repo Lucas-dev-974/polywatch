@@ -5,6 +5,18 @@ import { api, buildQueryString } from './http';
 export type BacktestRunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type BacktestMode = 'reevaluate' | 'replay';
 
+export interface BacktestRunStrategyDto {
+  id: string;
+  label: string;
+  description: string;
+  params: Array<{
+    key: string;
+    label: string;
+    hint?: string;
+    display: string;
+  }>;
+}
+
 export interface BacktestRunDto {
   id: number;
   createdAt: string;
@@ -22,6 +34,8 @@ export interface BacktestRunDto {
   fidelityWarnings: string[] | null;
   engineVersion: string | null;
   error: string | null;
+  /** Présent sur GET /runs et /runs/:id — snapshot de la stratégie de la run. */
+  strategy?: BacktestRunStrategyDto | null;
 }
 
 export interface BacktestStats {

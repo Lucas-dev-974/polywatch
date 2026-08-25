@@ -15,6 +15,7 @@ import { BacktestMarketsFallback } from './BacktestMarketsFallback';
 import { BacktestMarketRidgeChart } from './BacktestMarketRidgeChart';
 import { BacktestMetrics } from './BacktestMetrics';
 import { BacktestPositionsTable } from './BacktestPositionsTable';
+import { BacktestStrategySection } from './BacktestStrategySection';
 import { BacktestRidgeFullscreenDialog } from './BacktestRidgeFullscreenDialog';
 import { formatTs } from './format';
 
@@ -111,7 +112,7 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
         </p>
       </Show>
 
-      <Show when={props.run.stats != null || props.equity.length > 0}>
+      <Show when={props.run.stats != null || props.equity.length > 0 || props.run.strategy != null}>
         <CollapsibleSection
           title="Metrics"
           defaultCollapsed={false}
@@ -120,6 +121,7 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
           <Show when={props.run.stats != null}>
             <BacktestMetrics stats={props.run.stats!} />
           </Show>
+          <BacktestStrategySection strategy={props.run.strategy} />
           <Show when={props.equity.length > 0}>
             <BacktestEquityChart
               points={props.equity}

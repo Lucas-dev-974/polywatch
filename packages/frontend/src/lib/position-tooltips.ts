@@ -74,8 +74,6 @@ const CLOSE_REASON_TOOLTIPS: Record<string, string> = {
     'Clôture anticipée pour limiter une perte avant la résolution du marché',
   PRE_CLOSE_WIN:
     'Clôture anticipée pour sécuriser un gain avant la résolution du marché',
-  WEATHER_PRE_CLOSE:
-    'Pré-clôture météo — vente forcée dans la fenêtre avant résolution',
   WEATHER_FORECAST_CHANGE:
     'Fermée parce que le forecast a dérivé au-delà du seuil',
   WEATHER_BUCKET_EXIT:

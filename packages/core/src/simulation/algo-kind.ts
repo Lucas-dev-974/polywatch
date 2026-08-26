@@ -14,7 +14,6 @@ export function algoKindFromReason(
   if (
     reason === 'WEATHER_OPEN' ||
     reason === 'WEATHER_FORECAST_CHANGE' ||
-    reason === 'WEATHER_PRE_CLOSE' ||
     reason === 'WEATHER_BUCKET_EXIT'
   )
     return 'weather';

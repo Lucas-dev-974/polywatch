@@ -241,7 +241,6 @@ export function recordExitEvent(reason: string): void {
       break;
     case 'PRE_CLOSE_LOSS':
     case 'PRE_CLOSE_WIN':
-    case 'WEATHER_PRE_CLOSE':
       metricsHolder.preCloseTotal?.labels(reason).inc();
       break;
     case 'KILL_SWITCH':

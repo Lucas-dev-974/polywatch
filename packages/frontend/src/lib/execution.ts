@@ -42,7 +42,6 @@ const EXECUTION_REASON_LABELS: Record<string, string> = {
   TRAILING: 'Trailing stop',
   PRE_CLOSE_LOSS: 'Pré-clôture (perte)',
   PRE_CLOSE_WIN: 'Pré-clôture (gain)',
-  WEATHER_PRE_CLOSE: 'Pré-clôture',
   WEATHER_FORECAST_CHANGE: 'Changement forecast',
   WEATHER_BUCKET_EXIT: 'Sortie palier',
   REDEMPTION: 'Redemption',

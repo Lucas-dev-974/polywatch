@@ -21,7 +21,6 @@ import { RiskService } from '../services/risk.service.js';
 
 /** Weather close dedupe keys used by weather-exit-evaluator enqueueUnique. */
 const WEATHER_CLOSE_DEDUPE_REASONS = [
-  'WEATHER_PRE_CLOSE',
   'WEATHER_FORECAST_CHANGE',
   'WEATHER_BUCKET_EXIT',
 ] as const;

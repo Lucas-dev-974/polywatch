@@ -22,7 +22,7 @@ describe('close-signal', () => {
       isTotalCloseSignal({ side: 'SELL', reason: 'MANUAL' }),
     ).toBe(true);
     expect(
-      isTotalCloseSignal({ side: 'SELL', reason: 'WEATHER_PRE_CLOSE' }),
+      isTotalCloseSignal({ side: 'SELL', reason: 'WEATHER_BUCKET_EXIT' }),
     ).toBe(true);
     expect(
       isTotalCloseSignal({ side: 'SELL', reason: 'WEATHER_FORECAST_CHANGE' }),

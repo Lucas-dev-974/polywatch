@@ -94,7 +94,6 @@ const SURVEILLANCE_EXIT_REASON_SHORT_LABELS: Record<string, string> = {
   TRAILING: 'Trailing',
   PRE_CLOSE_LOSS: 'Pré-clôture',
   PRE_CLOSE_WIN: 'Pré-clôture',
-  WEATHER_PRE_CLOSE: 'Pré-clôture',
   WEATHER_FORECAST_CHANGE: 'Forecast',
   WEATHER_BUCKET_EXIT: 'Palier',
   COPY_CLOSE: 'Copy',

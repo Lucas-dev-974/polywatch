@@ -3,7 +3,7 @@
 Module d'automatisation pour les marchés **température** Polymarket : sélection
 par **ville**, prévisions Open-Meteo multi-modèles (stratégies forecast) ou
 **consensus marché** (stratégie `weather-highest-yes`, sans forecast), BUY YES
-sur le palier choisi par la stratégie active, sorties drift / bucket / pre-close.
+sur le palier choisi par la stratégie active, sorties drift / bucket.
 
 ---
 
@@ -26,7 +26,7 @@ worker Executor
 ```
 
 **Unité de sélection** = ville + date cible (+ horizon). **Unité d'exécution** = sous-marché
-(palier) choisi automatiquement. **Au plus `maxPositionsPerCityDate` positions ouvertes par couple (ville, date cible)** (défaut 1).
+(palier) choisi automatiquement. **Au plus `maxPositionsPerCityDate` positions ouvertes par triplet (ville, date cible, stratégie)** (défaut 1).
 
 Positions rattachées à une watchlist sentinelle weather-algo. Snapshot forecast
 d'entrée dans `WeatherPositionForecast`. Comme `crypto-algo`, l'adresse
@@ -39,7 +39,7 @@ sentinelle n'est pas pollée par le MoveDetector Data API.
 | Composant | Cadence | Rôle |
 |-----------|---------|------|
 | `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min), **aligné sur une grille UTC** | Sorties puis entrées city-follow. Chaque cycle est planifié sur le prochain multiple de `pollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de démarrage et stable d'un redémarrage à l'autre (ex. 15 min → :00/:15/:30/:45 UTC). Au boot, une passe d'exit **immédiate** réévalue les positions ouvertes (reprise) mais **aucun** cycle d'entrée n'est déclenché — le premier cycle complet se fait au prochain créneau aligné. Un cycle immédiat est en revanche forcé sur `config-changed` pour appliquer la config à chaud. |
-| `WeatherExitEvaluator` | début de chaque cycle | Drift + bucket-exit (hysteresis) + pre-close |
+| `WeatherExitEvaluator` | début de chaque cycle | Drift + bucket-exit (hysteresis) |
 | `runWeatherEntryPipeline` | sur signal | Gate throttle re-entry + enqueue `WEATHER_OPEN` |
 | Heartbeat / runtime-status | 30 s | Redis `weather-algo:heartbeat`, `weather-algo:runtime-status` |
 
@@ -92,7 +92,7 @@ ordre du catalogue, pas l'ordre de cochage). Params JSON
 `weatherAlgoStrategies` / `weatherAlgoStrategyParams` — catalogue partagé dans
 `@polywatch/core` (`strategy-catalog.ts`). **Chaque stratégie porte sa propre
 config complète** (gates d'entrée, sizing, sorties, SL/TP/trailing, risk
-limits, kill-switch, pre-close) dans `weatherAlgoStrategyParams[strategyId]`.
+limits, kill-switch) dans `weatherAlgoStrategyParams[strategyId]`.
 Les colonnes `weatherAlgo*` legacy ne servent plus que de **fallback** au
 backfill (migration `0107`/`0108`) et ne sont plus modifiables via l'API
 (`weatherConfigUpdateSchema` rejette les champs per-strategy via `.strict()`).
@@ -116,19 +116,22 @@ Les défauts (`WEATHER_EXIT_DEFAULTS`) sont `slPercent: 20`, `tpPercent: 25`,
 les colonnes `sl_percent`/`tp_percent`/`trailing_percent`/
 `trailing_activation_percent` stockent les seuils résolus à l'entrée.
 
+**Sizing** : deux modes via `bag.sizingMode` — `fixed_usdc` (défaut, `bag.entryUsdc` USDC) ou `fixed_shares` (`bag.fixedShareCount` parts).
+
 **Sorties** (paramètres lus depuis le bag de la stratégie d'origine, via
 `snapshot.strategyId ?? pos.strategyId` ; legacy `null` → fallback
 `resolveEnabledWeatherStrategies(risk)[0] ?? 'weather-forecast'`) :
-- `WEATHER_PRE_CLOSE` (pré-clôture) si `hoursToEnd <= bag.closeBeforeResolutionHours` (prioritaire)
 - `WEATHER_FORECAST_CHANGE` si `|currentMean - entryMean| > bag.forecastChangeThreshold` — **non évaluée pour `weather-highest-yes`**
 - `WEATHER_BUCKET_EXIT` si forecast hors palier **et** `bag.cityFollowSwitchMode = close_and_reenter` **après** `bag.bucketHysteresisPolls` polls consécutifs ; en mode `hold`, pas de close pour bucket leave — **non évaluée pour `weather-highest-yes`**
 - Après close bucket/drift : throttle Redis `weather-reentry:{city}:{dateIso}:{mode}` pendant `bag.reentryThrottleMs`
+- **Cap `maxReentriesPerCityDate`** (défaut 2) : nombre max d'entrées cumulées par (ville, date, stratégie, mode). `0` = illimité. Clé Redis `weather-entry-count:{city}:{dateIso}:{strategyId}:{mode}`.
+- `reentryThrottleAfterSlMs` (défaut 30 min) : throttle spécifique après une sortie SL, distinct du throttle bucket/drift. `0` = désactivé.
 
 > **`weather-highest-yes`** (sans forecast) : drift (`WEATHER_FORECAST_CHANGE`)
 > et bucket-exit (`WEATHER_BUCKET_EXIT`) sont **désactivés** — la position est
-> tenue jusqu'à résolution. Seuls `WEATHER_PRE_CLOSE` et SL/TP/trailing
-> (worker) s'appliquent. L'exit evaluator skip le fetch forecast pour cette
-> stratégie (évite une fermeture fantôme via `entryForecastMean=0`).
+> tenue jusqu'à résolution. Seuls SL/TP/trailing (worker) s'appliquent. L'exit
+> evaluator skip le fetch forecast pour cette stratégie (évite une fermeture
+> fantôme via `entryForecastMean=0`).
 
 **Kill-switch** : le `bag.killSwitchAction` (`block_entries` | `force_close_all` |
 `block_and_notify`) est évalué **par stratégie** — le PnL journalière est
@@ -141,7 +144,14 @@ limites `maxDailyLossUsdc` / `maxExposureUsdc` / `maxOpenPositions` /
 `maxPositionSizeUsdc` sont aussi **par stratégie** — la réservation
 (`ReservationService`) filtre positions et réservations par `strategyId`.
 
-Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept que la pré-clôture crypto/copy (fenêtre avant résolution), en heures plutôt qu'en secondes.
+**Autres knobs per-strategy** (défauts `DEFAULT_WEATHER_STRATEGY_PARAMS`) :
+
+| Knob | Défaut | Rôle |
+|------|--------|------|
+| `minTimeToClose` | `0` s | Temps minimum avant fermeture. |
+| `minBidToAskRatio` | `0.9` | Ratio bid/ask minimum requis. |
+| `signalScoreSizingEnabled` | `true` | Sizing par score de signal. Note : le weather force `multiplier: 1`, donc sans effet sur la taille. |
+| `allowedMarketTags` | `[]` | Filtre des tags marché autorisés. |
 
 ---
 
@@ -152,10 +162,10 @@ Le réglage UI s'appelle **Pré-clôture (heures avant fin)** — même concept 
 | Sélection par ville | Actif |
 | BUY YES sur bucket forecast | Actif |
 | BUY YES sur bucket au prix YES max (consensus, sans forecast) | Actif |
-| Max positions par ville+date (`maxPositionsPerCityDate`, défaut 1 ; `pending`/`open`/`closing`) | Actif |
+| Max positions par ville+date+stratégie (`maxPositionsPerCityDate`, défaut 1 ; `pending`/`open`/`closing`) | Actif |
 | Sorties avant entrées (même cycle) | Actif |
 | Close drift forecast | Actif |
-| Auto-close / pré-clôture avant résolution | Actif |
+| Pré-clôture avant résolution | Retiré |
 | Bucket-exit `close_and_reenter` / `hold` | Actif |
 | Hysteresis Redis `weather-bucket-hysteresis:{positionId}` | Actif |
 | Re-entry throttle `weather-reentry:{city}:{dateIso}:{mode}` | Actif |
@@ -180,7 +190,7 @@ Enregistrement **best-effort** pendant les cycles du runner (toggles ON par déf
 | `weather_market_snapshots` + `weather_bucket_ticks` | Contexte marché + prix YES/NO buckets actifs |
 | `weather_evaluation_log` | Décisions signal/abstain |
 
-Purge horaire selon rétention (`weatherAlgo*RetentionDays`), indépendante des toggles.
+Purge automatique **désactivée** (sur demande utilisateur). Cleanup manuel via l'UI (onglet **Données**) ou l'API.
 
 **UI** : page Weather Algo → onglet **Données** (cards, cadence, drill-down, purge) ; toggles dans **Paramètres**.
 

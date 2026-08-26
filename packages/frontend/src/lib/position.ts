@@ -147,7 +147,6 @@ const CLOSE_REASON_LABELS: Record<string, string> = {
   TRAILING: 'Trailing',
   PRE_CLOSE_LOSS: 'Pré-clôture (perte)',
   PRE_CLOSE_WIN: 'Pré-clôture (gain)',
-  WEATHER_PRE_CLOSE: 'Pré-clôture',
   WEATHER_FORECAST_CHANGE: 'Changement forecast',
   WEATHER_BUCKET_EXIT: 'Sortie palier',
   MANUAL: 'Manuel',
@@ -164,7 +163,7 @@ export function closeReasonBadgeClass(
 ): string {
   if (!reason) return 'neutral';
   if (reason === 'COPY_CLOSE' || reason === 'COPY_DECREASE') return 'accent';
-  if (reason === 'SL' || reason === 'PRE_CLOSE_LOSS' || reason === 'WEATHER_PRE_CLOSE')
+  if (reason === 'SL' || reason === 'PRE_CLOSE_LOSS')
     return 'danger';
   if (reason === 'TP' || reason === 'PRE_CLOSE_WIN') return 'success';
   if (reason === 'TRAILING' || reason === 'WEATHER_FORECAST_CHANGE' || reason === 'WEATHER_BUCKET_EXIT')

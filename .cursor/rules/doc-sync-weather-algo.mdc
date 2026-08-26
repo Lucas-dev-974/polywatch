@@ -1,0 +1,38 @@
+---
+description: Keep weather-algo docs in sync with code changes — docs must be updated in the same PR
+globs: packages/weather-algo/**, packages/core/src/weather/**, packages/core/src/migrations/CreateWeatherAlgo*, packages/core/src/migrations/*WeatherAlgo*, packages/core/src/migrations/DropWeather*, packages/core/src/migrations/AddWeather*, packages/core/src/migrations/BackfillWeather*
+alwaysApply: false
+---
+
+# Doc sync — weather-algo
+
+When modifying the weather-algo engine, runtime behavior, or config schema, update the documentation in the **same change set**. Do not defer doc updates to a later PR.
+
+## Trigger files
+
+Any change to these files requires checking the docs below:
+
+- `packages/weather-algo/src/**/*.ts` — engine, strategies, exit evaluator, entry pipeline
+- `packages/core/src/weather/**/*.ts` — strategy catalog, edge helpers, forecast distribution, exit helpers
+- `packages/core/src/migrations/*WeatherAlgo*` or `*DropWeather*` — any migration adding/removing weather config columns
+- `packages/core/src/risk/weather-exit-params.ts` — exit defaults (SL/TP/trailing)
+- `packages/core/src/redis/weather-reentry-throttle.ts`, `weather-bucket-hysteresis.ts` — Redis keys/TTLs
+
+## Docs to update
+
+1. **`docs/weather-algo.md`** — product doc: overview, strategies, sizing, sorties, knobs, capacités, persistance.
+2. **`docs/code/08-weather-algo.md`** — technical doc: arborescence, pipeline gates, exit evaluator priority, SL/TP params, Redis keys.
+
+## Checklist before committing
+
+- If a migration **removes** a column or feature (e.g. `DropWeather*`), search both docs for the old name and remove/mark it as retired.
+- If a param is **renamed** (e.g. `slBidPoints` → `slPercent`), grep both docs for the old name and replace it.
+- If a Redis **key format** or TTL changes, update the "Redis" section in both docs.
+- If a **default value** changes in `DEFAULT_WEATHER_STRATEGY_PARAMS` or `WEATHER_EXIT_DEFAULTS`, update the documented default.
+- If a **new strategy** is added to the catalog, add it to the strategy table and describe its bucket selection + gates.
+- If **purge/recording** toggles change, update the persistance section.
+- Run: `rg "WEATHER_PRE_CLOSE|closeBeforeResolutionHours|slBidPoints|trailingBidPoints" docs/` — this should return zero hits unless the feature is explicitly marked "Retiré".
+
+## Anti-pattern
+
+Merging a migration (e.g. `DropWeatherPreClose116`) without touching the docs. The doc then promises a feature the code no longer delivers — an audit finding classified as critical.

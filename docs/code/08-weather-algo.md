@@ -33,7 +33,7 @@ dédiées (`close-signals`).
 | `strategy/strategy-runner.ts` | Boucle poll : exits puis entrées city-follow ; filtre `isMarketActiveForWeather` (core, partagé backtest) ; recorders data |
 | `strategy/runner-bucket-helpers.ts` | Prix YES/NO buckets via `binaryPricesFromParsed` / `binaryPricesToUpDown` |
 | `processors/weather-entry-pipeline.ts` | Sizing / MOS / reserve / enqueue |
-| `processors/weather-exit-evaluator.ts` | Pre-close / drift / bucket-exit + hysteresis |
+| `processors/weather-exit-evaluator.ts` | Drift / bucket-exit + hysteresis |
 
 ## Démarrage (`index.ts`)
 
@@ -79,7 +79,7 @@ dédiées (`close-signals`).
 
 1. `strategyRunner.stop()`
 2. `metricsPublisher.stop()`
-3. `clearInterval` heartbeat + data-purge
+3. `clearInterval` heartbeat
 4. `connectionManager.getWsClient().disconnect()` (catch ignoré)
 5. `redisCmd` / `Pub` / `Sub` `.quit()`
 6. `ds.destroy()`
@@ -124,8 +124,8 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
   `minForecastProbability` ne sont plus lues au runtime — elles servent
   uniquement de source au backfill (migrations `0107`/`0108`).
 - Knobs nullables (`maxForecastStd`, `minForecastProbability`,
-  `slBidPoints`, `tpBidPoints`, `trailingBidPoints`,
-  `trailingActivationBidPoints`) : `0` stocké → coercé à `null` au runtime
+  `slPercent`, `tpPercent`, `trailingPercent`,
+  `trailingActivationPercent`) : `0` stocké → coercé à `null` au runtime
   (désactive le filtre / la jambe).
 - Abstentions typiques : `no_question`, `unrecognized_question`,
   `zero_forecast_probability`, `forecast_probability_below_min`,
@@ -142,8 +142,8 @@ Modes `single` / `multi` : appliqués dans le **runner**
 
 Catalogue servi par `GET /api/weather-algo/strategy-catalog`. Params déclaratifs
 (`weatherAlgoStrategyParams`) : **chaque stratégie porte sa config complète**
-(entry gates, sizing, sorties, SL/TP/trailing, risk limits, kill-switch,
-pre-close). Le bag typé `WeatherStrategyParamsBag` est défini dans
+(entry gates, sizing, sorties, SL/TP/trailing, risk limits, kill-switch).
+Le bag typé `WeatherStrategyParamsBag` est défini dans
 `strategy-catalog.ts` ; `getStrategyParams(cfg, strategyId)` résout le bag
 (catalogue defaults + stored overrides + coercition `0 → null` pour les
 nullables). `sanitizeWeatherStrategyParams` garde les clés de
@@ -157,16 +157,16 @@ l'API (`weatherConfigUpdateSchema` rejette les champs per-strategy via
 File : **`weather-order-signals`** (pas `order-signals` / `algo-order-signals`).
 Reason : `WEATHER_OPEN`. Interval hash logique : `'weather'`.
 
-Gates (ordre) : enabled → marché tradable → pre-close hours (`bag.closeBeforeResolutionHours`) → liquidité ask →
+Gates (ordre) : enabled → marché tradable → liquidité ask →
 modes sim/real (`weatherAlgoSimEnabled` / `weatherAlgoRealEnabled` +
 `globalConfig.realTradingEnabled`) → cooldown post-exec → throttle re-entry
 ville+date → **kill-switch gate** (`RiskService.checkKillSwitch('weather', mode,
 signal.strategyId)` ; si `blockEntries` → skip `'Kill-switch actif
-(block_entries)'`) → resume réservation → cash réel → sizing `fixed_usdc`
-(`bag.entryUsdc`) + MOS / depth retry (`bag.entryDepthRetryMax` /
+(block_entries)'`) → resume réservation → cash réel → sizing (`bag.sizingMode` :
+`fixed_usdc` via `bag.entryUsdc` ou `fixed_shares` via `bag.fixedShareCount`) + MOS / depth retry (`bag.entryDepthRetryMax` /
 `bag.entryDepthRetryDelayMs`) → reserve (`strategyId` persisté sur
 `CopiedPosition`) + enqueue → snapshot
-forecast ASAP (`maxPositionsPerCityDate` par ville+date, `strategyId` persisté sur
+forecast ASAP (`maxPositionsPerCityDate` par ville+date+stratégie, `strategyId` persisté sur
 `WeatherPositionForecast`).
 
 ## Sorties (`weather-exit-evaluator.ts`)
@@ -177,20 +177,18 @@ resolveEnabledWeatherStrategies(risk)[0] ?? 'weather-forecast')`.
 
 Priorité :
 
-1. `WEATHER_PRE_CLOSE` — `hoursToEnd ≤ bag.closeBeforeResolutionHours`
-2. `WEATHER_FORECAST_CHANGE` — `|mean_now − mean_entry| >
+1. `WEATHER_FORECAST_CHANGE` — `|mean_now − mean_entry| >
    bag.forecastChangeThreshold` — **non évaluée pour `weather-highest-yes`**
-3. `WEATHER_BUCKET_EXIT` — forecast hors palier **et** hysteresis
+2. `WEATHER_BUCKET_EXIT` — forecast hors palier **et** hysteresis
    (`bag.bucketHysteresisPolls`) **et** mode
    `bag.cityFollowSwitchMode = close_and_reenter` (`hold` = pas de close
    bucket ; `add_position` coercé → `close_and_reenter`) — **non évaluée pour
    `weather-highest-yes`**
 
 > **`weather-highest-yes`** (sans forecast) : drift + bucket-exit désactivés.
-> La position est tenue jusqu'à résolution — seuls pre-close
-> (`WEATHER_PRE_CLOSE`) et SL/TP/trailing (worker) s'appliquent. L'exit
-> evaluator skip le fetch forecast pour cette stratégie (évite une fermeture
-> fantôme via `entryForecastMean=0`).
+> La position est tenue jusqu'à résolution — seuls SL/TP/trailing (worker)
+> s'appliquent. L'exit evaluator skip le fetch forecast pour cette stratégie
+> (évite une fermeture fantôme via `entryForecastMean=0`).
 
 Redis :
 
@@ -203,11 +201,12 @@ File close : `close-signals` (partagée worker). Bid ≤ 0 → exit **différé*
 Forecast indisponible → skip drift/bucket (pas de close forcée).
 
 **SL/TP/trailing weather** (gérés par le worker `position-exit-evaluator.ts`,
-pas dans ce package) : `bag.slBidPoints` / `bag.tpBidPoints` /
-`bag.trailingBidPoints` / `bag.trailingActivationBidPoints` /
+pas dans ce package) : `bag.slPercent` / `bag.tpPercent` /
+`bag.trailingPercent` / `bag.trailingActivationPercent` /
 `bag.slConfirmationTicks` / `bag.slCloseMaxRetries` — tous résolus via
-`getWeatherSl*` avec `pos.strategyId`. `bag.slEnabled` /
-`bag.tpEnabled` / `bag.trailingEnabled` par stratégie.
+`resolveWeatherEntryExitParams` avec `pos.strategyId`. `bag.slEnabled` /
+`bag.tpEnabled` / `bag.trailingEnabled` par stratégie. Les seuils sont en
+**pourcentage de la mise investie** (cost basis + frais), pas en bid points.
 
 ## Miroir crypto-algo (C8)
 
@@ -254,7 +253,7 @@ Recorders core (injectés dans le runner depuis `index.ts`) :
 - `WeatherMarketSnapshotRecorder` — snapshot + bulk `weather_bucket_ticks` (transaction)
 - `WeatherEvaluationRecorder` — batch `weather_evaluation_log`
 
-Purge horaire dans `index.ts` (rétention `WeatherConfig`, **même si recording OFF**).
+Purge automatique **désactivée** dans `index.ts` (sur demande utilisateur). Cleanup manuel via UI/API.
 
 Lecture / purge manuelle : `WeatherAlgoDataService` + routes
 `/api/weather-algo-data/*` (backend). UI : onglet **Données**

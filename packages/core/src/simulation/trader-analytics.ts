@@ -48,7 +48,6 @@ export function classifyCloseReason(
       return 'trailing';
     case 'PRE_CLOSE_LOSS':
     case 'PRE_CLOSE_WIN':
-    case 'WEATHER_PRE_CLOSE':
       return 'preClose';
     case 'WEATHER_FORECAST_CHANGE':
     case 'WEATHER_BUCKET_EXIT':

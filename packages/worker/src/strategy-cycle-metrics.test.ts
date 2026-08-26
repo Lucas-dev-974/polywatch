@@ -69,7 +69,7 @@ describe('shouldRecordExitMetric', () => {
   it('includes forced-exit reasons only', () => {
     expect(shouldRecordExitMetric('SL')).toBe(true);
     expect(shouldRecordExitMetric('PRE_CLOSE_LOSS')).toBe(true);
-    expect(shouldRecordExitMetric('WEATHER_PRE_CLOSE')).toBe(true);
+    expect(shouldRecordExitMetric('KILL_SWITCH')).toBe(true);
     expect(shouldRecordExitMetric('COPY_CLOSE')).toBe(false);
     expect(shouldRecordExitMetric('MANUAL')).toBe(false);
   });

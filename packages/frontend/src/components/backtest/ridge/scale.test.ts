@@ -148,6 +148,23 @@ describe('ridge projection (projection.ts)', () => {
       // median step = 1h, gapThreshold = 1.5h, 3h gap > 1.5h → 2 segments
       expect(mCount).toBe(2);
     });
+
+    it('cutGaps off (Infinity threshold) bridges the gap → single segment', () => {
+      const scale = makeScale(400, Date.parse('2026-08-23T10:00:00Z'), Date.parse('2026-08-23T14:00:00Z'));
+      const series = makeEnrichedSeries([
+        { t: Date.parse('2026-08-23T10:00:00Z'), price: 0.5 },
+        { t: Date.parse('2026-08-23T11:00:00Z'), price: 0.55 },
+        { t: Date.parse('2026-08-23T14:00:00Z'), price: 0.6 }, // 3h gap from 11:00
+        { t: Date.parse('2026-08-23T14:05:00Z'), price: 0.52 },
+      ]);
+      const projected = projectSeries(series, scale, 0);
+      const path = buildPathFromProjected(projected, Infinity);
+
+      const commands = path.split(' ');
+      const mCount = commands.filter(c => c.startsWith('M')).length;
+      // Seuil Infinity → aucun gap ne coupe → un seul segment
+      expect(mCount).toBe(1);
+    });
   });
 
   describe('yTicksForVoieH', () => {

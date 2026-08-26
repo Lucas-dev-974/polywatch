@@ -39,11 +39,13 @@ export function RidgeLines(props: {
                   return projectSeries(geom, props.scale, voieTop());
                 });
                 
-                // Path string : dépend de projected + gapThreshold
+                // Path string : dépend de projected + gapThreshold.
+                // Quand cutGaps est décoché, on désactive la segmentation (seuil
+                // Infinity) pour relier les trous : tracé continu.
                 const path = createMemo(() => {
                   const proj = projected();
                   if (proj.length === 0) return '';
-                  const gapThreshold = computeGapThreshold(proj);
+                  const gapThreshold = props.cutGaps === false ? Infinity : computeGapThreshold(proj);
                   return buildPathFromProjected(proj, gapThreshold);
                 });
 

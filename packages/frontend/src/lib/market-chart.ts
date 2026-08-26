@@ -123,8 +123,10 @@ export interface MarketChartPosition {
   assetId: string;
   entryPrice: number;
   entryBidVwap: number;
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
+  /** Cost basis per share (entry price + fees/qty) — basis for SL/TP overlays. */
+  costPerShare: number;
+  slPercent: number | null;
+  tpPercent: number | null;
   exitBidVwap: number | null;
   openedAt: string | null;
   closedAt: string | null;
@@ -155,10 +157,12 @@ export interface MarketChartContext {
   entryBidVwap?: number | null;
   /** Prix d'entrée (ask payé) pour 1 share. */
   entryPrice?: number | null;
-  /** Seuil Stop Loss en points bid. */
-  slBidPoints?: number | null;
-  /** Seuil Take Profit en points bid. */
-  tpBidPoints?: number | null;
+  /** Cost basis per share (entrée + frais/qty) — base des overlays SL/TP percent. */
+  costPerShare?: number | null;
+  /** Seuil Stop Loss en % de la mise investie. */
+  slPercent?: number | null;
+  /** Seuil Take Profit en % de la mise investie. */
+  tpPercent?: number | null;
   /** Date d'ouverture de la position (ISO string). */
   openedAt?: string | null;
   /** Date de clôture de la position (ISO string) — pour les positions fermées. */
@@ -179,8 +183,9 @@ export interface ActiveMarketChartPosition {
   assetId: string | null;
   entryPrice: number | null;
   entryBidVwap: number | null;
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
+  costPerShare: number | null;
+  slPercent: number | null;
+  tpPercent: number | null;
   exitBidVwap: number | null;
   openedAt: string | null;
   closedAt: string | null;
@@ -197,8 +202,9 @@ function chartPositionToActive(pos: MarketChartPosition): ActiveMarketChartPosit
     assetId: pos.assetId,
     entryPrice: pos.entryPrice,
     entryBidVwap: pos.entryBidVwap,
-    slBidPoints: pos.slBidPoints,
-    tpBidPoints: pos.tpBidPoints,
+    costPerShare: pos.costPerShare,
+    slPercent: pos.slPercent,
+    tpPercent: pos.tpPercent,
     exitBidVwap: pos.exitBidVwap,
     openedAt: pos.openedAt,
     closedAt: pos.closedAt,
@@ -223,8 +229,9 @@ function flatContextToActive(ctx: MarketChartContext): ActiveMarketChartPosition
     assetId: ctx.assetId ?? null,
     entryPrice: ctx.entryPrice ?? null,
     entryBidVwap: ctx.entryBidVwap ?? null,
-    slBidPoints: ctx.slBidPoints ?? null,
-    tpBidPoints: ctx.tpBidPoints ?? null,
+    costPerShare: ctx.costPerShare ?? null,
+    slPercent: ctx.slPercent ?? null,
+    tpPercent: ctx.tpPercent ?? null,
     exitBidVwap: ctx.exitBidVwap ?? null,
     openedAt: ctx.openedAt ?? null,
     closedAt: ctx.closedAt ?? null,
@@ -270,8 +277,9 @@ export function listChartPositions(ctx: MarketChartContext): MarketChartPosition
       assetId: flat.assetId ?? '',
       entryPrice: flat.entryPrice ?? 0,
       entryBidVwap: flat.entryBidVwap ?? 0,
-      slBidPoints: flat.slBidPoints,
-      tpBidPoints: flat.tpBidPoints,
+      costPerShare: flat.costPerShare ?? flat.entryPrice ?? 0,
+      slPercent: flat.slPercent,
+      tpPercent: flat.tpPercent,
       exitBidVwap: flat.exitBidVwap,
       openedAt: flat.openedAt,
       closedAt: flat.closedAt,

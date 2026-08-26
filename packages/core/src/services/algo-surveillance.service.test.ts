@@ -170,8 +170,8 @@ describe('AlgoSurveillanceService positions', () => {
         quantity: 0,
         entryPrice: 0.55,
         entryBidVwap: 0.54,
-        slBidPoints: 0.1,
-        tpBidPoints: 0.12,
+        slPercent: 20,
+        tpPercent: 25,
         mode: 'sim',
         status: 'closed',
         reason: 'ALGO_OPEN',
@@ -198,8 +198,8 @@ describe('AlgoSurveillanceService positions', () => {
     const summary = items[0]!.positions[0]!;
     expect(summary.assetId).toBe('asset-exit');
     expect(summary.entryBidVwap).toBe(0.54);
-    expect(summary.slBidPoints).toBe(0.1);
-    expect(summary.tpBidPoints).toBe(0.12);
+    expect(summary.slPercent).toBe(20);
+    expect(summary.tpPercent).toBe(25);
     expect(summary.exitBidVwap).toBe(0.62);
   });
 

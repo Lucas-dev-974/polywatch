@@ -212,8 +212,8 @@ export function CryptoAlgoReportViewer(props: CryptoAlgoReportViewerProps) {
               <th>SL</th>
               <td>
                 {formatBool(props.report.config.cryptoAlgoSlEnabled)}
-                {props.report.config.cryptoAlgoSlBidPoints != null
-                  ? ` · ${props.report.config.cryptoAlgoSlBidPoints} bid pts`
+                {props.report.config.cryptoAlgoSlPercent != null
+                  ? ` · ${props.report.config.cryptoAlgoSlPercent} % de la mise`
                   : ''}
               </td>
             </tr>

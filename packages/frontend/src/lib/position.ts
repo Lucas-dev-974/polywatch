@@ -41,10 +41,10 @@ export interface Position {
   lastCloseError?: string | null;
   /** Peak closure PnL percent reached during the position lifetime. */
   peakClosurePnlPercent?: number | null;
-  /** Stop-loss threshold in bid points (absolute) for binary markets. */
-  slBidPoints?: number | null;
-  /** Take-profit threshold in bid points (absolute) for binary markets. */
-  tpBidPoints?: number | null;
+  /** Stop-loss threshold as % of invested amount. */
+  slPercent?: number | null;
+  /** Take-profit threshold as % of invested amount. */
+  tpPercent?: number | null;
   /** Fill price of the last successful SELL execution (exit price). */
   exitBidVwap?: number | null;
   /** Pre-emit block: why a decided exit was not enqueued. */
@@ -289,8 +289,8 @@ export function formatPnlPercent(value: number | undefined): string {
 }
 
 export interface SlDistance {
-  /** Distance in bid points from current bid to SL threshold. */
-  bidPoints: number | undefined;
+  /** Remaining distance in % of invested amount before SL is triggered. */
+  percent: number | undefined;
   /** Whether the SL is configured and computable. */
   active: boolean;
   /** Whether the SL has been breached (position should be closing). */
@@ -300,29 +300,28 @@ export interface SlDistance {
 /**
  * Compute the remaining distance before the stop-loss is triggered.
  *
- * Uses bid points mode (binary markets): SL fires when bid ≤ entryBidVwap - slBidPoints.
- * Distance = currentBid - (entryBidVwap - slBidPoints).
+ * Uses percent mode (SL fires when closure PnL ≤ -slPercent of the invested
+ * amount). Distance = currentClosurePercent + slPercent, i.e. how many points
+ * of % PnL remain before breaching the SL.
  *
  * Returns `{ active: false }` when SL is not configured or data is missing.
  */
 export function computeSlDistance(input: {
-  slBidPoints?: number | null;
-  entryBidVwap?: number;
-  currentBid?: number;
+  slPercent?: number | null;
+  closurePercent?: number;
 }): SlDistance {
-  const { slBidPoints, entryBidVwap, currentBid } = input;
+  const { slPercent, closurePercent } = input;
 
-  if (slBidPoints != null && slBidPoints > 0 && entryBidVwap != null && entryBidVwap > 0 && currentBid != null && currentBid > 0) {
-    const slThreshold = entryBidVwap - slBidPoints;
-    const distance = currentBid - slThreshold;
+  if (slPercent != null && slPercent > 0 && closurePercent != null) {
+    const distance = closurePercent + slPercent;
     return {
-      bidPoints: distance,
+      percent: distance,
       active: true,
-      breached: currentBid <= slThreshold,
+      breached: closurePercent <= -slPercent,
     };
   }
 
-  return { bidPoints: undefined, active: false, breached: false };
+  return { percent: undefined, active: false, breached: false };
 }
 
 export interface OpenPnlMetrics {

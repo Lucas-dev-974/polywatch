@@ -551,10 +551,10 @@ async function runMode(args: {
       notionalUsdc: targetNotionalUsdc,
       reason: 'ALGO_OPEN',
       outcome: signal.outcome,
-      trailingBidPoints: exit.trailingBidPoints ?? undefined,
-      trailingActivationBidPoints: exit.trailingActivationBidPoints ?? undefined,
-      slBidPoints: exit.slBidPoints ?? undefined,
-      tpBidPoints: exit.tpBidPoints ?? undefined,
+      trailingPercent: exit.trailingPercent ?? undefined,
+      trailingActivationPercent: exit.trailingActivationPercent ?? undefined,
+      slPercent: exit.slPercent ?? undefined,
+      tpPercent: exit.tpPercent ?? undefined,
     });
     reserved = true;
 

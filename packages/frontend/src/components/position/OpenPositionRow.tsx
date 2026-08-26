@@ -53,8 +53,7 @@ export function OpenPositionRow(props: Props) {
               triggerPercent={pnl().triggerPercent}
               mode={pos().mode}
               marketTick={props.marketTick()}
-              slBidPoints={pos().slBidPoints}
-              entryBidVwap={pos().entryBidVwap}
+              slPercent={pos().slPercent}
             />
             <PositionCloseButton
               pos={pos()}

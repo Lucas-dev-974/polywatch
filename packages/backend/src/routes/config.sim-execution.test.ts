@@ -52,10 +52,10 @@ describe('riskConfigUpdateSchema sim execution fields', () => {
 
   it('accepts typical crypto algo report apply patch fields', () => {
     const parsed = riskConfigUpdateSchema.safeParse({
-      cryptoAlgoSlBidPoints: 0.32,
+      cryptoAlgoSlPercent: 32,
       cryptoAlgoTrailingEnabled: true,
-      cryptoAlgoTrailingActivationBidPoints: 0.8,
-      cryptoAlgoTrailingBidPoints: 0.88,
+      cryptoAlgoTrailingActivationPercent: 12,
+      cryptoAlgoTrailingPercent: 10,
       cryptoAlgoPreCloseEnabled: true,
       cryptoAlgoPreCloseSeconds: 45,
       cryptoAlgoPreCloseKeepEnabled: true,
@@ -66,7 +66,7 @@ describe('riskConfigUpdateSchema sim execution fields', () => {
 
   it('rejects revisionSource in body (meta field stripped by route handler)', () => {
     const parsed = riskConfigUpdateSchema.safeParse({
-      cryptoAlgoSlBidPoints: 0.32,
+      cryptoAlgoSlPercent: 32,
       revisionSource: 'report_apply',
     });
     expect(parsed.success).toBe(false);

@@ -58,17 +58,13 @@ export interface ReserveInput {
   reason: 'COPY_OPEN' | 'COPY_INCREASE' | 'ALGO_OPEN' | 'ALGO_INCREASE' | 'WEATHER_OPEN';
   moveEventId?: string;
   outcome?: string;
-  trailingBidPoints?: number;
-  trailingActivationBidPoints?: number;
-  slBidPoints?: number;
-  tpBidPoints?: number;
-  /** Stop-loss as % of invested amount (weather-algo). */
+  /** Stop-loss as % of invested amount. */
   slPercent?: number | null;
-  /** Take-profit as % of invested amount (weather-algo). */
+  /** Take-profit as % of invested amount. */
   tpPercent?: number | null;
-  /** Trailing drawdown as % of invested amount (weather-algo). */
+  /** Trailing drawdown as % of invested amount. */
   trailingPercent?: number | null;
-  /** Trailing activation as % of invested amount (weather-algo). */
+  /** Trailing activation as % of invested amount. */
   trailingActivationPercent?: number | null;
   /** Strategy that opens the position (weather-algo). Null for copy/crypto/manual. */
   strategyId?: string | null;
@@ -275,10 +271,6 @@ export class ReservationService {
           status: 'pending',
           mode: input.mode,
           moveEventId: input.moveEventId ?? null,
-          trailingBidPoints: input.trailingBidPoints ?? null,
-          trailingActivationBidPoints: input.trailingActivationBidPoints ?? null,
-          slBidPoints: input.slBidPoints ?? null,
-          tpBidPoints: input.tpBidPoints ?? null,
           slPercent: input.slPercent ?? null,
           tpPercent: input.tpPercent ?? null,
           trailingPercent: input.trailingPercent ?? null,

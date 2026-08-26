@@ -193,9 +193,9 @@ export function CryptoAlgoMonitorPage() {
                               {p.unrealizedPnl?.toFixed(4) ?? '-'}
                             </td>
                             <td>
-                              {p.slBidPoints != null ? `SL ${p.slBidPoints}` : '-'}
+                              {p.slPercent != null ? `SL ${p.slPercent}%` : '-'}
                               {' / '}
-                              {p.tpBidPoints != null ? `TP ${p.tpBidPoints}` : '-'}
+                              {p.tpPercent != null ? `TP ${p.tpPercent}%` : '-'}
                             </td>
                           </tr>
                         )}

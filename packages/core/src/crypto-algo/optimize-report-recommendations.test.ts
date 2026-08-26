@@ -14,10 +14,10 @@ function baseReport(
       cryptoAlgoSlEnabled: true,
       cryptoAlgoTpEnabled: false,
       cryptoAlgoTrailingEnabled: false,
-      cryptoAlgoSlBidPoints: 0.2,
-      cryptoAlgoTpBidPoints: null,
-      cryptoAlgoTrailingBidPoints: null,
-      cryptoAlgoTrailingActivationBidPoints: null,
+      cryptoAlgoSlPercent: 20,
+      cryptoAlgoTpPercent: null,
+      cryptoAlgoTrailingPercent: null,
+      cryptoAlgoTrailingActivationPercent: null,
       cryptoAlgoPreCloseEnabled: false,
       cryptoAlgoPreCloseSeconds: null,
       cryptoAlgoPreCloseKeepEnabled: null,
@@ -108,10 +108,10 @@ describe('buildRecommendedCryptoAlgoConfig', () => {
   it('proposes SL widen, trailing and pre-close from metrics', () => {
     const rec = buildRecommendedCryptoAlgoConfig(baseReport());
     expect(rec.applicable).toBe(true);
-    expect(rec.patch.cryptoAlgoSlBidPoints).toBe(0.32);
+    expect(rec.patch.cryptoAlgoSlPercent).toBe(32);
     expect(rec.patch.cryptoAlgoTrailingEnabled).toBe(true);
     expect(rec.patch.cryptoAlgoPreCloseEnabled).toBe(true);
-    expect(rec.changes.some((c) => c.field === 'cryptoAlgoSlBidPoints')).toBe(true);
+    expect(rec.changes.some((c) => c.field === 'cryptoAlgoSlPercent')).toBe(true);
   });
 
   it('skips changes already at target', () => {
@@ -119,10 +119,10 @@ describe('buildRecommendedCryptoAlgoConfig', () => {
       baseReport({
         config: {
           ...baseReport().config,
-          cryptoAlgoSlBidPoints: 0.32,
+          cryptoAlgoSlPercent: 32,
           cryptoAlgoTrailingEnabled: true,
-          cryptoAlgoTrailingActivationBidPoints: 0.2,
-          cryptoAlgoTrailingBidPoints: 0.12,
+          cryptoAlgoTrailingActivationPercent: 12,
+          cryptoAlgoTrailingPercent: 10,
           cryptoAlgoPreCloseEnabled: true,
           cryptoAlgoPreCloseSeconds: 45,
           cryptoAlgoPreCloseKeepEnabled: true,

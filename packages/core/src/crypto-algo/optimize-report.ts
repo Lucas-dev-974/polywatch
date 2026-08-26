@@ -26,10 +26,10 @@ export interface OptimizeReportConfigInput {
   cryptoAlgoSlEnabled: boolean;
   cryptoAlgoTpEnabled: boolean;
   cryptoAlgoTrailingEnabled: boolean;
-  cryptoAlgoSlBidPoints: number | null;
-  cryptoAlgoTpBidPoints: number | null;
-  cryptoAlgoTrailingBidPoints: number | null;
-  cryptoAlgoTrailingActivationBidPoints: number | null;
+  cryptoAlgoSlPercent: number | null;
+  cryptoAlgoTpPercent: number | null;
+  cryptoAlgoTrailingPercent: number | null;
+  cryptoAlgoTrailingActivationPercent: number | null;
   cryptoAlgoPreCloseEnabled: boolean;
   cryptoAlgoPreCloseSeconds: number | null;
   cryptoAlgoPreCloseKeepEnabled: boolean | null;

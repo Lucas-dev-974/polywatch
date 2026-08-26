@@ -272,8 +272,7 @@ export async function canHandleEntry(
   );
   const slProximity = evaluateCopyIncreaseSlProximity({
     enabled: getCopyCopyIncreaseSlProximityEnabled(copyConfig, mode),
-    slBidPoints: openPos.slBidPoints,
-    entryBidVwap: openPos.entryBidVwap,
+    slPercent: openPos.slPercent,
     proximityPercent: getCopyCopyIncreaseSlProximityPercent(copyConfig, mode),
     closurePnlPercent: closure,
   });

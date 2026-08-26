@@ -7,6 +7,16 @@ import {
 } from './algo-surveillance-positions';
 import type { MarketChartContext, MarketChartPosition } from './market-chart';
 
+/**
+ * Cost basis per share for surveillance positions (no fee detail exposed in
+ * the snapshot — falls back to entry price, same as the runtime overlay basis).
+ */
+function surveillancePositionCostPerShare(
+  pos: AlgoSurveillancePositionSummary,
+): number {
+  return pos.entryPrice > 0 ? pos.entryPrice : 0;
+}
+
 export function surveillancePositionToChartPosition(
   pos: AlgoSurveillancePositionSummary,
   marketStartAt: string | null | undefined,
@@ -23,8 +33,9 @@ export function surveillancePositionToChartPosition(
     assetId: pos.assetId,
     entryPrice: pos.entryPrice,
     entryBidVwap: pos.entryBidVwap,
-    slBidPoints: pos.slBidPoints,
-    tpBidPoints: pos.tpBidPoints,
+    costPerShare: surveillancePositionCostPerShare(pos),
+    slPercent: pos.slPercent,
+    tpPercent: pos.tpPercent,
     exitBidVwap: pos.exitBidVwap,
     openedAt: pos.openedAt,
     closedAt: pos.closedAt,

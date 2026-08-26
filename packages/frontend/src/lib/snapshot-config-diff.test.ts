@@ -16,15 +16,15 @@ describe('buildSnapshotConfigDiff', () => {
     const rows = buildSnapshotConfigDiff('sim', [
       {
         snapshotId: 1,
-        config: { simSlBidPoints: 0.1, simTpBidPoints: 0.12, simSizingMode: 'fixed_usdc' },
+        config: { simSlPercent: 10, simTpPercent: 12, simSizingMode: 'fixed_usdc' },
       },
       {
         snapshotId: 2,
-        config: { simSlBidPoints: 0.2, simTpBidPoints: 0.12, simSizingMode: 'fixed_usdc' },
+        config: { simSlPercent: 20, simTpPercent: 12, simSizingMode: 'fixed_usdc' },
       },
     ]);
-    expect(rows.some((r) => r.key === 'simSlBidPoints')).toBe(true);
-    expect(rows.some((r) => r.key === 'simTpBidPoints')).toBe(false);
+    expect(rows.some((r) => r.key === 'simSlPercent')).toBe(true);
+    expect(rows.some((r) => r.key === 'simTpPercent')).toBe(false);
     expect(rows.some((r) => r.key === 'simSizingMode')).toBe(false);
   });
 
@@ -51,28 +51,28 @@ describe('buildSnapshotConfigDiff', () => {
 
   it('uses legacy simSlTpEnabled for SL/TP enabled comparison', () => {
     const rows = buildSnapshotConfigDiff('sim', [
-      { snapshotId: 1, config: { simSlTpEnabled: true, simSlBidPoints: 0.1 } },
-      { snapshotId: 2, config: { simSlEnabled: false, simTpEnabled: true, simSlBidPoints: 0.1 } },
+      { snapshotId: 1, config: { simSlTpEnabled: true, simSlPercent: 10 } },
+      { snapshotId: 2, config: { simSlEnabled: false, simTpEnabled: true, simSlPercent: 10 } },
     ]);
     expect(rows.some((r) => r.key === 'simSlEnabled')).toBe(true);
   });
 
   it('supports real mode keys', () => {
     const rows = buildSnapshotConfigDiff('real', [
-      { snapshotId: 1, config: { realSlBidPoints: 0.1 } },
-      { snapshotId: 2, config: { realSlBidPoints: 0.2 } },
+      { snapshotId: 1, config: { realSlPercent: 10 } },
+      { snapshotId: 2, config: { realSlPercent: 20 } },
     ]);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.key).toBe('realSlBidPoints');
+    expect(rows[0]?.key).toBe('realSlPercent');
   });
 
   it('skips algo keys when absent from legacy snapshots', () => {
     const rows = buildSnapshotConfigDiff('sim', [
-      { snapshotId: 1, config: { simSlBidPoints: 0.1 } },
+      { snapshotId: 1, config: { simSlPercent: 10 } },
       {
         snapshotId: 2,
         config: {
-          simSlBidPoints: 0.1,
+          simSlPercent: 10,
           cryptoAlgoBaseThreshold: 0.55,
         },
       },
@@ -84,11 +84,11 @@ describe('buildSnapshotConfigDiff', () => {
     const rows = buildSnapshotConfigDiff('sim', [
       {
         snapshotId: 1,
-        config: { cryptoAlgoBaseThreshold: 0.55, cryptoAlgoSlBidPoints: 0.1 },
+        config: { cryptoAlgoBaseThreshold: 0.55, cryptoAlgoSlPercent: 20 },
       },
       {
         snapshotId: 2,
-        config: { cryptoAlgoBaseThreshold: 0.6, cryptoAlgoSlBidPoints: 0.1 },
+        config: { cryptoAlgoBaseThreshold: 0.6, cryptoAlgoSlPercent: 20 },
       },
     ]);
     expect(rows).toHaveLength(1);
@@ -110,43 +110,43 @@ describe('buildConfigDiffPreviewLines', () => {
     const snaps = [
       {
         snapshotId: 1,
-        config: { simSlBidPoints: 0.1, simTpBidPoints: 0.3 },
+        config: { simSlPercent: 10, simTpPercent: 30 },
       },
       {
         snapshotId: 2,
-        config: { simSlBidPoints: 0.2, simTpBidPoints: 0.3 },
+        config: { simSlPercent: 20, simTpPercent: 30 },
       },
     ];
     const onOther = buildConfigDiffPreviewLines('sim', snaps, 2, 1);
     expect(onOther).toHaveLength(1);
-    expect(onOther[0]?.key).toBe('simSlBidPoints');
-    expect(onOther[0]?.changeLabel).toBe('0.1 → 0.2');
+    expect(onOther[0]?.key).toBe('simSlPercent');
+    expect(onOther[0]?.changeLabel).toBe('10 → 20');
 
     const onRef = buildConfigDiffPreviewLines('sim', snaps, 1, 1);
     expect(onRef).toHaveLength(1);
-    expect(onRef[0]?.changeLabel).toBe('0.1');
+    expect(onRef[0]?.changeLabel).toBe('10');
   });
 
   it('supports N-way compare and only lists keys that differ across the set', () => {
     const snaps = [
-      { snapshotId: 1, config: { simSlBidPoints: 0.1, simTpBidPoints: 0.3 } },
-      { snapshotId: 2, config: { simSlBidPoints: 0.2, simTpBidPoints: 0.3 } },
-      { snapshotId: 3, config: { simSlBidPoints: 0.1, simTpBidPoints: 0.4 } },
+      { snapshotId: 1, config: { simSlPercent: 10, simTpPercent: 30 } },
+      { snapshotId: 2, config: { simSlPercent: 20, simTpPercent: 30 } },
+      { snapshotId: 3, config: { simSlPercent: 10, simTpPercent: 40 } },
     ];
     const on2 = buildConfigDiffPreviewLines('sim', snaps, 2, 1);
     expect(on2.map((l) => l.key).sort()).toEqual([
-      'simSlBidPoints',
-      'simTpBidPoints',
+      'simSlPercent',
+      'simTpPercent',
     ]);
-    expect(on2.find((l) => l.key === 'simSlBidPoints')?.changeLabel).toBe(
-      '0.1 → 0.2',
+    expect(on2.find((l) => l.key === 'simSlPercent')?.changeLabel).toBe(
+      '10 → 20',
     );
-    expect(on2.find((l) => l.key === 'simTpBidPoints')?.changeLabel).toBe('0.3');
+    expect(on2.find((l) => l.key === 'simTpPercent')?.changeLabel).toBe('30');
 
     const on3 = buildConfigDiffPreviewLines('sim', snaps, 3, 1);
-    expect(on3.find((l) => l.key === 'simSlBidPoints')?.changeLabel).toBe('0.1');
-    expect(on3.find((l) => l.key === 'simTpBidPoints')?.changeLabel).toBe(
-      '0.3 → 0.4',
+    expect(on3.find((l) => l.key === 'simSlPercent')?.changeLabel).toBe('10');
+    expect(on3.find((l) => l.key === 'simTpPercent')?.changeLabel).toBe(
+      '30 → 40',
     );
   });
 
@@ -177,8 +177,8 @@ describe('buildConfigDiffPreviewLines', () => {
         snapshotId: 1,
         config: {
           cryptoAlgoExitDefaultsByInterval: {
-            '5m': { slBidPoints: 0.1, tpBidPoints: 0.12 },
-            '1h': { slBidPoints: 0.1, tpBidPoints: 0.12 },
+            '5m': { slPercent: 20, tpPercent: 25 },
+            '1h': { slPercent: 20, tpPercent: 25 },
           },
         },
       },
@@ -186,8 +186,8 @@ describe('buildConfigDiffPreviewLines', () => {
         snapshotId: 2,
         config: {
           cryptoAlgoExitDefaultsByInterval: {
-            '1h': { tpBidPoints: 0.12, slBidPoints: 0.1 },
-            '5m': { tpBidPoints: 0.12, slBidPoints: 0.1 },
+            '1h': { tpPercent: 25, slPercent: 20 },
+            '5m': { tpPercent: 25, slPercent: 20 },
           },
         },
       },

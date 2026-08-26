@@ -39,8 +39,8 @@ export interface AlgoSurveillancePositionSummary {
   entryPrice: number;
   /** Bid VWAP at entry — source for chart SL/TP overlays. */
   entryBidVwap: number;
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
+  slPercent: number | null;
+  tpPercent: number | null;
   /** Last successful SELL fill price; null when open or no SELL fill. */
   exitBidVwap: number | null;
   unrealizedPnl: number;

@@ -60,10 +60,10 @@ export function getCryptoAlgoStrategies(risk: CryptoConfig): string[] {
 }
 
 export interface CryptoAlgoExitParams {
-  trailingBidPoints: number | null;
-  trailingActivationBidPoints: number | null;
-  cryptoAlgoSlBidPoints: number | null | undefined;
-  cryptoAlgoTpBidPoints: number | null | undefined;
+  trailingPercent: number | null;
+  trailingActivationPercent: number | null;
+  cryptoAlgoSlPercent: number | null;
+  cryptoAlgoTpPercent: number | null;
 }
 
 export interface CryptoAlgoPreCloseParams {
@@ -84,10 +84,10 @@ export function isAlgoPositionReason(reason: string | null | undefined): boolean
  */
 export function getCryptoAlgoExitParams(risk: CryptoConfig): CryptoAlgoExitParams {
   return {
-    trailingBidPoints: risk.cryptoAlgoTrailingBidPoints,
-    trailingActivationBidPoints: risk.cryptoAlgoTrailingActivationBidPoints,
-    cryptoAlgoSlBidPoints: risk.cryptoAlgoSlBidPoints,
-    cryptoAlgoTpBidPoints: risk.cryptoAlgoTpBidPoints,
+    trailingPercent: risk.cryptoAlgoTrailingPercent,
+    trailingActivationPercent: risk.cryptoAlgoTrailingActivationPercent,
+    cryptoAlgoSlPercent: risk.cryptoAlgoSlPercent,
+    cryptoAlgoTpPercent: risk.cryptoAlgoTpPercent,
   };
 }
 

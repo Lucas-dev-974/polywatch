@@ -205,11 +205,13 @@ export async function runCopyEntryPipeline(params: {
   }
   const entrySignalScore = applySignalScore ? signalScore : undefined;
 
-  // Absolute bid-point distance (same unit as strategy SL: entryBid − slBidPoints).
-  // Do not multiply by ask — computeRiskBasedSpend uses quantity = budget / stopDistance.
+  // Stop distance in price terms derived from the percent SL: the position is
+  // fully exited when closure PnL reaches -slPercent% of the invested amount,
+  // i.e. the per-share loss = slPercent/100 × entry price. computeRiskBasedSpend
+  // divides this by the ask to obtain the risk fraction, so we multiply here.
   const stopDistance =
-    exit.slBidPoints != null && exit.slBidPoints > 0
-      ? exit.slBidPoints
+    exit.slPercent != null && exit.slPercent > 0 && roughAskVwap > 0
+      ? (exit.slPercent / 100) * roughAskVwap
       : undefined;
 
   const sizingInputBase = {
@@ -379,10 +381,10 @@ export async function runCopyEntryPipeline(params: {
       reason,
       moveEventId: move.id,
       outcome: move.outcome,
-      trailingBidPoints: exit.trailingBidPoints ?? undefined,
-      trailingActivationBidPoints: exit.trailingActivationBidPoints ?? undefined,
-      slBidPoints: exit.slBidPoints ?? undefined,
-      tpBidPoints: exit.tpBidPoints ?? undefined,
+      trailingPercent: exit.trailingPercent ?? undefined,
+      trailingActivationPercent: exit.trailingActivationPercent ?? undefined,
+      slPercent: exit.slPercent ?? undefined,
+      tpPercent: exit.tpPercent ?? undefined,
     });
     reserved = true;
 

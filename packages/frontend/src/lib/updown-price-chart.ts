@@ -327,8 +327,12 @@ export function bidToDisplayPrice(
 
 export interface PositionLevelThresholdsInput {
   entryBidVwap: number;
-  slBidPoints?: number | null;
-  tpBidPoints?: number | null;
+  /** Cost basis per share (entry price + fees/qty) — basis for SL/TP percent. */
+  costPerShare: number;
+  /** Stop-loss threshold as % of invested amount. */
+  slPercent?: number | null;
+  /** Take-profit threshold as % of invested amount. */
+  tpPercent?: number | null;
 }
 
 export interface PositionLevelThresholds {
@@ -337,20 +341,21 @@ export interface PositionLevelThresholds {
   tp: number | null;
 }
 
-/** Calcule les seuils affichés sur le graphique (bid points uniquement). */
+/** Calcule les seuils affichés sur le graphique (pourcentage de la mise). */
 export function computePositionLevelThresholds(
   levels: PositionLevelThresholdsInput,
 ): PositionLevelThresholds {
   const entry = levels.entryBidVwap;
+  const cost = levels.costPerShare;
 
   let sl: number | null = null;
-  if (levels.slBidPoints != null && levels.slBidPoints > 0) {
-    sl = Math.max(0, entry - levels.slBidPoints);
+  if (levels.slPercent != null && levels.slPercent > 0 && cost > 0) {
+    sl = Math.max(0, cost * (1 - levels.slPercent / 100));
   }
 
   let tp: number | null = null;
-  if (levels.tpBidPoints != null && levels.tpBidPoints > 0) {
-    tp = Math.min(entry + levels.tpBidPoints, BINARY_TP_BID_CAP);
+  if (levels.tpPercent != null && levels.tpPercent > 0 && cost > 0) {
+    tp = Math.min(cost * (1 + levels.tpPercent / 100), BINARY_TP_BID_CAP);
   }
 
   return { entry, sl, tp };

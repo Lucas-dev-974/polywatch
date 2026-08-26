@@ -163,13 +163,14 @@ Boucle 100 ms + déclenchement sur chaque mise à jour du carnet (`setOnBookUpda
 ```
 pour chaque CopiedPosition 'open' :
   bidVwap exécutable (carnet en mémoire)
-  triggerPnl% = (bidVwap − entryBidVwap)/entryBidVwap        ← déclencheurs
+  triggerPnl% = (bidVwap − entryBidVwap)/entryBidVwap        ← garde TP (≥ 0)
   displayPnl% = (bidVwap − entryPrice)/entryPrice            ← affichage
   peakClosurePnl% persisté même si illiquide (position-branches.ts)
   updatePnlFields() (DB) + pnl_tick (WebSocket via backend)
-  evaluateSlTpTrailing()  : SL → TP → TRAILING (armé si peak ≥ activation)
-                            Évaluation hybride : trigger vs bid d'entrée,
-                            closure vs prix d'entrée + frais.
+  evaluateSlTpTrailing()  : SL → TP → TRAILING (armé si peak closure ≥ activation)
+                            Seuils en % de la mise investie (`slPercent` /
+                            `tpPercent` / `trailingPercent` vs closure PnL).
+                            TP exige aussi trigger ≥ 0 (marché vs bid d'entrée).
                             En illiquide, fallback sur `lastTradePrice` si celui-ci
                             est plus défavorable (évite un SL qui ne se déclenche pas
                             simplement parce que le bid affiché est un niveau figé).

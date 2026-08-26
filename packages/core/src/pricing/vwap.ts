@@ -131,7 +131,7 @@ export function unrealizedPnl(
 }
 
 /**
- * Closure PnL percent including entry fees — used for hybrid SL/TP evaluation.
+ * Closure PnL percent including entry fees — used for percent SL/TP/trailing.
  *
  * The cost basis per share is `entryPrice + entryFeesRemaining / entryQuantityRemaining`,
  * so a SL of -100% means "lose at most the capital invested" (price paid + entry fees).

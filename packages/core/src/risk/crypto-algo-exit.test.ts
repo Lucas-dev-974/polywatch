@@ -17,10 +17,10 @@ function makeExitRisk(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
     cryptoAlgoSlEnabled: true,
     cryptoAlgoTpEnabled: true,
     cryptoAlgoTrailingEnabled: true,
-    cryptoAlgoTrailingBidPoints: null,
-    cryptoAlgoTrailingActivationBidPoints: null,
-    cryptoAlgoSlBidPoints: null,
-    cryptoAlgoTpBidPoints: null,
+    cryptoAlgoTrailingPercent: null,
+    cryptoAlgoTrailingActivationPercent: null,
+    cryptoAlgoSlPercent: null,
+    cryptoAlgoTpPercent: null,
     ...overrides,
   } as CryptoConfig;
 }
@@ -111,75 +111,75 @@ describe('resolveMarketInterval', () => {
 describe('resolveAlgoEntryExitParams', () => {
   it('uses interval defaults when overrides are null', () => {
     expect(resolveAlgoEntryExitParams(makeExitRisk(), '5m')).toEqual({
-      trailingBidPoints: 0.05,
-      trailingActivationBidPoints: 0.06,
-      slBidPoints: 0.10,
-      tpBidPoints: 0.12,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
+      slPercent: 20,
+      tpPercent: 25,
     });
   });
 
   it('respects explicit override', () => {
     expect(
       resolveAlgoEntryExitParams(
-        makeExitRisk({ cryptoAlgoSlBidPoints: 0.20 }), '5m',
-      ).slBidPoints,
-    ).toBe(0.20);
+        makeExitRisk({ cryptoAlgoSlPercent: 20 }), '5m',
+      ).slPercent,
+    ).toBe(20);
   });
 
   it('treats zero override as disabled', () => {
     expect(
       resolveAlgoEntryExitParams(
-        makeExitRisk({ cryptoAlgoSlBidPoints: 0, cryptoAlgoTpBidPoints: 0 }),
+        makeExitRisk({ cryptoAlgoSlPercent: 0, cryptoAlgoTpPercent: 0 }),
         '5m',
       ),
     ).toEqual({
-      trailingBidPoints: 0.05,
-      trailingActivationBidPoints: 0.06,
-      slBidPoints: null,
-      tpBidPoints: null,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
+      slPercent: null,
+      tpPercent: null,
     });
   });
 
-  it('treats zero bid-points override as disabled (null)', () => {
+  it('treats zero percent override as disabled (null)', () => {
     const params = resolveAlgoEntryExitParams(
-      makeExitRisk({ cryptoAlgoSlBidPoints: 0, cryptoAlgoTpBidPoints: 0 }),
+      makeExitRisk({ cryptoAlgoSlPercent: 0, cryptoAlgoTpPercent: 0 }),
       '5m',
     );
-    expect(params.slBidPoints).toBeNull();
-    expect(params.tpBidPoints).toBeNull();
+    expect(params.slPercent).toBeNull();
+    expect(params.tpPercent).toBeNull();
   });
 
-  it('treats negative bid-points override as disabled (null)', () => {
+  it('treats negative percent override as disabled (null)', () => {
     const params = resolveAlgoEntryExitParams(
-      makeExitRisk({ cryptoAlgoSlBidPoints: -0.05, cryptoAlgoTpBidPoints: -0.05 }),
+      makeExitRisk({ cryptoAlgoSlPercent: -5, cryptoAlgoTpPercent: -5 }),
       '5m',
     );
-    expect(params.slBidPoints).toBeNull();
-    expect(params.tpBidPoints).toBeNull();
+    expect(params.slPercent).toBeNull();
+    expect(params.tpPercent).toBeNull();
   });
 
-  it('respects explicit positive bid-points override', () => {
+  it('respects explicit positive percent override', () => {
     const params = resolveAlgoEntryExitParams(
-      makeExitRisk({ cryptoAlgoSlBidPoints: 0.20, cryptoAlgoTpBidPoints: 0.25 }),
+      makeExitRisk({ cryptoAlgoSlPercent: 20, cryptoAlgoTpPercent: 25 }),
       '5m',
     );
-    expect(params.slBidPoints).toBe(0.20);
-    expect(params.tpBidPoints).toBe(0.25);
+    expect(params.slPercent).toBe(20);
+    expect(params.tpPercent).toBe(25);
   });
 
-  it('returns null bid points on non-binary market (binary guard)', () => {
+  it('returns null percent on non-binary market (binary guard)', () => {
     const params = resolveAlgoEntryExitParams(
-      makeExitRisk({ cryptoAlgoSlBidPoints: 0.20, cryptoAlgoTpBidPoints: 0.25 }),
+      makeExitRisk({ cryptoAlgoSlPercent: 20, cryptoAlgoTpPercent: 25 }),
       null,
     );
-    expect(params.slBidPoints).toBeNull();
-    expect(params.tpBidPoints).toBeNull();
+    expect(params.slPercent).toBeNull();
+    expect(params.tpPercent).toBeNull();
   });
 
   it('uses interval defaults when algo exit legs are enabled', () => {
     expect(
-      resolveAlgoEntryExitParams(makeExitRisk(), '5m').slBidPoints,
-    ).toBe(0.10);
+      resolveAlgoEntryExitParams(makeExitRisk(), '5m').slPercent,
+    ).toBe(20);
   });
 
   it('disables each algo exit leg independently via enable flags', () => {
@@ -187,16 +187,16 @@ describe('resolveAlgoEntryExitParams', () => {
       resolveAlgoEntryExitParams(
         makeExitRisk({ cryptoAlgoSlEnabled: false }), '5m',
       ),
-    ).toMatchObject({ slBidPoints: null, tpBidPoints: 0.12 });
+    ).toMatchObject({ slPercent: null, tpPercent: 25 });
     expect(
       resolveAlgoEntryExitParams(
         makeExitRisk({ cryptoAlgoTpEnabled: false }), '5m',
       ),
-    ).toMatchObject({ slBidPoints: 0.10, tpBidPoints: null });
+    ).toMatchObject({ slPercent: 20, tpPercent: null });
     expect(
       resolveAlgoEntryExitParams(
         makeExitRisk({ cryptoAlgoTrailingEnabled: false }), '5m',
-      ).trailingBidPoints,
+      ).trailingPercent,
     ).toBeNull();
   });
 
@@ -211,10 +211,10 @@ describe('resolveAlgoEntryExitParams', () => {
         '5m',
       ),
     ).toEqual({
-      trailingBidPoints: null,
-      trailingActivationBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      slPercent: null,
+      tpPercent: null,
     });
   });
 
@@ -222,10 +222,10 @@ describe('resolveAlgoEntryExitParams', () => {
     expect(
       resolveAlgoEntryExitParams(makeExitRisk(), null),
     ).toEqual({
-      trailingBidPoints: null,
-      trailingActivationBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      slPercent: null,
+      tpPercent: null,
     });
   });
 });

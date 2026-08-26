@@ -78,12 +78,6 @@ export class CopiedPosition {
   @Column({ type: 'real', name: 'peak_bid_vwap', nullable: true })
   peakBidVwap!: number | null;
 
-  @Column({ type: 'real', name: 'trailing_bid_points', nullable: true })
-  trailingBidPoints!: number | null;
-
-  @Column({ type: 'real', name: 'trailing_activation_bid_points', nullable: true })
-  trailingActivationBidPoints!: number | null;
-
   @Column({ type: 'text', default: 'open' })
   status!: string;
 
@@ -116,27 +110,19 @@ export class CopiedPosition {
   @Column({ type: 'text', name: 'strategy_id', nullable: true })
   strategyId!: string | null;
 
-  /** Stop-loss threshold in bid points (absolute) for binary markets. */
-  @Column({ type: 'real', name: 'sl_bid_points', nullable: true })
-  slBidPoints!: number | null;
-
-  /** Take-profit threshold in bid points (absolute) for binary markets. */
-  @Column({ type: 'real', name: 'tp_bid_points', nullable: true })
-  tpBidPoints!: number | null;
-
-  /** Stop-loss threshold as % of invested amount (weather-algo). */
+  /** Stop-loss threshold as % of invested amount. */
   @Column({ type: 'real', name: 'sl_percent', nullable: true })
   slPercent!: number | null;
 
-  /** Take-profit threshold as % of invested amount (weather-algo). */
+  /** Take-profit threshold as % of invested amount. */
   @Column({ type: 'real', name: 'tp_percent', nullable: true })
   tpPercent!: number | null;
 
-  /** Trailing drawdown threshold as % of invested amount (weather-algo). */
+  /** Trailing drawdown threshold as % of invested amount. */
   @Column({ type: 'real', name: 'trailing_percent', nullable: true })
   trailingPercent!: number | null;
 
-  /** Trailing activation threshold as % of invested amount (weather-algo). */
+  /** Trailing activation threshold as % of invested amount. */
   @Column({ type: 'real', name: 'trailing_activation_percent', nullable: true })
   trailingActivationPercent!: number | null;
 

@@ -77,10 +77,10 @@ export const DEFAULT_CRYPTO_ALGO_SPREAD_ABS_BY_INTERVAL: Readonly<
 };
 
 export interface CryptoAlgoIntervalExitDefaults extends Record<string, unknown> {
-  slBidPoints?: number;
-  tpBidPoints?: number;
-  trailingBidPoints?: number;
-  trailingActivationBidPoints?: number;
+  slPercent?: number;
+  tpPercent?: number;
+  trailingPercent?: number;
+  trailingActivationPercent?: number;
 }
 
 export type CryptoAlgoNumberIntervalMap = Partial<
@@ -173,6 +173,42 @@ export function mergeIntervalNumberMap(
   return { ...defaults, ...override };
 }
 
+function positiveThreshold(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
+/**
+ * Normalize a per-interval exit-defaults object to percent fields.
+ * Legacy `*BidPoints` keys (absolute [0,1] distance) are converted ×100
+ * when the matching `*Percent` field is absent.
+ */
+export function normalizeCryptoAlgoIntervalExitDefaults(
+  entry: Record<string, unknown>,
+): CryptoAlgoIntervalExitDefaults {
+  const pick = (percentKey: string, bidKey: string): number | undefined => {
+    const percent = positiveThreshold(entry[percentKey]);
+    if (percent != null) return percent;
+    const bid = positiveThreshold(entry[bidKey]);
+    if (bid != null) return bid * 100;
+    return undefined;
+  };
+  const out: CryptoAlgoIntervalExitDefaults = {};
+  const sl = pick('slPercent', 'slBidPoints');
+  const tp = pick('tpPercent', 'tpBidPoints');
+  const trailing = pick('trailingPercent', 'trailingBidPoints');
+  const activation = pick(
+    'trailingActivationPercent',
+    'trailingActivationBidPoints',
+  );
+  if (sl != null) out.slPercent = sl;
+  if (tp != null) out.tpPercent = tp;
+  if (trailing != null) out.trailingPercent = trailing;
+  if (activation != null) out.trailingActivationPercent = activation;
+  return out;
+}
+
 export function mergeIntervalExitDefaults(
   defaults: Readonly<Record<string, CryptoAlgoIntervalExitDefaults>>,
   override: CryptoAlgoExitDefaultsIntervalMap | null | undefined,
@@ -184,7 +220,12 @@ export function mergeIntervalExitDefaults(
   for (const [interval, partial] of Object.entries(override)) {
     const base = merged[interval];
     if (!base || !partial) continue;
-    merged[interval] = { ...base, ...partial };
+    merged[interval] = {
+      ...base,
+      ...normalizeCryptoAlgoIntervalExitDefaults(
+        partial as Record<string, unknown>,
+      ),
+    };
   }
   return merged;
 }
@@ -656,28 +697,28 @@ export function validateCryptoAlgoTunablesUpdate(
         }
         const obj = entry as Record<string, unknown>;
         checkPositiveReal(
-          `cryptoAlgoExitDefaultsByInterval.${key}.slBidPoints`,
-          obj.slBidPoints,
+          `cryptoAlgoExitDefaultsByInterval.${key}.slPercent`,
+          obj.slPercent,
           0,
-          1,
+          100,
         );
         checkPositiveReal(
-          `cryptoAlgoExitDefaultsByInterval.${key}.tpBidPoints`,
-          obj.tpBidPoints,
+          `cryptoAlgoExitDefaultsByInterval.${key}.tpPercent`,
+          obj.tpPercent,
           0,
-          1,
+          100,
         );
         checkPositiveReal(
-          `cryptoAlgoExitDefaultsByInterval.${key}.trailingBidPoints`,
-          obj.trailingBidPoints,
+          `cryptoAlgoExitDefaultsByInterval.${key}.trailingPercent`,
+          obj.trailingPercent,
           0,
-          1,
+          100,
         );
         checkPositiveReal(
-          `cryptoAlgoExitDefaultsByInterval.${key}.trailingActivationBidPoints`,
-          obj.trailingActivationBidPoints,
+          `cryptoAlgoExitDefaultsByInterval.${key}.trailingActivationPercent`,
+          obj.trailingActivationPercent,
           0,
-          1,
+          100,
         );
       }
     }

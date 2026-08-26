@@ -7,7 +7,6 @@ import {
   isEntryBidAskRatioAcceptable,
   evaluateMomentumEntry,
   evaluateSlTpTrailing,
-  isTrailingArmed,
   isExitLegEnabled,
   resolveCopyEntryExitParams,
 } from './policy.js';
@@ -114,55 +113,52 @@ describe('evaluateSlTpTrailing - hybrid exit logic', () => {
   // - closure (economic): ~-99% (bid vs entry price)
   it('SL fires on closure breach even when market is flat (incident #3444)', () => {
     const result = evaluateSlTpTrailing({
-      slBidPoints: 0.40,
-      tpBidPoints: null,
-      trailingBidPoints: null,
+      slPercent: 40,
+      tpPercent: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
       effectiveTrigger: -85, // market crashed below SL threshold
       effectiveClosure: -99, // massive loss due to spread
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
+      peakClosurePnlPercent: -5,
     });
     expect(result).toBe('SL');
   });
 
-  // Legacy position #3403: entry ask 0.99, bid 0.16, current bid 0.16
-  // - trigger: +12% (bid vs entry bid)
-  // - closure: -82% (bid vs entry price)
   it('SL fires on closure breach even when market shows gain (#3403)', () => {
     const result = evaluateSlTpTrailing({
-      slBidPoints: 0.40,
-      tpBidPoints: null,
-      trailingBidPoints: null,
-      effectiveTrigger: -85, // market crashed below SL threshold
-      effectiveClosure: -82, // closure down
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
+      slPercent: 40,
+      tpPercent: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: -85,
+      effectiveClosure: -82,
+      peakClosurePnlPercent: -5,
     });
     expect(result).toBe('SL');
   });
 
   it('SL does not fire when neither market nor closure breaches threshold', () => {
     const result = evaluateSlTpTrailing({
-      slBidPoints: 0.40,
-      tpBidPoints: null,
-      trailingBidPoints: null,
-      effectiveTrigger: -50,
-      effectiveClosure: -50,
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
+      slPercent: 40,
+      tpPercent: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: -10,
+      effectiveClosure: -10,
+      peakClosurePnlPercent: -5,
     });
     expect(result).toBeNull();
   });
 
   it('SL fires when market breaches threshold (classic drop)', () => {
     const result = evaluateSlTpTrailing({
-      slBidPoints: 0.40,
-      tpBidPoints: null,
-      trailingBidPoints: null,
+      slPercent: 40,
+      tpPercent: null,
+      trailingPercent: null,
+      trailingActivationPercent: null,
       effectiveTrigger: -85,
       effectiveClosure: -85,
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
+      peakClosurePnlPercent: -5,
     });
     expect(result).toBe('SL');
   });
@@ -170,245 +166,39 @@ describe('evaluateSlTpTrailing - hybrid exit logic', () => {
   // TP with AND logic
   it('TP does not fire when only market confirms (spread entry)', () => {
     const result = evaluateSlTpTrailing({
-      slBidPoints: null,
-      tpBidPoints: 0.10,
-      trailingBidPoints: null,
-      effectiveTrigger: 25, // market up
-      effectiveClosure: -5, // closure still negative due to spread
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
+      slPercent: null,
+      tpPercent: 10,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: 25,
+      effectiveClosure: -5,
+      peakClosurePnlPercent: 5,
     });
     expect(result).toBeNull();
   });
 
   it('TP fires only when both market AND closure confirm gain (AND logic)', () => {
     const result = evaluateSlTpTrailing({
-      slBidPoints: null,
-      tpBidPoints: 0.10,
-      trailingBidPoints: null,
+      slPercent: null,
+      tpPercent: 10,
+      trailingPercent: null,
+      trailingActivationPercent: null,
       effectiveTrigger: 25,
       effectiveClosure: 22,
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
+      peakClosurePnlPercent: 22,
     });
     expect(result).toBe('TP');
   });
 
   it('TP does not fire when only closure confirms (market flat)', () => {
     const result = evaluateSlTpTrailing({
-      slBidPoints: null,
-      tpBidPoints: 0.10,
-      trailingBidPoints: null,
-      effectiveTrigger: 5, // market not at TP yet
-      effectiveClosure: 25, // closure at TP
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
-    });
-    expect(result).toBeNull();
-  });
-});
-
-describe('evaluateSlTpTrailing - bid points thresholds (binary markets)', () => {
-  // Bid points mode: slBidPoints/tpBidPoints are offsets from entryBidVwap.
-  // When slBidPoints/tpBidPoints are null, behavior must fall back to percent mode.
-
-  it('SL fires in bid points mode when bid drops by slBidPoints from entry', () => {
-    // entryBidVwap 0.55, slBidPoints 0.10 → SL at bid <= 0.45
-    // (0.45 - 0.55) / 0.55 ≈ -18.18%, so trigger <= -19 crosses the threshold
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: -19,
-      effectiveClosure: -19,
-      peakBidVwap: 0.50,
-      slBidPoints: 0.10,
-      tpBidPoints: null,
-      entryBidVwap: 0.55,
-    });
-    expect(result).toBe('SL');
-  });
-
-  it('SL bid points is uniform across entry prices (same 0.10 points delta)', () => {
-    // entry 0.40 with 0.10 points → SL at 0.30
-    // entry 0.85 with 0.10 points → SL at 0.75
-    // At bid 0.29: both fire (0.29 < 0.30 and 0.29 < 0.75)
-    const low = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: -27, effectiveClosure: -27, peakBidVwap: 0.50,
-      slBidPoints: 0.10, tpBidPoints: null, entryBidVwap: 0.40,
-    });
-    const high = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: -65, effectiveClosure: -65, peakBidVwap: 0.50,
-      slBidPoints: 0.10, tpBidPoints: null, entryBidVwap: 0.85,
-    });
-    expect(low).toBe('SL');
-    expect(high).toBe('SL');
-    
-    // At bid 0.72: entry 0.85 fires (0.72 < 0.75), entry 0.40 does not (0.72 > 0.30)
-    const highAt72 = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: -15, effectiveClosure: -15, peakBidVwap: 0.50,
-      slBidPoints: 0.10, tpBidPoints: null, entryBidVwap: 0.85,
-    });
-    const lowAt72 = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: 80, effectiveClosure: 80, peakBidVwap: 0.50,
-      slBidPoints: 0.10, tpBidPoints: null, entryBidVwap: 0.40,
-    });
-    expect(highAt72).toBe('SL');
-    expect(lowAt72).toBeNull();
-  });
-
-  it('TP bid points fires when bid >= entryBidVwap + tpBidPoints AND closure >= 0', () => {
-    // entryBidVwap 0.55, tpBidPoints 0.12 → TP at bid >= 0.67
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: 22, // (0.67 - 0.55) / 0.55 ≈ 22%
-      effectiveClosure: 5, // non-negative → fee guard passes
-      peakBidVwap: 0.50,
-      slBidPoints: null,
-      tpBidPoints: 0.12,
-      entryBidVwap: 0.55,
-    });
-    expect(result).toBe('TP');
-  });
-
-  it('TP bid points does NOT fire when closure < 0 (fee guard fails)', () => {
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: 22,
-      effectiveClosure: -1, // fees eat the gain → fee guard blocks TP
-      peakBidVwap: 0.50,
-      slBidPoints: null,
-      tpBidPoints: 0.12,
-      entryBidVwap: 0.55,
-    });
-    expect(result).toBeNull();
-  });
-
-  it('TP bid points is capped at 0.99', () => {
-    // entryBidVwap 0.95 + 0.10 points → 1.05, capped at 0.99
-    // (0.99 - 0.95) / 0.95 ≈ 4.21%, so trigger >= 5 crosses the cap
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: 5,
-      effectiveClosure: 5,
-      peakBidVwap: 0.50,
-      slBidPoints: null,
-      tpBidPoints: 0.10,
-      entryBidVwap: 0.95,
-    });
-    // At bid 0.99, TP should fire (capped threshold reached)
-    expect(result).toBe('TP');
-  });
-
-  it('falls back to trailing-only when slBidPoints/tpBidPoints are null', () => {
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: -85,
-      effectiveClosure: -85,
-      peakBidVwap: 0.50,
-      slBidPoints: null,
-      tpBidPoints: null,
-      entryBidVwap: 0.50,
-    });
-    // No bid points and no trailing → no SL/TP fires
-    expect(result).toBeNull();
-  });
-
-  it('bid points SL fires when threshold is breached', () => {
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: -90,
-      effectiveClosure: -90,
-      peakBidVwap: 0.50,
-      slBidPoints: 0.10,
-      tpBidPoints: null,
-      entryBidVwap: 0.50, // bid points SL fires at bid 0.40
-    });
-    expect(result).toBe('SL');
-  });
-
-  it('does not fire bid points SL when entryBidVwap is 0 (no fill yet)', () => {
-    // entryBidVwap = 0 means position not filled yet — skip absolute mode
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      effectiveTrigger: 0,
-      effectiveClosure: 0,
-      peakBidVwap: 0.50,
-      slBidPoints: 0.10,
-      tpBidPoints: null,
-      entryBidVwap: 0,
-    });
-    // entryBidVwap = 0 → bid points mode is skipped (no fill yet)
-    // No trailing stop either → no exit
-    expect(result).toBeNull();
-  });
-});
-
-describe('isTrailingArmed', () => {
-  it('arms immediately when no activation threshold (null or undefined)', () => {
-    expect(isTrailingArmed(0.5, 0.5, null)).toBe(true);
-    expect(isTrailingArmed(0.5, 0.5, undefined)).toBe(true);
-  });
-
-  it('does NOT arm immediately when threshold is 0 (arm at break-even)', () => {
-    // 0 is a valid threshold: the trailing only arms when currentBid >= entryBidVwap + 0.
-    // A position opened at 0.48 bid with entry 0.50 must NOT trigger immediately.
-    expect(isTrailingArmed(0.48, 0.50, 0)).toBe(false);
-    expect(isTrailingArmed(0.50, 0.50, 0)).toBe(true);   // exactly at break-even
-    expect(isTrailingArmed(0.51, 0.50, 0)).toBe(true);   // above break-even
-  });
-
-  it('arms when current bid reaches activation threshold above entry', () => {
-    // entryBidVwap = 0.50, activationBidPoints = 0.10 → arm at bid >= 0.60
-    expect(isTrailingArmed(0.65, 0.50, 0.10)).toBe(true);
-    expect(isTrailingArmed(0.60, 0.50, 0.10)).toBe(true);
-    expect(isTrailingArmed(0.55, 0.50, 0.10)).toBe(false);
-  });
-});
-
-describe('evaluateSlTpTrailing - trailing stop', () => {
-  it('trailing fires when drawdown from peak bid exceeds threshold', () => {
-    // entryBidVwap = 0.50, peakBidVwap = 0.70, currentBid = 0.65
-    // effectiveTrigger = (0.65 - 0.50) / 0.50 * 100 = 30%
-    // drawdown = 0.70 - 0.65 = 0.05, trailingBidPoints = 0.05 → fires
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: 0.05,
-      trailingActivationBidPoints: 0.10,
-      effectiveTrigger: 30,
-      effectiveClosure: 28,
-      peakBidVwap: 0.70,
-      entryBidVwap: 0.50,
-    });
-    // peakBidVwap(0.70) - currentBid(0.65) = 0.05 >= trailingBidPoints(0.05)
-    expect(result).toBe('TRAILING');
-  });
-
-  it('trailing does not fire when not armed', () => {
-    // entryBidVwap = 0.50, activationBidPoints = 0.10 → arm at 0.60
-    // currentBid = 0.55 (effectiveTrigger = 10%) → not armed
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: 0.05,
-      trailingActivationBidPoints: 0.10,
-      effectiveTrigger: 10,
-      effectiveClosure: 8,
-      peakBidVwap: 0.70,
-      entryBidVwap: 0.50,
-    });
-    expect(result).toBeNull();
-  });
-
-  it('trailing does not fire when drawdown is below threshold', () => {
-    // entryBidVwap = 0.50, peakBidVwap = 0.70, currentBid = 0.68
-    // drawdown = 0.70 - 0.68 = 0.02, trailingBidPoints = 0.05 → no fire
-    const result = evaluateSlTpTrailing({
-      trailingBidPoints: 0.05,
-      trailingActivationBidPoints: 0.10,
-      effectiveTrigger: 36,
-      effectiveClosure: 34,
-      peakBidVwap: 0.70,
-      entryBidVwap: 0.50,
+      slPercent: null,
+      tpPercent: 10,
+      trailingPercent: null,
+      trailingActivationPercent: null,
+      effectiveTrigger: -5,
+      effectiveClosure: 25,
+      peakClosurePnlPercent: 25,
     });
     expect(result).toBeNull();
   });
@@ -417,64 +207,52 @@ describe('evaluateSlTpTrailing - trailing stop', () => {
 describe('evaluateSlTpTrailing - percentage mode (weather-algo)', () => {
   it('SL fires when closure PnL drops below -slPercent of invested amount', () => {
     const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
       slPercent: 20,
       tpPercent: null,
       trailingPercent: null,
       trailingActivationPercent: null,
       effectiveTrigger: -25,
       effectiveClosure: -22,
-      peakBidVwap: 0.50,
+      peakClosurePnlPercent: -5,
     });
     expect(result).toBe('SL');
   });
 
   it('SL does not fire when closure PnL is above -slPercent', () => {
     const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
       slPercent: 20,
       tpPercent: null,
       trailingPercent: null,
       trailingActivationPercent: null,
       effectiveTrigger: -15,
       effectiveClosure: -15,
-      peakBidVwap: 0.50,
+      peakClosurePnlPercent: -5,
     });
     expect(result).toBeNull();
   });
 
   it('TP fires when closure PnL reaches tpPercent and trigger is positive', () => {
     const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
       slPercent: null,
       tpPercent: 25,
       trailingPercent: null,
       trailingActivationPercent: null,
       effectiveTrigger: 30,
       effectiveClosure: 28,
-      peakBidVwap: 0.50,
+      peakClosurePnlPercent: 28,
     });
     expect(result).toBe('TP');
   });
 
   it('TP does not fire when closure PnL is below tpPercent', () => {
     const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
       slPercent: null,
       tpPercent: 25,
       trailingPercent: null,
       trailingActivationPercent: null,
       effectiveTrigger: 20,
       effectiveClosure: 18,
-      peakBidVwap: 0.50,
+      peakClosurePnlPercent: 18,
     });
     expect(result).toBeNull();
   });
@@ -482,17 +260,12 @@ describe('evaluateSlTpTrailing - percentage mode (weather-algo)', () => {
   it('trailing fires on percentage drawdown from peak closure when armed', () => {
     // peak closure 40%, current closure 30% => drawdown 10% >= trailingPercent 10
     const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
       slPercent: null,
       tpPercent: null,
       trailingPercent: 10,
       trailingActivationPercent: 12,
-      trailingActivationBidPoints: null,
       effectiveTrigger: 30,
       effectiveClosure: 30,
-      peakBidVwap: 0.70,
       peakClosurePnlPercent: 40,
     });
     expect(result).toBe('TRAILING');
@@ -500,35 +273,26 @@ describe('evaluateSlTpTrailing - percentage mode (weather-algo)', () => {
 
   it('trailing does not fire when not armed (closure below activation)', () => {
     const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      slBidPoints: null,
-      tpBidPoints: null,
       slPercent: null,
       tpPercent: null,
       trailingPercent: 10,
       trailingActivationPercent: 12,
-      trailingActivationBidPoints: null,
       effectiveTrigger: 8,
       effectiveClosure: 8,
-      peakBidVwap: 0.70,
       peakClosurePnlPercent: 40,
     });
     expect(result).toBeNull();
   });
 
-  it('SL does not fire for copy positions (no percentage set)', () => {
+  it('SL does not fire when no threshold is configured', () => {
     const result = evaluateSlTpTrailing({
-      trailingBidPoints: null,
-      slBidPoints: 0.10,
-      tpBidPoints: null,
       slPercent: null,
       tpPercent: null,
       trailingPercent: null,
       trailingActivationPercent: null,
       effectiveTrigger: -15,
       effectiveClosure: -15,
-      peakBidVwap: 0.50,
-      entryBidVwap: 0.50,
+      peakClosurePnlPercent: -15,
     });
     expect(result).toBeNull();
   });
@@ -548,18 +312,18 @@ describe('resolveCopyEntryExitParams', () => {
     return copyConfig({
       simSlEnabled: true,
       simTpEnabled: true,
-      simSlBidPoints: 0.1,
-      simTpBidPoints: 0.12,
+      simSlPercent: 20,
+      simTpPercent: 25,
       simTrailingEnabled: true,
-      simTrailingBidPoints: 0.05,
-      simTrailingActivationBidPoints: 0.06,
+      simTrailingPercent: 10,
+      simTrailingActivationPercent: 12,
       realSlEnabled: true,
       realTpEnabled: true,
-      realSlBidPoints: 0.08,
-      realTpBidPoints: 0.15,
+      realSlPercent: 20,
+      realTpPercent: 25,
       realTrailingEnabled: false,
-      realTrailingBidPoints: 0.05,
-      realTrailingActivationBidPoints: 0.06,
+      realTrailingPercent: 10,
+      realTrailingActivationPercent: 12,
       ...overrides,
     });
   }
@@ -570,13 +334,13 @@ describe('resolveCopyEntryExitParams', () => {
         exitCopy({ simSlEnabled: false, simTpEnabled: true }),
         'sim',
       ),
-    ).toMatchObject({ slBidPoints: null, tpBidPoints: 0.12 });
+    ).toMatchObject({ slPercent: null, tpPercent: 25 });
     expect(
       resolveCopyEntryExitParams(
         exitCopy({ simSlEnabled: true, simTpEnabled: false }),
         'sim',
       ),
-    ).toMatchObject({ slBidPoints: 0.1, tpBidPoints: null });
+    ).toMatchObject({ slPercent: 20, tpPercent: null });
   });
 
   it('keeps trailing independent from SL/TP toggles', () => {
@@ -590,10 +354,10 @@ describe('resolveCopyEntryExitParams', () => {
         'sim',
       ),
     ).toMatchObject({
-      slBidPoints: null,
-      tpBidPoints: null,
-      trailingBidPoints: 0.05,
-      trailingActivationBidPoints: 0.06,
+      slPercent: null,
+      tpPercent: null,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
     });
   });
 });

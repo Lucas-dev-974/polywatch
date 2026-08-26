@@ -20,8 +20,8 @@ export interface CryptoAlgoSettingsExitTabProps {
 }
 
 export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps) {
-  const absoluteHint = `Points de bid sous/au-dessus du bid d'entrée. 0..1. Marchés binaires seulement. Defaults 5m : SL ${EXIT_DEFAULTS_5M.slBidPoints}, TP ${EXIT_DEFAULTS_5M.tpBidPoints}.`;
-  const trailingHint = `Champ vide = defaults par intervalle (ex. 5m : ${EXIT_DEFAULTS_5M.trailingBidPoints} points bid). 0 = désactivé.`;
+  const absoluteHint = `Seuils en % de la mise investie (cost basis + frais). 0..100. Defaults 5m : SL ${EXIT_DEFAULTS_5M.slPercent}, TP ${EXIT_DEFAULTS_5M.tpPercent}.`;
+  const trailingHint = `Champ vide = defaults par intervalle (ex. 5m : ${EXIT_DEFAULTS_5M.trailingPercent} % de la mise). 0 = désactivé.`;
 
   const effectivePreCloseSeconds = () => props.config.cryptoAlgoPreCloseSeconds ?? null;
 
@@ -50,14 +50,14 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
       />
       <Show when={props.config.cryptoAlgoSlEnabled}>
         <NullableNumberField
-          label="Stop Loss (points bid) — override global"
-          value={props.config.cryptoAlgoSlBidPoints}
+          label="Stop Loss (% de la mise) — override global"
+          value={props.config.cryptoAlgoSlPercent}
           min={0}
-          max={1}
-          step={0.01}
-          placeholder={`auto (${EXIT_DEFAULTS_5M.slBidPoints})`}
+          max={100}
+          step={1}
+          placeholder={`auto (${EXIT_DEFAULTS_5M.slPercent})`}
           hint={absoluteHint}
-          onChange={(value) => props.onChange({ cryptoAlgoSlBidPoints: value })}
+          onChange={(value) => props.onChange({ cryptoAlgoSlPercent: value })}
         />
       </Show>
       <ToggleField
@@ -67,14 +67,14 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
       />
       <Show when={props.config.cryptoAlgoTpEnabled}>
         <NullableNumberField
-          label="Take Profit (points bid) — override global"
-          value={props.config.cryptoAlgoTpBidPoints}
+          label="Take Profit (% de la mise) — override global"
+          value={props.config.cryptoAlgoTpPercent}
           min={0}
-          max={1}
-          step={0.01}
-          placeholder={`auto (${EXIT_DEFAULTS_5M.tpBidPoints})`}
+          max={100}
+          step={1}
+          placeholder={`auto (${EXIT_DEFAULTS_5M.tpPercent})`}
           hint={absoluteHint}
-          onChange={(value) => props.onChange({ cryptoAlgoTpBidPoints: value })}
+          onChange={(value) => props.onChange({ cryptoAlgoTpPercent: value })}
         />
       </Show>
       <ToggleField
@@ -86,27 +86,27 @@ export function CryptoAlgoSettingsExitTab(props: CryptoAlgoSettingsExitTabProps)
       />
       <Show when={props.config.cryptoAlgoTrailingEnabled}>
         <NullableNumberField
-          label="Trailing stop (points bid) — override global"
-          value={props.config.cryptoAlgoTrailingBidPoints}
+          label="Trailing stop (% de la mise) — override global"
+          value={props.config.cryptoAlgoTrailingPercent}
           min={0}
-          max={1}
-          step={0.01}
-          placeholder={`auto (${EXIT_DEFAULTS_5M.trailingBidPoints})`}
+          max={100}
+          step={1}
+          placeholder={`auto (${EXIT_DEFAULTS_5M.trailingPercent})`}
           hint={trailingHint}
           onChange={(value) =>
-            props.onChange({ cryptoAlgoTrailingBidPoints: value })
+            props.onChange({ cryptoAlgoTrailingPercent: value })
           }
         />
         <NullableNumberField
-          label="Activation trailing (points bid) — override global"
-          value={props.config.cryptoAlgoTrailingActivationBidPoints}
+          label="Activation trailing (% de la mise) — override global"
+          value={props.config.cryptoAlgoTrailingActivationPercent}
           min={0}
-          max={1}
-          step={0.01}
-          placeholder={`auto (${EXIT_DEFAULTS_5M.trailingActivationBidPoints})`}
+          max={100}
+          step={1}
+          placeholder={`auto (${EXIT_DEFAULTS_5M.trailingActivationPercent})`}
           hint={`${trailingHint} 0 = actif dès l'ouverture si désactivé explicitement.`}
           onChange={(value) =>
-            props.onChange({ cryptoAlgoTrailingActivationBidPoints: value })
+            props.onChange({ cryptoAlgoTrailingActivationPercent: value })
           }
         />
       </Show>

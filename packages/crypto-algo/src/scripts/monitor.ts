@@ -116,10 +116,10 @@ const SQL_POSITIONS_OPEN = `
     cp.unrealized_pnl AS "unrealizedPnl",
     cp.realized_pnl AS "realizedPnl",
     cp.peak_closure_pnl_percent AS "peakClosurePnlPercent",
-    cp.sl_bid_points AS "slBidPoints",
-    cp.tp_bid_points AS "tpBidPoints",
-    cp.trailing_bid_points AS "trailingBidPoints",
-    cp.trailing_activation_bid_points AS "trailingActivationBidPoints",
+    cp.sl_percent AS "slPercent",
+    cp.tp_percent AS "tpPercent",
+    cp.trailing_percent AS "trailingPercent",
+    cp.trailing_activation_percent AS "trailingActivationPercent",
     cp.reason AS reason,
     cp.liquidity_status AS "liquidityStatus",
     cp.opened_at AS "openedAt",
@@ -221,10 +221,10 @@ interface OpenPositionRow {
   unrealizedPnl: number;
   realizedPnl: number;
   peakClosurePnlPercent: number | null;
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
-  trailingBidPoints: number | null;
-  trailingActivationBidPoints: number | null;
+  slPercent: number | null;
+  tpPercent: number | null;
+  trailingPercent: number | null;
+  trailingActivationPercent: number | null;
   reason: string;
   liquidityStatus: string;
   openedAt: Date;
@@ -325,10 +325,10 @@ interface Snapshot {
     lastCloseableBidVwap: number | null;
     unrealizedPnl: number | null;
     peakClosurePnlPercent: number | null;
-    slBidPoints: number | null;
-    tpBidPoints: number | null;
-    trailingBidPoints: number | null;
-    trailingActivationBidPoints: number | null;
+    slPercent: number | null;
+    tpPercent: number | null;
+    trailingPercent: number | null;
+    trailingActivationPercent: number | null;
     liquidityStatus: string;
     reason: string;
     openedAt: Date;
@@ -517,10 +517,10 @@ async function main(): Promise<void> {
           lastCloseableBidVwap: toFixed(r.lastCloseableBidVwap),
           unrealizedPnl: toFixed(r.unrealizedPnl),
           peakClosurePnlPercent: toFixed(r.peakClosurePnlPercent),
-          slBidPoints: toFixed(r.slBidPoints),
-          tpBidPoints: toFixed(r.tpBidPoints),
-          trailingBidPoints: toFixed(r.trailingBidPoints),
-          trailingActivationBidPoints: toFixed(r.trailingActivationBidPoints),
+          slPercent: toFixed(r.slPercent),
+          tpPercent: toFixed(r.tpPercent),
+          trailingPercent: toFixed(r.trailingPercent),
+          trailingActivationPercent: toFixed(r.trailingActivationPercent),
           liquidityStatus: r.liquidityStatus,
           reason: r.reason,
           openedAt: r.openedAt,

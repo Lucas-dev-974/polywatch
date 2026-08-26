@@ -37,14 +37,14 @@ function syncPersistedUnrealizedPnl(pos: CopiedPosition): void {
 }
 
 /**
- * Validate that bid-points thresholds are positive when set.
+ * Validate that percent thresholds are positive when set.
  * Returns true if thresholds are valid (null or > 0).
  *
  * Exported for unit testing — not part of the public service API.
  */
-export function validateBidPointsThresholds(pos: CopiedPosition): boolean {
-  if (pos.slBidPoints != null && pos.slBidPoints <= 0) return false;
-  if (pos.tpBidPoints != null && pos.tpBidPoints <= 0) return false;
+export function validatePercentThresholds(pos: CopiedPosition): boolean {
+  if (pos.slPercent != null && pos.slPercent <= 0) return false;
+  if (pos.tpPercent != null && pos.tpPercent <= 0) return false;
   return true;
 }
 

@@ -110,10 +110,10 @@ export interface CryptoAlgoMonitorSnapshot {
     lastCloseableBidVwap: number | null;
     unrealizedPnl: number | null;
     peakClosurePnlPercent: number | null;
-    slBidPoints: number | null;
-    tpBidPoints: number | null;
-    trailingBidPoints: number | null;
-    trailingActivationBidPoints: number | null;
+    slPercent: number | null;
+    tpPercent: number | null;
+    trailingPercent: number | null;
+    trailingActivationPercent: number | null;
     liquidityStatus: string;
     reason: string;
     openedAt: string;

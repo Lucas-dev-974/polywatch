@@ -1,10 +1,10 @@
 import { type EnvSettings } from './env-settings-types';
 
 export type CryptoAlgoIntervalExitDefaults = {
-  slBidPoints?: number;
-  tpBidPoints?: number;
-  trailingBidPoints?: number;
-  trailingActivationBidPoints?: number;
+  slPercent?: number;
+  tpPercent?: number;
+  trailingPercent?: number;
+  trailingActivationPercent?: number;
 };
 
 export type CryptoAlgoSettings = Pick<
@@ -17,10 +17,10 @@ export type CryptoAlgoSettings = Pick<
   | 'cryptoAlgoSlEnabled'
   | 'cryptoAlgoTpEnabled'
   | 'cryptoAlgoTrailingEnabled'
-  | 'cryptoAlgoSlBidPoints'
-  | 'cryptoAlgoTpBidPoints'
-  | 'cryptoAlgoTrailingBidPoints'
-  | 'cryptoAlgoTrailingActivationBidPoints'
+  | 'cryptoAlgoSlPercent'
+  | 'cryptoAlgoTpPercent'
+  | 'cryptoAlgoTrailingPercent'
+  | 'cryptoAlgoTrailingActivationPercent'
   | 'cryptoAlgoPreCloseEnabled'
   | 'cryptoAlgoPreCloseSeconds'
   | 'cryptoAlgoPreCloseKeepEnabled'
@@ -73,10 +73,10 @@ export function pickCryptoAlgoFields(config: EnvSettings): CryptoAlgoSettings {
     cryptoAlgoSlEnabled: config.cryptoAlgoSlEnabled,
     cryptoAlgoTpEnabled: config.cryptoAlgoTpEnabled,
     cryptoAlgoTrailingEnabled: config.cryptoAlgoTrailingEnabled,
-    cryptoAlgoSlBidPoints: config.cryptoAlgoSlBidPoints,
-    cryptoAlgoTpBidPoints: config.cryptoAlgoTpBidPoints,
-    cryptoAlgoTrailingBidPoints: config.cryptoAlgoTrailingBidPoints,
-    cryptoAlgoTrailingActivationBidPoints: config.cryptoAlgoTrailingActivationBidPoints,
+    cryptoAlgoSlPercent: config.cryptoAlgoSlPercent,
+    cryptoAlgoTpPercent: config.cryptoAlgoTpPercent,
+    cryptoAlgoTrailingPercent: config.cryptoAlgoTrailingPercent,
+    cryptoAlgoTrailingActivationPercent: config.cryptoAlgoTrailingActivationPercent,
     cryptoAlgoPreCloseEnabled: config.cryptoAlgoPreCloseEnabled,
     cryptoAlgoPreCloseSeconds: config.cryptoAlgoPreCloseSeconds,
     cryptoAlgoPreCloseKeepEnabled: config.cryptoAlgoPreCloseKeepEnabled,
@@ -137,13 +137,13 @@ export const CODE_DEFAULT_SPREAD_ABS_BY_INTERVAL: Record<string, number> = {
 };
 
 export const CODE_DEFAULT_EXIT_BY_INTERVAL: Record<string, CryptoAlgoIntervalExitDefaults> = {
-  '5m': { slBidPoints: 0.1, tpBidPoints: 0.12, trailingBidPoints: 0.18, trailingActivationBidPoints: 0.1 },
-  '10m': { slBidPoints: 0.1, tpBidPoints: 0.12, trailingBidPoints: 0.18, trailingActivationBidPoints: 0.1 },
-  '15m': { slBidPoints: 0.1, tpBidPoints: 0.12, trailingBidPoints: 0.2, trailingActivationBidPoints: 0.1 },
-  '30m': { slBidPoints: 0.1, tpBidPoints: 0.12, trailingBidPoints: 0.2, trailingActivationBidPoints: 0.12 },
-  '1h': { slBidPoints: 0.1, tpBidPoints: 0.12, trailingBidPoints: 0.22, trailingActivationBidPoints: 0.15 },
-  '4h': { slBidPoints: 0.1, tpBidPoints: 0.12, trailingBidPoints: 0.25, trailingActivationBidPoints: 0.15 },
-  '1d': { slBidPoints: 0.1, tpBidPoints: 0.12, trailingBidPoints: 0.25, trailingActivationBidPoints: 0.18 },
+  '5m': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+  '10m': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+  '15m': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+  '30m': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+  '1h': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+  '4h': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+  '1d': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
 };
 
 export const CODE_DEFAULT_PRE_CLOSE_SECONDS: Record<string, number> = {

@@ -164,9 +164,9 @@ Coeur du domaine. Champs notables :
 - Entree : `quantity`, `entryPrice`, `entryBidVwap`, `entryFees`,
   `entryQuantityRemaining`, `entryFeesRemaining`.
 - Valorisation : `executableBidVwap`, `unrealizedPnl`, `realizedPnl`,
-  `peakClosurePnlPercent`, `peakBidVwap` (pic du bid pour trailing), `liquidityStatus`.
-- Sorties : `slBidPoints`, `tpBidPoints`, `trailingBidPoints`,
-  `trailingActivationBidPoints`.
+  `peakClosurePnlPercent`, `peakBidVwap` (pic du bid, retention historique), `liquidityStatus`.
+- Sorties : `slPercent`, `tpPercent`, `trailingPercent`,
+  `trailingActivationPercent` (% de la mise investie).
 - Cycle : `status`, `openedAt`, `closedAt`, `closeReason`, `closingReason`
   (raison de sortie en cours, renseignee par `beginClose`), `increaseCount`,
   `closingAttemptSeq`.

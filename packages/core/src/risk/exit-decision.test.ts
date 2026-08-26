@@ -141,13 +141,13 @@ describe('evaluatePositionExit', () => {
     expect(
       evaluatePositionExit({
         slTpInput: {
-          slBidPoints: 0.10,
-          tpBidPoints: null,
-          trailingBidPoints: null,
-          entryBidVwap: 0.5,
+          slPercent: 20,
+          tpPercent: null,
+          trailingPercent: null,
+          trailingActivationPercent: null,
           effectiveTrigger: -25,
           effectiveClosure: -25,
-          peakBidVwap: 0.5,
+          peakClosurePnlPercent: -5,
         },
         preCloseInput: {
           ...basePreClose,
@@ -162,12 +162,13 @@ describe('evaluatePositionExit', () => {
     expect(
       evaluatePositionExit({
         slTpInput: {
-          slBidPoints: 0.10,
-          tpBidPoints: null,
-          trailingBidPoints: null,
+          slPercent: 20,
+          tpPercent: null,
+          trailingPercent: null,
+          trailingActivationPercent: null,
           effectiveTrigger: -5,
           effectiveClosure: -5,
-          peakBidVwap: 0.5,
+          peakClosurePnlPercent: -5,
         },
         preCloseInput: basePreClose,
       }),
@@ -178,12 +179,13 @@ describe('evaluatePositionExit', () => {
     expect(
       evaluatePositionExit({
         slTpInput: {
-          slBidPoints: 0.10,
-          tpBidPoints: null,
-          trailingBidPoints: null,
+          slPercent: 20,
+          tpPercent: null,
+          trailingPercent: null,
+          trailingActivationPercent: null,
           effectiveTrigger: -99,
           effectiveClosure: -99,
-          peakBidVwap: 0.5,
+          peakClosurePnlPercent: -5,
         },
         preCloseInput: {
           ...basePreClose,
@@ -201,12 +203,13 @@ describe('evaluatePositionExit', () => {
     expect(
       evaluatePositionExit({
         slTpInput: {
-          slBidPoints: 0.10,
-          tpBidPoints: null,
-          trailingBidPoints: null,
+          slPercent: 20,
+          tpPercent: null,
+          trailingPercent: null,
+          trailingActivationPercent: null,
           effectiveTrigger: -99,
           effectiveClosure: -99,
-          peakBidVwap: 0.5,
+          peakClosurePnlPercent: -5,
         },
         preCloseInput: {
           ...basePreClose,

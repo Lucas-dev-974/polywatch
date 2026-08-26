@@ -16,9 +16,9 @@ export interface OptimizeReportRecommendedConfig {
   patch: Record<string, unknown>;
 }
 
-const RECOMMENDED_SL_BID_POINTS = 0.32;
-const RECOMMENDED_TRAILING_ACTIVATION = 0.2;
-const RECOMMENDED_TRAILING_STOP = 0.12;
+const RECOMMENDED_SL_PERCENT = 32;
+const RECOMMENDED_TRAILING_ACTIVATION = 12;
+const RECOMMENDED_TRAILING_STOP = 10;
 const RECOMMENDED_PRE_CLOSE_SECONDS = 45;
 const RECOMMENDED_BASE_THRESHOLD = 0.62;
 
@@ -76,14 +76,15 @@ export function buildRecommendedCryptoAlgoConfig(
     Math.abs(slPnl) > redPnl * 0.5;
 
   if (slDestroysEdge && cfg.cryptoAlgoSlEnabled) {
-    const current = cfg.cryptoAlgoSlBidPoints ?? 0.2;
-    const target = current < 0.28 ? RECOMMENDED_SL_BID_POINTS : Math.min(current + 0.1, 0.38);
+    const current = cfg.cryptoAlgoSlPercent ?? 20;
+    const target =
+      current < 28 ? RECOMMENDED_SL_PERCENT : Math.min(current + 5, 38);
     proposeChange(
       changes,
       patch,
-      'cryptoAlgoSlBidPoints',
-      'SL bid points',
-      cfg.cryptoAlgoSlBidPoints,
+      'cryptoAlgoSlPercent',
+      'SL (% de la mise)',
+      cfg.cryptoAlgoSlPercent,
       target,
       'Réduire les sorties SL prématurées vs REDEMPTION gagnantes',
     );
@@ -105,28 +106,28 @@ export function buildRecommendedCryptoAlgoConfig(
         'Verrouiller les run-ups avant un SL giveback',
       );
     }
-    const activation = cfg.cryptoAlgoTrailingActivationBidPoints;
+    const activation = cfg.cryptoAlgoTrailingActivationPercent;
     if (activation == null || activation > RECOMMENDED_TRAILING_ACTIVATION) {
       proposeChange(
         changes,
         patch,
-        'cryptoAlgoTrailingActivationBidPoints',
-        'Activation trailing (points bid)',
+        'cryptoAlgoTrailingActivationPercent',
+        'Activation trailing (% de la mise)',
         activation,
         RECOMMENDED_TRAILING_ACTIVATION,
-        'Activer le trailing après ~0.20 points bid de gain',
+        'Activer le trailing après ~12 % de gain',
       );
     }
-    const stop = cfg.cryptoAlgoTrailingBidPoints;
+    const stop = cfg.cryptoAlgoTrailingPercent;
     if (stop == null || stop > RECOMMENDED_TRAILING_STOP) {
       proposeChange(
         changes,
         patch,
-        'cryptoAlgoTrailingBidPoints',
-        'Trailing stop (points bid)',
+        'cryptoAlgoTrailingPercent',
+        'Trailing stop (% de la mise)',
         stop,
         RECOMMENDED_TRAILING_STOP,
-        'Stop trailing à ~0.12 points bid du peak',
+        'Stop trailing à ~10 % de la mise du peak',
       );
     }
   }

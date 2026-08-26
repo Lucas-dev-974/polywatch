@@ -58,19 +58,19 @@ export interface CopyConfig {
   realRiskBudgetUsdc: number;
   realDefaultWinProbability: number;
   simTrailingEnabled: boolean;
-  simTrailingBidPoints: number;
-  simTrailingActivationBidPoints: number;
+  simTrailingPercent: number;
+  simTrailingActivationPercent: number;
   realTrailingEnabled: boolean;
-  realTrailingBidPoints: number;
-  realTrailingActivationBidPoints: number;
+  realTrailingPercent: number;
+  realTrailingActivationPercent: number;
   simSlEnabled: boolean;
   simTpEnabled: boolean;
   realSlEnabled: boolean;
   realTpEnabled: boolean;
-  simSlBidPoints: number;
-  simTpBidPoints: number;
-  realSlBidPoints: number;
-  realTpBidPoints: number;
+  simSlPercent: number;
+  simTpPercent: number;
+  realSlPercent: number;
+  realTpPercent: number;
   simSlCloseMaxRetries: number;
   realSlCloseMaxRetries: number;
   simEntryDepthRetryMax: number;
@@ -133,13 +133,13 @@ export interface CryptoConfig {
   cryptoAlgoPriceTickCleanupEnabled: boolean;
   cryptoAlgoPriceTickCleanupIntervalMinutes: number;
   cryptoAlgoStrategies: string[];
-  cryptoAlgoTrailingBidPoints: number | null;
-  cryptoAlgoTrailingActivationBidPoints: number | null;
+  cryptoAlgoTrailingPercent: number | null;
+  cryptoAlgoTrailingActivationPercent: number | null;
   cryptoAlgoSlEnabled: boolean;
   cryptoAlgoTpEnabled: boolean;
   cryptoAlgoTrailingEnabled: boolean;
-  cryptoAlgoSlBidPoints: number | null;
-  cryptoAlgoTpBidPoints: number | null;
+  cryptoAlgoSlPercent: number | null;
+  cryptoAlgoTpPercent: number | null;
   cryptoAlgoPreCloseEnabled: boolean | null;
   cryptoAlgoPreCloseSeconds: number | null;
   cryptoAlgoPreCloseKeepEnabled: boolean | null;
@@ -173,10 +173,10 @@ export interface CryptoConfig {
   cryptoAlgoExitDefaultsByInterval: Record<
     string,
     {
-      slBidPoints?: number;
-      tpBidPoints?: number;
-      trailingBidPoints?: number;
-      trailingActivationBidPoints?: number;
+      slPercent?: number;
+      tpPercent?: number;
+      trailingPercent?: number;
+      trailingActivationPercent?: number;
     }
   > | null;
   cryptoAlgoPreCloseSecondsByInterval: Record<string, number> | null;

@@ -345,15 +345,18 @@ Pour chaque position `open` :
    `RedemptionHandler` quand le marché sera settled.
 2. Sinon, calcule le prix de mark (`getPositionMarkPrice`) à partir du VWAP bid
    et du cycle de vie du marché.
-3. Calcule les PnL : `triggerPnlPercent` (bid vs entrée, sert aux déclencheurs),
-   `displayPnlPercent` (frais inclus, pour l'affichage), `peakClosurePnlPercent`
-   (monotone pour le trailing ; **persisté même si le book est illiquide**),
-   `unrealizedPnl`.
+3. Calcule les PnL : `triggerPnlPercent` (bid vs entrée — garde TP :
+   `effectiveTrigger >= 0`), `closurePnlPercent` (% de la mise, **seuil** SL/TP/
+   trailing), `peakClosurePnlPercent` (monotone pour le trailing ; **persisté
+   même si le book est illiquide**), `unrealizedPnl`.
 4. Persiste les champs PnL et émet un `PnlTick` (throttlé ~100 ms) poussé au
    backend via `POST /api/internal/pnl-ticks`.
 5. **Évaluation des sorties** (throttle 50 ms) :
-   - `evaluateSlTpTrailing` — priorité fixe **SL → TP → TRAILING**. Le trailing
-     ne s'arme qu'après que le pic ait franchi `trailingActivationPercent`.
+   - `evaluateSlTpTrailing` — priorité fixe **SL → TP → TRAILING**, seuils en
+     **% de la mise investie** (copy, crypto et weather). SL si closure ≤
+     `−slPercent` ; TP si closure ≥ `tpPercent` et trigger ≥ 0 ; trailing si
+     drawdown depuis le pic de closure ≥ `trailingPercent` une fois armé
+     (`trailingActivationPercent`).
    - `evaluatePreCloseExit` — sortie **pré-clôture** : si le marché entre dans la
      fenêtre `preCloseSeconds` avant `endDate` (ou tant que `acceptingOrders`
      reste `true` après `endDate`) :

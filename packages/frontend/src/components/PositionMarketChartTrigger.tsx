@@ -32,8 +32,9 @@ export function PositionMarketChartTrigger(props: Props) {
           marketEndAt={chartCtx().marketEndAt}
           entryBidVwap={chartCtx().entryBidVwap}
           entryPrice={chartCtx().entryPrice}
-          slBidPoints={chartCtx().slBidPoints}
-          tpBidPoints={chartCtx().tpBidPoints}
+          costPerShare={chartCtx().costPerShare}
+          slPercent={chartCtx().slPercent}
+          tpPercent={chartCtx().tpPercent}
           openedAt={chartCtx().openedAt}
           closedAt={chartCtx().closedAt}
           outcome={chartCtx().outcome}

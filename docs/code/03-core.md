@@ -73,7 +73,7 @@ core/src/
 | `TraderSnapshot` | `trader_snapshots` | UNIQUE(trader, conditionId, assetId) — dernière position connue |
 | `TraderSnapshotSeq` | `trader_snapshot_seq` | Séquence monotone par trader (idempotence) |
 | `MoveEventEntity` | `move_events` | id = hash SHA-256, type OPENED/INCREASED/DECREASED/CLOSED, flag `processed` |
-| `CopiedPosition` | `copied_positions` | Statuts : `pending → open → closing → closed` (+ `failed`, `pending_resolution`, `cancelled`) ; `entryPrice`, `entryBidVwap`, `entryQuantityRemaining`, `entryFeesRemaining`, PnL réalisé/latent, `peakClosurePnlPercent` (clôture), `peakBidVwap` (pic du bid pour trailing), `closingAttemptSeq`, `closingReason`, `closeReason` |
+| `CopiedPosition` | `copied_positions` | Statuts : `pending → open → closing → closed` (+ `failed`, `pending_resolution`, `cancelled`) ; `entryPrice`, `entryBidVwap`, `entryQuantityRemaining`, `entryFeesRemaining`, PnL réalisé/latent, `peakClosurePnlPercent` (pic de closure PnL pour trailing), `peakBidVwap` (pic du bid, rétention historique), `slPercent` / `tpPercent` / `trailingPercent` / `trailingActivationPercent` (% de la mise), `closingAttemptSeq`, `closingReason`, `closeReason` |
 | `Execution` | `executions` | Statuts `placing → filled/failed` ; fillPrice (VWAP pondéré sur partiels), fillQuantity, fees, realizedPnl, clobOrderId |
 | `PositionReservation` | `position_reservations` | Notionnel USDC réservé, TTL 180 s |
 | `SimulationBalance` | `simulation_balances` | Cash pUSD sim **par `algoKind`** (`crypto` / `weather` / `copy`, unique) |
@@ -128,9 +128,9 @@ core/src/
 
 **`vwap.ts` — `walkBook(levels, quantity, ascending)`** : trie le carnet (bids desc / asks asc), consomme les niveaux jusqu'à épuisement de la quantité. Retourne `{ vwap, filledQuantity, liquidityStatus: 'ok'|'partial'|'illiquid' }`.
 
-- `triggerPnlPercent = (bidVwap − entryBidVwap)/entryBidVwap × 100` — base des déclencheurs SL/TP (bid contre bid d'entrée, élimine le spread **après** l'ouverture).
-- `displayPnlPercent = (bidVwap − entryPrice)/entryPrice × 100` — affichage (« clôture » UI, hors frais).
-- `closurePnlPercent = ((bidVwap − entryPrice) × quantity − entryFeesRemaining) / (entryPrice × quantity) × 100` — PnL clôture avec frais, utilisé pour l'évaluation hybride SL/TP.
+- `triggerPnlPercent = (bidVwap − entryBidVwap)/entryBidVwap × 100` — mouvement de marché (bid vs bid d'entrée). **Garde TP** : le take-profit ne se déclenche que si `trigger ≥ 0`.
+- `displayPnlPercent = (bidVwap − entryPrice)/entryPrice × 100` — affichage (« marché » UI, hors frais).
+- `closurePnlPercent = (bidVwap − costBasis) / costBasis × 100` avec `costBasis = entryPrice + entryFeesRemaining / qty` — PnL clôture frais inclus. **Base unique** des sorties SL / TP / trailing (copy, crypto, weather) : SL si `closure ≤ −slPercent`, TP si `closure ≥ tpPercent` (et trigger ≥ 0), trailing sur le drawdown depuis `peakClosurePnlPercent`.
 - `unrealizedPnl = (bidVwap − entryPrice) × quantity − entryFeesRemaining`.
 
 **Spread** : écart entre le prix d'achat (ask) et le prix de revente immédiate
@@ -149,14 +149,14 @@ Source de vérité config = 4 tables isolées (`GlobalConfig` / `CopyConfig` /
 
 - `policy.ts` : `isEntryBidAskRatioAcceptable` ; `getCopyMinBidToAskRatio` /
   `getCrypto…` / `getWeather…` ; `getCopyAllowedMarketTags` ; `evaluateSlTpTrailing`
-  (ordre **SL → TP → TRAILING**, SL hybride OR, TP hybride AND, trailing sur peak
-  closure).
+  (ordre **SL → TP → TRAILING**, seuils en **% de la mise investie** via
+  `slPercent` / `tpPercent` / `trailingPercent` ; trailing sur `peakClosurePnlPercent`).
 - `exit-decision.ts` : `evaluatePreCloseExit` — fenêtre pre-close ; keep si
   `keepEnabled` et `markBid >= keepBidThreshold` ; sinon `PRE_CLOSE_LOSS` /
   `PRE_CLOSE_WIN` selon PnL. (L'ancien vocabulaire `preCloseHoldIfWinning` /
   `cryptoAlgoPreCloseWinConfidenceBid` n'existe plus.)
-- `crypto-algo-exit.ts` : `resolveExitDecisionMarkPrice`, seuils absolus binaires,
-  interval helpers.
+- `crypto-algo-exit.ts` : `resolveExitDecisionMarkPrice`,
+  `resolveAlgoEntryExitParams` (percent + table d'intervalle), interval helpers.
 - `crypto-algo-tunables.ts` / `crypto-algo-strategy-params.ts` / `crypto-config-api.ts`
 - `weather-exit-params.ts` / `weather-config-api.ts`
 - `sim-execution-tunables.ts` / `sim-mode-fields.ts`

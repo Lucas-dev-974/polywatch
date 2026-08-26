@@ -41,81 +41,73 @@ export const CRYPTO_INTERVAL_EXIT_DEFAULTS: Readonly<
   Record<
     string,
     {
-      trailingBidPoints: number;
-      trailingActivationBidPoints: number;
-      /** Stop-loss in bid points (absolute) for binary markets. */
-      slBidPoints: number;
-      /** Take-profit in bid points (absolute) for binary markets. */
-      tpBidPoints: number;
+      trailingPercent: number;
+      trailingActivationPercent: number;
+      /** Stop-loss as % of invested amount. */
+      slPercent: number;
+      /** Take-profit as % of invested amount. */
+      tpPercent: number;
     }
   >
 > = {
   '5m': {
-    trailingBidPoints: 0.05,
-    trailingActivationBidPoints: 0.06,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
+    trailingPercent: 10,
+    trailingActivationPercent: 12,
+    slPercent: 20,
+    tpPercent: 25,
   },
   '10m': {
-    trailingBidPoints: 0.05,
-    trailingActivationBidPoints: 0.06,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
+    trailingPercent: 10,
+    trailingActivationPercent: 12,
+    slPercent: 20,
+    tpPercent: 25,
   },
   '15m': {
-    trailingBidPoints: 0.05,
-    trailingActivationBidPoints: 0.06,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
+    trailingPercent: 10,
+    trailingActivationPercent: 12,
+    slPercent: 20,
+    tpPercent: 25,
   },
   '30m': {
-    trailingBidPoints: 0.05,
-    trailingActivationBidPoints: 0.06,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
+    trailingPercent: 10,
+    trailingActivationPercent: 12,
+    slPercent: 20,
+    tpPercent: 25,
   },
   '1h': {
-    trailingBidPoints: 0.05,
-    trailingActivationBidPoints: 0.06,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
+    trailingPercent: 10,
+    trailingActivationPercent: 12,
+    slPercent: 20,
+    tpPercent: 25,
   },
   '4h': {
-    trailingBidPoints: 0.05,
-    trailingActivationBidPoints: 0.06,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
+    trailingPercent: 10,
+    trailingActivationPercent: 12,
+    slPercent: 20,
+    tpPercent: 25,
   },
   '1d': {
-    trailingBidPoints: 0.05,
-    trailingActivationBidPoints: 0.06,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
+    trailingPercent: 10,
+    trailingActivationPercent: 12,
+    slPercent: 20,
+    tpPercent: 25,
   },
 };
 
 export interface AlgoEntryExitParams {
-  trailingBidPoints: number | null;
-  trailingActivationBidPoints: number | null;
-  /** Stop-loss in bid points (absolute) for binary markets. */
-  slBidPoints: number | null;
-  /** Take-profit in bid points (absolute) for binary markets. */
-  tpBidPoints: number | null;
-  /** Stop-loss as % of invested amount (weather-algo; optional). */
-  slPercent?: number | null;
-  /** Take-profit as % of invested amount (weather-algo; optional). */
-  tpPercent?: number | null;
-  /** Trailing drawdown as % of invested amount (weather-algo; optional). */
-  trailingPercent?: number | null;
-  /** Trailing activation as % of invested amount (weather-algo; optional). */
-  trailingActivationPercent?: number | null;
+  trailingPercent: number | null;
+  trailingActivationPercent: number | null;
+  /** Stop-loss as % of invested amount. */
+  slPercent: number | null;
+  /** Take-profit as % of invested amount. */
+  tpPercent: number | null;
 }
 
 /**
- * Resolve a bid-points SL/TP override for a binary market.
+ * Resolve a percent SL/TP override.
  * Override (including 0/negative = disabled) → interval default → null.
  */
-function pickAlgoBidPointsThreshold(
+function pickAlgoPercentThreshold(
   algoOverride: number | null | undefined,
   intervalDefault: number | undefined,
 ): number | null {
@@ -146,42 +138,41 @@ export function resolveAlgoEntryExitParams(
       CRYPTO_INTERVAL_EXIT_DEFAULTS[byInterval]
     : undefined;
 
-  // Only return bid points if interval is recognized (binary market).
   // `0` and negative values are treated as disabled (null).
-  const slBidPoints =
+  const slPercent =
     isExitLegEnabled(cfg.cryptoAlgoSlEnabled) && byInterval != null
-      ? pickAlgoBidPointsThreshold(
-          algo.cryptoAlgoSlBidPoints,
-          intervalDefaults?.slBidPoints ??
-            CRYPTO_INTERVAL_EXIT_DEFAULTS[byInterval]?.slBidPoints,
+      ? pickAlgoPercentThreshold(
+          algo.cryptoAlgoSlPercent,
+          intervalDefaults?.slPercent ??
+            CRYPTO_INTERVAL_EXIT_DEFAULTS[byInterval]?.slPercent,
         )
       : null;
-  const tpBidPoints =
+  const tpPercent =
     isExitLegEnabled(cfg.cryptoAlgoTpEnabled) && byInterval != null
-      ? pickAlgoBidPointsThreshold(
-          algo.cryptoAlgoTpBidPoints,
-          intervalDefaults?.tpBidPoints ??
-            CRYPTO_INTERVAL_EXIT_DEFAULTS[byInterval]?.tpBidPoints,
+      ? pickAlgoPercentThreshold(
+          algo.cryptoAlgoTpPercent,
+          intervalDefaults?.tpPercent ??
+            CRYPTO_INTERVAL_EXIT_DEFAULTS[byInterval]?.tpPercent,
         )
       : null;
 
   const trailingEnabled = isExitLegEnabled(cfg.cryptoAlgoTrailingEnabled);
 
   return {
-    trailingBidPoints: trailingEnabled
-      ? pickAlgoBidPointsThreshold(
-          algo.trailingBidPoints,
-          intervalDefaults?.trailingBidPoints,
+    trailingPercent: trailingEnabled
+      ? pickAlgoPercentThreshold(
+          algo.trailingPercent,
+          intervalDefaults?.trailingPercent,
         )
       : null,
-    trailingActivationBidPoints: trailingEnabled
-      ? pickAlgoBidPointsThreshold(
-          algo.trailingActivationBidPoints,
-          intervalDefaults?.trailingActivationBidPoints,
+    trailingActivationPercent: trailingEnabled
+      ? pickAlgoPercentThreshold(
+          algo.trailingActivationPercent,
+          intervalDefaults?.trailingActivationPercent,
         )
       : null,
-    slBidPoints,
-    tpBidPoints,
+    slPercent,
+    tpPercent,
   };
 }
 

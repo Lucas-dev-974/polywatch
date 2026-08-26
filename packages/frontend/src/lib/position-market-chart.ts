@@ -5,6 +5,7 @@ import {
 } from '@polywatch/core/market-list';
 import type { MarketChartContext, MarketChartPosition } from './market-chart';
 import type { Position } from './position';
+import { investedAmount } from './position';
 
 /** Up/Down detection via question only (Gamma tag slugs are 5M, crypto, etc.). */
 export function isPositionUpDownMarket(pos: Position): boolean {
@@ -18,6 +19,16 @@ function normalizeInterval(raw: string | null | undefined): string | null {
   return raw;
 }
 
+/** Cost basis per share (entry price + fees/qty) for percent SL/TP overlays. */
+export function positionCostPerShare(pos: Position): number {
+  const qty = positionChartQuantity(pos) ?? 0;
+  const invested = pos.entryInvestedAmount != null && pos.entryInvestedAmount > 0
+    ? pos.entryInvestedAmount
+    : investedAmount(pos);
+  if (qty > 0) return invested / qty;
+  return pos.entryPrice ?? 0;
+}
+
 export function positionToChartPosition(pos: Position): MarketChartPosition {
   return {
     id: pos.id,
@@ -27,8 +38,9 @@ export function positionToChartPosition(pos: Position): MarketChartPosition {
     assetId: pos.assetId,
     entryPrice: pos.entryPrice,
     entryBidVwap: pos.entryBidVwap ?? 0,
-    slBidPoints: pos.slBidPoints ?? null,
-    tpBidPoints: pos.tpBidPoints ?? null,
+    costPerShare: positionCostPerShare(pos),
+    slPercent: pos.slPercent ?? null,
+    tpPercent: pos.tpPercent ?? null,
     exitBidVwap: pos.exitBidVwap ?? null,
     openedAt: pos.openedAt,
     closedAt: pos.closedAt,
@@ -52,8 +64,9 @@ export function positionToMarketChartContext(
     marketEndAt: pos.marketEndDate,
     entryBidVwap: pos.entryBidVwap,
     entryPrice: pos.entryPrice,
-    slBidPoints: pos.slBidPoints,
-    tpBidPoints: pos.tpBidPoints,
+    costPerShare: positionCostPerShare(pos),
+    slPercent: pos.slPercent,
+    tpPercent: pos.tpPercent,
     openedAt: pos.openedAt,
     closedAt: pos.closedAt,
     outcome: pos.outcome,
@@ -73,7 +86,9 @@ export function positionToMarketChartContext(
   return ctx;
 }
 
-/** Shares held or filled at entry — for MOS comparison in the chart dialog. */
+/**
+ * Shares held or filled at entry — for MOS comparison in the chart dialog.
+ */
 export function positionChartQuantity(pos: Position): number | null {
   const openQty = pos.quantity > 0 ? pos.quantity : null;
   const filled = pos.entryQuantityFilled;

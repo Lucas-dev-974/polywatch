@@ -107,9 +107,10 @@ valeur `0` stockée est coercée à `null` au runtime par `getStrategyParams`.
 les seuils SL (`slPercent`), TP (`tpPercent`) et trailing (`trailingPercent` /
 `trailingActivationPercent`) sont exprimés en **pourcentage du cost basis**
 (prix d'entrée + frais) — la "mise investie" — et non en distance absolue de
-prix (`bid points`). Le copy-trading et le crypto-algo conservent leurs `bid
-points`. SL déclenche quand le closure PnL ≤ `-slPercent` ; TP quand ≥
-`tpPercent` ; trailing arme quand le closure PnL ≥ `trailingActivationPercent`
+prix (`bid points`). Le copy-trading et le crypto-algo utilisent la même
+convention en pourcentage. SL déclenche quand le closure PnL ≤ `-slPercent` ;
+TP quand ≥
+`tpPercent` **et** trigger PnL ≥ 0 ; trailing arme quand le closure PnL ≥ `trailingActivationPercent`
 et déclenche quand le drawdown depuis le pic de closure PnL ≥ `trailingPercent`.
 Les défauts (`WEATHER_EXIT_DEFAULTS`) sont `slPercent: 20`, `tpPercent: 25`,
 `trailingPercent: 10`, `trailingActivationPercent: 12`. Sur `CopiedPosition`,

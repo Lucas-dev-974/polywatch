@@ -83,15 +83,15 @@ Répartie en `global_config`, `copy_config`, `crypto_config`, `weather_config`, 
 | `simInitialCapitalCopy` | Capital initial sim **copy** (pUSD). Idem pour le périmètre copy. |
 | `simInitialCapital` | **Déprécié** (compat DB) — alias lecture API = `simInitialCapitalCrypto`. Préférer les trois champs ci-dessus. |
 | `realCashOverride` | Surcharge manuelle du cash reel disponible (null = fetch on-chain) |
-| `*SlBidPoints` / `*TpBidPoints` / `*TrailingBidPoints` | Declencheurs de sortie SL/TP/trailing en points de bid absolus. En marche illiquide, le dernier prix trade connu (`last_trade_price` du canal WS CLOB) est utilise comme reference conservatrice pour que le SL/trailing/kill-switch puisse se declencher meme si le bid affiche est un niveau fige. |
+| `*SlPercent` / `*TpPercent` / `*TrailingPercent` | Declencheurs de sortie SL/TP/trailing en **pourcentage de la mise investie** (0-100). En marche illiquide, le dernier prix trade connu (`last_trade_price` du canal WS CLOB) est utilise comme reference conservatrice pour que le SL/trailing/kill-switch puisse se declencher meme si le bid affiche est un niveau fige. |
 | `simSlEnabled` / `realSlEnabled` | Active/desactive le stop-loss pour le mode |
 | `simTpEnabled` / `realTpEnabled` | Active/desactive le take-profit pour le mode |
-| `simSlBidPoints` / `realSlBidPoints` | Stop-loss en points de bid absolus pour marches binaires (defaut 0.10) |
-| `simTpBidPoints` / `realTpBidPoints` | Take-profit en points de bid absolus pour marches binaires (defaut 0.12) |
+| `simSlPercent` / `realSlPercent` | Stop-loss en % de la mise investie (defaut 20) |
+| `simTpPercent` / `realTpPercent` | Take-profit en % de la mise investie (defaut 25) |
 | `simSlCloseMaxRetries` / `realSlCloseMaxRetries` | Nombre maximum de tentatives automatiques de cloture pour les sorties forcees (`SL`, `TRAILING`, `PRE_CLOSE_LOSS`, `KILL_SWITCH`) qui echouent avec `no_liquidity`, `order_not_matched` ou `tick_size_fetch_failed`. Defaut `5`. Le TP n'est pas retente automatiquement. |
 | `simTrailingEnabled` / `realTrailingEnabled` | Active/desactive le trailing stop |
-| `simTrailingBidPoints` / `realTrailingBidPoints` | Trailing stop en points de bid absolus (defaut 0.05) |
-| `simTrailingActivationBidPoints` / `realTrailingActivationBidPoints` | Seuil d'activation du trailing en points de bid absolus (defaut 0.06, 0 = des l'entree) |
+| `simTrailingPercent` / `realTrailingPercent` | Trailing stop en % de la mise investie (defaut 10) |
+| `simTrailingActivationPercent` / `realTrailingActivationPercent` | Seuil d'activation du trailing en % de la mise investie (defaut 12, 0 = des l'entree) |
 | `preCloseEnabled` / `simPreCloseEnabled` / `realPreCloseEnabled` | Active la logique de pre-cloture (globale et par mode) |
 | `preCloseSeconds` / `simPreCloseSeconds` / `realPreCloseSeconds` | Fenetre en secondes avant `endDate` (defaut : 60) |
 | `simPreCloseKeepEnabled` / `realPreCloseKeepEnabled` | Si active (`false` par defaut), les positions dont le bid est superieur au seuil `keepBidThreshold` restent ouvertes jusqu'a la resolution. Seules les positions sous le seuil sont pre-cloturees. |
@@ -172,7 +172,8 @@ rejette les champs per-strategy via `.strict()`.
 ##### Per-strategy (onglet Stratégies → section de chaque stratégie)
 
 Résolus via `getStrategyParams(cfg, strategyId)` → `WeatherStrategyParamsBag`.
-Knobs nullables (`*BidPoints`, `maxForecastStd`, `minForecastProbability`) :
+Knobs nullables (`slPercent`, `tpPercent`, `trailingPercent`,
+`trailingActivationPercent`, `maxForecastStd`, `minForecastProbability`) :
 UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 
 > **Pas de distinction sim/real** dans le bag weather : les getters
@@ -325,40 +326,27 @@ mode (sim/real) via les colonnes `crypto_algo_pre_close_*` de `crypto_config` :
 | `cryptoAlgoPreCloseKeepEnabled` | `null` = herite du mode. Si active, les positions gagnantes (bid >= seuil) sont conservees. |
 | `cryptoAlgoPreCloseKeepBidThreshold` | Seuil de bid pour le keep. `null` = herite du mode. |
 
-#### SL/TP crypto-algo en bid absolu (`cryptoAlgoSlBidPoints` / `cryptoAlgoTpBidPoints`)
+#### SL/TP crypto-algo en pourcentage de la mise (`cryptoAlgoSlPercent` / `cryptoAlgoTpPercent`)
 
-Pour les marches binaires (`*-updown-5m`), le mode % relatif est
-**semantiquement inadapte** (protection inegale selon l'entry, TP
-mathematiquement impossible pour les entries hautes, whipsaw). Un mode
-**bid absolu** (en points de probabilite) est utilise exclusivement.
-
-`crypto_algo_sl_bid_points` / `crypto_algo_tp_bid_points` dans
-`crypto_config` surchargent les defaults d'intervalle (5m : SL 0,10 /
-TP 0,12).
+Le SL/TP est calcule en **pourcentage de la mise investie** (0-100), coherent
+avec le weather-algo et le copy-trading. `crypto_algo_sl_percent` /
+`crypto_algo_tp_percent` dans `crypto_config` surchargent les defaults
+d'intervalle (5m : SL 20 / TP 25).
 
 - `null` = herite du default d'intervalle.
-- `0` ou valeur negative = **desactive** le mode absolu.
-- Sinon : seuil absolu calcule au fill depuis `entryBidVwap` :
-  `slBidAbsolute = entryBidVwap - slBidPoints`,
-  `tpBidAbsolute = min(entryBidVwap + tpBidPoints, 0.99)`.
-- **Garde binaire** : les seuils absolus ne sont calcules que si
-  `byInterval != null` (marche binaire reconnu). Jamais appliques aux
-  marches non-binaires.
-- **Garde frais TP** : TP declenche seulement si
-  `executableBidVwap >= tpBidAbsolute AND closurePnl >= 0`.
-- **Recalcul sur `ALGO_INCREASE`** : `entryBidVwap` etant recalcule a
-  chaque augmentation, les seuils absolus sont aussi recalcules via le
-  helper `resolveAbsoluteBidThresholds(pos)`.
+- `0` ou valeur negative = **desactive**.
+- Le seuil est derive au fill depuis la base de cout (`entryPrice + frais`),
+  par position : `slSeuil = cout * (1 - slPercent/100)`,
+  `tpSeuil = min(cout * (1 + tpPercent/100), 0.99)`.
 
-Voir `docs/patchs/2026-07-06_PATCH_SL_TP_POINTS_ABSOLUS_BINAIRES.md`
-pour le design complet et les decisions post-audit.
+Voir `docs/crypto-algo.md` et `docs/code/07-crypto-algo.md` pour le design.
 
-#### Trailing crypto-algo en bid absolu (`cryptoAlgoTrailingBidPoints` / `cryptoAlgoTrailingActivationBidPoints`)
+#### Trailing crypto-algo en pourcentage de la mise (`cryptoAlgoTrailingPercent` / `cryptoAlgoTrailingActivationPercent`)
 
-Le trailing stop utilise desormais des points de bid absolus, comme le copy trading.
-`crypto_algo_trailing_bid_points` et `crypto_algo_trailing_activation_bid_points`
-dans `crypto_config` surchargent les defaults d'intervalle. `null` = herite du default
-d'intervalle.
+Le trailing stop utilise desormais un pourcentage de drawdown sur le PnL de
+cloture. `crypto_algo_trailing_percent` et
+`crypto_algo_trailing_activation_percent` dans `crypto_config` surchargent les
+defaults d'intervalle. `null` = herite du default d'intervalle.
 
 #### Suppression du SL/TP (`shouldSuppressSlTp`)
 

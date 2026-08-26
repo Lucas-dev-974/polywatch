@@ -158,8 +158,8 @@ Les variables suivantes sont configurees au niveau du monorepo ou dans le fichie
 ### Parametres de Risque (`CryptoConfig` / `GlobalConfig`)
 - `cryptoAlgoEnabled` : Activation globale de l'execution algorithmique.
 - `cryptoAlgoStrategies` : Liste JSON des strategies actives (ex: `["naive-momentum"]`).
-- `cryptoAlgoSlBidPoints` / `cryptoAlgoTpBidPoints` : Overrides SL/TP en **bid absolu** (points de probabilite) pour marches binaires. `null` = defaults par intervalle (5m : SL 0,10 / TP 0,12). `0` ou negatif = desactive. Seuil calcule au fill : `slBidAbsolute = entryBidVwap - slBidPoints`, `tpBidAbsolute = min(entryBidVwap + tpBidPoints, 0.99)`. Garde binaire obligatoire (`byInterval != null`). Garde frais TP (`closurePnl >= 0`). Recalcule sur `ALGO_INCREASE`. Voir `docs/patchs/2026-07-06_PATCH_SL_TP_POINTS_ABSOLUS_BINAIRES.md`.
-- `cryptoAlgoTrailingBidPoints` / `cryptoAlgoTrailingActivationBidPoints` : Overrides trailing en bid absolu. `null` = defaults par intervalle.
+- `cryptoAlgoSlPercent` / `cryptoAlgoTpPercent` : Overrides SL/TP en **pourcentage de la mise investie** (0-100). `null` = defaults par intervalle (5m : SL 20 / TP 25). `0` ou negatif = desactive. Le seuil est derive au fill depuis la base de cout (`entryPrice + frais`) : `slSeuil = cout * (1 - slPercent/100)`, `tpSeuil = min(cout * (1 + tpPercent/100), 0.99)`. Garde TP : `evaluateSlTpTrailing` exige aussi `triggerPnlPercent >= 0` (bid vs bid d'entree). Recalcule sur `ALGO_INCREASE`.
+- `cryptoAlgoTrailingPercent` / `cryptoAlgoTrailingActivationPercent` : Overrides trailing en % de drawdown sur le PnL de cloture. `null` = defaults par intervalle.
 - `cryptoAlgoPreCloseEnabled` : Active la pre-cloture pour les positions algo. `null` = herite du mode.
 - `cryptoAlgoPreCloseSeconds` : Fenetre pre-close en secondes. `null` = resolution par interval via `CRYPTO_INTERVAL_PRE_CLOSE_SECONDS` (120s pour 5m, 180s pour 15m, 240s pour 30m, 300s pour 1h, 600s pour 4h/1d).
 - `cryptoAlgoPreCloseKeepEnabled` : Active le keep des positions gagnantes en pre-close. `null`/`false` = toujours cloturer.
@@ -203,7 +203,7 @@ Colonnes `null` = defaut code ; JSON `null` / `{}` = tables hardcodees (GET API 
 | `cryptoAlgoTickIntervalMs` | 1000 | Intervalle PriceTickRecorder |
 | `cryptoAlgoTickRetentionHours` | 24 | Retention ticks avant purge |
 | `cryptoAlgoPriceTickRefQty` | 50 | Ref qty VWAP ticks |
-| `cryptoAlgoExitDefaultsByInterval` | table code | JSON merge SL/TP/trailing par intervalle |
+| `cryptoAlgoExitDefaultsByInterval` | table code | JSON merge SL/TP/trailing par intervalle (clés `slPercent` / `tpPercent` / `trailingPercent` / `trailingActivationPercent`, 0-100). Un JSON legacy `*BidPoints` est encore lu (×100) puis réécrit en percent à la migration `0120`. |
 | `cryptoAlgoPreCloseSecondsByInterval` | table code | JSON merge fenetre pre-cloture |
 | `cryptoAlgoMinTimeToCloseBufferSeconds` | 30 | Buffer entree min avant fin |
 | `cryptoAlgoLastCloseableBidMaxAgeMs` | 60000 | Fraicheur last closeable bid (sorties / close bid / mark conservateur) — **branche runtime** via `resolveLastCloseableBidMaxAgeMs` |

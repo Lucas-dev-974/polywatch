@@ -12,6 +12,7 @@ import {
   DEFAULT_CRYPTO_ALGO_GAMMA_CACHE_TTL_SHORT_MS,
   DEFAULT_CRYPTO_ALGO_SPREAD_ABS_BY_INTERVAL,
   getCryptoAlgoSizingParams,
+  mergeIntervalExitDefaults,
   mergeIntervalNumberMap,
   MAX_CRYPTO_ALGO_CURVE_LOOKBACK_MS,
   resolveGammaCacheTtlMs,
@@ -51,6 +52,46 @@ function makeRisk(overrides: Partial<CryptoConfig> = {}): CryptoConfig {
     ...overrides,
   } as CryptoConfig;
 }
+
+describe('mergeIntervalExitDefaults', () => {
+  const defaults = {
+    '5m': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+    '1h': { slPercent: 20, tpPercent: 25, trailingPercent: 10, trailingActivationPercent: 12 },
+  };
+
+  it('keeps code defaults when override is null', () => {
+    expect(mergeIntervalExitDefaults(defaults, null)).toEqual(defaults);
+  });
+
+  it('overlays percent fields without wiping unspecified legs', () => {
+    const merged = mergeIntervalExitDefaults(defaults, {
+      '5m': { slPercent: 32 },
+    });
+    expect(merged['5m']).toEqual({
+      slPercent: 32,
+      tpPercent: 25,
+      trailingPercent: 10,
+      trailingActivationPercent: 12,
+    });
+    expect(merged['1h']).toEqual(defaults['1h']);
+  });
+
+  it('converts leftover *BidPoints JSON keys to percent (×100)', () => {
+    const merged = mergeIntervalExitDefaults(defaults, {
+      '5m': { slBidPoints: 0.15, tpBidPoints: 0.2 } as Record<string, unknown>,
+    });
+    expect(merged['5m']?.slPercent).toBe(15);
+    expect(merged['5m']?.tpPercent).toBe(20);
+    expect(merged['5m']?.trailingPercent).toBe(10);
+  });
+
+  it('prefers explicit *Percent over leftover *BidPoints', () => {
+    const merged = mergeIntervalExitDefaults(defaults, {
+      '5m': { slPercent: 32, slBidPoints: 0.15 } as Record<string, unknown>,
+    });
+    expect(merged['5m']?.slPercent).toBe(32);
+  });
+});
 
 describe('mergeIntervalNumberMap', () => {
   it('returns code defaults when override is null', () => {

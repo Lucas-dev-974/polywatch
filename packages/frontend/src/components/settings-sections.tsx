@@ -167,14 +167,14 @@ export function ExitSection(props: {
 }) {
   const slEnabledKey = modeSettingKey(props.prefix, 'SlEnabled');
   const tpEnabledKey = modeSettingKey(props.prefix, 'TpEnabled');
-  const slBidPointsKey = modeSettingKey(props.prefix, 'SlBidPoints');
+  const slPercentKey = modeSettingKey(props.prefix, 'SlPercent');
   const slCloseRetriesKey = modeSettingKey(props.prefix, 'SlCloseMaxRetries');
-  const tpBidPointsKey = modeSettingKey(props.prefix, 'TpBidPoints');
+  const tpPercentKey = modeSettingKey(props.prefix, 'TpPercent');
   const trailingEnabledKey = modeSettingKey(props.prefix, 'TrailingEnabled');
-  const trailingBidPointsKey = modeSettingKey(props.prefix, 'TrailingBidPoints');
-  const trailingActivationBidPointsKey = modeSettingKey(
+  const trailingPercentKey = modeSettingKey(props.prefix, 'TrailingPercent');
+  const trailingActivationPercentKey = modeSettingKey(
     props.prefix,
-    'TrailingActivationBidPoints',
+    'TrailingActivationPercent',
   );
   const title = ENV_MODE_LABELS[props.prefix];
 
@@ -192,12 +192,12 @@ export function ExitSection(props: {
       />
       <Show when={props.config[slEnabledKey]}>
         <NumberField
-          label="Stop Loss (points bid)"
-          value={props.config[slBidPointsKey]}
-          min={0.001}
-          step={0.001}
-          hint="0.10 = 10 cents de probabilité sous le bid d'entrée"
-          onChange={(value) => props.onChange({ [slBidPointsKey]: value })}
+          label="Stop Loss (% de la mise)"
+          value={props.config[slPercentKey]}
+          min={0.1}
+          step={0.5}
+          hint="20 = déclenche le SL quand le PnL de clôture atteint -20% de la mise investie."
+          onChange={(value) => props.onChange({ [slPercentKey]: value })}
         />
         <NumberField
           label="Retries fermeture SL"
@@ -226,12 +226,12 @@ export function ExitSection(props: {
       />
       <Show when={props.config[tpEnabledKey]}>
         <NumberField
-          label="Take Profit (points bid)"
-          value={props.config[tpBidPointsKey]}
-          min={0.001}
-          step={0.001}
-          hint="Plafonné à 0.99 automatiquement"
-          onChange={(value) => props.onChange({ [tpBidPointsKey]: value })}
+          label="Take Profit (% de la mise)"
+          value={props.config[tpPercentKey]}
+          min={0.1}
+          step={0.5}
+          hint="25 = déclenche le TP quand le PnL de clôture atteint +25% de la mise investie."
+          onChange={(value) => props.onChange({ [tpPercentKey]: value })}
         />
       </Show>
       <ToggleField
@@ -243,25 +243,25 @@ export function ExitSection(props: {
       />
       <Show when={props.config[trailingEnabledKey]}>
         <NumberField
-          label="Trailing (points bid)"
-          value={props.config[trailingBidPointsKey]}
+          label="Trailing (% de la mise)"
+          value={props.config[trailingPercentKey]}
           min={0}
-          max={1}
-          step={0.01}
-          hint="0.10 = 10 cents de probabilité sous le pic du bid. Distance de trailing en points de probabilité."
+          max={100}
+          step={1}
+          hint="10 = trailing activé quand le PnL de clôture redescend de 10 points de pourcentage sous son pic."
           onChange={(value) =>
-            props.onChange({ [trailingBidPointsKey]: value })
+            props.onChange({ [trailingPercentKey]: value })
           }
         />
         <NumberField
-          label="Activation trailing (points bid)"
-          value={props.config[trailingActivationBidPointsKey]}
+          label="Activation trailing (% de la mise)"
+          value={props.config[trailingActivationPercentKey]}
           min={0}
-          max={1}
-          step={0.01}
-          hint="Le trailing ne s'arme qu'une fois le PnL marché (bid vs bid d'entrée) ≥ ce seuil en points bid. 0 = actif dès l'ouverture."
+          max={100}
+          step={1}
+          hint="Le trailing ne s'arme qu'une fois le PnL marché ≥ ce seuil en % de la mise. 0 = actif dès l'ouverture."
           onChange={(value) =>
-            props.onChange({ [trailingActivationBidPointsKey]: value })
+            props.onChange({ [trailingActivationPercentKey]: value })
           }
         />
       </Show>

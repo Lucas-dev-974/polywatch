@@ -15,11 +15,8 @@ import type {
   TradingMode,
 } from '../types/index.js';
 
-/** Cap for take-profit in bid points on binary markets (max bid is 1.00). */
-export const BINARY_TP_BID_CAP = 0.99;
-
-/** Tiny tolerance for floating-point price comparisons (bid points). */
-const BID_POINTS_EPSILON = 1e-9;
+/** Tiny tolerance for floating-point percent comparisons. */
+const PERCENT_EPSILON = 1e-9;
 
 /**
  * Fail-closed gate for independent exit legs (SL / TP / trailing).
@@ -45,16 +42,11 @@ export interface ModeSizingParams {
   signalScoreSizingEnabled: boolean;
 }
 
-export interface ModeExitParams {
-  trailingBidPoints?: number;
-  trailingActivationBidPoints?: number;
-}
-
 export interface CopyEntryExitParams {
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
-  trailingBidPoints: number | null;
-  trailingActivationBidPoints: number | null;
+  slPercent: number | null;
+  tpPercent: number | null;
+  trailingPercent: number | null;
+  trailingActivationPercent: number | null;
 }
 
 export function isEntryBidAskRatioAcceptable(
@@ -163,16 +155,14 @@ export interface CopyIncreaseSlProximityResult {
 
 export function evaluateCopyIncreaseSlProximity(input: {
   enabled: boolean;
-  slBidPoints: number | null | undefined;
-  entryBidVwap: number | null | undefined;
+  slPercent: number | null | undefined;
   proximityPercent: number;
   closurePnlPercent: number;
 }): CopyIncreaseSlProximityResult {
-  const { enabled, slBidPoints, entryBidVwap, proximityPercent, closurePnlPercent } = input;
+  const { enabled, slPercent, proximityPercent, closurePnlPercent } = input;
   if (!enabled) return { allowed: true, reason: null };
-  if (slBidPoints == null || slBidPoints <= 0 || entryBidVwap == null || entryBidVwap <= 0) return { allowed: true, reason: null };
+  if (slPercent == null || slPercent <= 0) return { allowed: true, reason: null };
   if (proximityPercent <= 0) return { allowed: true, reason: null };
-  const slPercent = (slBidPoints / entryBidVwap) * 100;
   const threshold = -slPercent * Math.min(100, proximityPercent) / 100;
   if (closurePnlPercent <= threshold) {
     return {
@@ -185,44 +175,23 @@ export function evaluateCopyIncreaseSlProximity(input: {
   return { allowed: true, reason: null, closurePnlPercent, thresholdPercent: threshold };
 }
 
-export function isTrailingArmed(
-  currentBid: number,
-  entryBidVwap: number,
-  activationBidPoints?: number | null,
-): boolean {
-  if (activationBidPoints === null || activationBidPoints === undefined) return true;
-  return currentBid >= entryBidVwap + activationBidPoints;
-}
-
 export function evaluateSlTpTrailing(input: {
-  trailingBidPoints: number | null;
-  trailingActivationBidPoints?: number | null;
   effectiveTrigger: number;
   effectiveClosure: number;
-  peakBidVwap: number;
-  slBidPoints?: number | null;
-  tpBidPoints?: number | null;
-  entryBidVwap?: number;
-  /** Stop-loss threshold as % of invested amount (weather-algo). */
+  /** Stop-loss threshold as % of invested amount. */
   slPercent?: number | null;
-  /** Take-profit threshold as % of invested amount (weather-algo). */
+  /** Take-profit threshold as % of invested amount. */
   tpPercent?: number | null;
-  /** Trailing drawdown threshold as % of invested amount (weather-algo). */
+  /** Trailing drawdown threshold as % of invested amount. */
   trailingPercent?: number | null;
-  /** Trailing activation threshold as % of invested amount (weather-algo). */
+  /** Trailing activation threshold as % of invested amount. */
   trailingActivationPercent?: number | null;
   /** Peak closure PnL % reached during the position lifetime. */
   peakClosurePnlPercent?: number | null;
 }): Extract<OrderReason, 'SL' | 'TP' | 'TRAILING'> | null {
   const {
-    trailingBidPoints,
-    trailingActivationBidPoints,
     effectiveTrigger,
     effectiveClosure,
-    peakBidVwap,
-    slBidPoints,
-    tpBidPoints,
-    entryBidVwap,
     slPercent,
     tpPercent,
     trailingPercent,
@@ -230,15 +199,14 @@ export function evaluateSlTpTrailing(input: {
     peakClosurePnlPercent,
   } = input;
 
-  // Percentage mode (weather-algo): thresholds relative to the invested amount.
   if (slPercent != null && slPercent > 0) {
-    if (effectiveClosure <= -slPercent + BID_POINTS_EPSILON) {
+    if (effectiveClosure <= -slPercent + PERCENT_EPSILON) {
       return 'SL';
     }
   }
 
   if (tpPercent != null && tpPercent > 0) {
-    if (effectiveClosure >= tpPercent - BID_POINTS_EPSILON && effectiveTrigger >= 0) {
+    if (effectiveClosure >= tpPercent - PERCENT_EPSILON && effectiveTrigger >= 0) {
       return 'TP';
     }
   }
@@ -246,39 +214,9 @@ export function evaluateSlTpTrailing(input: {
   if (trailingPercent != null && trailingPercent > 0) {
     const armed =
       trailingActivationPercent == null ||
-      effectiveClosure >= trailingActivationPercent - BID_POINTS_EPSILON;
+      effectiveClosure >= trailingActivationPercent - PERCENT_EPSILON;
     const peak = peakClosurePnlPercent ?? effectiveClosure;
-    if (armed && peak - effectiveClosure >= trailingPercent - BID_POINTS_EPSILON) {
-      return 'TRAILING';
-    }
-  }
-
-  // Bid points mode (copy/crypto): absolute price distance on [0,1].
-  if (slBidPoints != null && entryBidVwap != null && entryBidVwap > 0) {
-    const slBidAbsolute = entryBidVwap - slBidPoints;
-    const impliedBid = entryBidVwap * (1 + effectiveTrigger / 100);
-    if (effectiveTrigger <= 0 && impliedBid <= slBidAbsolute) {
-      return 'SL';
-    }
-  }
-
-  if (tpBidPoints != null && entryBidVwap != null && entryBidVwap > 0) {
-    const tpBidAbsolute = Math.min(entryBidVwap + tpBidPoints, BINARY_TP_BID_CAP);
-    const impliedBid = entryBidVwap * (1 + effectiveTrigger / 100);
-    if (effectiveTrigger >= 0 && impliedBid >= tpBidAbsolute && effectiveClosure >= 0) {
-      return 'TP';
-    }
-  }
-
-  if (
-    trailingBidPoints != null && trailingBidPoints > 0 &&
-    entryBidVwap != null && entryBidVwap > 0
-  ) {
-    const currentBid = entryBidVwap * (1 + effectiveTrigger / 100);
-    if (
-      isTrailingArmed(currentBid, entryBidVwap, trailingActivationBidPoints) &&
-      peakBidVwap - currentBid >= trailingBidPoints - BID_POINTS_EPSILON
-    ) {
+    if (armed && peak - effectiveClosure >= trailingPercent - PERCENT_EPSILON) {
       return 'TRAILING';
     }
   }
@@ -423,17 +361,17 @@ export function resolveCopyEntryExitParams(
     mode === 'sim' ? cfg.simTrailingEnabled : cfg.realTrailingEnabled,
   );
   return {
-    slBidPoints: slEnabled
-      ? (mode === 'sim' ? cfg.simSlBidPoints : cfg.realSlBidPoints)
+    slPercent: slEnabled
+      ? (mode === 'sim' ? cfg.simSlPercent : cfg.realSlPercent)
       : null,
-    tpBidPoints: tpEnabled
-      ? (mode === 'sim' ? cfg.simTpBidPoints : cfg.realTpBidPoints)
+    tpPercent: tpEnabled
+      ? (mode === 'sim' ? cfg.simTpPercent : cfg.realTpPercent)
       : null,
-    trailingBidPoints: trailingEnabled
-      ? (mode === 'sim' ? cfg.simTrailingBidPoints : cfg.realTrailingBidPoints)
+    trailingPercent: trailingEnabled
+      ? (mode === 'sim' ? cfg.simTrailingPercent : cfg.realTrailingPercent)
       : null,
-    trailingActivationBidPoints: trailingEnabled
-      ? (mode === 'sim' ? cfg.simTrailingActivationBidPoints : cfg.realTrailingActivationBidPoints)
+    trailingActivationPercent: trailingEnabled
+      ? (mode === 'sim' ? cfg.simTrailingActivationPercent : cfg.realTrailingActivationPercent)
       : null,
   };
 }

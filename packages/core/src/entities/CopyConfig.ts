@@ -107,22 +107,22 @@ export class CopyConfig {
   @Column({ type: 'boolean', name: 'sim_trailing_enabled', default: true })
   simTrailingEnabled!: boolean;
 
-  @Column({ type: 'real', name: 'sim_trailing_bid_points', default: 0.05 })
-  simTrailingBidPoints!: number;
+  @Column({ type: 'real', name: 'sim_trailing_percent', default: 10 })
+  simTrailingPercent!: number;
 
-  @Column({ type: 'real', name: 'sim_trailing_activation_bid_points', default: 0.06 })
-  simTrailingActivationBidPoints!: number;
+  @Column({ type: 'real', name: 'sim_trailing_activation_percent', default: 12 })
+  simTrailingActivationPercent!: number;
 
   // ── Trailing (real) ───────────────────────────────────────────────
 
   @Column({ type: 'boolean', name: 'real_trailing_enabled', default: true })
   realTrailingEnabled!: boolean;
 
-  @Column({ type: 'real', name: 'real_trailing_bid_points', default: 0.05 })
-  realTrailingBidPoints!: number;
+  @Column({ type: 'real', name: 'real_trailing_percent', default: 10 })
+  realTrailingPercent!: number;
 
-  @Column({ type: 'real', name: 'real_trailing_activation_bid_points', default: 0.06 })
-  realTrailingActivationBidPoints!: number;
+  @Column({ type: 'real', name: 'real_trailing_activation_percent', default: 12 })
+  realTrailingActivationPercent!: number;
 
   // ── SL/TP toggles (sim) ───────────────────────────────────────────
 
@@ -140,21 +140,21 @@ export class CopyConfig {
   @Column({ type: 'boolean', name: 'real_tp_enabled', default: true })
   realTpEnabled!: boolean;
 
-  // ── SL/TP bid points (sim) ─────────────────────────────────────────
+  // ── SL/TP percent (sim) ─────────────────────────────────────────
 
-  @Column({ type: 'real', name: 'sim_sl_bid_points', default: 0.10 })
-  simSlBidPoints!: number;
+  @Column({ type: 'real', name: 'sim_sl_percent', default: 20 })
+  simSlPercent!: number;
 
-  @Column({ type: 'real', name: 'sim_tp_bid_points', default: 0.12 })
-  simTpBidPoints!: number;
+  @Column({ type: 'real', name: 'sim_tp_percent', default: 25 })
+  simTpPercent!: number;
 
-  // ── SL/TP bid points (real) ───────────────────────────────────────
+  // ── SL/TP percent (real) ───────────────────────────────────────
 
-  @Column({ type: 'real', name: 'real_sl_bid_points', default: 0.10 })
-  realSlBidPoints!: number;
+  @Column({ type: 'real', name: 'real_sl_percent', default: 20 })
+  realSlPercent!: number;
 
-  @Column({ type: 'real', name: 'real_tp_bid_points', default: 0.12 })
-  realTpBidPoints!: number;
+  @Column({ type: 'real', name: 'real_tp_percent', default: 25 })
+  realTpPercent!: number;
 
   // ── SL close max retries ──────────────────────────────────────────
 

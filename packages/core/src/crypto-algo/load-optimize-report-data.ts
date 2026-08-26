@@ -175,11 +175,11 @@ export async function loadCryptoAlgoOptimizeReport(
     cryptoAlgoSlEnabled: config.cryptoAlgoSlEnabled,
     cryptoAlgoTpEnabled: config.cryptoAlgoTpEnabled,
     cryptoAlgoTrailingEnabled: config.cryptoAlgoTrailingEnabled,
-    cryptoAlgoSlBidPoints: config.cryptoAlgoSlBidPoints ?? null,
-    cryptoAlgoTpBidPoints: config.cryptoAlgoTpBidPoints ?? null,
-    cryptoAlgoTrailingBidPoints: config.cryptoAlgoTrailingBidPoints ?? null,
-    cryptoAlgoTrailingActivationBidPoints:
-      config.cryptoAlgoTrailingActivationBidPoints ?? null,
+    cryptoAlgoSlPercent: config.cryptoAlgoSlPercent ?? null,
+    cryptoAlgoTpPercent: config.cryptoAlgoTpPercent ?? null,
+    cryptoAlgoTrailingPercent: config.cryptoAlgoTrailingPercent ?? null,
+    cryptoAlgoTrailingActivationPercent:
+      config.cryptoAlgoTrailingActivationPercent ?? null,
     cryptoAlgoPreCloseEnabled: config.cryptoAlgoPreCloseEnabled ?? false,
     cryptoAlgoPreCloseSeconds: config.cryptoAlgoPreCloseSeconds ?? null,
     cryptoAlgoPreCloseKeepEnabled: config.cryptoAlgoPreCloseKeepEnabled ?? null,

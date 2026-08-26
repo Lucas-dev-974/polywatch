@@ -14,10 +14,10 @@ function makePos(overrides: Partial<CopiedPosition> = {}): CopiedPosition {
     entryPrice: 0.5,
     entryBidVwap: 0.5,
     executableBidVwap: 0.5,
-    slBidPoints: 0.10,
-    tpBidPoints: 0.12,
-    trailingBidPoints: null,
-    trailingActivationBidPoints: null,
+    slPercent: 20,
+    tpPercent: 25,
+    trailingPercent: null,
+    trailingActivationPercent: null,
     peakClosurePnlPercent: null,
     peakBidVwap: null,
     mode: 'sim',
@@ -426,7 +426,7 @@ describe('PositionExitEvaluator', () => {
         vi.fn().mockResolvedValue(false),
       );
 
-      const pos = makePos({ entryBidVwap: 0.39, slBidPoints: 0.2 });
+      const pos = makePos({ entryBidVwap: 0.39, slPercent: 20 });
       const algo = makeCryptoConfig();
 
       // trigger/closure from executable pos-qty VWAP (0.39) — above SL threshold 0.19

@@ -134,10 +134,12 @@ export function MarketChartDialog(props: MarketChartDialogProps) {
   const positionLevels = () => {
     const pos = active();
     if (!pos || !hasUsableEntryBidVwap(pos.entryBidVwap)) return null;
+    const costPerShare = pos.costPerShare ?? pos.entryPrice ?? 0;
     return {
       entryBidVwap: pos.entryBidVwap!,
-      slBidPoints: pos.slBidPoints,
-      tpBidPoints: pos.tpBidPoints,
+      costPerShare,
+      slPercent: pos.slPercent,
+      tpPercent: pos.tpPercent,
       openedAtMs: pos.openedAt ? Date.parse(pos.openedAt) : null,
       closedAtMs: pos.closedAt ? Date.parse(pos.closedAt) : null,
       outcome: pos.outcome,

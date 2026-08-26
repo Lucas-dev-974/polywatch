@@ -150,20 +150,22 @@ describe('updown-price-chart', () => {
     expect(interpolateOutcomePriceAtTime(points, 4_000, 'Up')).toBe(0.6);
   });
 
-  it('computes SL/TP thresholds in bid points mode', () => {
+  it('computes SL/TP thresholds in percentage mode', () => {
     expect(
       computePositionLevelThresholds({
         entryBidVwap: 0.78,
-        slBidPoints: 0.10,
-        tpBidPoints: 0.12,
+        costPerShare: 0.50,
+        slPercent: 20,
+        tpPercent: 25,
       }),
-    ).toEqual({ entry: 0.78, sl: 0.68, tp: 0.9 });
+    ).toEqual({ entry: 0.78, sl: 0.4, tp: 0.625 });
   });
 
-  it('falls back to percent mode when bid points are absent', () => {
+  it('falls back to no thresholds when percentages are absent', () => {
     expect(
       computePositionLevelThresholds({
         entryBidVwap: 0.50,
+        costPerShare: 0.50,
       }),
     ).toEqual({ entry: 0.5, sl: null, tp: null });
   });

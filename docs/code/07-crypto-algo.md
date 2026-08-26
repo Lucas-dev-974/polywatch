@@ -251,15 +251,14 @@ uniquement. Voir [`08-weather-algo.md`](./08-weather-algo.md) § Miroir et
 | `cryptoAlgoEnabled` | `false` | Master toggle de la couche d'exécution algo (standby si false) |
 | `cryptoAlgoStrategies` | `["naive-momentum"]` | IDs des stratégies activées (JSON) |
 | `cryptoAlgoEntryPriceBandEnabled` | `true` | Bande d'entrée active (remplace threshold momentum) |
-| `cryptoAlgoEntryPriceMin` | `0.50` | Borne basse exclusive (prix token acheté) |
+| `cryptoAlgoEntryPriceMin` | `0.55` | Borne basse exclusive (prix token acheté) |
 | `cryptoAlgoEntryPriceMax` | `0.80` | Borne haute exclusive (prix token acheté) |
 | `cryptoAlgoCurveFilterEnabled` | `false` | Filtre courbe descendante sur token acheté |
 | `cryptoAlgoCurveLookbackMs` | `10000` | Fenêtre mid WS (ms, max 60 000, clamp runtime) |
 | `cryptoAlgoCurveMinDelta` | `0.01` | Seuil descente (prob points) ; abstain si `delta < -seuil` |
 | `cryptoAlgoBaseThreshold` | `0.55` | Seuil momentum legacy (si bande désactivée) |
-| `cryptoAlgoSlPercent` / `cryptoAlgoTpPercent` | `null` | Surcharge SL/TP (`null` = hérite du mode). **Globaux** — s'appliquent au sim et au real. |
-| `cryptoAlgoSlBidPoints` / `cryptoAlgoTpBidPoints` | `null` | Surcharge SL/TP en **bid absolu** (points de probabilité) pour marchés binaires. `null` = default intervalle (5m : 0,10 / 0,12). `0`/négatif = désactivé (fallback %). Priorité sur le mode % si actif. Voir `docs/patchs/2026-07-06_PATCH_SL_TP_POINTS_ABSOLUS_BINAIRES.md`. |
-| `cryptoAlgoTrailingStopPercent` / `cryptoAlgoActivationPercent` | `null` | Surcharge trailing |
+| `cryptoAlgoSlPercent` / `cryptoAlgoTpPercent` | `null` | Surcharge SL/TP en **% de la mise investie** (0-100). `null` = default d'intervalle (5m : SL 20 / TP 25). `0`/négatif = désactivé. Globaux sim+real. Seuil dérivé au fill depuis la base de coût (`entryPrice + frais`). |
+| `cryptoAlgoTrailingPercent` / `cryptoAlgoTrailingActivationPercent` | `null` | Surcharge trailing en % de drawdown sur le PnL de clôture. `null` = default d'intervalle (5m : 10 / activation 12). |
 | `cryptoAlgoPreCloseEnabled` | `false` / `null` | Pré-clôture (`true` = active ; `null`/`false` = off, pas d'héritage copy) |
 | `cryptoAlgoPreCloseSeconds` | `null` | Fenêtre pre-close (secondes). `null` = résolution par interval via `CRYPTO_INTERVAL_PRE_CLOSE_SECONDS` : 5m→120s, 10m→120s, 15m→180s, 30m→240s, 1h→300s, 4h/1d→600s. |
 | `cryptoAlgoPreCloseKeepEnabled` | `null` / `false` | Keep gagnantes (`true` = tenir si bid ≥ seuil). |

@@ -60,8 +60,8 @@ function baseCopy(): CopyConfig {
     simTpEnabled: true,
     simSlCloseMaxRetries: 5,
     simTrailingEnabled: true,
-    simTrailingBidPoints: 0.1,
-    simTrailingActivationBidPoints: 0,
+    simTrailingPercent: 10,
+    simTrailingActivationPercent: 12,
     simPreCloseEnabled: true,
     simPreCloseSeconds: 60,
     simPreCloseKeepEnabled: false,
@@ -83,7 +83,7 @@ function baseCrypto(): CryptoConfig {
     simInitialCapitalCrypto: 10000,
     cryptoAlgoEnabled: false,
     cryptoAlgoBaseThreshold: 0.55,
-    cryptoAlgoSlBidPoints: 0.1,
+    cryptoAlgoSlPercent: 10,
   } as CryptoConfig;
 }
 
@@ -110,12 +110,12 @@ describe('extractSimConfigSnapshotFromIsolated', () => {
       ...baseCrypto(),
       cryptoAlgoEnabled: true,
       cryptoAlgoBaseThreshold: 0.55,
-      cryptoAlgoSlBidPoints: 0.1,
+      cryptoAlgoSlPercent: 20,
     } as CryptoConfig;
     const snapshot = extractSimConfigSnapshotFromIsolated(baseGlobal(), baseCopy(), crypto);
     expect(snapshot.cryptoAlgoEnabled).toBe(true);
     expect(snapshot.cryptoAlgoBaseThreshold).toBe(0.55);
-    expect(snapshot.cryptoAlgoSlBidPoints).toBe(0.1);
+    expect(snapshot.cryptoAlgoSlPercent).toBe(20);
     for (const key of SIM_RISK_CONFIG_KEYS) {
       expect(key.startsWith('cryptoAlgo')).toBe(false);
     }

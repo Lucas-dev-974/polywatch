@@ -1,10 +1,12 @@
 /** Seuils de position affichés sur le graphique (entrée, SL, TP). */
 export interface PositionLevels {
   entryBidVwap: number;
-  /** Seuil Stop Loss en points bid. */
-  slBidPoints?: number | null;
-  /** Seuil Take Profit en points bid. */
-  tpBidPoints?: number | null;
+  /** Cost basis per share (entry price + fees/qty) for percent SL/TP overlays. */
+  costPerShare: number;
+  /** Seuil Stop Loss en % de la mise investie. */
+  slPercent?: number | null;
+  /** Seuil Take Profit en % de la mise investie. */
+  tpPercent?: number | null;
   /** Date d'ouverture de la position en ms (pour le marqueur temporel). */
   openedAtMs?: number | null;
   /** Date de clôture de la position en ms (pour le marqueur de sortie). */

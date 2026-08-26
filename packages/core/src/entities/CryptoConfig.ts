@@ -99,11 +99,11 @@ export class CryptoConfig {
 
   // ── Trailing ──────────────────────────────────────────────────────
 
-  @Column({ type: 'real', name: 'crypto_algo_trailing_bid_points', nullable: true })
-  cryptoAlgoTrailingBidPoints!: number | null;
+  @Column({ type: 'real', name: 'crypto_algo_trailing_percent', nullable: true })
+  cryptoAlgoTrailingPercent!: number | null;
 
-  @Column({ type: 'real', name: 'crypto_algo_trailing_activation_bid_points', nullable: true })
-  cryptoAlgoTrailingActivationBidPoints!: number | null;
+  @Column({ type: 'real', name: 'crypto_algo_trailing_activation_percent', nullable: true })
+  cryptoAlgoTrailingActivationPercent!: number | null;
 
   // ── Pre-close ─────────────────────────────────────────────────────
 
@@ -130,13 +130,13 @@ export class CryptoConfig {
   @Column({ type: 'boolean', name: 'crypto_algo_trailing_enabled', default: true })
   cryptoAlgoTrailingEnabled!: boolean;
 
-  // ── SL/TP bid points ──────────────────────────────────────────────
+  // ── SL/TP percent ────────────────────────────────────────────────
 
-  @Column({ type: 'real', name: 'crypto_algo_sl_bid_points', nullable: true })
-  cryptoAlgoSlBidPoints!: number | null | undefined;
+  @Column({ type: 'real', name: 'crypto_algo_sl_percent', nullable: true })
+  cryptoAlgoSlPercent!: number | null;
 
-  @Column({ type: 'real', name: 'crypto_algo_tp_bid_points', nullable: true })
-  cryptoAlgoTpBidPoints!: number | null | undefined;
+  @Column({ type: 'real', name: 'crypto_algo_tp_percent', nullable: true })
+  cryptoAlgoTpPercent!: number | null;
 
   // ── Re-entry throttle ─────────────────────────────────────────────
 

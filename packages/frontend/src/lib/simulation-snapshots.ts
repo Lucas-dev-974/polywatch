@@ -51,8 +51,8 @@ export interface SimSnapshotPosition {
   traderAddress: string | null;
   unrealizedPnl: number;
   realizedPnl: number;
-  slBidPoints?: number | null;
-  tpBidPoints?: number | null;
+  slPercent?: number | null;
+  tpPercent?: number | null;
   lastExitBlockReason?: string | null;
   closeReason?: string | null;
 }

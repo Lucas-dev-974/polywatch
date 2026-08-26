@@ -310,14 +310,8 @@ export class PositionExitEvaluator {
 
     const closeReason: TotalCloseReason | null = evaluatePositionExit({
       slTpInput: {
-        trailingBidPoints: pos.trailingBidPoints,
-        trailingActivationBidPoints: pos.trailingActivationBidPoints,
         effectiveTrigger: trigger,
         effectiveClosure: closure,
-        peakBidVwap: pos.peakBidVwap ?? executableBidVwap,
-        slBidPoints: pos.slBidPoints,
-        tpBidPoints: pos.tpBidPoints,
-        entryBidVwap: pos.entryBidVwap,
         slPercent: pos.slPercent,
         tpPercent: pos.tpPercent,
         trailingPercent: pos.trailingPercent,

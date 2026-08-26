@@ -5,7 +5,7 @@ import { CopiedPosition } from '../entities/CopiedPosition.js';
 import { Execution } from '../entities/Execution.js';
 import { ExitAttemptEvent } from '../entities/ExitAttemptEvent.js';
 import { SimulationBalance } from '../entities/SimulationBalance.js';
-import { ExecutionService, validateBidPointsThresholds, REDEMPTION_PLACING_TIMEOUT_MS, SIM_BUY_PLACING_STALE_MS } from './execution.service.js';
+import { ExecutionService, validatePercentThresholds, REDEMPTION_PLACING_TIMEOUT_MS, SIM_BUY_PLACING_STALE_MS } from './execution.service.js';
 import { SimulationService } from './simulation.service.js';
 import { seedDefaults } from '../seed/defaults.js';
 import { PositionReservation } from '../entities/PositionReservation.js';
@@ -495,35 +495,34 @@ describe('ExecutionService simulation cash guards', () => {
   });
 });
 
-describe('validateBidPointsThresholds (P3 helper)', () => {
+describe('validatePercentThresholds (P3 helper)', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function makePos(overrides: Partial<CopiedPosition> = {}): CopiedPosition {
     return {
-      slBidPoints: null,
-      tpBidPoints: null,
-      entryBidVwap: 0,
+      slPercent: null,
+      tpPercent: null,
       ...overrides,
     } as CopiedPosition;
   }
 
-  it('validates positive slBidPoints and tpBidPoints', () => {
-    const pos = makePos({ slBidPoints: 0.10, tpBidPoints: 0.12 });
-    expect(validateBidPointsThresholds(pos)).toBe(true);
+  it('validates positive slPercent and tpPercent', () => {
+    const pos = makePos({ slPercent: 20, tpPercent: 25 });
+    expect(validatePercentThresholds(pos)).toBe(true);
   });
 
-  it('rejects zero slBidPoints', () => {
-    const pos = makePos({ slBidPoints: 0, tpBidPoints: 0.12 });
-    expect(validateBidPointsThresholds(pos)).toBe(false);
+  it('rejects zero slPercent', () => {
+    const pos = makePos({ slPercent: 0, tpPercent: 25 });
+    expect(validatePercentThresholds(pos)).toBe(false);
   });
 
-  it('rejects negative tpBidPoints', () => {
-    const pos = makePos({ slBidPoints: 0.10, tpBidPoints: -0.05 });
-    expect(validateBidPointsThresholds(pos)).toBe(false);
+  it('rejects negative tpPercent', () => {
+    const pos = makePos({ slPercent: 20, tpPercent: -5 });
+    expect(validatePercentThresholds(pos)).toBe(false);
   });
 
-  it('accepts null thresholds (mode % fallback)', () => {
-    const pos = makePos({ slBidPoints: null, tpBidPoints: null });
-    expect(validateBidPointsThresholds(pos)).toBe(true);
+  it('accepts null thresholds', () => {
+    const pos = makePos({ slPercent: null, tpPercent: null });
+    expect(validatePercentThresholds(pos)).toBe(true);
   });
 });
 

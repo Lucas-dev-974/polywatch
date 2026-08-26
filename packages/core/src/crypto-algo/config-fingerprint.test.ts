@@ -6,7 +6,7 @@ describe('computeCryptoAlgoConfigFingerprint', () => {
     const cfg = {
       cryptoAlgoEnabled: true,
       cryptoAlgoSlEnabled: true,
-      cryptoAlgoSlBidPoints: 0.28,
+      cryptoAlgoSlPercent: 28,
       cryptoAlgoTrailingEnabled: false,
     };
     const a = computeCryptoAlgoConfigFingerprint(cfg);
@@ -17,13 +17,13 @@ describe('computeCryptoAlgoConfigFingerprint', () => {
 
   it('changes when a tracked field changes', () => {
     const base = {
-      cryptoAlgoSlBidPoints: 0.28,
+      cryptoAlgoSlPercent: 28,
       cryptoAlgoTrailingEnabled: false,
     };
     const a = computeCryptoAlgoConfigFingerprint(base);
     const b = computeCryptoAlgoConfigFingerprint({
       ...base,
-      cryptoAlgoSlBidPoints: 0.32,
+      cryptoAlgoSlPercent: 32,
     });
     expect(a).not.toBe(b);
   });

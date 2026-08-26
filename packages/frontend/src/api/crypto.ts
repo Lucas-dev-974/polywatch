@@ -165,8 +165,8 @@ export interface CryptoAlgoPositionRow {
   closedAt: string | null;
   closeReason: string | null;
   reason: string | null;
-  slBidPoints: number | null;
-  tpBidPoints: number | null;
+  slPercent: number | null;
+  tpPercent: number | null;
 }
 
 export async function fetchCryptoAlgoDataTables(): Promise<CryptoAlgoDataTablesResponse> {

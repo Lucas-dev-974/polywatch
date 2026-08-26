@@ -24,8 +24,9 @@ export function MarketChartDialogHost() {
           marketEndAt={ctx().marketEndAt}
           entryBidVwap={ctx().entryBidVwap}
           entryPrice={ctx().entryPrice}
-          slBidPoints={ctx().slBidPoints}
-          tpBidPoints={ctx().tpBidPoints}
+          costPerShare={ctx().costPerShare}
+          slPercent={ctx().slPercent}
+          tpPercent={ctx().tpPercent}
           openedAt={ctx().openedAt}
           closedAt={ctx().closedAt}
           outcome={ctx().outcome}

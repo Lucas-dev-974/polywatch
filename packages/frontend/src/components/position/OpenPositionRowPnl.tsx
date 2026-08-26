@@ -16,19 +16,18 @@ interface Props {
   triggerPercent: number | undefined;
   mode: string;
   marketTick?: MarketTick;
-  slBidPoints?: number | null;
-  entryBidVwap?: number;
+  slPercent?: number | null;
 }
 
 export function OpenPositionRowPnl(props: Props) {
   const tick = () => props.marketTick;
 
   const slDistance = (): SlDistance => {
-    if (!tick()) return computeSlDistance({});
+    const closure = props.closurePercent;
+    if (closure == null) return computeSlDistance({});
     return computeSlDistance({
-      slBidPoints: props.slBidPoints,
-      entryBidVwap: props.entryBidVwap,
-      currentBid: tick()?.bestBid,
+      slPercent: props.slPercent,
+      closurePercent: closure,
     });
   };
 
@@ -36,7 +35,7 @@ export function OpenPositionRowPnl(props: Props) {
     const d = slDistance();
     if (!d.active) return '';
     if (d.breached) return 'SL atteint';
-    if (d.bidPoints != null) return `SL -${formatPrice(d.bidPoints)} pts`;
+    if (d.percent != null) return `SL -${d.percent.toFixed(1)} pts %`;
     return '';
   };
 
@@ -44,7 +43,7 @@ export function OpenPositionRowPnl(props: Props) {
     const d = slDistance();
     if (!d.active) return '';
     if (d.breached) return 'sl-breached';
-    if (d.bidPoints != null && d.bidPoints < 0.02) return 'sl-near';
+    if (d.percent != null && d.percent < 2) return 'sl-near';
     return 'sl-safe';
   };
 

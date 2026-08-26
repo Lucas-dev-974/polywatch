@@ -7,6 +7,12 @@ export function fmtPct(value: number | null | undefined): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+/** Classe de couleur du P&L backtest (pos/nég/neutre). */
+export function pnlClass(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '';
+  return value > 0 ? 'backtest-pnl-pos' : value < 0 ? 'backtest-pnl-neg' : '';
+}
+
 export function fmtUsd(value: number | null | undefined): string {
   return formatNum(value, 2);
 }

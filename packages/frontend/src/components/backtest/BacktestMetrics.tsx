@@ -1,14 +1,10 @@
 import { Show } from 'solid-js';
 import type { BacktestRunDto } from '../../api';
 import { EXIT_REASON_LABEL } from '@polywatch/core/backtest/exit-reasons';
-import { fmtHolding, fmtPct, fmtUsd, formatNum } from './format';
+import { fmtHolding, fmtPct, fmtUsd, formatNum, pnlClass } from './format';
 
 interface BacktestMetricsProps {
   stats: NonNullable<BacktestRunDto['stats']>;
-}
-
-function pnlClass(value: number): string {
-  return value > 0 ? 'backtest-pnl-pos' : value < 0 ? 'backtest-pnl-neg' : '';
 }
 
 export function BacktestMetrics(props: BacktestMetricsProps) {

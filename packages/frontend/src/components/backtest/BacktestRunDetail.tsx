@@ -17,7 +17,7 @@ import { BacktestMetrics } from './BacktestMetrics';
 import { BacktestPositionsTable } from './BacktestPositionsTable';
 import { BacktestStrategySection } from './BacktestStrategySection';
 import { BacktestRidgeFullscreenDialog } from './BacktestRidgeFullscreenDialog';
-import { formatTs } from './format';
+import { fmtUsd, formatTs, pnlClass } from './format';
 
 interface BacktestRunDetailProps {
   run: BacktestRunDto;
@@ -65,6 +65,32 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
           </button>
           <h3 class="settings-subheading">Backtest #{props.run.id}</h3>
         </div>
+        <div class="backtest-detail-meta">
+          <span>
+            Statut : <strong>{props.run.status}</strong>
+          </span>
+          <span>
+            Mode : <strong>{props.run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</strong>
+          </span>
+          <span>Lancé : {formatTs(props.run.startedAt)}</span>
+          <span>Fini : {formatTs(props.run.finishedAt)}</span>
+          <span>Plage : {formatTs(props.run.dataRangeFrom)} → {formatTs(props.run.dataRangeTo)}</span>
+          <Show when={props.run.strategy}>
+            <span>
+              Stratégie : <strong>{props.run.strategy!.label}</strong>
+            </span>
+          </Show>
+          <Show when={props.run.stats != null}>
+            <span class="backtest-detail-meta-pnl">
+              PNL :{' '}
+              <strong class={`backtest-detail-header-pnl__value ${pnlClass(props.run.stats!.totalPnl)}`}>
+                {props.run.stats!.totalPnl > 0 ? '+' : ''}
+                {fmtUsd(props.run.stats!.totalPnl)}
+                <span class="backtest-detail-header-pnl__unit"> pUSD</span>
+              </strong>
+            </span>
+          </Show>
+        </div>
         <div class="backtest-toolbar-actions">
           <Show when={isRunning()}>
             <button type="button" class="btn btn-sm btn-secondary" onClick={props.onCancel}>
@@ -80,18 +106,6 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
       <Show when={props.error}>
         <p class="form-hint weather-settings-error">{props.error}</p>
       </Show>
-
-      <div class="backtest-detail-meta">
-        <span>
-          Statut : <strong>{props.run.status}</strong>
-        </span>
-        <span>
-          Mode : <strong>{props.run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</strong>
-        </span>
-        <span>Lancé : {formatTs(props.run.startedAt)}</span>
-        <span>Fini : {formatTs(props.run.finishedAt)}</span>
-        <span>Plage : {formatTs(props.run.dataRangeFrom)} → {formatTs(props.run.dataRangeTo)}</span>
-      </div>
 
       <Show when={isRunning()}>
         <div class={`backtest-progress backtest-progress--wide${props.run.progressPct === 0 ? ' backtest-progress--preparing' : ''}`}>

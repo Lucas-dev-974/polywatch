@@ -9209,6 +9209,29 @@ body.is-resizing-columns .position-market-split-handle::after {
   flex-shrink: 0;
 }
 
+/* P&L courant affiché dans la barre meta du détail d'un run. */
+.backtest-detail-meta-pnl {
+  font-variant-numeric: tabular-nums;
+}
+
+.backtest-detail-header-pnl__value {
+  font-weight: 700;
+}
+
+/* Couleurs du PNL dans la barre meta — plus spécifique que `.backtest-detail-meta strong`. */
+.backtest-detail-meta .backtest-detail-header-pnl__value.backtest-pnl-pos {
+  color: var(--success, #2ecc71);
+}
+
+.backtest-detail-meta .backtest-detail-header-pnl__value.backtest-pnl-neg {
+  color: var(--danger, #e74c3c);
+}
+
+.backtest-detail-header-pnl__unit {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 /* Loader animé (spinner) dans le header d'une section pliable — ex. marchés. */
 .backtest-detail-header-loader {
   display: inline-flex;
@@ -11898,6 +11921,21 @@ body.is-resizing-columns .position-market-split-handle::after {
 .backtest-toolbar-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Meta intégrée à la toolbar du détail d'un run — sur la même ligne que Retour/titre/actions. */
+.backtest-toolbar .backtest-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, var(--text-muted));
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
 }
 
 .backtest-detail-meta {

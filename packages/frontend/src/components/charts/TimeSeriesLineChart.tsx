@@ -5,7 +5,7 @@ import {
   createSignal,
   createUniqueId,
 } from 'solid-js';
-import { formatAdaptiveAmount } from '../lib/position';
+import { formatAdaptiveAmount } from '../../lib/position';
 import {
   CHART_CONFIG,
   type PlotLayout,
@@ -16,8 +16,8 @@ import {
   linePath,
   xPos,
   yPos,
-} from '../lib/equity-chart';
-import { useChartWidth } from '../hooks/useChartWidth';
+} from '../../lib/equity-chart';
+import { useChartWidth } from '../../hooks/useChartWidth';
 
 export type TimeSeriesChartTone = 'sim' | 'positive' | 'negative';
 

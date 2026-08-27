@@ -3,15 +3,15 @@ import {
   fetchBucketTickDates,
   fetchBucketTickTimeline,
   type BucketTimelineCity,
-} from '../api';
+} from '../../api';
 import {
   UI_KEYS,
   WeatherTimelineView,
   type WeatherTimelineDateEntry,
   type WeatherTimelineSource,
 } from './WeatherTimelineView';
-import { formatTimelineBucketLabel, formatBucketTargetLabel, toChartPoints } from '../lib/weather-position';
-import { FIDELITY_OPTIONS } from '../lib/fidelity-options';
+import { formatTimelineBucketLabel, formatBucketTargetLabel, toChartPoints } from '../../lib/weather-position';
+import { FIDELITY_OPTIONS } from '../../lib/fidelity-options';
 
 const source: WeatherTimelineSource<BucketTimelineCity> = {
   dateKey: UI_KEYS.weatherAlgoTimelineDate,

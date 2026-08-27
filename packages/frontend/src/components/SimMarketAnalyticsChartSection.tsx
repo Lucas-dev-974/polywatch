@@ -2,7 +2,7 @@ import { For, Show } from 'solid-js';
 import { formatPnlAmount, pnlClass } from '../lib/position';
 import { marketDisplayLabel, type MarketAnalyticsRow } from '../lib/market-analytics';
 import type { TraderPnlSeriesPoint } from '../lib/trader-analytics';
-import { TraderPnlEvolutionChart } from './TraderPnlEvolutionChart';
+import { TraderPnlEvolutionChart } from './charts/TraderPnlEvolutionChart';
 
 interface Props {
   markets: MarketAnalyticsRow[];

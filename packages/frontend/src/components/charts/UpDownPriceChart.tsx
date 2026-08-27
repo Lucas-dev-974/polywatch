@@ -1,18 +1,18 @@
 import { createMemo, createSignal, Show } from 'solid-js';
-import { useChartWidth } from '../hooks/useChartWidth';
-import type { UpDownPricePoint, OutcomeSideLabels, AlgoPriceTickMetrics } from '../lib/market-chart';
+import { useChartWidth } from '../../hooks/useChartWidth';
+import type { UpDownPricePoint, OutcomeSideLabels, AlgoPriceTickMetrics } from '../../lib/market-chart';
 import {
   DEFAULT_OVERLAY_TOGGLES,
   hasChartMetrics,
   type ChartOverlayToggles,
-} from '../lib/updown-chart-overlays';
-import { computeUpDownPlotLayout, type PriceMode } from '../lib/updown-price-chart';
-import type { ExitAttemptEvent } from '../lib/exit-attempts';
-import type { Execution } from '../lib/execution';
-import { UpDownChartLegend } from './updown-price-chart/legend';
-import { UpDownChartMarkerLegend } from './updown-price-chart/marker-legend';
-import { UpDownChartSvg } from './updown-price-chart/svg';
-import type { PositionLevels } from './updown-price-chart/types';
+} from '../../lib/updown-chart-overlays';
+import { computeUpDownPlotLayout, type PriceMode } from '../../lib/updown-price-chart';
+import type { ExitAttemptEvent } from '../../lib/exit-attempts';
+import type { Execution } from '../../lib/execution';
+import { UpDownChartLegend } from '../updown-price-chart/legend';
+import { UpDownChartMarkerLegend } from '../updown-price-chart/marker-legend';
+import { UpDownChartSvg } from '../updown-price-chart/svg';
+import type { PositionLevels } from '../updown-price-chart/types';
 
 export type { UpDownPricePoint, PositionLevels };
 

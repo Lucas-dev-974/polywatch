@@ -5,7 +5,7 @@ import {
 } from '../api';
 import type { WeatherPosition } from '../hooks/useWeatherAlgoPositions';
 import { Dialog } from './Dialog';
-import { SeriesChart, type SeriesChartMarker } from './WeatherTimelineView';
+import { SeriesChart, type SeriesChartMarker } from './charts/WeatherTimelineView';
 import { formatTimelineBucketLabel, formatBucketTargetLabel, toChartPoints } from '../lib/weather-position';
 import { WeatherPositionChartSummary } from './weather-position-group/WeatherPositionChartSummary';
 

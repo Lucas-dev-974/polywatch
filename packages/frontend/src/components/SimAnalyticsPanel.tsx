@@ -20,7 +20,7 @@ import { connectSocket } from '../socket';
 import { useTraderPnlSeries } from '../hooks/useTraderPnlSeries';
 import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
 import { Icon } from './Icon';
-import { SimAnalyticsCategoryChart } from './SimAnalyticsCategoryChart';
+import { SimAnalyticsCategoryChart } from './charts/SimAnalyticsCategoryChart';
 import { SimAnalyticsChartSection } from './SimAnalyticsChartSection';
 import { SimAnalyticsTable } from './SimAnalyticsTable';
 import { SimMarketAnalyticsPanel } from './SimMarketAnalyticsPanel';

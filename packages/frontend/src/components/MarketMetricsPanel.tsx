@@ -1,7 +1,7 @@
 import { createSignal, Show, createEffect } from 'solid-js';
 
 import { Dialog } from './Dialog';
-import { TimeSeriesLineChart } from './TimeSeriesLineChart';
+import { TimeSeriesLineChart } from './charts/TimeSeriesLineChart';
 import {
   fetchMarketMetrics,
   formatPrice,

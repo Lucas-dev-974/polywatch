@@ -11,7 +11,7 @@ import { SimSessionComparePanel } from './SimSessionComparePanel';
 import { SimSnapshotCard } from './SimSnapshotCard';
 import { SimSnapshotComparePanel } from './SimSnapshotComparePanel';
 import { SimSnapshotDetailDialog } from './SimSnapshotDetailDialog';
-import { SimSnapshotEquityChart } from './SimSnapshotEquityChart';
+import { SimSnapshotEquityChart } from './charts/SimSnapshotEquityChart';
 import { SimSnapshotFilters } from './SimSnapshotFilters';
 import type { UseSnapshotsApi } from '../hooks/useSnapshots';
 import type { SimSessionSummary } from '../lib/simulation-sessions';

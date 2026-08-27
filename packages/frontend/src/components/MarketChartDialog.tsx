@@ -24,7 +24,7 @@ import { Dialog } from './Dialog';
 import { MarketChartMeta } from './MarketChartMeta';
 import { MarketChartMosMeta } from './MarketChartMosMeta';
 import { MarketChartDebugPanel } from './MarketChartDebugPanel';
-import { UpDownPriceChart } from './UpDownPriceChart';
+import { UpDownPriceChart } from './charts/UpDownPriceChart';
 import { TimeframeSelector } from './TimeframeSelector';
 
 const RESOLUTION_1MIN_MS = 60_000;

@@ -1,6 +1,6 @@
 import { For, createMemo } from 'solid-js';
-import { marketTagSlugLabel } from '../lib/market-tags';
-import type { TraderInsightMarketBreakdownRow } from '../lib/trader-insight';
+import { marketTagSlugLabel } from '../../lib/market-tags';
+import type { TraderInsightMarketBreakdownRow } from '../../lib/trader-insight';
 
 function formatUsd(value: number): string {
   const abs = Math.abs(value);

@@ -4,7 +4,7 @@ import type {
   TraderFundingUnavailableReason,
 } from '../lib/trader-insight';
 import { PolygonscanSettingsDialog } from './PolygonscanSettingsDialog';
-import { TraderFundingTimelineChart } from './TraderFundingTimelineChart';
+import { TraderFundingTimelineChart } from './charts/TraderFundingTimelineChart';
 
 function formatUsd(value: number): string {
   const abs = Math.abs(value);

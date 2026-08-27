@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal, createUniqueId, type Accessor } from 'solid-js';
-import type { BacktestEquityPointDto, BacktestExcludedTickDto } from '../api';
-import { useChartWidth } from '../hooks/useChartWidth';
-import { formatAdaptiveAmount } from '../lib/position';
+import type { BacktestEquityPointDto, BacktestExcludedTickDto } from '../../api';
+import { useChartWidth } from '../../hooks/useChartWidth';
+import { formatAdaptiveAmount } from '../../lib/position';
 import {
   CHART_CONFIG,
   type PlotLayout,
@@ -10,7 +10,7 @@ import {
   extremeIndices,
   xPos,
   yPos,
-} from '../lib/equity-chart';
+} from '../../lib/equity-chart';
 
 interface BacktestEquityChartProps {
   points: BacktestEquityPointDto[];

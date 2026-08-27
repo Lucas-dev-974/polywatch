@@ -7,7 +7,7 @@ import type {
   BacktestPositionDto,
   BacktestRunDto,
 } from '../../api';
-import { BacktestEquityChart } from '../BacktestEquityChart';
+import { BacktestEquityChart } from '../charts/BacktestEquityChart';
 import { CollapsibleSection } from '../CollapsibleSection';
 import { Icon } from '../Icon';
 import { BacktestFidelityWarnings } from './BacktestFidelityWarnings';

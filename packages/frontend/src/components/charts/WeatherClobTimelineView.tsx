@@ -2,7 +2,7 @@ import {
   fetchClobPriceHistoryDates,
   fetchClobPriceHistoryTimeline,
   type ClobTimelineCity,
-} from '../api';
+} from '../../api';
 import {
   UI_KEYS,
   WeatherTimelineView,
@@ -10,8 +10,8 @@ import {
   type WeatherTimelineSeriesPoint,
   type WeatherTimelineSource,
 } from './WeatherTimelineView';
-import { formatTimelineBucketLabel, formatBucketTargetLabel } from '../lib/weather-position';
-import { FIDELITY_OPTIONS } from '../lib/fidelity-options';
+import { formatTimelineBucketLabel, formatBucketTargetLabel } from '../../lib/weather-position';
+import { FIDELITY_OPTIONS } from '../../lib/fidelity-options';
 
 const SIDES = ['YES', 'NO'];
 

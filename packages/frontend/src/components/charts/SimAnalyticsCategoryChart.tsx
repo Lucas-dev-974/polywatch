@@ -1,7 +1,7 @@
 import { For, createMemo } from 'solid-js';
-import { marketTagSlugLabel } from '../lib/market-tags';
-import { formatPnlAmount, pnlClass } from '../lib/position';
-import type { MarketCategoryPnlRow } from '../lib/trader-analytics';
+import { marketTagSlugLabel } from '../../lib/market-tags';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
+import type { MarketCategoryPnlRow } from '../../lib/trader-analytics';
 
 function categoryLabel(row: MarketCategoryPnlRow): string {
   if (row.slug === 'other') return row.label;

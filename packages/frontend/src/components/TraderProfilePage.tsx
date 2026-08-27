@@ -10,10 +10,10 @@ import {
   type TraderInsightResponse,
 } from '../lib/trader-insight';
 import { useWatchlistStore } from '../stores/watchlistStore';
-import { TraderActivityTimelineChart } from './TraderActivityTimelineChart';
-import { TraderCapitalEvolutionChart } from './TraderCapitalEvolutionChart';
+import { TraderActivityTimelineChart } from './charts/TraderActivityTimelineChart';
+import { TraderCapitalEvolutionChart } from './charts/TraderCapitalEvolutionChart';
 import { TraderFundingSection } from './TraderFundingSection';
-import { TraderMarketBreakdownChart } from './TraderMarketBreakdownChart';
+import { TraderMarketBreakdownChart } from './charts/TraderMarketBreakdownChart';
 
 function formatUsd(value: number): string {
   const abs = Math.abs(value);

@@ -4,7 +4,7 @@ import {
   usePersistedSignal,
 } from '../../lib/ui-persistence';
 import { Dialog } from '../Dialog';
-import { SeriesChart } from '../WeatherSeriesChart';
+import { SeriesChart } from '../charts/WeatherSeriesChart';
 import type {
   WeatherTimelineDateEntry,
   WeatherTimelineSource,

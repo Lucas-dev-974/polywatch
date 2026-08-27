@@ -1,5 +1,5 @@
-import type { SimStateSnapshotSummary } from '../lib/simulation-snapshots';
-import { buildPoints } from '../lib/equity-chart';
+import type { SimStateSnapshotSummary } from '../../lib/simulation-snapshots';
+import { buildPoints } from '../../lib/equity-chart';
 import { TimeSeriesLineChart } from './TimeSeriesLineChart';
 
 interface Props {

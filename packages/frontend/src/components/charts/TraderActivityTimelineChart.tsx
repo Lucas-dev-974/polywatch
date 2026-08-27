@@ -1,5 +1,5 @@
 import { For, createMemo } from 'solid-js';
-import type { TraderInsightTimelinePoint } from '../lib/trader-insight';
+import type { TraderInsightTimelinePoint } from '../../lib/trader-insight';
 
 export function TraderActivityTimelineChart(props: {
   points: TraderInsightTimelinePoint[];

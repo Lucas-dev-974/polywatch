@@ -1,7 +1,7 @@
 import { createMemo } from 'solid-js';
-import { formatPusdAmount } from '../lib/position';
-import type { TraderPnlSeriesPoint } from '../lib/trader-analytics';
-import type { Point } from '../lib/equity-chart';
+import { formatPusdAmount } from '../../lib/position';
+import type { TraderPnlSeriesPoint } from '../../lib/trader-analytics';
+import type { Point } from '../../lib/equity-chart';
 import { TimeSeriesLineChart, type TimeSeriesChartTone } from './TimeSeriesLineChart';
 
 interface Props {

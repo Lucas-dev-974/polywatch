@@ -24,8 +24,8 @@ import {
   type WeatherAlgoDataTableId,
   type WeatherAlgoDataView,
 } from '../lib/ui-persistence';
-import { WeatherBucketTimelineView } from './WeatherBucketTimelineView';
-import { WeatherClobTimelineView } from './WeatherClobTimelineView';
+import { WeatherBucketTimelineView } from './charts/WeatherBucketTimelineView';
+import { WeatherClobTimelineView } from './charts/WeatherClobTimelineView';
 import { Pagination } from './Pagination';
 import { formatNum, formatPollInterval, formatTs, formatTsCompact } from '../lib/format';
 import type {

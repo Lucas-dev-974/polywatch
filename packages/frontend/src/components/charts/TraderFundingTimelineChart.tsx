@@ -1,6 +1,6 @@
 import { createMemo } from 'solid-js';
-import type { TraderFundingTimelinePoint } from '../lib/trader-insight';
-import type { Point } from '../lib/equity-chart';
+import type { TraderFundingTimelinePoint } from '../../lib/trader-insight';
+import type { Point } from '../../lib/equity-chart';
 import { TimeSeriesLineChart, type TimeSeriesChartTone } from './TimeSeriesLineChart';
 
 interface Props {

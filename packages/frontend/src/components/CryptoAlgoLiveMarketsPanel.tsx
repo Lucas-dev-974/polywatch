@@ -1,9 +1,9 @@
 import { For, Show, type Accessor } from 'solid-js';
 import { removeAlgoMarket, setAlgoMarketEnabled } from '../stores/algoMarketsStore';
 import { useAlgoCarouselScroll } from '../hooks/useAlgoCarouselScroll';
-import { AlgoCarousel } from './AlgoCarousel';
-import { AlgoCarouselNav } from './AlgoCarouselNav';
-import { AlgoMarketCard, type AlgoMarketPrice } from './AlgoMarketCard';
+import { AlgoCarousel } from './algo/AlgoCarousel';
+import { AlgoCarouselNav } from './algo/AlgoCarouselNav';
+import { AlgoMarketCard, type AlgoMarketPrice } from './algo/AlgoMarketCard';
 import { Icon } from './Icon';
 
 export interface CryptoAlgoLiveMarketsPanelProps {

@@ -3,7 +3,7 @@ import { createMemo, Show } from 'solid-js';
 import { positionToMarketChartContext } from '../lib/position-market-chart';
 import { POSITION_TOOLTIPS } from '../lib/position-tooltips';
 import type { Position } from '../lib/position';
-import { AlgoMarketChartTrigger } from './AlgoMarketChartTrigger';
+import { AlgoMarketChartTrigger } from './algo/AlgoMarketChartTrigger';
 
 interface Props {
   pos: Position;

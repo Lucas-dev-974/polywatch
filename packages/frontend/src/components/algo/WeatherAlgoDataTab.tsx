@@ -13,7 +13,7 @@ import {
   fetchWeatherAlgoPositionForecasts,
   fetchWeatherConfig,
   type WeatherAlgoDataTableSummary,
-} from '../api';
+} from '../../api';
 import {
   UI_KEYS,
   WEATHER_ALGO_DATA_DETAIL_MODES,
@@ -23,11 +23,11 @@ import {
   usePersistedSignal,
   type WeatherAlgoDataTableId,
   type WeatherAlgoDataView,
-} from '../lib/ui-persistence';
-import { WeatherBucketTimelineView } from './charts/WeatherBucketTimelineView';
-import { WeatherClobTimelineView } from './charts/WeatherClobTimelineView';
-import { Pagination } from './Pagination';
-import { formatNum, formatPollInterval, formatTs, formatTsCompact } from '../lib/format';
+} from '../../lib/ui-persistence';
+import { WeatherBucketTimelineView } from '../charts/WeatherBucketTimelineView';
+import { WeatherClobTimelineView } from '../charts/WeatherClobTimelineView';
+import { Pagination } from '../Pagination';
+import { formatNum, formatPollInterval, formatTs, formatTsCompact } from '../../lib/format';
 import type {
   WeatherAlgoBucketTickRow,
   WeatherAlgoClobPriceHistoryRow,
@@ -36,7 +36,7 @@ import type {
   WeatherAlgoForecastHistoryRow,
   WeatherAlgoMarketSnapshotRow,
   WeatherAlgoPositionForecastRow,
-} from '../api';
+} from '../../api';
 
 /** Union des lignes de détail par table (R2). */
 type WeatherAlgoDataRow =

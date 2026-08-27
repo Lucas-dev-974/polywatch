@@ -12,7 +12,7 @@ import {
   generateAnalysisReport,
 } from '../../lib/analysis-reports';
 import { AnalysisReportComparePanel } from '../AnalysisReportComparePanel';
-import { CryptoAlgoReportViewer } from '../CryptoAlgoReportViewer';
+import { CryptoAlgoReportViewer } from '../algo/CryptoAlgoReportViewer';
 import { NewSessionResetDialog } from '../dialogs/NewSessionResetDialog';
 
 function toIsoStart(dateStr: string): string | null {

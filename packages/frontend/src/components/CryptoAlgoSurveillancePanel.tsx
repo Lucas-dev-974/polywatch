@@ -3,8 +3,8 @@ import type { useCryptoAlgoSurveillance } from '../hooks/useCryptoAlgoSurveillan
 import type { useAlgoWorkerQueueStatus } from '../hooks/useAlgoWorkerQueueStatus';
 import { workerQueueBadgeLabel } from '../lib/algo-worker-queue-status';
 import { useAlgoCarouselScroll } from '../hooks/useAlgoCarouselScroll';
-import { AlgoCarousel } from './AlgoCarousel';
-import { AlgoCarouselNav } from './AlgoCarouselNav';
+import { AlgoCarousel } from './algo/AlgoCarousel';
+import { AlgoCarouselNav } from './algo/AlgoCarouselNav';
 import { SurveillanceHistoryCard } from './SurveillanceHistoryCard';
 import { Icon } from './Icon';
 

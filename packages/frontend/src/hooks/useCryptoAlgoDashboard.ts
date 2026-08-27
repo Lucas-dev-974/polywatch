@@ -23,7 +23,7 @@ import {
 import { loadAutoTrackRules, rules } from '../stores/autoTrackStore';
 import { useClobCredentials } from './useClobCredentials';
 import { useClock } from './useClock';
-import type { AlgoMarketsPricesResponse } from '../components/AlgoMarketCard';
+import type { AlgoMarketsPricesResponse } from '../components/algo/AlgoMarketCard';
 import { connectSocket } from '../socket';
 import type { MarketPercentUpdate } from '@polywatch/core/market-list';
 

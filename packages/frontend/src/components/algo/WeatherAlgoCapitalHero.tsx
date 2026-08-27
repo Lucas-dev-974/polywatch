@@ -1,7 +1,7 @@
 import { Show } from 'solid-js';
-import { formatWeatherAlgoCapital, type WeatherAlgoCapital } from '../lib/weather-algo-capital';
-import { formatPnlAmount, pnlClass } from '../lib/position';
-import { CollapsibleSection } from './CollapsibleSection';
+import { formatWeatherAlgoCapital, type WeatherAlgoCapital } from '../../lib/weather-algo-capital';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
+import { CollapsibleSection } from '../CollapsibleSection';
 
 export interface WeatherAlgoCapitalHeroProps {
   capital: WeatherAlgoCapital | null;

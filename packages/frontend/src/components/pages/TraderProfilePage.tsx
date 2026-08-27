@@ -12,7 +12,7 @@ import {
 import { useWatchlistStore } from '../../stores/watchlistStore';
 import { TraderActivityTimelineChart } from '../charts/TraderActivityTimelineChart';
 import { TraderCapitalEvolutionChart } from '../charts/TraderCapitalEvolutionChart';
-import { TraderFundingSection } from '../TraderFundingSection';
+import { TraderFundingSection } from '../algo/TraderFundingSection';
 import { TraderMarketBreakdownChart } from '../charts/TraderMarketBreakdownChart';
 
 function formatUsd(value: number): string {

@@ -10,7 +10,7 @@ import {
   EnvSettingsEntryTab,
   EnvSettingsExitTab,
   EnvSettingsRiskTab,
-} from '../EnvSettingsTabs';
+} from '../algo/EnvSettingsTabs';
 import { Dialog } from '../Dialog';
 
 type SettingsTab = 'entry' | 'exit' | 'risk';

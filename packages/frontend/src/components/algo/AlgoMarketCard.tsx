@@ -1,7 +1,7 @@
 import { Show, createMemo, type Accessor } from 'solid-js';
-import { getTimeRemaining, getTimeUntilStart } from '../lib/markets-list';
-import { displayAlgoSymbol, formatAlgoPriceCents } from '../lib/algo-market-display';
-import { Icon } from './Icon';
+import { getTimeRemaining, getTimeUntilStart } from '../../lib/markets-list';
+import { displayAlgoSymbol, formatAlgoPriceCents } from '../../lib/algo-market-display';
+import { Icon } from '../Icon';
 import { AlgoMarketChartTrigger } from './AlgoMarketChartTrigger';
 export type AlgoMarketPhase = 'live' | 'future';
 

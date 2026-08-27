@@ -6,10 +6,10 @@ import {
   updateGlobalConfig,
 } from '../../api';
 import { loadAutoTrackRules } from '../../stores/autoTrackStore';
-import { CryptoAlgoSettingsAutotrackTab } from '../CryptoAlgoSettingsAutotrackTab';
-import { CryptoAlgoSettingsEntryTab } from '../CryptoAlgoSettingsEntryTab';
-import { CryptoAlgoSettingsExitTab } from '../CryptoAlgoSettingsExitTab';
-import { CryptoAlgoSettingsGeneralTab } from '../CryptoAlgoSettingsGeneralTab';
+import { CryptoAlgoSettingsAutotrackTab } from '../algo/CryptoAlgoSettingsAutotrackTab';
+import { CryptoAlgoSettingsEntryTab } from '../algo/CryptoAlgoSettingsEntryTab';
+import { CryptoAlgoSettingsExitTab } from '../algo/CryptoAlgoSettingsExitTab';
+import { CryptoAlgoSettingsGeneralTab } from '../algo/CryptoAlgoSettingsGeneralTab';
 import {
   pickCryptoAlgoFields,
   type CryptoAlgoSettings,

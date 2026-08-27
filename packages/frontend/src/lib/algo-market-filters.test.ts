@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AlgoMarketPrice } from '../components/AlgoMarketCard';
+import type { AlgoMarketPrice } from '../components/algo/AlgoMarketCard';
 import {
   filterActiveFutureMarkets,
   filterActiveLiveMarkets,

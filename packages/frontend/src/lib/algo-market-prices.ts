@@ -1,5 +1,5 @@
 import type { MarketPercentUpdate } from '@polywatch/core/market-list';
-import type { AlgoMarketPrice, AlgoMarketsPricesResponse } from '../components/AlgoMarketCard';
+import type { AlgoMarketPrice, AlgoMarketsPricesResponse } from '../components/algo/AlgoMarketCard';
 
 function applyOutcomePrices(
   market: AlgoMarketPrice,

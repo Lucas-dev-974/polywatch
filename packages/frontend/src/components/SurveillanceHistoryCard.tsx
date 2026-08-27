@@ -20,7 +20,7 @@ import {
 import { formatPnlAmount, pnlClass } from '../lib/position';
 import { surveillanceToMarketChartContext } from '../lib/surveillance-market-chart';
 import { openMarketChart } from '../stores/marketChartStore';
-import { AlgoMarketChartTrigger } from './AlgoMarketChartTrigger';
+import { AlgoMarketChartTrigger } from './algo/AlgoMarketChartTrigger';
 
 function formatWindow(start: string | null, end: string | null): string {
   if (!start && !end) return '—';

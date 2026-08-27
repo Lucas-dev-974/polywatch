@@ -6,11 +6,11 @@ import { useCryptoAlgoSurveillance } from '../../hooks/useCryptoAlgoSurveillance
 import { useAlgoWorkerQueueStatus } from '../../hooks/useAlgoWorkerQueueStatus';
 import { onGlobalRefresh } from '../../socket';
 import { CRYPTO_ALGO_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../../lib/ui-persistence';
-import { CryptoAlgoCapitalDashboard } from '../CryptoAlgoCapitalDashboard';
-import { CryptoAlgoDataTab } from '../CryptoAlgoDataTab';
+import { CryptoAlgoCapitalDashboard } from '../algo/CryptoAlgoCapitalDashboard';
+import { CryptoAlgoDataTab } from '../algo/CryptoAlgoDataTab';
 import { CryptoAlgoExecutionsPanel } from '../CryptoAlgoExecutionsPanel';
 import { CryptoAlgoFutureMarketsPanel } from '../CryptoAlgoFutureMarketsPanel';
-import { CryptoAlgoHeader } from '../CryptoAlgoHeader';
+import { CryptoAlgoHeader } from '../algo/CryptoAlgoHeader';
 import { CryptoAlgoInactiveMarketsPanel } from '../CryptoAlgoInactiveMarketsPanel';
 import { CryptoAlgoLiveMarketsPanel } from '../CryptoAlgoLiveMarketsPanel';
 import { CryptoAlgoPositionsPanel } from '../CryptoAlgoPositionsPanel';

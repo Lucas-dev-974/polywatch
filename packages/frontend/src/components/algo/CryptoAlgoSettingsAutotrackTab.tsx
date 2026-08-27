@@ -1,13 +1,13 @@
 import { createSignal, For, Show } from 'solid-js';
 import { CRYPTO_SYMBOLS } from '@polywatch/core/market-list';
-import { INTERVAL_FILTER_OPTIONS } from '../lib/markets-list';
+import { INTERVAL_FILTER_OPTIONS } from '../../lib/markets-list';
 import {
   createAutoTrackRule,
   deleteAutoTrackRule,
   rules,
   setAutoTrackRuleEnabled,
-} from '../stores/autoTrackStore';
-import { Icon } from './Icon';
+} from '../../stores/autoTrackStore';
+import { Icon } from '../Icon';
 
 export interface CryptoAlgoSettingsAutotrackTabProps {
   onAutoTrackChange?: () => void;

@@ -1,7 +1,7 @@
 import { For } from 'solid-js';
 import { useAlgoCarouselScroll } from '../../hooks/useAlgoCarouselScroll';
-import { AlgoCarousel } from '../AlgoCarousel';
-import { AlgoCarouselNav } from '../AlgoCarouselNav';
+import { AlgoCarousel } from '../algo/AlgoCarousel';
+import { AlgoCarouselNav } from '../algo/AlgoCarouselNav';
 import { WeatherPositionDateDropdown } from './WeatherPositionDateDropdown';
 import type {
   ClosePositionHandler,

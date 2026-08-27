@@ -21,11 +21,11 @@ import {
   type CryptoAlgoSettings,
   pickCryptoAlgoFields,
 } from '../settings/crypto-algo-settings-types';
-import { EnvSettingsEntryTab, EnvSettingsExitTab, EnvSettingsRiskTab } from '../EnvSettingsTabs';
-import { CryptoAlgoSettingsGeneralTab } from '../CryptoAlgoSettingsGeneralTab';
-import { CryptoAlgoSettingsExitTab } from '../CryptoAlgoSettingsExitTab';
-import { CryptoAlgoSettingsAutotrackTab } from '../CryptoAlgoSettingsAutotrackTab';
-import { WeatherAlgoSettingsTab } from '../WeatherAlgoSettingsTab';
+import { EnvSettingsEntryTab, EnvSettingsExitTab, EnvSettingsRiskTab } from '../algo/EnvSettingsTabs';
+import { CryptoAlgoSettingsGeneralTab } from '../algo/CryptoAlgoSettingsGeneralTab';
+import { CryptoAlgoSettingsExitTab } from '../algo/CryptoAlgoSettingsExitTab';
+import { CryptoAlgoSettingsAutotrackTab } from '../algo/CryptoAlgoSettingsAutotrackTab';
+import { WeatherAlgoSettingsTab } from '../algo/WeatherAlgoSettingsTab';
 
 export interface NewSessionResetDialogProps {
   open: boolean;

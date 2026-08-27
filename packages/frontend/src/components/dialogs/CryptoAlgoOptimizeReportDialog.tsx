@@ -7,7 +7,7 @@ import {
   fetchCurrentCryptoAlgoConfigFingerprint,
 } from '../../lib/crypto-algo-optimize-report';
 import { Dialog } from '../Dialog';
-import { CryptoAlgoReportViewer } from '../CryptoAlgoReportViewer';
+import { CryptoAlgoReportViewer } from '../algo/CryptoAlgoReportViewer';
 import { NewSessionResetDialog } from './NewSessionResetDialog';
 
 export interface CryptoAlgoOptimizeReportDialogProps {

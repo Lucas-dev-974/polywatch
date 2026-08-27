@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import { Icon } from './Icon';
+import { Icon } from '../Icon';
 
 export interface AlgoCarouselNavProps {
   visible: boolean;

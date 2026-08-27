@@ -1,7 +1,7 @@
 import { Show } from 'solid-js';
-import { formatAlgoCapital, type AlgoCapital } from '../lib/algo-capital';
-import { formatPnlAmount, pnlClass } from '../lib/position';
-import type { useClobCredentials } from '../hooks/useClobCredentials';
+import { formatAlgoCapital, type AlgoCapital } from '../../lib/algo-capital';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
+import type { useClobCredentials } from '../../hooks/useClobCredentials';
 
 type ClobCredentialsState = ReturnType<typeof useClobCredentials>;
 

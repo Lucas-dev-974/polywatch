@@ -3,12 +3,12 @@ import {
   fetchWeatherConfig,
   updateWeatherConfig,
   type WeatherConfig,
-} from '../api';
+} from '../../api';
 import {
   NumberField,
   ToggleField,
-} from './settings/settings-fields';
-import { CollapsibleSection } from './CollapsibleSection';
+} from '../settings/settings-fields';
+import { CollapsibleSection } from '../CollapsibleSection';
 
 export function WeatherAlgoSettingsTab() {
   const [config, setConfig] = createSignal<WeatherConfig | null>(null);

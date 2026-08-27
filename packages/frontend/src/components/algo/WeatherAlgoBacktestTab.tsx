@@ -20,15 +20,15 @@ import {
   type BacktestRunDto,
   type BacktestRunParamsInput,
   type WeatherStrategyMeta,
-} from '../api';
-import { UI_KEYS, usePersistedSignal } from '../lib/ui-persistence';
-import { toDateInputValue, resolveRunCapital } from './backtest/format';
-import { LaunchBacktestForm } from './backtest/LaunchBacktestForm';
-import { BacktestRunList } from './backtest/BacktestRunList';
-import { BacktestRunDetail } from './backtest/BacktestRunDetail';
-import { BacktestLiveRidgePanel } from './backtest/BacktestLiveRidgePanel';
-import { useBacktestPolling } from './backtest/useBacktestPolling';
-import { clearEnrichCache } from './backtest/ridge/precompute';
+} from '../../api';
+import { UI_KEYS, usePersistedSignal } from '../../lib/ui-persistence';
+import { toDateInputValue, resolveRunCapital } from '../backtest/format';
+import { LaunchBacktestForm } from '../backtest/LaunchBacktestForm';
+import { BacktestRunList } from '../backtest/BacktestRunList';
+import { BacktestRunDetail } from '../backtest/BacktestRunDetail';
+import { BacktestLiveRidgePanel } from '../backtest/BacktestLiveRidgePanel';
+import { useBacktestPolling } from '../backtest/useBacktestPolling';
+import { clearEnrichCache } from '../backtest/ridge/precompute';
 
 const PAGE_SIZE = 20;
 // Taille de page pour le chargement paginé des séries marché (ridge plot).

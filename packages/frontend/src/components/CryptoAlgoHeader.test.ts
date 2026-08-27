@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveCryptoAlgoStatusBadge } from './CryptoAlgoHeader';
+import { resolveCryptoAlgoStatusBadge } from './algo/CryptoAlgoHeader';
 
 describe('resolveCryptoAlgoStatusBadge', () => {
   it('shows stopped when the process is down', () => {

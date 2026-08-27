@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js';
-import type { CryptoAlgoSettings } from './settings/crypto-algo-settings-types';
-import { NumberField, NullableNumberField, ToggleField } from './settings/settings-fields';
+import type { CryptoAlgoSettings } from '../settings/crypto-algo-settings-types';
+import { NumberField, NullableNumberField, ToggleField } from '../settings/settings-fields';
 
 const CRYPTO_ALGO_STRATEGIES: { id: string; label: string }[] = [
   { id: 'naive-momentum', label: 'Naive Momentum' },

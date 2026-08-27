@@ -1,6 +1,6 @@
 import { For, Show, createMemo } from 'solid-js';
 import type { CryptoAlgoOptimizeReport } from '@polywatch/core';
-import { formatPnlAmount, pnlClass } from '../lib/position';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
 
 function formatCryptoAlgoSizingLine(config: CryptoAlgoOptimizeReport['config']): string {
   if (config.cryptoAlgoSizingMode === 'fixed_shares') {

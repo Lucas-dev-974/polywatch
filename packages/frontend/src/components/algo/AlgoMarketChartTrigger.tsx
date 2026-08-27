@@ -1,6 +1,6 @@
-import type { MarketChartContext } from '../lib/market-chart';
-import { openMarketChart } from '../stores/marketChartStore';
-import { Icon } from './Icon';
+import type { MarketChartContext } from '../../lib/market-chart';
+import { openMarketChart } from '../../stores/marketChartStore';
+import { Icon } from '../Icon';
 
 export interface AlgoMarketChartTriggerProps extends MarketChartContext {
   buttonClass: string;

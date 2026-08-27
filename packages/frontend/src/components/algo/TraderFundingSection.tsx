@@ -2,9 +2,9 @@ import { createSignal, For, Show } from 'solid-js';
 import type {
   TraderFundingAnalysis,
   TraderFundingUnavailableReason,
-} from '../lib/trader-insight';
-import { PolygonscanSettingsDialog } from './dialogs/PolygonscanSettingsDialog';
-import { TraderFundingTimelineChart } from './charts/TraderFundingTimelineChart';
+} from '../../lib/trader-insight';
+import { PolygonscanSettingsDialog } from '../dialogs/PolygonscanSettingsDialog';
+import { TraderFundingTimelineChart } from '../charts/TraderFundingTimelineChart';
 
 function formatUsd(value: number): string {
   const abs = Math.abs(value);

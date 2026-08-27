@@ -18,7 +18,7 @@ import {
   type CryptoAlgoPostEntryMidSampleRow,
   type CryptoAlgoPriceTickRow,
   type CryptoAlgoSurveillanceSnapshotRow,
-} from '../api';
+} from '../../api';
 import {
   CRYPTO_ALGO_DATA_TABLE_IDS,
   CRYPTO_ALGO_DATA_VIEWS,
@@ -27,9 +27,9 @@ import {
   usePersistedSignal,
   type CryptoAlgoDataTableId,
   type CryptoAlgoDataView,
-} from '../lib/ui-persistence';
-import { Pagination } from './Pagination';
-import { formatNum, formatTs, formatTsCompact } from '../lib/format';
+} from '../../lib/ui-persistence';
+import { Pagination } from '../Pagination';
+import { formatNum, formatTs, formatTsCompact } from '../../lib/format';
 
 /** Union des lignes de détail par table. */
 type CryptoAlgoDataRow =

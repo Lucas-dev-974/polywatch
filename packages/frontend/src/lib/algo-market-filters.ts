@@ -1,4 +1,4 @@
-import type { AlgoMarketPrice } from '../components/AlgoMarketCard';
+import type { AlgoMarketPrice } from '../components/algo/AlgoMarketCard';
 
 // Maximum time in the future to consider a market as "future" (15 minutes)
 // Markets starting beyond this window are considered too far out and are filtered out.

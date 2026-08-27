@@ -47,6 +47,8 @@ export interface WeatherPosition {
   exitBidVwap?: number | null;
   /** Current executable bid (mark price used for unrealized PnL on open positions). */
   executableBidVwap?: number | null;
+  /** Owning weather strategy (e.g. weather-forecast, weather-forecast-aligned). */
+  strategyId?: string | null;
   weatherForecast: WeatherForecastSnapshot | null;
 }
 

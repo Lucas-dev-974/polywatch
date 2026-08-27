@@ -9,6 +9,7 @@ import {
 } from '../../lib/position';
 import {
   formatBucketLabel,
+  weatherStrategyLabel,
   type WeatherBucketBounds,
 } from '../../lib/weather-position';
 import { WeatherPositionMetric } from './WeatherPositionMetric';
@@ -49,6 +50,9 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
         <span class={`algo-mode-badge ${pos.mode}`}>
           {pos.mode === 'real' ? 'Réel' : pos.mode === 'sim' ? 'Sim' : pos.mode}
         </span>
+        <Show when={weatherStrategyLabel(pos.strategyId)}>
+          {(label) => <span class="algo-strategy-badge">{label()}</span>}
+        </Show>
         <span class={`text-mono ${genericPnlClass(pnl)}`}>
           {formatPnlAmount(pnl, true)}
           <Show when={pct != null}>

@@ -33,13 +33,13 @@ Gestion multi-intervalles de l'historique CLOB + refonte colonne « En base » �
 
 **Aucune action requise** — le plan est clos.
 
-### 1.3 `2026-08-09_PLAN-weather-multi-strategy-extensible.md` — **partiellement implémenté**
+### 1.3 `2026-08-09_PLAN-weather-multi-strategy-extensible.md` — **implémenté (2026-08-27)**
 
 | Item | État |
 |------|------|
-| Badge UI `strategyId` sur positions / exécutions | ❌ ouvert |
-| Tests dédiés safe-reload + E2E `activeStrategies` | ❌ ouvert |
-| `runner-sim` multi-stratégies (sans forcer un seul `strategyId`) | ❌ ouvert (UI passe toujours `strategyId`) |
+| Badge UI `strategyId` sur positions / exécutions | ✅ implémenté (2026-08-27) |
+| Tests dédiés safe-reload + E2E `activeStrategies` | ✅ implémenté (2026-08-27) |
+| `runner-sim` multi-stratégies (sans forcer un seul `strategyId`) | ✅ implémenté (2026-08-27) |
 | SPEC spread / convergence / arbitrage | ❌ futur (hors cette étape) |
 
 ---

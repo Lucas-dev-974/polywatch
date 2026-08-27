@@ -19,6 +19,8 @@ export interface Execution {
   marketQuestion?: string | null;
   outcome?: string | null;
   conditionId?: string | null;
+  /** Owning weather strategy (resolved from the linked position). */
+  strategyId?: string | null;
 }
 
 /**

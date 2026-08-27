@@ -10,6 +10,22 @@ export interface WeatherBucketBounds {
 
 export type WeatherUnit = 'celsius' | 'fahrenheit' | null;
 
+/** Libellés courts des stratégies weather connues (fallback hors catalogue). */
+const WEATHER_STRATEGY_LABELS: Record<string, string> = {
+  'weather-forecast': 'Forecast (best edge)',
+  'weather-forecast-aligned': 'Forecast (aligned)',
+  'weather-highest-yes': 'Highest YES',
+};
+
+/**
+ * Libellé lisible d'une stratégie weather. Retourne l'id brut si inconnu.
+ * Utilisé pour les badges positions / exécutions (item multi-strategy badge).
+ */
+export function weatherStrategyLabel(strategyId: string | null | undefined): string | null {
+  if (!strategyId) return null;
+  return WEATHER_STRATEGY_LABELS[strategyId] ?? strategyId;
+}
+
 function unitSuffix(unit: WeatherUnit): string {
   if (unit === 'fahrenheit') return '°F';
   if (unit === 'celsius') return '°C';

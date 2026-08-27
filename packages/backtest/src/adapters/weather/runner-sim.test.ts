@@ -4,6 +4,7 @@ import {
   evaluateRunnerSimGroup,
   selectRunnerSimSignals,
   buildActiveMarketsForGroup,
+  createRunnerSimStrategies,
 } from './runner-sim.js';
 import { createWeatherStrategy } from './clocked-weather-strategy.js';
 import type { BookTickEventData } from '../../engine/events.js';
@@ -113,5 +114,24 @@ describe('runner-sim helpers', () => {
     );
 
     expect(signal?.conditionId).toBe('between');
+  });
+
+  it('createRunnerSimStrategies resolves all enabled strategies when no override', () => {
+    const config = {
+      weatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
+    } as never;
+    const strategies = createRunnerSimStrategies(config);
+    expect(strategies.map((s) => s.id).sort()).toEqual([
+      'weather-forecast',
+      'weather-forecast-aligned',
+    ]);
+  });
+
+  it('createRunnerSimStrategies forces a single strategy when override provided', () => {
+    const config = {
+      weatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
+    } as never;
+    const strategies = createRunnerSimStrategies(config, 'weather-forecast-aligned');
+    expect(strategies.map((s) => s.id)).toEqual(['weather-forecast-aligned']);
   });
 });

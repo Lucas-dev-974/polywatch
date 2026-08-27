@@ -37,7 +37,7 @@ export interface RunContext {
       entryUsdc: number;
       capital: number;
       mode: 'reevaluate' | 'replay';
-      strategyId: string;
+      strategyId?: string;
       fidelityMinutes?: number;
   };
   cancelRequested(): boolean;
@@ -67,7 +67,7 @@ export interface RunSpec {
   maxConcurrentPositions: number;
   entryUsdc: number;
   mode: 'reevaluate' | 'replay';
-  strategyId: string;
+  strategyId?: string;
   fidelityMinutes?: number;
   service: BacktestRunService;
   /** Cooperative abort: 'cancelled' (user) or 'timeout'. */

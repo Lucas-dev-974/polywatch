@@ -7,7 +7,7 @@ import {
   executionStatusLabel,
   formatExecutionCashImpact,
 } from '../../lib/execution';
-import { formatWeatherDate, formatBucketLabel, type WeatherBucketBounds } from '../../lib/weather-position';
+import { formatWeatherDate, formatBucketLabel, weatherStrategyLabel, type WeatherBucketBounds } from '../../lib/weather-position';
 import type { useWeatherAlgoExecutions, WeatherExecution } from '../../hooks/useWeatherAlgoExecutions';
 import { Icon } from '../Icon';
 import { CollapsibleSection } from '../CollapsibleSection';
@@ -74,6 +74,13 @@ function WeatherExecRow(props: { item: WeatherExecution }) {
         <span class={`algo-mode-badge ${item().mode}`}>
           {item().mode === 'real' ? 'Réel' : 'Sim'}
         </span>
+        <Show when={weatherStrategyLabel(item().strategyId)}>
+          {(label) => (
+            <span class="algo-strategy-badge" style={{ 'margin-left': '0.375rem' }}>
+              {label()}
+            </span>
+          )}
+        </Show>
       </td>
       <td class="text-sm">
         <span class={`algo-status-dot-sm ${executionStatusClass(item().status)}`} />

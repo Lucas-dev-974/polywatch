@@ -1,7 +1,7 @@
 # Plan — Multi-stratégies Weather Algo (extensible, v2)
 
 **Date** : 2026-08-09
-**Statut** : Plan validé, **partiellement implémenté** (2026-08-09)
+**Statut** : Plan validé, **implémenté** (2026-08-27)
 **Références** : [`../audits/2026-08-09_audit-weather-algo-strategy-live.md`](../audits/2026-08-09_audit-weather-algo-strategy-live.md) · [`../specs/2026-08-08_SPEC_multi-strategy-weather-algo.md`](../specs/2026-08-08_SPEC_multi-strategy-weather-algo.md)
 
 ### Livré vs ouvert
@@ -15,7 +15,7 @@
 | Params déclaratifs par stratégie | ✅ schéma prêt ; catalogue actuel = `params: []` (gates = knobs globaux) |
 | Badge UI `strategyId` sur positions / exécutions | ❌ ouvert |
 | Tests dédiés safe-reload + E2E `activeStrategies` | ❌ ouvert |
-| `runner-sim` multi-stratégies (sans forcer un seul `strategyId`) | ❌ ouvert (UI passe toujours `strategyId`) |
+| `runner-sim` multi-stratégies (sans forcer un seul `strategyId`) | ✅ implémenté (2026-08-27) |
 | SPEC spread / convergence / arbitrage | ❌ futur (hors cette étape) |
 
 ---

@@ -62,7 +62,8 @@ export function WeatherAlgoBacktestTab() {
   const [strategyId, setStrategyId] = usePersistedSignal(
       'polywatch_weather_algo_backtest_strategy_id',
       'weather-forecast',
-      (v): v is string => typeof v === 'string' && v.length > 0,
+      // '' = "Toutes les stratégies actives" (runner-sim multi-stratégies).
+      (v): v is string => typeof v === 'string',
     );
     const [catalog, setCatalog] = createSignal<WeatherStrategyMeta[]>([]);
   const [launching, setLaunching] = createSignal(false);
@@ -351,7 +352,10 @@ export function WeatherAlgoBacktestTab() {
               from: new Date(`${from()}T00:00:00.000Z`).toISOString(),
               to: new Date(`${to()}T23:59:59.999Z`).toISOString(),
               cities: cities().trim() ? cities().split(',').map((c) => c.trim()).filter(Boolean) : undefined,
-              strategyId: strategyId(),
+              // En mode reevaluate, une stratégie vide = toutes les stratégies
+              // actives de la config (runner-sim multi-stratégies). En replay,
+              // on force une stratégie cible (filtre data-loader).
+              strategyId: strategyId() || (mode() === 'replay' ? 'weather-forecast' : undefined),
               capital: cap,
               entryUsdc: entry,
               slippageBps: slip,

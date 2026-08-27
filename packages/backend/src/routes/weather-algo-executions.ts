@@ -96,6 +96,7 @@ export function createWeatherAlgoExecutionsRouter(ds: DataSource): Router {
         marketUrl: market?.url ?? null,
         outcome: position?.outcome ?? null,
         conditionId: position?.conditionId ?? null,
+        strategyId: position?.strategyId ?? null,
         weatherForecast: forecast ? serializeWeatherForecast(forecast) : null,
       };
     });

@@ -4,6 +4,7 @@ import {
   WeatherMarketSnapshot,
   WeatherForecastHistory,
   WeatherEvaluationLog,
+  WEATHER_FORECAST_STRATEGY_ID,
 } from '@polywatch/core';
 import type { BacktestEvent } from '../../engine/events.js';
 import type { BacktestRunParams } from '../../params.js';
@@ -31,7 +32,10 @@ export async function* loadWeatherEvents(
     // Le filtre fidelity ne s'applique pas aux signals : weather_evaluation_log
     // ne porte pas de colonne fidelity_minutes (limite documentée — warning
     // émis par l'adapter en mode replay).
-    streams.push(loadSignalEvents(ds, from, to, cities, params.strategyId));
+    // Le replay rejoue des décisions enregistrées : il faut une stratégie
+    // cible. Si l'UI n'en force pas, on retombe sur weather-forecast.
+    const strategyId = params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID;
+    streams.push(loadSignalEvents(ds, from, to, cities, strategyId));
   }
 
   yield* mergeEventStreams(streams);
@@ -50,7 +54,8 @@ export async function countWeatherEvents(
   let total = await countForecastEvents(ds, from, to, cities);
   total += await countTickEvents(ds, from, to, cities, fidelityMinutes);
   if (params.mode === 'replay') {
-    total += await countSignalEvents(ds, from, to, cities, params.strategyId);
+    const strategyId = params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID;
+    total += await countSignalEvents(ds, from, to, cities, strategyId);
   }
   return total;
 }

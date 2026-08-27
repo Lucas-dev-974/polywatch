@@ -90,7 +90,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   private lastRunnerSimBatchAt: number | null = null;
   private exitManager: WeatherExitManager;
   private forecastStore = new ForecastRevisionStore();
-  private readonly strategyId: WeatherStrategyId;
+  private readonly strategyId: WeatherStrategyId | null;
   private readonly bag: WeatherStrategyParamsBag;
   private readonly warnings = new AdapterWarnings();
   private killSwitchFired = false;
@@ -101,10 +101,14 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   >();
 
   constructor(ctx: RunContext) {
-    const strategyId = (ctx.params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID) as WeatherStrategyId;
+    // En mode runner-sim, si aucun strategyId n'est forcé, on laisse
+    // createRunnerSimStrategies résoudre toutes les stratégies actives de la
+    // config (multi-stratégies). Le strategyId n'est forcé qu'en mode replay
+    // (filtre data-loader) ou quand l'UI en demande un explicitement.
+    const strategyId = (ctx.params.strategyId ?? null) as WeatherStrategyId | null;
     this.strategyId = strategyId;
-    this.bag = getStrategyParams(ctx.configSnapshot, strategyId);
-    this.runnerSimStrategies = createRunnerSimStrategies(ctx.configSnapshot, strategyId);
+    this.bag = getStrategyParams(ctx.configSnapshot, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
+    this.runnerSimStrategies = createRunnerSimStrategies(ctx.configSnapshot, strategyId ?? undefined);
     for (const s of this.runnerSimStrategies) {
       s.setRiskConfig(getStrategyParams(ctx.configSnapshot, s.id));
     }
@@ -605,7 +609,13 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const maxPos = ctx.params.maxConcurrentPositions;
     if (ctx.ledger.openCount() >= maxPos) return;
 
+    // Pré-check d'entrée bloquée : ne s'applique qu'en mode mono-stratégie
+    // (strategyId forcé). En runner-sim multi-stratégies (strategyId null), le
+    // blocage est résolu par signal dans flushPendingRunnerSimSignals avec le
+    // strategyId émetteur — un pré-check ici avec le bag par défaut bloquerait
+    // à tort les autres stratégies.
     if (
+      this.strategyId &&
       data.snapshotTargetDateIso &&
       this.isWeatherEntryBlocked(ctx, data.snapshotCity, data.snapshotTargetDateIso, this.strategyId, ctx.configSnapshot)
     ) return;

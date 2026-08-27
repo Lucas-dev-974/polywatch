@@ -104,6 +104,11 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
             value={props.strategyId()}
             onChange={(e) => props.setStrategyId(e.currentTarget.value)}
           >
+            <Show when={props.mode() === 'reevaluate'}>
+              <option value="">
+                Toutes (stratégies actives de la config)
+              </option>
+            </Show>
             <For each={props.catalog()}>
               {(s) => <option value={s.id}>{s.label}</option>}
             </For>

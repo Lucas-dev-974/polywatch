@@ -7,6 +7,38 @@ import type { WeatherSignal, WeatherStrategy } from './strategy.js';
 import { pickBestEdgeBucket, bucketCentre } from './bucket-selection.js';
 import { dedupSignalsByCityDate, applySelectionMode } from './strategy-runner-selection.js';
 
+// Neutralise the Gamma discovery HTTP fetch for the full-cycle safe-reload test.
+vi.mock('@polywatch/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@polywatch/core')>();
+  const today = new Date();
+  const monthDay = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  const market = {
+    conditionId: 'm-33',
+    question: `Will the highest temperature in Paris be 33°C on ${monthDay}?`,
+    eventSlug: 'paris-aug-2',
+    tokenIdYes: 'yes-1',
+    tokenIdNo: 'no-1',
+    outcomePrices: [
+      { outcome: 'Yes', price: 0.05 },
+      { outcome: 'No', price: 0.95 },
+    ],
+    endDate: new Date(Date.now() + 48 * 3_600_000).toISOString(),
+    closed: false,
+    acceptingOrders: true,
+  };
+  return {
+    ...actual,
+    discoverWeatherMarkets: vi.fn(async () => ({
+      temperatureMarkets: [market],
+      allWeatherMarkets: [market],
+      byCity: [],
+    })),
+    discoverResolvedWeatherMarkets: vi.fn(async () => ({
+      resolvedTemperatureMarkets: [],
+    })),
+  };
+});
+
 function minimalRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
   return {
     weatherAlgoEnabled: false,
@@ -575,6 +607,138 @@ describe('evaluateCityFollowDateGroup with open position', () => {
     expect(recordSnapshot).toHaveBeenCalledTimes(1);
     expect(result).toBeNull();
     expect(strategy.evaluate).not.toHaveBeenCalled();
+  });
+});
+
+describe('WeatherStrategyRunner safe reload', () => {
+  function market(overrides: Partial<MarketListItemDto> = {}): MarketListItemDto {
+    return {
+      conditionId: 'cond-1',
+      question: 'Will the highest temperature in Paris be 33°C on August 2?',
+      eventSlug: 'paris-aug-2',
+      tokenIdYes: 'yes-1',
+      tokenIdNo: 'no-1',
+      outcomePrices: [
+        { outcome: 'Yes', price: 0.05 },
+        { outcome: 'No', price: 0.95 },
+      ],
+      endDate: new Date(Date.now() + 48 * 3_600_000).toISOString(),
+      closed: false,
+      acceptingOrders: true,
+      ...overrides,
+    } as MarketListItemDto;
+  }
+
+  function signalStrategy(id: string, emit: boolean): WeatherStrategy {
+    return {
+      id,
+      evaluate: vi.fn(async () =>
+        emit
+          ? {
+              kind: 'signal' as const,
+              signal: {
+                conditionId: 'cond-1',
+                assetId: 'yes-1',
+                outcome: 'YES',
+                side: 'BUY',
+                confidence: 0.5,
+                reasons: [],
+                strategyId: id,
+                eventSlug: 'paris-aug-2',
+                city: 'Paris',
+                metric: 'highest_temp',
+                targetDate: new Date('2026-08-02T12:00:00Z'),
+                forecastMean: 33,
+                forecastStdDev: 1.5,
+                forecastProbability: 0.5,
+                marketPrice: 0.05,
+                edge: 0.2,
+                dynamicMinEdge: 0.05,
+                entryBucketComparison: 'exact',
+                entryBucketBounds: { target: 33 },
+              },
+            }
+          : { kind: 'abstain' as const, reason: 'no_signal' },
+      ),
+    } as unknown as WeatherStrategy;
+  }
+
+  it('snapshots enabledStrategies at cycle start — a mid-cycle config change applies next cycle', async () => {
+    const forecastStrategy = signalStrategy('weather-forecast', true);
+    const alignedStrategy = signalStrategy('weather-forecast-aligned', true);
+    const getOrdered = vi.fn((ids: string[]) =>
+      ids
+        .map((id) => [forecastStrategy, alignedStrategy].find((s) => s.id === id))
+        .filter((s): s is WeatherStrategy => Boolean(s)),
+    );
+    const registry = {
+      getAll: () => [forecastStrategy, alignedStrategy],
+      getOrdered,
+    } as unknown as WeatherStrategyRegistry;
+
+    // A city-follow rule so the cycle reaches strategy evaluation.
+    const cityRule = { id: 1, city: 'Paris', metric: 'highest_temp', lookAheadDays: 1, enabled: true };
+
+    // Gate the exit pass so we can change config mid-cycle.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let exitCalls = 0;
+    const exitEvaluator = {
+      evaluateOpenPositions: vi.fn(async () => {
+        exitCalls += 1;
+        if (exitCalls === 1) await gate;
+      }),
+      updateRiskConfig: vi.fn(),
+    } as unknown as WeatherExitEvaluator;
+
+    const runner = new WeatherStrategyRunner({
+      ds: { getRepository: () => ({ find: async () => [] }) } as never,
+      autoTrackService: { loadAllEnabled: async () => [cityRule] } as never,
+      forecastService: {
+        getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
+      } as never,
+      registry,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+      exitEvaluator,
+    });
+
+    // Cycle 1 starts with only weather-forecast enabled.
+    runner.setRiskConfig(
+      minimalRisk({
+        weatherAlgoEnabled: true,
+        weatherAlgoStrategies: JSON.stringify(['weather-forecast']),
+      }),
+    );
+    runner.requestEvaluationCycle();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(exitCalls).toBe(1);
+
+    // Mid-cycle: enable the aligned strategy too. The running cycle must NOT
+    // pick it up (safe reload) — it continues with the snapshot taken at start.
+    runner.setRiskConfig(
+      minimalRisk({
+        weatherAlgoEnabled: true,
+        weatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
+      }),
+    );
+
+    release();
+    // Let cycle 1 finish. getOrdered was called with the snapshot taken at
+    // cycle start (only weather-forecast) — the mid-cycle change did NOT apply.
+    await vi.waitFor(() => expect(exitCalls).toBe(1));
+    expect(getOrdered).toHaveBeenLastCalledWith(['weather-forecast']);
+
+    // Cycle 2 runs with the new config — both strategies are now enabled.
+    runner.requestEvaluationCycle();
+    await vi.waitFor(() => expect(exitCalls).toBe(2));
+    expect(getOrdered).toHaveBeenLastCalledWith(['weather-forecast', 'weather-forecast-aligned']);
+
+    runner.stop();
   });
 });
 

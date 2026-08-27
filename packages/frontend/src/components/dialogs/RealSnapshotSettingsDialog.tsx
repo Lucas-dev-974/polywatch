@@ -1,8 +1,8 @@
 import { createEffect, createSignal, on, Show } from 'solid-js';
-import { fetchGlobalConfig, updateGlobalConfig } from '../api';
-import type { EnvSettings } from './settings/env-settings-types';
-import { Dialog } from './Dialog';
-import { SimAutoSnapshotSection } from './settings/settings-fields';
+import { fetchGlobalConfig, updateGlobalConfig } from '../../api';
+import type { EnvSettings } from '../settings/env-settings-types';
+import { Dialog } from '../Dialog';
+import { RealAutoSnapshotSection } from '../settings/settings-fields';
 
 interface Props {
   open: boolean;
@@ -11,13 +11,13 @@ interface Props {
 
 type SnapshotSettings = Pick<
   EnvSettings,
-  | 'simAutoSnapshotEnabled'
-  | 'simAutoSnapshotIntervalSeconds'
-  | 'simSnapshotMaxCount'
-  | 'simSnapshotRetentionDays'
+  | 'realAutoSnapshotEnabled'
+  | 'realAutoSnapshotIntervalSeconds'
+  | 'realSnapshotMaxCount'
+  | 'realSnapshotRetentionDays'
 >;
 
-export function SimSnapshotSettingsDialog(props: Props) {
+export function RealSnapshotSettingsDialog(props: Props) {
   const [settings, setSettings] = createSignal<SnapshotSettings | null>(null);
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -26,10 +26,10 @@ export function SimSnapshotSettingsDialog(props: Props) {
     try {
       const config = await fetchGlobalConfig();
       setSettings({
-        simAutoSnapshotEnabled: config.simAutoSnapshotEnabled,
-        simAutoSnapshotIntervalSeconds: config.simAutoSnapshotIntervalSeconds,
-        simSnapshotMaxCount: config.simSnapshotMaxCount,
-        simSnapshotRetentionDays: config.simSnapshotRetentionDays,
+        realAutoSnapshotEnabled: config.realAutoSnapshotEnabled,
+        realAutoSnapshotIntervalSeconds: config.realAutoSnapshotIntervalSeconds,
+        realSnapshotMaxCount: config.realSnapshotMaxCount,
+        realSnapshotRetentionDays: config.realSnapshotRetentionDays,
       });
       setError(null);
     } catch {
@@ -77,8 +77,8 @@ export function SimSnapshotSettingsDialog(props: Props) {
     <Dialog
       open={props.open}
       onClose={props.onClose}
-      title="Configuration des snapshots"
-      titleId="sim-snapshot-settings-title"
+      title="Configuration des snapshots réels"
+      titleId="real-snapshot-settings-title"
       class="dialog-settings"
       bodyClass="dialog-body-settings"
     >
@@ -89,10 +89,10 @@ export function SimSnapshotSettingsDialog(props: Props) {
         {(s) => (
           <div class="form-stack">
             <p class="form-hint settings-intro">
-              Snapshots automatiques périodiques de l’état simulation (config,
-              traders, positions, exécutions).
+              Snapshots automatiques périodiques de l’état réel (config, traders,
+              positions, exécutions). Lecture wallet uniquement.
             </p>
-            <SimAutoSnapshotSection
+            <RealAutoSnapshotSection
               config={s() as EnvSettings}
               onChange={(changes) => patch(changes)}
             />

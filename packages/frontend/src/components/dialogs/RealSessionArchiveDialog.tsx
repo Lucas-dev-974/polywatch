@@ -1,15 +1,15 @@
 import { createEffect, createSignal, For, Show } from 'solid-js';
 import type { RealArchiveType } from '@polywatch/core';
-import { formatShortDateTime } from '../lib/date';
-import type { RealSessionSummary } from '../lib/real-sessions';
+import { formatShortDateTime } from '../../lib/date';
+import type { RealSessionSummary } from '../../lib/real-sessions';
 import {
   fetchRealSessionArchive,
   type RealArchiveExecutionDto,
   type RealArchiveExitAttemptDto,
   type RealArchivePositionDto,
   type RealArchiveSummary,
-} from '../lib/real-session-archive';
-import { Dialog } from './Dialog';
+} from '../../lib/real-session-archive';
+import { Dialog } from '../Dialog';
 
 const ARCHIVE_TABS: { id: RealArchiveType; label: string }[] = [
   { id: 'positions', label: 'Positions' },

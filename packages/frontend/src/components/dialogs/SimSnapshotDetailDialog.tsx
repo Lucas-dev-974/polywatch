@@ -1,16 +1,16 @@
 import { createEffect, createSignal, For, Show } from 'solid-js';
-import type { SimStateSnapshotDetail } from '../lib/simulation-snapshots';
-import { formatShortDateTime } from '../lib/date';
+import type { SimStateSnapshotDetail } from '../../lib/simulation-snapshots';
+import { formatShortDateTime } from '../../lib/date';
 import {
   closeReasonBadgeClass,
   formatPnlAmount,
   pnlClass,
-} from '../lib/position';
-import { Dialog } from './Dialog';
+} from '../../lib/position';
+import { Dialog } from '../Dialog';
 import {
   formatSnapshotConfigValue,
   groupSnapshotConfigEntries,
-} from '../lib/snapshot-config-display';
+} from '../../lib/snapshot-config-display';
 
 type DetailTab = 'traders' | 'config' | 'positions' | 'executions' | 'decisions';
 

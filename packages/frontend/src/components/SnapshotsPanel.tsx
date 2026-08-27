@@ -10,7 +10,7 @@ import { SimSessionCard } from './SimSessionCard';
 import { SimSessionComparePanel } from './SimSessionComparePanel';
 import { SimSnapshotCard } from './SimSnapshotCard';
 import { SimSnapshotComparePanel } from './SimSnapshotComparePanel';
-import { SimSnapshotDetailDialog } from './SimSnapshotDetailDialog';
+import { SimSnapshotDetailDialog } from './dialogs/SimSnapshotDetailDialog';
 import { SimSnapshotEquityChart } from './charts/SimSnapshotEquityChart';
 import { SimSnapshotFilters } from './SimSnapshotFilters';
 import type { UseSnapshotsApi } from '../hooks/useSnapshots';

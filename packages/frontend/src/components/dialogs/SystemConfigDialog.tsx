@@ -1,12 +1,12 @@
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
-import { api } from '../api';
-import { Dialog } from './Dialog';
+import { api } from '../../api';
+import { Dialog } from '../Dialog';
 import {
   formatSystemConfigValue,
   getSystemConfigMeta,
   groupSystemConfigEntries,
   SYSTEM_CONFIG_CATEGORY_META,
-} from './system-config-metadata';
+} from '../system-config-metadata';
 
 interface SystemConfigEntry {
   key: string;

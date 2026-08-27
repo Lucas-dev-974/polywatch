@@ -4,8 +4,8 @@ import {
   fetchPolygonscanSettingsStatus,
   savePolygonscanApiKey,
   type PolygonscanSettingsStatus,
-} from '../lib/integration-settings';
-import { Dialog } from './Dialog';
+} from '../../lib/integration-settings';
+import { Dialog } from '../Dialog';
 
 interface Props {
   open: boolean;

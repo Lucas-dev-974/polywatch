@@ -3,7 +3,7 @@ import {
   closeMarketChart,
   marketChartContext,
 } from '../stores/marketChartStore';
-import { MarketChartDialog } from './MarketChartDialog';
+import { MarketChartDialog } from './dialogs/MarketChartDialog';
 
 export function MarketChartDialogHost() {
   onCleanup(() => closeMarketChart());

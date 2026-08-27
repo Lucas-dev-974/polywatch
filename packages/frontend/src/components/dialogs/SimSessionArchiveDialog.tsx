@@ -1,7 +1,7 @@
 import { createEffect, createSignal, For, Show } from 'solid-js';
 import type { SimArchiveType } from '@polywatch/core';
-import { formatShortDateTime } from '../lib/date';
-import type { SimSessionSummary } from '../lib/simulation-sessions';
+import { formatShortDateTime } from '../../lib/date';
+import type { SimSessionSummary } from '../../lib/simulation-sessions';
 import {
   fetchSessionArchive,
   type SimArchiveCandleDto,
@@ -10,8 +10,8 @@ import {
   type SimArchivePositionDto,
   type SimArchiveSummary,
   type SimArchiveSurveillanceDto,
-} from '../lib/simulation-session-archive';
-import { Dialog } from './Dialog';
+} from '../../lib/simulation-session-archive';
+import { Dialog } from '../Dialog';
 
 const ARCHIVE_TABS: { id: SimArchiveType; label: string }[] = [
   { id: 'positions', label: 'Positions' },

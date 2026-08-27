@@ -18,7 +18,7 @@ import { WeatherAlgoSettingsTab } from './WeatherAlgoSettingsTab';
 import { WeatherAlgoDataTab } from './WeatherAlgoDataTab';
 import { WeatherAlgoBacktestTab } from './WeatherAlgoBacktestTab';
 import { WeatherAlgoStrategiesTab } from './WeatherAlgoStrategiesTab';
-import { NewSessionResetDialog } from './NewSessionResetDialog';
+import { NewSessionResetDialog } from './dialogs/NewSessionResetDialog';
 
 export function WeatherAlgoPage() {
   const dashboard = useWeatherAlgoDashboard();

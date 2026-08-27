@@ -1,6 +1,6 @@
 import { createEffect, createSignal, Show } from 'solid-js';
-import { rotateRealPeriod, type RealPeriodRotateResult } from '../lib/real-sessions';
-import { Dialog } from './Dialog';
+import { rotateRealPeriod, type RealPeriodRotateResult } from '../../lib/real-sessions';
+import { Dialog } from '../Dialog';
 
 export interface RealPeriodCloseDialogProps {
   open: boolean;

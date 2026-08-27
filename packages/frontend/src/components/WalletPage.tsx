@@ -9,9 +9,9 @@ import {
   type WalletAccountView,
   type WalletData,
 } from '../lib/wallet';
-import { ClobCredentialsDialog } from './ClobCredentialsDialog';
-import { PusdTransferDialog, type PusdTransferMode } from './PusdTransferDialog';
-import { WalletAccountsDialog } from './WalletAccountsDialog';
+import { ClobCredentialsDialog } from './dialogs/ClobCredentialsDialog';
+import { PusdTransferDialog, type PusdTransferMode } from './dialogs/PusdTransferDialog';
+import { WalletAccountsDialog } from './dialogs/WalletAccountsDialog';
 import { WalletHistorySection } from './WalletHistorySection';
 
 export function WalletPage() {

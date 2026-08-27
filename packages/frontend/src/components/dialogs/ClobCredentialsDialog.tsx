@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
-import { truncateAddress } from '../lib/address';
+import { truncateAddress } from '../../lib/address';
 import {
   BUILDER_FORM_FIELDS,
   CLOB_FORM_FIELDS,
@@ -12,11 +12,11 @@ import {
   SIGNATURE_TYPE_OPTIONS,
   type ClobCredentialsForm,
   type ClobCredentialsStatus,
-} from '../lib/clob-credentials';
-import { CredsFieldList } from './CredsFieldList';
-import { Dialog } from './Dialog';
-import { MetaMaskButton } from './MetaMaskButton';
-import { useFormSave } from '../hooks/useFormSave';
+} from '../../lib/clob-credentials';
+import { CredsFieldList } from '../CredsFieldList';
+import { Dialog } from '../Dialog';
+import { MetaMaskButton } from '../MetaMaskButton';
+import { useFormSave } from '../../hooks/useFormSave';
 
 interface ClobCredentialsDialogProps {
   open: boolean;

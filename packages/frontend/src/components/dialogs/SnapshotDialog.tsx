@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { Dialog } from './Dialog';
+import { Dialog } from '../Dialog';
 
 interface Props {
   open: boolean;

@@ -1,14 +1,14 @@
 import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
-import { api } from '../api';
-import { truncateAddress } from '../lib/address';
-import { tryDeriveAddressFromPrivateKey } from '../lib/private-key';
+import { api } from '../../api';
+import { truncateAddress } from '../../lib/address';
+import { tryDeriveAddressFromPrivateKey } from '../../lib/private-key';
 import {
   SIGNATURE_TYPE_OPTIONS,
   type WalletAccountInput,
   type WalletAccountView,
-} from '../lib/wallet';
-import { Dialog } from './Dialog';
-import { MetaMaskButton } from './MetaMaskButton';
+} from '../../lib/wallet';
+import { Dialog } from '../Dialog';
+import { MetaMaskButton } from '../MetaMaskButton';
 
 interface WalletAccountsDialogProps {
   open: boolean;

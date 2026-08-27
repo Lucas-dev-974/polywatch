@@ -1,5 +1,5 @@
 import { SnapshotDialog } from './SnapshotDialog';
-import { createRealSnapshot } from '../lib/real-snapshots';
+import { createRealSnapshot } from '../../lib/real-snapshots';
 
 interface Props {
   open: boolean;

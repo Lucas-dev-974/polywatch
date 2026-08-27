@@ -1,6 +1,6 @@
 import { SnapshotDialog } from './SnapshotDialog';
-import { createSimulationSnapshot } from '../lib/simulation-snapshots';
-import type { SimAlgoKind } from '../lib/simulation';
+import { createSimulationSnapshot } from '../../lib/simulation-snapshots';
+import type { SimAlgoKind } from '../../lib/simulation';
 
 interface Props {
   open: boolean;

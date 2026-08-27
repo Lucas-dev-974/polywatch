@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from 'solid-js';
 import type { WeatherPosition } from '../../hooks/useWeatherAlgoPositions';
-import { WeatherPositionMarketChartDialog } from '../WeatherPositionMarketChartDialog';
+import { WeatherPositionMarketChartDialog } from '../dialogs/WeatherPositionMarketChartDialog';
 import { WeatherPositionCityCard } from './WeatherPositionCityCard';
 import type { WeatherPositionCityGroup } from './types';
 

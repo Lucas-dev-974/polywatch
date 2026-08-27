@@ -3,7 +3,7 @@ import { createSignal, For, onMount, Show } from 'solid-js';
 import { Icon } from './Icon';
 import { MarketCard } from './MarketCard';
 import { MarketMetricsPanel } from './MarketMetricsPanel';
-import { MarketSyncSettingsDialog } from './MarketSyncSettingsDialog';
+import { MarketSyncSettingsDialog } from './dialogs/MarketSyncSettingsDialog';
 import { MarketsCryptoCurrencyFilterBar } from './MarketsCryptoCurrencyFilterBar';
 import { MarketsCryptoFilterBar } from './MarketsCryptoFilterBar';
 import { MarketsIntervalSidebar } from './MarketsIntervalSidebar';

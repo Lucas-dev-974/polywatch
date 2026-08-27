@@ -4,18 +4,18 @@ import {
   fetchGlobalConfig,
   updateCryptoConfig,
   updateGlobalConfig,
-} from '../api';
-import { loadAutoTrackRules } from '../stores/autoTrackStore';
-import { CryptoAlgoSettingsAutotrackTab } from './CryptoAlgoSettingsAutotrackTab';
-import { CryptoAlgoSettingsEntryTab } from './CryptoAlgoSettingsEntryTab';
-import { CryptoAlgoSettingsExitTab } from './CryptoAlgoSettingsExitTab';
-import { CryptoAlgoSettingsGeneralTab } from './CryptoAlgoSettingsGeneralTab';
+} from '../../api';
+import { loadAutoTrackRules } from '../../stores/autoTrackStore';
+import { CryptoAlgoSettingsAutotrackTab } from '../CryptoAlgoSettingsAutotrackTab';
+import { CryptoAlgoSettingsEntryTab } from '../CryptoAlgoSettingsEntryTab';
+import { CryptoAlgoSettingsExitTab } from '../CryptoAlgoSettingsExitTab';
+import { CryptoAlgoSettingsGeneralTab } from '../CryptoAlgoSettingsGeneralTab';
 import {
   pickCryptoAlgoFields,
   type CryptoAlgoSettings,
-} from './settings/crypto-algo-settings-types';
-import { type EnvSettings } from './settings/env-settings-types';
-import { Dialog } from './Dialog';
+} from '../settings/crypto-algo-settings-types';
+import { type EnvSettings } from '../settings/env-settings-types';
+import { Dialog } from '../Dialog';
 
 type SettingsTab = 'general' | 'entry' | 'exit' | 'autotrack';
 

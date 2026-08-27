@@ -2,8 +2,8 @@ import { Show, createEffect, createMemo } from 'solid-js';
 import type { CryptoAlgoHealthAlert } from '../lib/crypto-algo-health';
 import type { AlgoMarketStatus } from '../stores/algoMarketsStore';
 import { setCryptoAlgoAlerts } from '../stores/notificationStore';
-import { CryptoAlgoOptimizeReportDialogTrigger } from './CryptoAlgoOptimizeReportDialog';
-import { CryptoAlgoSettingsDialogTrigger } from './CryptoAlgoSettingsDialog';
+import { CryptoAlgoOptimizeReportDialogTrigger } from './dialogs/CryptoAlgoOptimizeReportDialog';
+import { CryptoAlgoSettingsDialogTrigger } from './dialogs/CryptoAlgoSettingsDialog';
 import { Icon } from './Icon';
 
 export interface CryptoAlgoHeaderProps {

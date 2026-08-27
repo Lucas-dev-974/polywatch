@@ -13,19 +13,19 @@ import {
   type MarketChartContext,
   type OutcomeSideLabels,
   type UpDownPricePoint,
-} from '../lib/market-chart';
-import { UPDOWN_CHART_CONFIG } from '../lib/updown-price-chart';
-import { useMarketChart } from '../hooks/useMarketChart';
-import { useMarketOrderSize } from '../hooks/useMarketOrderSize';
-import { useExitAttempts } from '../hooks/useExitAttempts';
-import { useAlgoOpenExecutionsForCondition } from '../hooks/useAlgoOpenExecutionsForCondition';
-import { useMaxSlippagePercent } from '../hooks/useMaxSlippagePercent';
-import { Dialog } from './Dialog';
-import { MarketChartMeta } from './MarketChartMeta';
-import { MarketChartMosMeta } from './MarketChartMosMeta';
-import { MarketChartDebugPanel } from './MarketChartDebugPanel';
-import { UpDownPriceChart } from './charts/UpDownPriceChart';
-import { TimeframeSelector } from './TimeframeSelector';
+} from '../../lib/market-chart';
+import { UPDOWN_CHART_CONFIG } from '../../lib/updown-price-chart';
+import { useMarketChart } from '../../hooks/useMarketChart';
+import { useMarketOrderSize } from '../../hooks/useMarketOrderSize';
+import { useExitAttempts } from '../../hooks/useExitAttempts';
+import { useAlgoOpenExecutionsForCondition } from '../../hooks/useAlgoOpenExecutionsForCondition';
+import { useMaxSlippagePercent } from '../../hooks/useMaxSlippagePercent';
+import { Dialog } from '../Dialog';
+import { MarketChartMeta } from '../MarketChartMeta';
+import { MarketChartMosMeta } from '../MarketChartMosMeta';
+import { MarketChartDebugPanel } from '../MarketChartDebugPanel';
+import { UpDownPriceChart } from '../charts/UpDownPriceChart';
+import { TimeframeSelector } from '../TimeframeSelector';
 
 const RESOLUTION_1MIN_MS = 60_000;
 

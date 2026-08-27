@@ -1,8 +1,8 @@
 import { SnapshotsPanel } from './SnapshotsPanel';
 import { useRealSnapshots } from '../hooks/useRealSnapshots';
-import { RealSnapshotDialog } from './RealSnapshotDialog';
-import { RealSnapshotSettingsDialog } from './RealSnapshotSettingsDialog';
-import { RealSessionArchiveDialog } from './RealSessionArchiveDialog';
+import { RealSnapshotDialog } from './dialogs/RealSnapshotDialog';
+import { RealSnapshotSettingsDialog } from './dialogs/RealSnapshotSettingsDialog';
+import { RealSessionArchiveDialog } from './dialogs/RealSessionArchiveDialog';
 import type { UseSnapshotsApi } from '../hooks/useSnapshots';
 import type { RealSessionSummary } from '../lib/real-sessions';
 import type { SimSessionSummary } from '../lib/simulation-sessions';

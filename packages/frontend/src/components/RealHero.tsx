@@ -7,11 +7,11 @@ import {
 } from '../api';
 import { useClobCredentials } from '../hooks/useClobCredentials';
 import { useTradingWallet } from '../hooks/useTradingWallet';
-import { EnvSettingsDialogTrigger } from './EnvSettingsDialog';
-import { SystemConfigDialog } from './SystemConfigDialog';
+import { EnvSettingsDialogTrigger } from './dialogs/EnvSettingsDialog';
+import { SystemConfigDialog } from './dialogs/SystemConfigDialog';
 import { ModeHeroBalanceStat } from './ModeHeroBalanceStat';
-import { RealSnapshotDialog } from './RealSnapshotDialog';
-import { RealPeriodCloseDialog } from './RealPeriodCloseDialog';
+import { RealSnapshotDialog } from './dialogs/RealSnapshotDialog';
+import { RealPeriodCloseDialog } from './dialogs/RealPeriodCloseDialog';
 
 export function RealHero() {
   const creds = useClobCredentials();

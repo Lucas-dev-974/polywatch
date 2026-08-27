@@ -1,8 +1,8 @@
 import { SnapshotsPanel } from './SnapshotsPanel';
 import { useSimulationSnapshots } from '../hooks/useSimulationSnapshots';
-import { SimSnapshotDialog } from './SimSnapshotDialog';
-import { SimSnapshotSettingsDialog } from './SimSnapshotSettingsDialog';
-import { SimSessionArchiveDialog } from './SimSessionArchiveDialog';
+import { SimSnapshotDialog } from './dialogs/SimSnapshotDialog';
+import { SimSnapshotSettingsDialog } from './dialogs/SimSnapshotSettingsDialog';
+import { SimSessionArchiveDialog } from './dialogs/SimSessionArchiveDialog';
 import type { SimAlgoKind } from '../lib/simulation';
 
 const ALGO_TABS: { id: SimAlgoKind; label: string }[] = [

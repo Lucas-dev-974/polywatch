@@ -3,9 +3,9 @@ import {
   fetchMarketSyncConfig,
   saveMarketSyncConfig,
   type MarketSyncConfig,
-} from '../lib/market-sync-config';
-import { Dialog } from './Dialog';
-import { NumberField } from './settings/settings-fields';
+} from '../../lib/market-sync-config';
+import { Dialog } from '../Dialog';
+import { NumberField } from '../settings/settings-fields';
 
 interface Props {
   open: boolean;

@@ -1,17 +1,17 @@
 import { createEffect, createSignal, For, on, Show } from 'solid-js';
-import { fetchEnvSettings, updateEnvSettings } from '../api';
+import { fetchEnvSettings, updateEnvSettings } from '../../api';
 import {
   ENV_MODE_LABELS,
   pickModeFields,
   type EnvMode,
   type EnvSettings,
-} from './settings/env-settings-types';
+} from '../settings/env-settings-types';
 import {
   EnvSettingsEntryTab,
   EnvSettingsExitTab,
   EnvSettingsRiskTab,
-} from './EnvSettingsTabs';
-import { Dialog } from './Dialog';
+} from '../EnvSettingsTabs';
+import { Dialog } from '../Dialog';
 
 type SettingsTab = 'entry' | 'exit' | 'risk';
 

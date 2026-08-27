@@ -13,7 +13,7 @@ import {
 } from '../lib/analysis-reports';
 import { AnalysisReportComparePanel } from './AnalysisReportComparePanel';
 import { CryptoAlgoReportViewer } from './CryptoAlgoReportViewer';
-import { NewSessionResetDialog } from './NewSessionResetDialog';
+import { NewSessionResetDialog } from './dialogs/NewSessionResetDialog';
 
 function toIsoStart(dateStr: string): string | null {
   if (!dateStr.trim()) return null;

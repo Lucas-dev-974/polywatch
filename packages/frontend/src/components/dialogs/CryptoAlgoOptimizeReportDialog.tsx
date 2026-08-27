@@ -1,13 +1,13 @@
 import { Show, createEffect, createSignal } from 'solid-js';
 import type { CryptoAlgoOptimizeReport } from '@polywatch/core';
-import { formatShortDateTime } from '../lib/date';
+import { formatShortDateTime } from '../../lib/date';
 import {
   applyRecommendedCryptoAlgoConfig,
   fetchCryptoAlgoOptimizeReport,
   fetchCurrentCryptoAlgoConfigFingerprint,
-} from '../lib/crypto-algo-optimize-report';
-import { Dialog } from './Dialog';
-import { CryptoAlgoReportViewer } from './CryptoAlgoReportViewer';
+} from '../../lib/crypto-algo-optimize-report';
+import { Dialog } from '../Dialog';
+import { CryptoAlgoReportViewer } from '../CryptoAlgoReportViewer';
 import { NewSessionResetDialog } from './NewSessionResetDialog';
 
 export interface CryptoAlgoOptimizeReportDialogProps {

@@ -1,13 +1,13 @@
 import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
-import { truncateAddress } from '../lib/address';
-import { depositPusdViaMetaMask } from '../lib/pusd-transfer';
-import { mapPusdTransferError, pusdTransferHint } from '../lib/pusd-errors';
+import { truncateAddress } from '../../lib/address';
+import { depositPusdViaMetaMask } from '../../lib/pusd-transfer';
+import { mapPusdTransferError, pusdTransferHint } from '../../lib/pusd-errors';
 import {
   receivedTokenLabel,
   submitWalletWithdraw,
   validateTransferAmount,
   withdrawButtonLabel,
-} from '../lib/wallet-transfer';
+} from '../../lib/wallet-transfer';
 import {
   defaultWithdrawRecipientKey,
   withdrawRecipientOptions,
@@ -15,12 +15,12 @@ import {
   type WalletAccountView,
   type WalletData,
   type WithdrawOutputAsset,
-} from '../lib/wallet';
-import { BridgeDepositPanel } from './BridgeDepositPanel';
-import { Dialog } from './Dialog';
-import { MetaMaskButton } from './MetaMaskButton';
-import { PusdTransferSummary } from './PusdTransferSummary';
-import { WithdrawTransferFields } from './WithdrawTransferFields';
+} from '../../lib/wallet';
+import { BridgeDepositPanel } from '../BridgeDepositPanel';
+import { Dialog } from '../Dialog';
+import { MetaMaskButton } from '../MetaMaskButton';
+import { PusdTransferSummary } from '../PusdTransferSummary';
+import { WithdrawTransferFields } from '../WithdrawTransferFields';
 
 export type PusdTransferMode = 'deposit' | 'withdraw';
 

@@ -202,8 +202,8 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     // Exit
     { key: 'forecastChangeThreshold', label: 'Seuil de dérive forecast (°C)', kind: 'number', min: 0.5, max: 20, step: 0.5, default: 2, hint: 'Déclenche WEATHER_FORECAST_CHANGE.' },
     { key: 'bucketHysteresisPolls', label: 'Hystérésis bucket (polls)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
-    { key: 'reentryThrottleMs', label: 'Ré-entrée après sortie bucket/drift (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: 'Pause après WEATHER_BUCKET_EXIT ou WEATHER_FORECAST_CHANGE.' },
-    { key: 'reentryThrottleAfterSlMs', label: 'Ré-entrée après stop-loss (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: '0 = désactivé. Pause après une sortie SL avant de rouvrir le même couple ville+date.' },
+    { key: 'reentryThrottleMs', label: 'Ré-entrée après sortie bucket/drift (ms)', kind: 'number', min: 0, max: 86_400_000, step: 1000, default: 1_800_000, hint: 'Pause après WEATHER_BUCKET_EXIT ou WEATHER_FORECAST_CHANGE.' },
+    { key: 'reentryThrottleAfterSlMs', label: 'Ré-entrée après stop-loss (ms)', kind: 'number', min: 0, max: 86_400_000, step: 1000, default: 1_800_000, hint: '0 = désactivé. Pause après une sortie SL avant de rouvrir le même couple ville+date.' },
     { key: 'maxReentriesPerCityDate', label: 'Max entrées par ville+date', kind: 'number', min: 0, max: 20, step: 1, default: 2, hint: '0 = illimité. Nombre max de positions ouvertes (cumul) sur un même couple ville+date — limite les allers-retours SL.' },
     { key: 'cityFollowSwitchMode', label: 'Mode suivi ville', kind: 'select', options: CITY_FOLLOW_OPTIONS, default: 'close_and_reenter' },
     // SL / TP / Trailing
@@ -217,9 +217,9 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
     { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
-    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 100, default: 1000 },
-    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 100 },
-    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 200 },
+    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 1000 },
+    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 100 },
+    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 200 },
     // Depth retry / confirmation
     { key: 'entryDepthRetryMax', label: 'Retries profondeur', kind: 'number', min: 0, max: 10, step: 1, default: 3 },
     { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },
@@ -272,15 +272,15 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     { key: 'trailingPercent', label: 'Trailing (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Drawdown en % de la mise investie.' },
     { key: 'trailingActivationPercent', label: 'Trailing activation (%)', kind: 'number', min: 0, max: 100, step: 1, default: 0, hint: '0 = désactivé. Gain en % de la mise investie pour armer le trailing.' },
     // Re-entry guards
-    { key: 'reentryThrottleMs', label: 'Ré-entrée après sortie bucket/drift (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: 'Pause après WEATHER_BUCKET_EXIT ou WEATHER_FORECAST_CHANGE.' },
-    { key: 'reentryThrottleAfterSlMs', label: 'Ré-entrée après stop-loss (ms)', kind: 'number', min: 0, max: 86_400_000, step: 60_000, default: 1_800_000, hint: '0 = désactivé. Pause après une sortie SL.' },
+    { key: 'reentryThrottleMs', label: 'Ré-entrée après sortie bucket/drift (ms)', kind: 'number', min: 0, max: 86_400_000, step: 1000, default: 1_800_000, hint: 'Pause après WEATHER_BUCKET_EXIT ou WEATHER_FORECAST_CHANGE.' },
+    { key: 'reentryThrottleAfterSlMs', label: 'Ré-entrée après stop-loss (ms)', kind: 'number', min: 0, max: 86_400_000, step: 1000, default: 1_800_000, hint: '0 = désactivé. Pause après une sortie SL.' },
     { key: 'maxReentriesPerCityDate', label: 'Max entrées par ville+date', kind: 'number', min: 0, max: 20, step: 1, default: 2, hint: '0 = illimité. Limite les re-entrées après SL sur le même marché ville+date.' },
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
     { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
-    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 100, default: 1000 },
-    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 100 },
-    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 10, default: 200 },
+    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 1000 },
+    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 100 },
+    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 200 },
     // Depth retry / confirmation
     { key: 'entryDepthRetryMax', label: 'Retries profondeur', kind: 'number', min: 0, max: 10, step: 1, default: 3 },
     { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },

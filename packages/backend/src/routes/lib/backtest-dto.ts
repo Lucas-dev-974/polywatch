@@ -1,6 +1,7 @@
 import {
   getStrategyParams,
   getWeatherStrategyMeta,
+  parseWeatherAlgoStrategyParams,
   type BacktestRun,
   type StrategyParamSchema,
   type WeatherConfig,
@@ -105,6 +106,12 @@ export function resolveBacktestRunStrategy(
     ) {
       bag.maxOpenPositions = runParams.maxConcurrentPositions;
     }
+    // Surcharge des params de stratégie (configOverrides.weatherAlgoStrategyParams,
+    // string JSON) — fusionnée dans le bag affiché pour refléter la run réelle.
+    const overrides = readStrategyParamsOverride(runParams);
+    if (overrides) {
+      Object.assign(bag, overrides);
+    }
     for (const schema of meta.params) {
       const value = (bag as Record<string, unknown>)[schema.key];
       rows.push({
@@ -127,6 +134,23 @@ export function resolveBacktestRunStrategy(
 function displayStrategyParamLabel(schema: StrategyParamSchema): string {
   if (!isDurationMsParam(schema)) return schema.label;
   return schema.label.replace(/\s*\(ms\)\s*$/i, ' (min)');
+}
+
+/**
+ * Lit l'override de params de stratégie envoyé via
+ * `configOverrides.weatherAlgoStrategyParams` (string JSON) pour la stratégie
+ * résolue. Retourne la partial bag fusionnée, ou null si absent.
+ */
+function readStrategyParamsOverride(
+  runParams: Record<string, unknown>,
+): Partial<WeatherStrategyParamsBag> | null {
+  const overrides = runParams.configOverrides;
+  if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) return null;
+  const raw = (overrides as Record<string, unknown>).weatherAlgoStrategyParams;
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  const parsed = parseWeatherAlgoStrategyParams(raw);
+  const bag = parsed[runParams.strategyId as string];
+  return bag && typeof bag === 'object' ? (bag as Partial<WeatherStrategyParamsBag>) : null;
 }
 
 export function formatStrategyParamValue(schema: StrategyParamSchema, raw: unknown): string {

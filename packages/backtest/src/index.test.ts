@@ -38,4 +38,30 @@ describe('applyConfigOverrides', () => {
       applyConfigOverrides(baseConfig(), { weatherAlgoSizingMode: ['fixed_usdc'] }),
     ).toThrow(/primitive/);
   });
+
+  it('applies a valid weatherAlgoStrategyParams JSON override', () => {
+    const cfg = baseConfig();
+    const out = applyConfigOverrides(cfg, {
+      weatherAlgoStrategyParams: JSON.stringify({ 'weather-forecast': { minEdge: 0.25 } }),
+    });
+    expect(out.weatherAlgoStrategyParams).toBe(
+      JSON.stringify({ 'weather-forecast': { minEdge: 0.25 } }),
+    );
+  });
+
+  it('throws on an invalid weatherAlgoStrategyParams override', () => {
+    expect(() =>
+      applyConfigOverrides(baseConfig(), {
+        weatherAlgoStrategyParams: JSON.stringify({ 'weather-forecast': { minEdge: 'abc' } }),
+      }),
+    ).toThrow(/weatherAlgoStrategyParams invalide/);
+  });
+
+  it('throws on an out-of-bounds value in weatherAlgoStrategyParams override', () => {
+    expect(() =>
+      applyConfigOverrides(baseConfig(), {
+        weatherAlgoStrategyParams: JSON.stringify({ 'weather-forecast': { minEdge: 0.9 } }),
+      }),
+    ).toThrow(/weatherAlgoStrategyParams invalide/);
+  });
 });

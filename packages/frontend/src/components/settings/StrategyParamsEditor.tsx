@@ -1,0 +1,251 @@
+import { For, Show } from 'solid-js';
+import type { WeatherStrategyMeta } from '../../api';
+import { NumberField, ToggleField, SelectField, NullableNumberField } from './settings-fields';
+
+/** Nullable numeric knobs: stored `0` is coerced to `null` at runtime, so the
+ * form uses NullableNumberField to write `null` (disabled) instead of `0`. */
+const NULLABLE_PARAM_KEYS = new Set([
+  'maxForecastStd',
+  'minForecastProbability',
+  'maxYesPrice',
+  'slPercent',
+  'tpPercent',
+  'trailingPercent',
+  'trailingActivationPercent',
+]);
+
+/** Paramètres stockés en millisecondes — affichés et saisis en minutes. */
+const DURATION_MS_KEYS = new Set([
+  'reentryThrottleMs',
+  'reentryThrottleAfterSlMs',
+  'entryDepthRetryDelayMs',
+]);
+
+function isDurationMsParam(key: string): boolean {
+  return DURATION_MS_KEYS.has(key);
+}
+
+function msToMin(ms: number): number {
+  return ms / 60_000;
+}
+
+function minToMs(min: number): number {
+  return min * 60_000;
+}
+
+function durationLabel(label: string): string {
+  return label.replace(/\s*\(ms\)\s*$/i, ' (min)');
+}
+
+/** Regroupement logique des paramètres pour un affichage professionnel. */
+const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
+  {
+    id: 'entry',
+    title: 'Entrée',
+    keys: ['minEdge', 'maxForecastStd', 'minForecastProbability', 'minYesPrice', 'maxYesPrice', 'sizingMode', 'entryUsdc', 'fixedShareCount'],
+  },
+  {
+    id: 'exit',
+    title: 'Sortie',
+    keys: [
+      'forecastChangeThreshold',
+      'bucketHysteresisPolls',
+      'reentryThrottleMs',
+      'reentryThrottleAfterSlMs',
+      'maxReentriesPerCityDate',
+      'cityFollowSwitchMode',
+    ],
+  },
+  {
+    id: 'sl-tp',
+    title: 'Stop-loss / Take-profit',
+    keys: [
+      'slEnabled',
+      'tpEnabled',
+      'trailingEnabled',
+      'slPercent',
+      'tpPercent',
+      'trailingPercent',
+      'trailingActivationPercent',
+    ],
+  },
+  {
+    id: 'risk',
+    title: 'Limites de risque',
+    keys: ['maxOpenPositions', 'maxExposureUsdc', 'maxDailyLossUsdc', 'maxPositionSizeUsdc'],
+  },
+  {
+    id: 'execution',
+    title: 'Exécution',
+    keys: [
+      'entryDepthRetryMax',
+      'entryDepthRetryDelayMs',
+      'slCloseMaxRetries',
+      'slConfirmationTicks',
+      'killSwitchAction',
+    ],
+  },
+  {
+    id: 'misc',
+    title: 'Divers',
+    keys: ['signalScoreSizingEnabled', 'minBidToAskRatio', 'minTimeToClose'],
+  },
+];
+
+export interface StrategyParamsEditorProps {
+  strategy: WeatherStrategyMeta;
+  /** Valeurs effectives affichées (pré-remplissage live). */
+  values: Record<string, number | boolean | string | null>;
+  /** Valeurs surchargées par l'utilisateur (override bag). */
+  overrides: Record<string, number | boolean | string | null>;
+  /** Clés à exposer (défaut = toutes). Le backtest passe BACKTEST_EFFECTIVE_PARAM_KEYS. */
+  visibleKeys?: string[];
+  /** Quand fourni, le param `entryUsdc` est rendu comme un champ run-level
+   * (câblé à cette valeur/onChange) au lieu d'un param du bag de stratégie.
+   * Utilisé par le formulaire de backtest où `entryUsdc` est un param run-level. */
+  entryUsdcField?: {
+    value: string;
+    onChange: (value: string) => void;
+  };
+  onChange: (key: string, value: number | boolean | string | null) => void;
+}
+
+export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
+  const visible = (key: string) =>
+    !props.visibleKeys || props.visibleKeys.length === 0 || props.visibleKeys.includes(key);
+
+  // Valeur affichée = override si présent, sinon valeur effective (live).
+  const valueOf = (key: string): number | boolean | string | null =>
+    key in props.overrides ? props.overrides[key] : props.values[key];
+
+  // Mode de sizing effectif (défaut fixed_usdc).
+  const sizingMode = () => String(valueOf('sizingMode') ?? 'fixed_usdc');
+
+  // Affichage conditionnel selon le mode de sizing :
+  // - entryUsdc n'a de sens qu'en fixed_usdc (sizing par montant USDC).
+  // - fixedShareCount n'a de sens qu'en fixed_shares (sizing par parts).
+  const sizingVisible = (key: string): boolean => {
+    if (key === 'entryUsdc') return sizingMode() === 'fixed_usdc';
+    if (key === 'fixedShareCount') return sizingMode() === 'fixed_shares';
+    return true;
+  };
+
+  return (
+    <div class="weather-strategy-groups">
+      <For each={PARAM_GROUPS}>
+        {(group) => {
+          const params = () =>
+            props.strategy.params
+              .filter(
+                (p) => group.keys.includes(p.key) && visible(p.key) && sizingVisible(p.key),
+              )
+              .sort((a, b) => group.keys.indexOf(a.key) - group.keys.indexOf(b.key));
+          return (
+            <Show when={params().length > 0}>
+              <div class="weather-strategy-group">
+                <h4 class="weather-strategy-group__title">{group.title}</h4>
+                <div class="weather-strategy-group__fields">
+                  <For each={params()}>
+                    {(param) => (
+                      <Show
+                        when={param.key === 'entryUsdc' && props.entryUsdcField}
+                        fallback={
+                          <Show
+                            when={param.kind === 'boolean'}
+                            fallback={
+                              <Show
+                                when={param.kind === 'select'}
+                                fallback={
+                                  <Show
+                                    when={NULLABLE_PARAM_KEYS.has(param.key)}
+                                    fallback={
+                                      <NumberField
+                                        label={durationLabel(param.label)}
+                                        value={
+                                          isDurationMsParam(param.key)
+                                            ? msToMin(Number(valueOf(param.key) ?? param.default))
+                                            : Number(valueOf(param.key) ?? param.default)
+                                        }
+                                        min={
+                                          isDurationMsParam(param.key) && param.min != null
+                                            ? msToMin(param.min)
+                                            : param.min
+                                        }
+                                        max={
+                                          isDurationMsParam(param.key) && param.max != null
+                                            ? msToMin(param.max)
+                                            : param.max
+                                        }
+                                        step={
+                                          isDurationMsParam(param.key) && param.step != null
+                                            ? msToMin(param.step)
+                                            : (param.step ?? 0.01)
+                                        }
+                                        hint={param.hint}
+                                        onChange={(value) =>
+                                          props.onChange(
+                                            param.key,
+                                            isDurationMsParam(param.key) ? minToMs(value) : value,
+                                          )
+                                        }
+                                      />
+                                    }
+                                  >
+                                    <NullableNumberField
+                                      label={param.label}
+                                      value={valueOf(param.key) as number | null | undefined ?? null}
+                                      min={param.min}
+                                      max={param.max}
+                                      step={param.step ?? 0.01}
+                                      hint={param.hint}
+                                      onChange={(value) => props.onChange(param.key, value)}
+                                    />
+                                  </Show>
+                                }
+                              >
+                                <SelectField
+                                  label={param.label}
+                                  value={String(valueOf(param.key) ?? param.default)}
+                                  options={param.options ?? []}
+                                  hint={param.hint}
+                                  onChange={(value) => props.onChange(param.key, value)}
+                                />
+                              </Show>
+                            }
+                          >
+                            <ToggleField
+                              label={param.label}
+                              checked={Boolean(valueOf(param.key) ?? param.default)}
+                              hint={param.hint}
+                              onChange={(checked) => props.onChange(param.key, checked)}
+                            />
+                          </Show>
+                        }
+                      >
+                        <div class="form-field">
+                          <label>{param.label}</label>
+                          <input
+                            class="input"
+                            type="number"
+                            min={param.min}
+                            max={param.max}
+                            step={param.step ?? 0.01}
+                            value={props.entryUsdcField!.value}
+                            onInput={(e) => props.entryUsdcField!.onChange(e.currentTarget.value)}
+                          />
+                          <Show when={param.hint}>
+                            <p class="form-hint">{param.hint}</p>
+                          </Show>
+                        </div>
+                      </Show>
+                    )}
+                  </For>
+                </div>
+              </div>
+            </Show>
+          );
+        }}
+      </For>
+    </div>
+  );
+}

@@ -336,9 +336,28 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 `BacktestEquityChart`) :
 
 - **Couverture de données** affichée avant lancement.
-- **Formulaire** : période, villes, capital, slippage, entrée USDC, positions max,
-  stratégie, mode de sélection des signaux (single/multi, surcharge via
-  `configOverrides`) — pas d'UI pour `configOverrides` (disponibles via API).
+- **Formulaire** : période, villes, capital, slippage, stratégie, mode de
+  sélection des signaux (single/multi, surcharge via `configOverrides`).
+- **Section « Config stratégie »** (toujours visible) : regroupe les réglages
+  propres à la run en cours, sans affecter le live sim/réel.
+  - **Champs run-level** : `maxConcurrentPositions` (Max positions concurrentes),
+    envoyé directement dans le body du run.
+  - **Sizing dans la section « Entrée »** (visible quand une stratégie précise est
+    sélectionnée) : `sizingMode` (Fixed USDC / Fixed Shares) et `entryUsdc`
+    (Entry / position) sont rendus dans le groupe « Entrée » de l'éditeur de
+    params, avec un **affichage conditionnel** selon le mode :
+    - `fixed_usdc` → `entryUsdc` visible, `fixedShareCount` masqué.
+    - `fixed_shares` → `fixedShareCount` visible, `entryUsdc` masqué.
+    `sizingMode` et `fixedShareCount` sont envoyés via
+    `configOverrides.weatherAlgoStrategyParams` ; `entryUsdc` reste un param
+    run-level envoyé dans le body du run. Quand aucune stratégie précise n'est
+    sélectionnée, `entryUsdc` reste toujours visible.
+  - **Surcharge des paramètres de stratégie** (visible quand une stratégie
+    précise est sélectionnée) : via `configOverrides.weatherAlgoStrategyParams`
+    (string JSON). Pré-remplie avec les valeurs effectives de la config live
+    (WYSIWYG) ; seuls les champs modifiés sont envoyés, fusionnés avec la partial
+    live stockée. Seuls les params réellement consommés par le moteur de backtest
+    sont exposés (les knobs d'exécution live sont exclus).
 - **Liste des runs** : statut, progression, métriques.
 - **Détail** : métriques (PnL, win rate, PF avec `∞` si null, expectancy, durée
   moy., répartition par sortie / ville), avertissements de fidélité, message

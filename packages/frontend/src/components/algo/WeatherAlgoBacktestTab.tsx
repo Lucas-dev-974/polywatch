@@ -10,6 +10,7 @@ import {
   fetchBacktestRun,
   fetchBacktestRuns,
   fetchLiveMarketSeries,
+  fetchWeatherConfig,
   fetchWeatherStrategyCatalog,
   launchBacktestRun,
   type BacktestDataCoverage,
@@ -75,6 +76,15 @@ export function WeatherAlgoBacktestTab() {
     const [catalog, setCatalog] = createSignal<WeatherStrategyMeta[]>([]);
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
+  // Params live par stratégie (weatherAlgoStrategyParams de la config live) —
+  // pré-remplissage WYSIWYG de la section « Config stratégie ».
+  const [liveStrategyParams, setLiveStrategyParams] = createSignal<
+    Record<string, Record<string, number | boolean | string | null>>
+  >({});
+  // Overrides de params par stratégie pour la run en cours (uniquement backtest).
+  const [strategyConfigOverrides, setStrategyConfigOverrides] = createSignal<
+    Record<string, Record<string, number | boolean | string | null>>
+  >({});
 
   // ── Liste des runs ───────────────────────────────────────────────
   const [runs, setRuns] = createSignal<BacktestRunDto[]>([]);
@@ -315,6 +325,9 @@ export function WeatherAlgoBacktestTab() {
     void fetchWeatherStrategyCatalog()
       .then((res) => setCatalog(res.strategies))
       .catch(() => setCatalog([]));
+    void fetchWeatherConfig()
+      .then((cfg) => setLiveStrategyParams(cfg.weatherAlgoStrategyParams ?? {}))
+      .catch(() => setLiveStrategyParams({}));
     const restoredId = selectedId();
     if (restoredId != null) {
       openRun(restoredId);
@@ -354,13 +367,22 @@ export function WeatherAlgoBacktestTab() {
     setLaunching(true);
     setLaunchError(null);
     try {
+      // C2 — l'override de weatherAlgoStrategyParams remplace TOUTE la map
+      // (applyConfigOverrides fait { ...config, ...overrides }). On fusionne
+      // donc la partial live stockée avec les champs modifiés pour ne pas
+      // perdre silencieusement les autres overrides live (WYSIWYG).
+      const sid = strategyId();
+      const modifiedBag = sid ? strategyConfigOverrides()[sid] ?? {} : {};
+      const mergedBag = sid
+        ? { ...(liveStrategyParams()[sid] ?? {}), ...modifiedBag }
+        : {};
       const body: BacktestRunParamsInput = {
               from: new Date(`${from()}T00:00:00.000Z`).toISOString(),
               to: new Date(`${to()}T23:59:59.999Z`).toISOString(),
               cities: cities().trim() ? cities().split(',').map((c) => c.trim()).filter(Boolean) : undefined,
               // Une stratégie vide = toutes les stratégies actives de la config
               // (runner-sim multi-stratégies).
-              strategyId: strategyId() || undefined,
+              strategyId: sid || undefined,
               capital: cap,
               entryUsdc: entry,
               slippageBps: slip,
@@ -369,10 +391,14 @@ export function WeatherAlgoBacktestTab() {
               label: label().trim() || undefined,
               // Surcharge du mode de sélection des signaux (single/multi) pour
               // ce run. Vide = hériter de la config live.
-              configOverrides:
-                selectionMode() === 'single' || selectionMode() === 'multi'
+              configOverrides: {
+                ...(selectionMode() === 'single' || selectionMode() === 'multi'
                   ? { weatherAlgoSelectionMode: selectionMode() }
-                  : undefined,
+                  : {}),
+                ...(sid && Object.keys(mergedBag).length > 0
+                  ? { weatherAlgoStrategyParams: JSON.stringify({ [sid]: mergedBag }) }
+                  : {}),
+              },
             };
       const res = await launchBacktestRun(body);
       setPage(0);
@@ -494,6 +520,9 @@ export function WeatherAlgoBacktestTab() {
                   setStrategyId={setStrategyId}
                   selectionMode={selectionMode}
                   setSelectionMode={setSelectionMode}
+                  liveStrategyParams={liveStrategyParams}
+                  strategyConfigOverrides={strategyConfigOverrides}
+                  setStrategyConfigOverrides={setStrategyConfigOverrides}
                   launching={launching}
                   launchError={launchError}
                   onFidelityChange={() => void refreshCoverage()}

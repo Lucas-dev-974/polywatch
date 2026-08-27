@@ -2,6 +2,9 @@ import type { DataSource } from 'typeorm';
 import {
   BacktestRunService,
   DEFAULT_WEATHER_STRATEGY_PARAMS,
+  parseWeatherAlgoStrategyParams,
+  sanitizeWeatherStrategyParams,
+  validateWeatherStrategyParamsUpdate,
   type WeatherConfig,
 } from '@polywatch/core';
 import { loadWeatherEvents, countWeatherEvents, computeWeatherFidelityStats } from './adapters/weather/data-loader.js';
@@ -59,6 +62,28 @@ export function applyConfigOverrides(
       `configOverrides: clés inconnues (préfixe attendu 'weatherAlgo') : ${unknownKeys.join(', ')}`,
     );
   }
+
+  // C3 — validation défensive de weatherAlgoStrategyParams (string JSON).
+  // Le PUT /config/weather valide ce champ, mais ce chemin override ne le
+  // faisait pas : une valeur malformée serait fusionnée telle quelle et
+  // produirait des comparaisons NaN silencieuses. On applique les mêmes
+  // règles (sanitize + validate) que la config live.
+  const rawParams = overrides.weatherAlgoStrategyParams;
+  if (typeof rawParams === 'string') {
+    const parsed = parseWeatherAlgoStrategyParams(rawParams);
+    const sanitized = sanitizeWeatherStrategyParams(parsed);
+    const errors = validateWeatherStrategyParamsUpdate(
+      Object.keys(sanitized),
+      sanitized,
+    );
+    if (errors.length > 0) {
+      const first = errors[0];
+      throw new Error(
+        `configOverrides: weatherAlgoStrategyParams invalide (${first.strategyId}.${first.key}: ${first.message})`,
+      );
+    }
+  }
+
   return { ...config, ...overrides } as WeatherConfig;
 }
 

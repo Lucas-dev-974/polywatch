@@ -164,6 +164,16 @@ merge) sur le snapshot `WeatherConfig` **avant** le run. La route backend stocke
 néanmoins `configSnapshotJson` / fingerprint **avant** overrides (config live).
 `BACKTEST_ENGINE_VERSION` est écrit dans `backtest_runs.engine_version` au launch.
 
+`applyConfigOverrides` valide les overrides : clés préfixées `weatherAlgo`,
+valeurs primitives (string/number/boolean/null). Depuis la section « Config
+stratégie » du formulaire, `weatherAlgoStrategyParams` (string JSON) est
+**sanitisé + validé** (`sanitizeWeatherStrategyParams` +
+`validateWeatherStrategyParamsUpdate`, mêmes règles que le PUT `/config/weather`)
+avant fusion — une valeur malformée ou hors bornes lève une erreur claire au lieu
+de produire des comparaisons NaN silencieuses. L'override remplace la map entière
+(`{ ...config, ...overrides }`), donc le frontend fusionne la partial live stockée
+avec les champs modifiés avant d'envoyer.
+
 ## 4. Exits (`engine/exit-manager.ts`)
 
 | Raison | Condition | Throttle re-entry |

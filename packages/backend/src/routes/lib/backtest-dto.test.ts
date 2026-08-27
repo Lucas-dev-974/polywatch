@@ -84,6 +84,28 @@ describe('resolveBacktestRunStrategy', () => {
     expect(dto?.params.find((p) => p.key === 'maxOpenPositions')?.display).toBe('3');
   });
 
+  it('overlays configOverrides.weatherAlgoStrategyParams on the displayed bag', () => {
+    const dto = resolveBacktestRunStrategy(
+      {
+        configSnapshotJson: snapshotJson({
+          'weather-forecast': { minEdge: 0.1, slPercent: 15 },
+        }),
+      },
+      {
+        strategyId: 'weather-forecast',
+        configOverrides: {
+          weatherAlgoStrategyParams: JSON.stringify({
+            'weather-forecast': { minEdge: 0.25 },
+          }),
+        },
+      },
+    );
+    // minEdge surchargé par l'override.
+    expect(dto?.params.find((p) => p.key === 'minEdge')?.display).toBe('0.25');
+    // slPercent non surchargé reste celui du snapshot (merge, pas remplacement).
+    expect(dto?.params.find((p) => p.key === 'slPercent')?.display).toBe('15');
+  });
+
   it('falls back to catalogue defaults when the bag is empty', () => {
     const dto = resolveBacktestRunStrategy(
       { configSnapshotJson: snapshotJson({}) },

@@ -3,8 +3,6 @@ import {
   WeatherBucketTick,
   WeatherMarketSnapshot,
   WeatherForecastHistory,
-  WeatherEvaluationLog,
-  WEATHER_FORECAST_STRATEGY_ID,
 } from '@polywatch/core';
 import type { BacktestEvent } from '../../engine/events.js';
 import type { BacktestRunParams } from '../../params.js';
@@ -141,15 +139,6 @@ export async function* loadWeatherEvents(
     loadForecastEvents(ds, from, to, cities),
     loadTickEvents(ds, from, to, cities, fidelityMinutes),
   ];
-  if (params.mode === 'replay') {
-    // Le filtre fidelity ne s'applique pas aux signals : weather_evaluation_log
-    // ne porte pas de colonne fidelity_minutes (limite documentée — warning
-    // émis par l'adapter en mode replay).
-    // Le replay rejoue des décisions enregistrées : il faut une stratégie
-    // cible. Si l'UI n'en force pas, on retombe sur weather-forecast.
-    const strategyId = params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID;
-    streams.push(loadSignalEvents(ds, from, to, cities, strategyId));
-  }
 
   yield* mergeEventStreams(streams);
 }
@@ -166,10 +155,6 @@ export async function countWeatherEvents(
 
   let total = await countForecastEvents(ds, from, to, cities);
   total += await countTickEvents(ds, from, to, cities, fidelityMinutes);
-  if (params.mode === 'replay') {
-    const strategyId = params.strategyId ?? WEATHER_FORECAST_STRATEGY_ID;
-    total += await countSignalEvents(ds, from, to, cities, strategyId);
-  }
   return total;
 }
 
@@ -284,25 +269,6 @@ async function countTickEvents(
     qb.andWhere('t.fidelityMinutes = :fid', { fid: fidelityMinutes });
   }
   applyCityFilter(qb, 't', 'city', cities);
-  return qb.getCount();
-}
-
-async function countSignalEvents(
-  ds: DataSource,
-  from: Date,
-  to: Date,
-  cities: string[] | null,
-  strategyId: string,
-): Promise<number> {
-  const qb = ds
-    .getRepository(WeatherEvaluationLog)
-    .createQueryBuilder('e')
-    .leftJoin(WeatherMarketSnapshot, 's', 's.id = e.snapshotId')
-    .where('e.evaluatedAt >= :from', { from })
-    .andWhere('e.evaluatedAt <= :to', { to })
-    .andWhere("e.decision = 'signal'")
-    .andWhere('e.strategyId = :strategyId', { strategyId });
-  applyCityFilter(qb, 's', 'city', cities);
   return qb.getCount();
 }
 
@@ -434,74 +400,5 @@ async function* loadTickEvents(
     },
     't_recorded_at',
     't_id',
-  );
-}
-
-async function* loadSignalEvents(
-  ds: DataSource,
-  from: Date,
-  to: Date,
-  cities: string[] | null,
-  strategyId: string,
-): AsyncGenerator<BacktestEvent> {
-  yield* paginateKeyset(
-    (cursor) => {
-      const qb = ds
-        .getRepository(WeatherEvaluationLog)
-        .createQueryBuilder('e')
-        .leftJoin(WeatherMarketSnapshot, 's', 's.id = e.snapshotId')
-        .select([
-          'e.id',
-          'e.conditionId',
-          'e.strategyId',
-          'e.yesPrice',
-          'e.forecastProb',
-          'e.edge',
-          'e.dynamicMinEdge',
-          'e.decision',
-          'e.bucketComparison',
-          'e.bucketTarget',
-          'e.bucketLow',
-          'e.bucketHigh',
-          'e.evaluatedAt',
-          's.city',
-          's.forecastMean',
-          's.targetDateIso',
-          's.metric',
-        ])
-        .where('e.evaluatedAt >= :from', { from })
-        .andWhere('e.evaluatedAt <= :to', { to })
-        .andWhere("e.decision = 'signal'")
-        .andWhere('e.strategyId = :strategyId', { strategyId })
-        .orderBy('e.evaluatedAt', 'ASC')
-        .addOrderBy('e.id', 'ASC')
-        .limit(5000);
-      applyTimeIdCursor(qb, 'e', 'evaluatedAt', cursor);
-      applyCityFilter(qb, 's', 'city', cities);
-      return qb;
-    },
-    (row) => ({
-      kind: 'signal',
-      at: new Date(row.e_evaluated_at),
-      data: {
-        conditionId: row.e_condition_id,
-        strategyId: row.e_strategy_id,
-        yesPrice: row.e_yes_price,
-        forecastProb: row.e_forecast_prob,
-        edge: row.e_edge,
-        dynamicMinEdge: row.e_dynamic_min_edge,
-        decision: row.e_decision,
-        bucketComparison: row.e_bucket_comparison,
-        bucketTarget: row.e_bucket_target,
-        bucketLow: row.e_bucket_low,
-        bucketHigh: row.e_bucket_high,
-        city: row.s_city ?? null,
-        snapshotForecastMean: row.s_forecast_mean ?? null,
-        snapshotTargetDateIso: row.s_target_date_iso ?? null,
-        snapshotMetric: row.s_metric ?? null,
-      },
-    }),
-    'e_evaluated_at',
-    'e_id',
   );
 }

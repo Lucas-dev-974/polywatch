@@ -18,7 +18,7 @@ packages/
 ├── worker/        @polywatch/worker       → exécution CLOB/sim + sorties risque
 ├── crypto-algo/   @polywatch/crypto-algo  → trading algorithmique crypto court-terme
 ├── weather-algo/  @polywatch/weather-algo → trading algorithmique météo (température)
-├── backtest/      @polywatch/backtest     → moteur de backtest événementiel (replay)
+├── backtest/      @polywatch/backtest     → moteur de backtest événementiel (reevaluate)
 └── frontend/      @polywatch/frontend     → UI SolidJS
 ```
 
@@ -199,7 +199,7 @@ sur une horloge virtuelle déterministe en réutilisant `WeatherForecastStrategy
 et `resolveWeatherEntryExitParams` (seuils SL/TP alignés live, `engineVersion`
 semver). Détail : [`backtest.md`](./backtest.md) · [`../code/09-backtest.md`](../code/09-backtest.md).
 
-- Deux modes : `reevaluate` (ré-exécute la stratégie + filtre lifecycle marché) et `replay` (rejoue les décisions enregistrées).
+- Un seul mode : `reevaluate` (ré-exécute la stratégie + filtre lifecycle marché). Le mode `replay` (rejouer les décisions enregistrées) a été retiré.
 - Exécuté **in-process** par le backend (async, yields `setImmediate`) ; la UI polle le run.
 - Verrou singleton (un run weather actif) ; DELETE refusé si run actif ; orphelins → `failed` au boot.
 - Timeout (`BACKTEST_TIMEOUT_MS`, défaut 30 min) et cancel coopératif avec flush final

@@ -6,7 +6,6 @@ import { BacktestRunCard, strategyLabel } from './BacktestRunCard';
 
 const MODE_LABEL: Record<BacktestMode, string> = {
   reevaluate: 'Re-évaluer',
-  replay: 'Rejouer',
 };
 
 interface BacktestRunListProps {
@@ -72,8 +71,8 @@ export function BacktestRunList(props: BacktestRunListProps) {
       bucket.runs.push(run);
       accumulate(bucket.stats, run);
     }
-    // Ordre stable : reevaluate d'abord, puis replay.
-    const modes: BacktestMode[] = ['reevaluate', 'replay'];
+    // Ordre stable : reevaluate.
+    const modes: BacktestMode[] = ['reevaluate'];
     return modes
       .filter((m) => byMode.has(m))
       .map((m) => ({ mode: m, strategies: Array.from(byMode.get(m)!.values()) }));

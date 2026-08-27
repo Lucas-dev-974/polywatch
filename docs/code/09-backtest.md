@@ -19,7 +19,7 @@ packages/backtest/src/
 ├── adapters/
 │   ├── backtest-domain-adapter.ts interface BacktestDomainAdapter
 │   └── weather/
-│       ├── data-loader.ts         chargement SQL (keyset) ; replay filtre strategyId/decision
+│       ├── data-loader.ts         chargement SQL (keyset) ; filtre strategyId/cities/fidelityMinutes
 │       ├── weather-adapter.ts     orchestration entrées/sorties (+ kill-switch, lifecycle)
 │       ├── context-builder.ts     MarketListItemDto + ForecastRevisionStore
 │       ├── question-builder.ts    synthèse question (entiers °C) pour parseWeatherQuestion
@@ -28,7 +28,7 @@ packages/backtest/src/
 │       └── weather-adapter.test.ts
 └── engine/
     ├── virtual-clock.ts
-    ├── events.ts                  book_tick | forecast | signal | timer (timer non produit)
+    ├── events.ts                  book_tick | forecast
     ├── merge-event-streams.ts     merge k-way async (chemin prod)
     ├── merge-event-streams.test.ts
     ├── ledger.ts
@@ -88,14 +88,12 @@ Charge trois sources en streams async :
 |--------|-------|-------------------|
 | Forecasts | `weather_forecast_history` | `fetchedAt` |
 | Ticks | `weather_bucket_ticks` (colonnes dénormalisées `city`/`target_date_iso`/`metric` ; join snapshot uniquement pour `forecastMean`) | `recordedAt` |
-| Signals (mode replay) | `weather_evaluation_log` | `evaluatedAt` |
 
 Pagination : chunks de 5000, `ORDER BY <timestamp> ASC, id ASC`, curseur
 `(lastAt, lastId)` via `applyTimeIdCursor`. **Ne jamais paginer par `id` seul**.
 
-En replay : filtre SQL `decision = 'signal'` et `strategyId = params.strategyId`
-(défaut `weather-forecast`). En `reevaluate`, `strategyId` peut être n'importe
-quel ID du catalogue (dont `weather-highest-yes`, instancié sans forecast).
+En `reevaluate`, `strategyId` peut être n'importe quel ID du catalogue (dont
+`weather-highest-yes`, instancié sans forecast).
 
 Les streams sont fusionnés par `mergeEventStreams` avant consommation par le runner.
 
@@ -117,8 +115,7 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
   (uniquement) : `runner-sim.ts` regroupe les ticks, `evaluateGroup`, dedup /
   selectionMode (un `strategyId` forcé depuis les params UI).
   Les events `forecast` mettent à jour le store (pas d'évaluation stratégie).
-- Mode `replay` : entre sur les décisions `signal` de `weather_evaluation_log`.
-- **Garde-fous** (les deux modes) : `maxExposure`, `maxDailyLoss` (+
+- **Garde-fous** : `maxExposure`, `maxDailyLoss` (+
   `force_close_all` → clôture `KILL_SWITCH`), cash insuffisant,
   capacité `maxPositionsPerCityDate` par ville+date (`targetDateIso` sur le ledger),
   `maxPositionSizeUsdc`, throttle re-entry ville+date (bucket/drift seulement).
@@ -202,9 +199,9 @@ Le live ne dépend jamais du backtest.
 - `engine/stats.test.ts` — Ledger, `computeStats`, `computeMaxDrawdown`.
 - `engine/exit-manager.test.ts` — défauts SL/TP, throttle restreint, hystérésis `pollMs`.
 - `engine/merge-event-streams.test.ts` — ordre temporel, régression heap init.
-- `adapters/weather/weather-adapter.test.ts` — replay, meta persisté, limite
-  positions, capacité ville+date, résolution fallback, metric non supporté, hors plage,
-  résolution forcée ghost positions, garde highest-yes drift/bucket,
+- `adapters/weather/weather-adapter.test.ts` — reevaluate, meta persisté, limite
+  positions, résolution fallback, metric non supporté, hors plage,
+  carry-forward markPrice, garde highest-yes drift/bucket,
   **garde-fous per-strategy** (filtrage `openExposure`/`dailyRealizedPnl` par `strategyId`,
   `maxExposureUsdc` par stratégie bloque 2e entrée, `maxExposureUsdc` généreux autorise
   multiple entrées), **entrée runner-sim 0.8.0** (`entryAt` = décision, coalesce, skip marché résolu /

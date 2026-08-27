@@ -3,7 +3,7 @@
 import { api, buildQueryString } from './http';
 
 export type BacktestRunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-export type BacktestMode = 'reevaluate' | 'replay';
+export type BacktestMode = 'reevaluate';
 
 export interface BacktestRunStrategyDto {
   id: string;
@@ -63,7 +63,6 @@ export interface BacktestDataCoverage {
 }
 
 export interface BacktestRunParamsInput {
-  mode: BacktestMode;
   from: string;
   to: string;
   cities?: string[];

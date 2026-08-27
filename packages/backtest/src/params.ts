@@ -3,14 +3,12 @@ import { z } from 'zod';
 export const backtestRunParamsSchema = z
   .object({
     domain: z.literal('weather').default('weather'),
-    mode: z.enum(['reevaluate', 'replay']),
+    mode: z.literal('reevaluate').default('reevaluate'),
     from: z.string().datetime({ offset: true }),
     to: z.string().datetime({ offset: true }),
     cities: z.array(z.string()).optional(),
     // Optionnel : si absent, le runner-sim (reevaluate) utilise toutes les
-    // stratégies actives de la config. Le mode replay filtre toujours sur une
-    // seule stratégie (défaut weather-forecast) car il rejoue des décisions
-    // enregistrées.
+    // stratégies actives de la config.
     strategyId: z.string().optional(),
     backtestExecutionMode: z.enum(['strategy', 'runner-sim']).default('runner-sim'),
     configOverrides: z.record(z.unknown()).optional(),

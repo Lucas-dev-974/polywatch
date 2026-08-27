@@ -36,7 +36,6 @@ function makeSpec(
     slippageBps: 0,
     maxConcurrentPositions: 10,
     entryUsdc: 10,
-    mode: 'replay',
     strategyId: 'weather-forecast',
     service: opts.service,
     getAbortReason: opts.getAbortReason,
@@ -83,7 +82,7 @@ describe('BacktestRunner', () => {
 
   async function newRun() {
     const service = new BacktestRunService(ds);
-    const run = await service.create({ domain: 'weather', mode: 'replay', paramsJson: '{}' });
+    const run = await service.create({ domain: 'weather', mode: 'reevaluate', paramsJson: '{}' });
     return { service, runId: run.id };
   }
 
@@ -134,7 +133,6 @@ describe('BacktestRunner', () => {
       slippageBps: 0,
       maxConcurrentPositions: 10,
       entryUsdc: 10,
-      mode: 'replay',
       strategyId: 'weather-forecast',
       service,
       getAbortReason: () => (aborted ? 'cancelled' : null),
@@ -171,7 +169,6 @@ describe('BacktestRunner', () => {
       slippageBps: 0,
       maxConcurrentPositions: 10,
       entryUsdc: 10,
-      mode: 'replay',
       strategyId: 'weather-forecast',
       service,
       getAbortReason: () => (timedOut ? 'timeout' : null),

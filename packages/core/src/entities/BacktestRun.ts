@@ -9,7 +9,7 @@ export type BacktestRunStatus =
 
 export type BacktestDomain = 'crypto' | 'weather' | 'copy';
 
-export type BacktestMode = 'reevaluate' | 'replay';
+export type BacktestMode = 'reevaluate';
 
 @Entity('backtest_runs')
 @Index(['domain', 'createdAt'])

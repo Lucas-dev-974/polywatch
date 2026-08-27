@@ -70,7 +70,7 @@ export function BacktestRunDetail(props: BacktestRunDetailProps) {
             Statut : <strong>{props.run.status}</strong>
           </span>
           <span>
-            Mode : <strong>{props.run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</strong>
+            Mode : <strong>Re-évaluer</strong>
           </span>
           <span>Lancé : {formatTs(props.run.startedAt)}</span>
           <span>Fini : {formatTs(props.run.finishedAt)}</span>

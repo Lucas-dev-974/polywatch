@@ -2,7 +2,7 @@
 
 Module de **backtest historique** pour la stratégie météo (`weather-algo`) : rejoue
 les données persistées (`weather_forecast_history`, `weather_market_snapshots`,
-`weather_bucket_ticks`, `weather_evaluation_log`) sur une **horloge virtuelle**
+`weather_bucket_ticks`) sur une **horloge virtuelle**
 déterministe, réutilise la logique métier live (stratégie du catalogue via
 `createWeatherStrategy`, dont `weather-highest-yes` sans forecast), et
 produit positions, equity, statistiques et avertissements de fidélité.
@@ -57,8 +57,10 @@ AsyncIterable<BacktestEvent>  ──►  mergeEventStreams (k-way, heap borné)
   (`createWeatherStrategy(strategyId)` + wrapper `ClockedWeatherStrategy` qui injecte
   `now`). L'exécution utilise `runner-sim` : regroupement ville/date + `evaluateGroup` + dedup /
   selectionMode (proche live ; l'UI passe un seul `strategyId`). Les seuils
-  SL/TP/trailing sont résolus via `resolveWeatherEntryExitParams`. Le mode `replay`
-  rejoue les décisions `signal` déjà enregistrées.
+  SL/TP/trailing sont résolus via `resolveWeatherEntryExitParams`. Le backtest
+  s'exécute **uniquement** en mode `reevaluate` (re-évaluation de la stratégie sur
+  données passées) — le mode `replay` (rejouer les décisions `signal` enregistrées)
+  a été retiré.
 - **Consolidation 2026-08-24** : le backtest s'exécute désormais **uniquement en
   `runner-sim`** (regroupement buckets, `evaluateGroup`, dedup, selectionMode comme
   le live). Le mode `strategy` (ré-évaluation bucket par bucket, non équivalent
@@ -127,7 +129,7 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `missingSnapshots` | Ville/date avec forecast mais sans snapshot (gaps temporels) |
 | `arbitrage_unreliable` | ≥1 snapshot avec buckets inactifs exclus — résultats `weather-arbitrage` non fiables (Σ yesPrice incomplet) |
 
-Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
+Garde-fous **implémentés** en backtest (mode `reevaluate`) :
 `maxExposure`, `maxDailyLoss` (+ `force_close_all` → `KILL_SWITCH`), cash insuffisant,
 one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, throttle re-entry **ville+date** **uniquement** après
 `WEATHER_BUCKET_EXIT` / `WEATHER_FORECAST_CHANGE`, filtre cycle de vie marché
@@ -173,22 +175,22 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
 
 ---
 
-## 2. Modes de run
+## 2. Mode de run
 
-| Mode | Comportement | Usage |
-|------|--------------|-------|
-| `reevaluate` | À chaque `book_tick` : reconstruit le contexte marché + forecast as-of et appelle la stratégie du catalogue (`createWeatherStrategy(strategyId)`) pour décider l'entrée. Pour `weather-highest-yes`, il n'y a **pas** de forecast as-of : l'évaluation repose sur le prix YES courant. | Tester une stratégie sur données passées |
-| `replay` | Entre sur chaque décision `signal` déjà enregistrée dans `weather_evaluation_log` (pas de re-stratégie) | Simuler l'exécution des décisions passées |
+Le backtest s'exécute **uniquement** en mode `reevaluate` : à chaque `book_tick`,
+il reconstruit le contexte marché + forecast as-of et appelle la stratégie du
+catalogue (`createWeatherStrategy(strategyId)`) pour décider l'entrée. Pour
+`weather-highest-yes`, il n'y a **pas** de forecast as-of : l'évaluation repose
+sur le prix YES courant. Le mode `replay` (rejouer les décisions `signal`
+enregistrées dans `weather_evaluation_log`) a été **retiré** — le champ `mode`
+est conservé dans le schéma pour rétro-compat API mais est toujours `reevaluate`.
 
 **Filtre par intervalle (`fidelityMinutes`)** : paramètre **optionnel** transmis au
-lancement. En `reevaluate`, seuls les `book_tick` dont `fidelity_minutes` correspond
-sont chargés (`data-loader` filtre `t.fidelityMinutes = :fid`). En `replay`, le
-filtre est **bloqué** (erreur 400 `replay_fidelity_filter_unsupported`), car
-`weather_evaluation_log` (et son snapshot parent) ne portent pas de colonne
-`fidelity_minutes` — combiner replay + filtre produirait des signaux denses avec
-des ticks filtrés. Sans `fidelityMinutes`, tous les ticks sont chargés
-(comportement historique). Le bandeau de couverture (`GET /backtest/data-coverage`)
-accepte `?fidelityMinutes=` pour afficher un `totalTicks` cohérent avec le filtre choisi.
+lancement. Seuls les `book_tick` dont `fidelity_minutes` correspond sont chargés
+(`data-loader` filtre `t.fidelityMinutes = :fid`). Sans `fidelityMinutes`, tous
+les ticks sont chargés (comportement historique). Le bandeau de couverture
+(`GET /backtest/data-coverage`) accepte `?fidelityMinutes=` pour afficher un
+`totalTicks` cohérent avec le filtre choisi.
 
 Les **sorties** (drift / bucket-exit / pre-close / SL-TP-trailing / kill-switch /
 résolution) sont évaluées en mémoire à chaque `book_tick` pour **toutes** les
@@ -212,7 +214,7 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 | Fichier | Rôle |
 |---------|------|
 | `virtual-clock.ts` | Horloge virtuelle `now()` / `advanceTo(t)` avec garde anti-retour |
-| `events.ts` | Types d'événements `book_tick`, `forecast`, `signal` |
+| `events.ts` | Types d'événements `book_tick`, `forecast` |
 | `merge-event-streams.ts` | Merge k-way de streams async par timestamp |
 | `ledger.ts` | Cash + positions ; mark-to-market via `markPrice` courant (`peakBid` seulement pour trailing) |
 | `fill-engine.ts` | Fill d'entrée/sortie simulé : `yesPrice × (1 ± slippageBps)` + `computeTakerFee` |
@@ -225,7 +227,7 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 
 | Fichier | Rôle |
 |---------|------|
-| `data-loader.ts` | Chargement SQL (keyset) ; replay filtre `decision=signal` + `strategyId` ; `computeWeatherFidelityStats` (§12.2) |
+| `data-loader.ts` | Chargement SQL (keyset) ; `computeWeatherFidelityStats` (§12.2) |
 | `context-builder.ts` | Reconstruction de `MarketListItemDto` + `ForecastRevisionStore` |
 | `question-builder.ts` | Synthèse question Polymarket (targets fractionnaires préservés) pour la stratégie |
 | `clocked-weather-strategy.ts` | Factory `createWeatherStrategy(strategyId)` + wrapper clock |
@@ -334,8 +336,9 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 `BacktestEquityChart`) :
 
 - **Couverture de données** affichée avant lancement.
-- **Formulaire** : mode, période, villes, capital, slippage, entrée USDC, positions max
-  (pas d'UI pour `configOverrides` — disponibles via API).
+- **Formulaire** : période, villes, capital, slippage, entrée USDC, positions max,
+  stratégie, mode de sélection des signaux (single/multi, surcharge via
+  `configOverrides`) — pas d'UI pour `configOverrides` (disponibles via API).
 - **Liste des runs** : statut, progression, métriques.
 - **Détail** : métriques (PnL, win rate, PF avec `∞` si null, expectancy, durée
   moy., répartition par sortie / ville), avertissements de fidélité, message
@@ -365,13 +368,11 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 - `src/engine/exit-manager.test.ts` : défauts SL/TP, throttle restreint, hystérésis `pollMs`.
 - `src/engine/merge-event-streams.test.ts` : merge k-way, régression heap init
   (stream 0 plus tardif que stream 1).
-- `src/adapters/weather/weather-adapter.test.ts` : run replay (entrée + résolution),
-  meta persisté, limite positions, capacité ville+date replay, résolution fallback,
-  metric non supporté, hors plage, résolution forcée ghost positions, carry-forward markPrice,
-  garde highest-yes drift/bucket, **garde-fous per-strategy** (`ledger.openExposure` /
-  `dailyRealizedPnl` filtrage par `strategyId`, `maxExposureUsdc` par stratégie bloque
-  2e entrée, `maxExposureUsdc` généreux autorise multiple entrées), **warning
-  `multi_position_stale_mark` agrégé**, **clamping prix [0,1]**, **entrée runner-sim
+- `src/adapters/weather/weather-adapter.test.ts` : run reevaluate (entrée + résolution),
+  meta persisté, limite positions, résolution fallback,
+  metric non supporté, hors plage, carry-forward markPrice,
+  **garde-fous per-strategy** (`ledger.openExposure` /
+  `dailyRealizedPnl` filtrage par `strategyId`), **entrée runner-sim
   0.8.0** (`entryAt` = décision, coalesce 1 s, skip marché résolu / prix stale /
   SL immédiat, flush avant gardes + drop sans file, `pairDecidedAtBySignal` ;
   tests F4 throttle + F5 pairing).
@@ -387,10 +388,6 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 - `src/adapters/weather/adapter-warnings.test.ts` (nouveau) : émission des warnings quantitatifs
   §12.2 (`inactiveBucketsExcluded`, `arbitrage_unreliable`, `yesPriceNulls`, `noPriceNulls`,
   `snapshotsPerDay`, `forecastRevisionsPerDay`, `missingSnapshots`) + déduplication `warnOnce`.
-- `src/adapters/weather/golden-replay.test.ts` (nouveau) : **golden snapshot** — rejoue un scénario
-  figé et fige `totalPnl`, `winRate`, `maxDrawdown`, `totalTrades`, `byExitReason` et
-  `engineVersion`. Toute régression de sémantique de replay fait échouer le test
-  (régénération : `vitest run -u`).
 - `packages/core/src/services/backtest-run.service.test.ts` : verrou singleton (par utilisateur),
   **isolation multi-utilisateur** (`getById`/`list` filtrent par owner, runs hérités `userId=NULL`
   visibles par tous), delete en cascade positions/equity/excluded.

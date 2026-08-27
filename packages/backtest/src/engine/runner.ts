@@ -36,7 +36,6 @@ export interface RunContext {
       maxConcurrentPositions: number;
       entryUsdc: number;
       capital: number;
-      mode: 'reevaluate' | 'replay';
       strategyId?: string;
       fidelityMinutes?: number;
   };
@@ -66,7 +65,6 @@ export interface RunSpec {
   slippageBps: number;
   maxConcurrentPositions: number;
   entryUsdc: number;
-  mode: 'reevaluate' | 'replay';
   strategyId?: string;
   fidelityMinutes?: number;
   service: BacktestRunService;
@@ -143,7 +141,6 @@ export class BacktestRunner {
         maxConcurrentPositions: spec.maxConcurrentPositions,
         entryUsdc: spec.entryUsdc,
         capital: spec.initialCapital,
-        mode: spec.mode,
         strategyId: spec.strategyId,
         fidelityMinutes: spec.fidelityMinutes,
       },

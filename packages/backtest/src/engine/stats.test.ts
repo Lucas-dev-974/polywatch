@@ -54,7 +54,7 @@ describe('Ledger', () => {
       entryPrice: 0.5,
       entryAt: at,
       fees: 0,
-      entryReason: 'replay_signal',
+      entryReason: 'signal',
       meta: { detailReasons: 'edge high' },
     });
     const closed = ledger.closePosition({
@@ -63,7 +63,7 @@ describe('Ledger', () => {
       exitAt: new Date('2026-01-01T01:00:00.000Z'),
       exitReason: 'TP',
     });
-    expect(closed.entryReason).toBe('replay_signal');
+    expect(closed.entryReason).toBe('signal');
   });
 
   it('rejects duplicate open', () => {

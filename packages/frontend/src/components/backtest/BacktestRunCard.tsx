@@ -62,7 +62,7 @@ export function BacktestRunCard(props: BacktestRunCardProps) {
       </div>
       <div class="backtest-run-card-foot">
         <span class="backtest-run-card-strategy">{strategyLabel(run)}</span>
-        <span class="backtest-run-card-mode">{run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</span>
+        <span class="backtest-run-card-mode">Re-évaluer</span>
       </div>
     </button>
   );

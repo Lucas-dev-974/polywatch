@@ -6,7 +6,6 @@ import {
   WeatherBucketTick,
   WeatherMarketSnapshot,
   WeatherForecastHistory,
-  WeatherEvaluationLog,
 } from '@polywatch/core';
 import { loadWeatherEvents, countWeatherEvents, computeWeatherFidelityStats } from './data-loader.js';
 import type { BacktestRunParams } from '../../params.js';
@@ -14,7 +13,7 @@ import type { BacktestRunParams } from '../../params.js';
 function params(overrides: Partial<BacktestRunParams> = {}): BacktestRunParams {
   return {
     domain: 'weather',
-    mode: 'replay',
+    mode: 'reevaluate',
     from: '2026-01-01T00:00:00.000Z',
     to: '2026-01-02T00:00:00.000Z',
     strategyId: 'weather-forecast',
@@ -105,7 +104,6 @@ describe('data-loader pagination & filters', () => {
   it('counts events for the requested range and city', async () => {
     const snapRepo = ds.getRepository(WeatherMarketSnapshot);
     const tickRepo = ds.getRepository(WeatherBucketTick);
-    const evalRepo = ds.getRepository(WeatherEvaluationLog);
     const histRepo = ds.getRepository(WeatherForecastHistory);
     const snap = await snapRepo.save(
       snapRepo.create({
@@ -125,15 +123,6 @@ describe('data-loader pagination & filters', () => {
         city: 'london', cityNormalized: 'london', targetDateIso: '2026-01-01', metric: 'highest_temp',
       }),
     );
-    await evalRepo.save(
-      evalRepo.create({
-        snapshotId: snap.id, conditionId: 'c1', bucketComparison: 'or_above',
-        bucketTarget: 12, bucketLow: null, bucketHigh: null,
-        strategyId: 'weather-forecast', yesPrice: 0.5, forecastProb: 0.7,
-        edge: 0.2, dynamicMinEdge: 0.1, decision: 'signal', reason: 'test',
-        evaluatedAt: new Date('2026-01-01T00:00:00Z'),
-      }),
-    );
     await histRepo.save(
       histRepo.create({
         city: 'london', forecastDate: new Date('2026-01-01T12:00:00Z'),
@@ -142,9 +131,9 @@ describe('data-loader pagination & filters', () => {
         fetchedAt: new Date('2026-01-01T00:00:00Z'),
       }),
     );
-    const total = await countWeatherEvents(ds, params({ mode: 'replay' }));
-    // 1 tick + 1 signal (replay) + 1 forecast.
-    expect(total).toBe(3);
+    const total = await countWeatherEvents(ds, params());
+    // 1 tick + 1 forecast (le signal replay n'existe plus).
+    expect(total).toBe(2);
   });
 });
 

@@ -9,7 +9,7 @@ import {
   type WeatherStrategyId,
 } from '@polywatch/core';
 
-import type { BacktestEvent, BookTickEventData, SignalEventData } from '../../engine/events.js';
+import type { BacktestEvent, BookTickEventData } from '../../engine/events.js';
 import type { RunContext } from '../../engine/runner.js';
 import type { LedgerPosition } from '../../engine/ledger.js';
 import type { BacktestDomainAdapter } from '../backtest-domain-adapter.js';
@@ -75,8 +75,6 @@ export function pairDecidedAtBySignal(
  *
  * - reevaluate mode: on each book_tick, reconstruct the market + forecast
  *   context and call the (clocked) WeatherForecastStrategy to decide entry.
- * - replay mode: on each signal event with decision==='signal', enter at the
- *   recorded yes price (no strategy re-evaluation).
  *
  * Exits (drift / bucket / pre-close / SL-TP-trailing / resolution / kill-switch)
  * are evaluated purely in-memory on each book tick.
@@ -105,8 +103,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   constructor(ctx: RunContext, fidelityStats?: WeatherFidelityStats | null) {
     // En mode runner-sim, si aucun strategyId n'est forcé, on laisse
     // createRunnerSimStrategies résoudre toutes les stratégies actives de la
-    // config (multi-stratégies). Le strategyId n'est forcé qu'en mode replay
-    // (filtre data-loader) ou quand l'UI en demande un explicitement.
+    // config (multi-stratégies). Le strategyId n'est forcé que quand l'UI en
+    // demande un explicitement.
     const strategyId = (ctx.params.strategyId ?? null) as WeatherStrategyId | null;
     this.strategyId = strategyId;
     this.bag = getStrategyParams(ctx.configSnapshot, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
@@ -384,9 +382,6 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       case 'book_tick':
         await this.onBookTick(event.data, event.at, ctx);
         return;
-      case 'signal':
-        await this.onSignal(event.data, ctx);
-        return;
       default:
         return;
     }
@@ -608,9 +603,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
     // Flush le batch précédent AVANT les gardes duplicate / maxPos / throttle :
     // un tick bloqué ne doit pas retenir les signaux pending (fills hors courbe).
-    if (ctx.params.mode !== 'replay') {
-      await this.maybeFlushRunnerSimBatch(at, ctx);
-    }
+    await this.maybeFlushRunnerSimBatch(at, ctx);
 
     if (ctx.ledger.isDuplicateOpen(data.conditionId)) return;
 
@@ -628,70 +621,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       this.isWeatherEntryBlocked(ctx, data.snapshotCity, data.snapshotTargetDateIso, this.strategyId, ctx.configSnapshot)
     ) return;
 
-    if (ctx.params.mode === 'replay') return;
-
     await this.onBookTickRunnerSim(data, at, ctx);
-  }
-
-  private async onSignal(data: SignalEventData, ctx: RunContext): Promise<void> {
-    if (data.decision !== 'signal') return;
-    if (data.yesPrice == null) return;
-
-    const risk = ctx.configSnapshot;
-
-    this.maybeForceCloseAll(ctx);
-
-    if (ctx.ledger.isDuplicateOpen(data.conditionId)) return;
-    if (ctx.ledger.openCount() >= ctx.params.maxConcurrentPositions) return;
-
-    const cached = this.lastTickByCondition.get(data.conditionId);
-    const targetDateIso = cached?.tick.snapshotTargetDateIso ?? data.snapshotTargetDateIso ?? null;
-
-    if (data.city && targetDateIso && this.isWeatherEntryBlocked(ctx, data.city, targetDateIso, data.strategyId, risk)) return;
-    if (
-      this.openCountForCityDate(ctx, data.city, targetDateIso, data.strategyId) >=
-      Math.max(1, (getStrategyParams(risk, data.strategyId).maxPositionsPerCityDate ?? 1))
-    ) return;
-
-    if (!this.canEnter(ctx, ctx.params.entryUsdc, data.yesPrice, data.strategyId)) return;
-
-    const dataBag = getStrategyParams(risk, data.strategyId);
-    const fill = simulateWeatherEntryFill({
-      conditionId: data.conditionId,
-      yesPrice: data.yesPrice,
-      entryUsdc: ctx.params.entryUsdc,
-      slippageBps: ctx.params.slippageBps,
-      maxPositionSizeUsdc: dataBag.maxPositionSizeUsdc,
-      sizingMode: dataBag.sizingMode,
-      fixedShareCount: dataBag.fixedShareCount,
-    });
-    this.noteFillClampedIfNeeded(ctx, data.yesPrice, true);
-
-    ctx.ledger.openPosition({
-      conditionId: data.conditionId,
-      city: data.city,
-      targetDateIso,
-      qty: fill.qty,
-      entryPrice: fill.entryPrice,
-      entryAt: ctx.clock.now(),
-      fees: fill.fees,
-      entryReason: 'replay_signal',
-      meta: {
-        strategyId: data.strategyId,
-        edge: data.edge ?? 0,
-        dynamicMinEdge: data.dynamicMinEdge ?? 0,
-        forecastProb: data.forecastProb ?? 0,
-        entryMean: data.snapshotForecastMean ?? null,
-        entryBucketComparison: data.bucketComparison ?? null,
-        entryBucketBounds: {
-          low: data.bucketLow,
-          high: data.bucketHigh,
-          target: data.bucketTarget,
-        },
-        ...resolvedExitMeta(ctx.configSnapshot, data.strategyId),
-      },
-    });
-    this.exitManager.noteEntry(data.city, targetDateIso, data.strategyId);
   }
 
   /** Block re-entry when throttle or per-city-date entry cap applies. */

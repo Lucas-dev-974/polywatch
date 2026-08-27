@@ -38,30 +38,6 @@ export interface ForecastRevisionData {
   fetchedAt: Date;
 }
 
-export interface SignalEventData {
-  conditionId: string;
-  /** YES price recorded at evaluation time. */
-  yesPrice: number | null;
-  strategyId: string;
-  decision: string;
-  forecastProb: number | null;
-  edge: number | null;
-  dynamicMinEdge: number | null;
-  bucketComparison: string | null;
-  bucketTarget: number | null;
-  bucketLow: number | null;
-  bucketHigh: number | null;
-  /** City resolved from the parent snapshot, if any. */
-  city: string | null;
-  /** Forecast mean from the parent snapshot (used to populate entryMean in replay). */
-  snapshotForecastMean: number | null;
-  /** Target date from the parent snapshot (fallback when no tick precedes the signal). */
-  snapshotTargetDateIso: string | null;
-  /** Metric from the parent snapshot. */
-  snapshotMetric: string | null;
-}
-
 export type BacktestEvent =
   | { kind: 'book_tick'; at: Date; data: BookTickEventData }
-  | { kind: 'forecast'; at: Date; data: ForecastRevisionData }
-  | { kind: 'signal'; at: Date; data: SignalEventData };
+  | { kind: 'forecast'; at: Date; data: ForecastRevisionData };

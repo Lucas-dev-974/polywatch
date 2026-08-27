@@ -19,7 +19,7 @@ describe('BacktestRunService — singleton lock', () => {
   it('detects a queued run as active (prevents concurrent launch)', async () => {
     const run = await service.create({
       domain: 'weather',
-      mode: 'replay',
+      mode: 'reevaluate',
       paramsJson: JSON.stringify({}),
     });
     // Default status from create() is 'queued' — hasActiveRun must catch it.
@@ -30,7 +30,7 @@ describe('BacktestRunService — singleton lock', () => {
   it('detects a running run as active', async () => {
     const run = await service.create({
       domain: 'weather',
-      mode: 'replay',
+      mode: 'reevaluate',
       paramsJson: JSON.stringify({}),
     });
     await service.markStarted(run.id);
@@ -41,7 +41,7 @@ describe('BacktestRunService — singleton lock', () => {
   it('does not treat a completed run as active', async () => {
     const run = await service.create({
       domain: 'weather',
-      mode: 'replay',
+      mode: 'reevaluate',
       paramsJson: JSON.stringify({}),
     });
     await service.markCompleted(run.id, {
@@ -69,7 +69,7 @@ describe('BacktestRunService — multi-user isolation (IDOR)', () => {
   async function createRun(userId: number | null) {
     return service.create({
       domain: 'weather',
-      mode: 'replay',
+      mode: 'reevaluate',
       paramsJson: JSON.stringify({}),
       userId,
     });

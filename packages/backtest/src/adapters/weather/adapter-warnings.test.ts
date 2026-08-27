@@ -18,7 +18,6 @@ function ctx(): RunContext {
       maxConcurrentPositions: 10,
       entryUsdc: 10,
       capital: 1000,
-      mode: 'replay',
     },
     cancelRequested: () => false,
   };

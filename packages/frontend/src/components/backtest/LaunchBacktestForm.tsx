@@ -2,7 +2,6 @@ import { For, Show } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type {
   BacktestDataCoverage,
-  BacktestMode,
   WeatherStrategyMeta,
 } from '../../api';
 import { formatTs } from './format';
@@ -17,8 +16,6 @@ interface LaunchBacktestFormProps {
   coverage: Accessor<BacktestDataCoverage | null>;
   coverageLoading: Accessor<boolean>;
   catalog: Accessor<WeatherStrategyMeta[]>;
-  mode: Accessor<BacktestMode>;
-  setMode: Setter<BacktestMode>;
   from: Accessor<string>;
   setFrom: Setter<string>;
   to: Accessor<string>;
@@ -70,16 +67,6 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
 
       <div class="backtest-form-grid">
         <label class="backtest-field">
-          <span>Mode</span>
-          <select
-            value={props.mode()}
-            onChange={(e) => props.setMode(e.currentTarget.value as BacktestMode)}
-          >
-            <option value="reevaluate">Re-évaluer (relance la stratégie)</option>
-            <option value="replay">Rejouer (décisions enregistrées)</option>
-          </select>
-        </label>
-        <label class="backtest-field">
           <span>Du</span>
           <input type="date" value={props.from()} onInput={(e) => props.setFrom(e.currentTarget.value)} />
         </label>
@@ -106,11 +93,9 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
             value={props.strategyId()}
             onChange={(e) => props.setStrategyId(e.currentTarget.value)}
           >
-            <Show when={props.mode() === 'reevaluate'}>
-              <option value="">
-                Toutes (stratégies actives de la config)
-              </option>
-            </Show>
+            <option value="">
+              Toutes (stratégies actives de la config)
+            </option>
             <For each={props.catalog()}>
               {(s) => <option value={s.id}>{s.label}</option>}
             </For>

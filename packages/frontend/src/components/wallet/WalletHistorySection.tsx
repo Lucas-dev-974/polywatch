@@ -2,7 +2,7 @@ import { createSignal, Show } from 'solid-js';
 import type { WalletAccountView } from '../../lib/wallet';
 import { CollapsiblePanel, useCollapse } from '../CollapsiblePanel';
 import { Icon } from '../Icon';
-import { WalletHistoryPanel } from '../WalletHistoryPanel';
+import { WalletHistoryPanel } from '../panels/WalletHistoryPanel';
 import { WalletPolywatchExecutions } from './WalletPolywatchExecutions';
 
 type HistoryTab = 'polywatch' | 'wallet';

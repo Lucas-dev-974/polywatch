@@ -38,9 +38,9 @@ const SystemPage = lazy(() => import('./components/pages/SystemPage').then((m) =
 // Sous-composants de la page "real" (PositionCard/EventsPanel/ExecutionLog).
 // SimulationPage (lazy) les importe en statique → ils vivent dans son chunk ;
 // ces imports lazy les retirent aussi du bundle initial pour la page "real".
-const PositionCard = lazy(() => import('./components/PositionCard').then((m) => ({ default: m.PositionCard })));
-const EventsPanel = lazy(() => import('./components/EventsPanel').then((m) => ({ default: m.EventsPanel })));
-const ExecutionLog = lazy(() => import('./components/ExecutionLog').then((m) => ({ default: m.ExecutionLog })));
+const PositionCard = lazy(() => import('./components/panels/PositionCard').then((m) => ({ default: m.PositionCard })));
+const EventsPanel = lazy(() => import('./components/panels/EventsPanel').then((m) => ({ default: m.EventsPanel })));
+const ExecutionLog = lazy(() => import('./components/panels/ExecutionLog').then((m) => ({ default: m.ExecutionLog })));
 
 export function App() {
   const [loggedIn, setLoggedIn] = createSignal(isLoggedIn());

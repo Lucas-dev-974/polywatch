@@ -1,12 +1,12 @@
 import { Show, For, type Accessor } from 'solid-js';
-import type { useCryptoAlgoSurveillance } from '../hooks/useCryptoAlgoSurveillance';
-import type { useAlgoWorkerQueueStatus } from '../hooks/useAlgoWorkerQueueStatus';
-import { workerQueueBadgeLabel } from '../lib/algo-worker-queue-status';
-import { useAlgoCarouselScroll } from '../hooks/useAlgoCarouselScroll';
-import { AlgoCarousel } from './algo/AlgoCarousel';
-import { AlgoCarouselNav } from './algo/AlgoCarouselNav';
-import { SurveillanceHistoryCard } from './SurveillanceHistoryCard';
-import { Icon } from './Icon';
+import type { useCryptoAlgoSurveillance } from '../../hooks/useCryptoAlgoSurveillance';
+import type { useAlgoWorkerQueueStatus } from '../../hooks/useAlgoWorkerQueueStatus';
+import { workerQueueBadgeLabel } from '../../lib/algo-worker-queue-status';
+import { useAlgoCarouselScroll } from '../../hooks/useAlgoCarouselScroll';
+import { AlgoCarousel } from '../algo/AlgoCarousel';
+import { AlgoCarouselNav } from '../algo/AlgoCarouselNav';
+import { SurveillanceHistoryCard } from '../SurveillanceHistoryCard';
+import { Icon } from '../Icon';
 
 type SurveillanceState = ReturnType<typeof useCryptoAlgoSurveillance>;
 

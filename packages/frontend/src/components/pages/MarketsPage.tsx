@@ -2,7 +2,7 @@ import { createSignal, For, onMount, Show } from 'solid-js';
 
 import { Icon } from '../Icon';
 import { MarketCard } from '../markets/MarketCard';
-import { MarketMetricsPanel } from '../MarketMetricsPanel';
+import { MarketMetricsPanel } from '../panels/MarketMetricsPanel';
 import { MarketSyncSettingsDialog } from '../dialogs/MarketSyncSettingsDialog';
 import { MarketsCryptoCurrencyFilterBar } from '../markets/MarketsCryptoCurrencyFilterBar';
 import { MarketsCryptoFilterBar } from '../markets/MarketsCryptoFilterBar';

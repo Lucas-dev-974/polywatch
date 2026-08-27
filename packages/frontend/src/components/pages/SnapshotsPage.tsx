@@ -1,6 +1,6 @@
 import { Show } from 'solid-js';
-import { SimulationSnapshotsPanel } from '../SimulationSnapshotsPanel';
-import { RealSnapshotsPanel } from '../RealSnapshotsPanel';
+import { SimulationSnapshotsPanel } from '../panels/SimulationSnapshotsPanel';
+import { RealSnapshotsPanel } from '../panels/RealSnapshotsPanel';
 import {
   SNAPSHOTS_PAGE_MODES,
   UI_KEYS,

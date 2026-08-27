@@ -3,8 +3,8 @@ import type {
   CityMarketGroup,
   DiscoverDateBucket,
   DiscoverMarket,
-} from '../hooks/useWeatherAlgoDashboard';
-import { CollapsibleSection } from './CollapsibleSection';
+} from '../../hooks/useWeatherAlgoDashboard';
+import { CollapsibleSection } from '../CollapsibleSection';
 
 export interface WeatherAlgoDiscoverPanelProps {
   groups: CityMarketGroup[];

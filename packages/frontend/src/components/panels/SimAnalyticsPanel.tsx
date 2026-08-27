@@ -7,24 +7,24 @@ import {
   onMount,
   Show,
 } from 'solid-js';
-import { debounceFn } from '../lib/debounce';
-import { formatPnlAmount, pnlClass } from '../lib/position';
-import { compareTraders, defaultSortDirForKey, type SortDir, type SortKey } from '../lib/sim-analytics-sort';
+import { debounceFn } from '../../lib/debounce';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
+import { compareTraders, defaultSortDirForKey, type SortDir, type SortKey } from '../../lib/sim-analytics-sort';
 import {
   aggregateTraderAnalyticsTotals,
   fetchTraderAnalytics,
   traderDisplayName,
   type MarketCategoryPnlRow,
-} from '../lib/trader-analytics';
-import { connectSocket } from '../socket';
-import { useTraderPnlSeries } from '../hooks/useTraderPnlSeries';
-import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
-import { Icon } from './Icon';
-import { SimAnalyticsCategoryChart } from './charts/SimAnalyticsCategoryChart';
-import { SimAnalyticsChartSection } from './sim/SimAnalyticsChartSection';
-import { SimAnalyticsTable } from './sim/SimAnalyticsTable';
+} from '../../lib/trader-analytics';
+import { connectSocket } from '../../socket';
+import { useTraderPnlSeries } from '../../hooks/useTraderPnlSeries';
+import { CollapsiblePanel, useCollapse } from '../CollapsiblePanel';
+import { Icon } from '../Icon';
+import { SimAnalyticsCategoryChart } from '../charts/SimAnalyticsCategoryChart';
+import { SimAnalyticsChartSection } from '../sim/SimAnalyticsChartSection';
+import { SimAnalyticsTable } from '../sim/SimAnalyticsTable';
 import { SimMarketAnalyticsPanel } from './SimMarketAnalyticsPanel';
-import type { SimAlgoKind } from '../lib/simulation';
+import type { SimAlgoKind } from '../../lib/simulation';
 
 const REFRESH_DEBOUNCE_MS = 500;
 

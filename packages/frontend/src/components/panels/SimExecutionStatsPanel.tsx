@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import type { SimExecutionStats } from './settings/sim-execution-settings-types';
+import type { SimExecutionStats } from '../settings/sim-execution-settings-types';
 
 function formatMs(value: number | null | undefined): string {
   return value != null ? `${value} ms` : '—';

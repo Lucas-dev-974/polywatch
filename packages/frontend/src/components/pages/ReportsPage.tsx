@@ -11,7 +11,7 @@ import {
   fetchCurrentCryptoAlgoConfigFingerprint,
   generateAnalysisReport,
 } from '../../lib/analysis-reports';
-import { AnalysisReportComparePanel } from '../AnalysisReportComparePanel';
+import { AnalysisReportComparePanel } from '../panels/AnalysisReportComparePanel';
 import { CryptoAlgoReportViewer } from '../algo/CryptoAlgoReportViewer';
 import { NewSessionResetDialog } from '../dialogs/NewSessionResetDialog';
 

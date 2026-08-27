@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 import type { CompareAnalysisReportsResult } from '@polywatch/core';
-import { formatShortDateTime } from '../lib/date';
+import { formatShortDateTime } from '../../lib/date';
 
 export interface AnalysisReportComparePanelProps {
   data: CompareAnalysisReportsResult;

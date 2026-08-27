@@ -1,13 +1,13 @@
 import { Show } from 'solid-js';
-import { formatShortDateTime } from '../lib/date';
-import type { E2ePositionDto, E2eRunDto, E2eSuiteDto } from '../lib/e2e-runs';
+import { formatShortDateTime } from '../../lib/date';
+import type { E2ePositionDto, E2eRunDto, E2eSuiteDto } from '../../lib/e2e-runs';
 import {
   e2eStatusLabel,
   e2eSummaryText,
   formatE2eDuration,
-} from '../lib/e2e-runs';
+} from '../../lib/e2e-runs';
 import { E2eLivePositions } from './E2eLivePositions';
-import { E2eTestResultsList } from './e2e/E2eTestResultsList';
+import { E2eTestResultsList } from '../e2e/E2eTestResultsList';
 
 export interface E2eRunSuiteDetailPanelProps {
   run: E2eRunDto;

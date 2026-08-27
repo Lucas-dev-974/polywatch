@@ -9,13 +9,13 @@ import {
   snapshotColumnLabel,
   type CompareDeltaMode,
   type CompareRow,
-} from '../lib/sim-snapshot-compare';
+} from '../../lib/sim-snapshot-compare';
 import type {
   SimStateSnapshotDetail,
   SimStateSnapshotSummary,
-} from '../lib/simulation-snapshots';
+} from '../../lib/simulation-snapshots';
 import { SnapshotConfigDiffPanel } from './SnapshotConfigDiffPanel';
-import type { SnapshotConfigMode } from '../lib/snapshot-config-diff';
+import type { SnapshotConfigMode } from '../../lib/snapshot-config-diff';
 
 function CompareCell(props: {
   row: CompareRow;

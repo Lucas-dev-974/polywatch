@@ -8,8 +8,8 @@ import {
   sessionCompareRowHasDiff,
   type CompareDeltaMode,
   type SessionCompareRow,
-} from '../lib/sim-session-compare';
-import type { SimSessionSummary } from '../lib/simulation-sessions';
+} from '../../lib/sim-session-compare';
+import type { SimSessionSummary } from '../../lib/simulation-sessions';
 
 function SessionCompareCell(props: {
   row: SessionCompareRow;

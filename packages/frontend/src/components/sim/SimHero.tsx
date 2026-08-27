@@ -10,7 +10,7 @@ import { connectSocket } from '../../socket';
 import { EnvSettingsDialogTrigger } from '../dialogs/EnvSettingsDialog';
 import { SystemConfigDialog } from '../dialogs/SystemConfigDialog';
 import { SimExecutionSettingsDialog } from '../dialogs/SimExecutionSettingsDialog';
-import { formatSimExecutionStatsSummary } from '../SimExecutionStatsPanel';
+import { formatSimExecutionStatsSummary } from '../panels/SimExecutionStatsPanel';
 import { ModeHeroBalanceStat } from '../ModeHeroBalanceStat';
 import { SimSnapshotDialog } from '../dialogs/SimSnapshotDialog';
 import { NewSessionResetDialog } from '../dialogs/NewSessionResetDialog';

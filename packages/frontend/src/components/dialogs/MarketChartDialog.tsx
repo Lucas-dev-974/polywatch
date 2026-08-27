@@ -23,7 +23,7 @@ import { useMaxSlippagePercent } from '../../hooks/useMaxSlippagePercent';
 import { Dialog } from '../Dialog';
 import { MarketChartMeta } from '../markets/MarketChartMeta';
 import { MarketChartMosMeta } from '../markets/MarketChartMosMeta';
-import { MarketChartDebugPanel } from '../MarketChartDebugPanel';
+import { MarketChartDebugPanel } from '../panels/MarketChartDebugPanel';
 import { UpDownPriceChart } from '../charts/UpDownPriceChart';
 import { TimeframeSelector } from '../markets/TimeframeSelector';
 

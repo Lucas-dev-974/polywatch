@@ -1,6 +1,6 @@
 import { createMemo, For, Show } from 'solid-js';
-import type { AlgoPriceTickMetrics, OutcomeSideLabels, UpDownPricePoint } from '../lib/market-chart';
-import { computeChartMetricSummaries } from '../lib/market-chart';
+import type { AlgoPriceTickMetrics, OutcomeSideLabels, UpDownPricePoint } from '../../lib/market-chart';
+import { computeChartMetricSummaries } from '../../lib/market-chart';
 import {
   DEBUG_EMPTY,
   debugSpreadValueClass,
@@ -14,15 +14,15 @@ import {
   fmtLiquidityStatus,
   isDebugEmpty,
   resolveMarketLiquidityStatus,
-} from '../lib/market-chart-debug-format';
-import { pnlClass } from '../lib/position';
-import { formatUpDownPriceCents } from '../lib/updown-price-chart';
+} from '../../lib/market-chart-debug-format';
+import { pnlClass } from '../../lib/position';
+import { formatUpDownPriceCents } from '../../lib/updown-price-chart';
 import {
   exitAttemptBreakdownRows,
   formatExitAttemptDetail,
   summarizeExitAttempts,
   type ExitAttemptEvent,
-} from '../lib/exit-attempts';
+} from '../../lib/exit-attempts';
 
 export interface MarketChartDebugPanelProps {
   points: UpDownPricePoint[];

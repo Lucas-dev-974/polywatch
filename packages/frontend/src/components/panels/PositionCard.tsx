@@ -2,32 +2,32 @@ import { createMemo, createSignal, createEffect, onCleanup, onMount, Show } from
 
 import { MarketMetricsPanel } from './MarketMetricsPanel';
 
-import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
-import { Icon } from './Icon';
+import { CollapsiblePanel, useCollapse } from '../CollapsiblePanel';
+import { Icon } from '../Icon';
 
-import { api } from '../api';
-import { useClock } from '../hooks/useClock';
+import { api } from '../../api';
+import { useClock } from '../../hooks/useClock';
 import {
   partitionActivePositions,
   summarizePositionsPnl,
   type PnlTick,
   type Position,
-} from '../lib/position';
-import type { MarketTick } from '../lib/market';
-import { connectSocket, onGlobalRefresh } from '../socket';
+} from '../../lib/position';
+import type { MarketTick } from '../../lib/market';
+import { connectSocket, onGlobalRefresh } from '../../socket';
 import {
   AwaitingRedemptionPositionsList,
   ClosedPositionsList,
   FailedPositionsList,
   OpenPositionsList,
-} from './position/PositionList';
-import { PositionListLayoutToggle } from './position/PositionListLayoutToggle';
-import { POSITION_LIST_LAYOUTS, POSITION_TABS, UI_KEYS, usePersistedEnum } from '../lib/ui-persistence';
+} from '../position/PositionList';
+import { PositionListLayoutToggle } from '../position/PositionListLayoutToggle';
+import { POSITION_LIST_LAYOUTS, POSITION_TABS, UI_KEYS, usePersistedEnum } from '../../lib/ui-persistence';
 import {
   positionCountLabel,
   PositionTabsBar,
   type PositionTab,
-} from './position/PositionTabsBar';
+} from '../position/PositionTabsBar';
 
 /** Fallback REST poll when WS ticks are absent (ms). */
 const POSITION_POLL_INTERVAL_MS = 60_000;

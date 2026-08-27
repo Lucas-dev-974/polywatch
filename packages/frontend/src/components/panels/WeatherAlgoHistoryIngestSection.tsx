@@ -7,9 +7,9 @@ import {
   startWeatherHistoryIngest,
   type WeatherHistoryCoverage,
   type WeatherHistoryIngestJob,
-} from '../api';
-import { CollapsibleSection } from './CollapsibleSection';
-import { FIDELITY_OPTIONS } from '../lib/fidelity-options';
+} from '../../api';
+import { CollapsibleSection } from '../CollapsibleSection';
+import { FIDELITY_OPTIONS } from '../../lib/fidelity-options';
 
 export interface WeatherAlgoHistoryIngestSectionProps {
   /** Extra city names from live discovery (merged with API list). */

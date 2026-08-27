@@ -10,8 +10,8 @@ import {
 } from '../../socket';
 import { formatShortDateTime } from '../../lib/date';
 import { E2eRunStatusBar, useE2eLiveClock } from '../e2e/E2eRunStatusBar';
-import { E2eLivePositions } from '../E2eLivePositions';
-import { E2eRunSuiteDetailPanel } from '../E2eRunSuiteDetailPanel';
+import { E2eLivePositions } from '../panels/E2eLivePositions';
+import { E2eRunSuiteDetailPanel } from '../panels/E2eRunSuiteDetailPanel';
 import {
   type E2eRunDto,
   type E2eRunStatus,

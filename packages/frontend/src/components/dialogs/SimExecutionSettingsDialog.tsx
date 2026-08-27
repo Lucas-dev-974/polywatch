@@ -2,7 +2,7 @@ import { createEffect, createSignal, on, onCleanup, Show } from 'solid-js';
 import { fetchGlobalConfig, updateGlobalConfig } from '../../api';
 import { Dialog } from '../Dialog';
 import { NullableNumberField, ToggleField } from '../settings/settings-fields';
-import { SimExecutionStatsPanel } from '../SimExecutionStatsPanel';
+import { SimExecutionStatsPanel } from '../panels/SimExecutionStatsPanel';
 import {
   fetchSimExecutionStats,
   pickSimExecutionFields,

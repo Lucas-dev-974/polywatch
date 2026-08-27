@@ -1,8 +1,8 @@
 import { createSignal, Show } from 'solid-js';
-import { EventsPanel } from '../EventsPanel';
-import { ExecutionLog } from '../ExecutionLog';
-import { PositionCard } from '../PositionCard';
-import { SimAnalyticsPanel } from '../SimAnalyticsPanel';
+import { EventsPanel } from '../panels/EventsPanel';
+import { ExecutionLog } from '../panels/ExecutionLog';
+import { PositionCard } from '../panels/PositionCard';
+import { SimAnalyticsPanel } from '../panels/SimAnalyticsPanel';
 import { SimHero } from '../sim/SimHero';
 import { SIM_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../../lib/ui-persistence';
 import type { SimAlgoKind } from '../../lib/simulation';

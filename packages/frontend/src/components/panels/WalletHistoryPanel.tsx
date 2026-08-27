@@ -1,14 +1,14 @@
 import { createEffect, createSignal, For, on, Show } from 'solid-js';
-import { truncateAddress } from '../lib/address';
-import { formatTimestampMs } from '../lib/date';
-import { primaryWalletAccount, type WalletAccountView } from '../lib/wallet';
+import { truncateAddress } from '../../lib/address';
+import { formatTimestampMs } from '../../lib/date';
+import { primaryWalletAccount, type WalletAccountView } from '../../lib/wallet';
 import {
   fetchWalletHistory,
   formatWalletHistoryError,
   walletHistoryCategoryClass,
   walletHistoryCategoryLabel,
   type WalletHistoryEntry,
-} from '../lib/wallet-history';
+} from '../../lib/wallet-history';
 
 interface WalletHistoryPanelProps {
   accounts: WalletAccountView[];

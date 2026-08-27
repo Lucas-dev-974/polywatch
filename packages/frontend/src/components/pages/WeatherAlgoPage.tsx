@@ -8,12 +8,12 @@ import {
   usePersistedEnum,
 } from '../../lib/ui-persistence';
 import { WeatherAlgoCapitalHero } from '../algo/WeatherAlgoCapitalHero';
-import { WeatherAlgoDiscoverPanel } from '../WeatherAlgoDiscoverPanel';
-import { WeatherAlgoActiveMarketsPanel } from '../WeatherAlgoActiveMarketsPanel';
-import { WeatherAlgoPositionsPanel } from '../WeatherAlgoPositionsPanel';
-import { WeatherAlgoExecutionsPanel } from '../WeatherAlgoExecutionsPanel';
+import { WeatherAlgoDiscoverPanel } from '../panels/WeatherAlgoDiscoverPanel';
+import { WeatherAlgoActiveMarketsPanel } from '../panels/WeatherAlgoActiveMarketsPanel';
+import { WeatherAlgoPositionsPanel } from '../panels/WeatherAlgoPositionsPanel';
+import { WeatherAlgoExecutionsPanel } from '../panels/WeatherAlgoExecutionsPanel';
 import { WeatherAlgoAutoTrackTab } from '../algo/WeatherAlgoAutoTrackTab';
-import { WeatherAlgoHistoryIngestSection } from '../WeatherAlgoHistoryIngestSection';
+import { WeatherAlgoHistoryIngestSection } from '../panels/WeatherAlgoHistoryIngestSection';
 import { WeatherAlgoSettingsTab } from '../algo/WeatherAlgoSettingsTab';
 import { WeatherAlgoDataTab } from '../algo/WeatherAlgoDataTab';
 import { WeatherAlgoBacktestTab } from '../algo/WeatherAlgoBacktestTab';

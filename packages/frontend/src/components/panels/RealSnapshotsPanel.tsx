@@ -1,12 +1,12 @@
-import { SnapshotsPanel } from './snapshot/SnapshotsPanel';
-import { useRealSnapshots } from '../hooks/useRealSnapshots';
-import { RealSnapshotDialog } from './dialogs/RealSnapshotDialog';
-import { RealSnapshotSettingsDialog } from './dialogs/RealSnapshotSettingsDialog';
-import { RealSessionArchiveDialog } from './dialogs/RealSessionArchiveDialog';
-import type { UseSnapshotsApi } from '../hooks/useSnapshots';
-import type { RealSessionSummary } from '../lib/real-sessions';
-import type { SimSessionSummary } from '../lib/simulation-sessions';
-import type { SimStateSnapshotDetail, SimStateSnapshotSummary } from '../lib/simulation-snapshots';
+import { SnapshotsPanel } from '../snapshot/SnapshotsPanel';
+import { useRealSnapshots } from '../../hooks/useRealSnapshots';
+import { RealSnapshotDialog } from '../dialogs/RealSnapshotDialog';
+import { RealSnapshotSettingsDialog } from '../dialogs/RealSnapshotSettingsDialog';
+import { RealSessionArchiveDialog } from '../dialogs/RealSessionArchiveDialog';
+import type { UseSnapshotsApi } from '../../hooks/useSnapshots';
+import type { RealSessionSummary } from '../../lib/real-sessions';
+import type { SimSessionSummary } from '../../lib/simulation-sessions';
+import type { SimStateSnapshotDetail, SimStateSnapshotSummary } from '../../lib/simulation-snapshots';
 
 export function RealSnapshotsPanel() {
   const snap = useRealSnapshots();

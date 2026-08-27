@@ -1,15 +1,15 @@
 import { For, Show } from 'solid-js';
-import { formatShortDateTime } from '../lib/date';
+import { formatShortDateTime } from '../../lib/date';
 import {
   formatPnlAmount,
   formatPnlPercent,
   investedAmount,
   pnlClass,
   pnlPercent,
-} from '../lib/position';
-import type { useCryptoAlgoPositions } from '../hooks/useCryptoAlgoPositions';
-import { Icon } from './Icon';
-import { PositionMarketChartTrigger } from './PositionMarketChartTrigger';
+} from '../../lib/position';
+import type { useCryptoAlgoPositions } from '../../hooks/useCryptoAlgoPositions';
+import { Icon } from '../Icon';
+import { PositionMarketChartTrigger } from '../PositionMarketChartTrigger';
 
 type PositionsState = ReturnType<typeof useCryptoAlgoPositions>;
 

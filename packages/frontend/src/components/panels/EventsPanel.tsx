@@ -1,21 +1,21 @@
 import { createSignal, For, onMount, onCleanup, Show, createEffect } from 'solid-js';
 
-import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
-import { Icon } from './Icon';
-import { MoveEventFilters, type SourceFilter } from './move-events/MoveEventFilters';
-import { MoveEventRow } from './move-events/MoveEventRow';
-import { AlgoEventRow } from './algo-events/AlgoEventRow';
+import { CollapsiblePanel, useCollapse } from '../CollapsiblePanel';
+import { Icon } from '../Icon';
+import { MoveEventFilters, type SourceFilter } from '../move-events/MoveEventFilters';
+import { MoveEventRow } from '../move-events/MoveEventRow';
+import { AlgoEventRow } from '../algo-events/AlgoEventRow';
 
-import { api } from '../api';
-import { connectSocket } from '../socket';
-import type { SimAlgoKind } from '../lib/simulation';
+import { api } from '../../api';
+import { connectSocket } from '../../socket';
+import type { SimAlgoKind } from '../../lib/simulation';
 import {
   MOVE_EVENTS_PAGE_SIZE,
   type ModeFilter,
   type MoveEvent,
   type MoveEventsResponse,
-} from '../lib/move-events';
-import type { AlgoEvent, AlgoEventsResponse } from '../lib/algo-events';
+} from '../../lib/move-events';
+import type { AlgoEvent, AlgoEventsResponse } from '../../lib/algo-events';
 
 type Props = {
   mode: 'sim' | 'real';

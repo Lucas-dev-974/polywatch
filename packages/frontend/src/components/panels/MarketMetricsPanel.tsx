@@ -1,20 +1,20 @@
 import { createSignal, Show, createEffect } from 'solid-js';
 
-import { Dialog } from './Dialog';
-import { TimeSeriesLineChart } from './charts/TimeSeriesLineChart';
+import { Dialog } from '../Dialog';
+import { TimeSeriesLineChart } from '../charts/TimeSeriesLineChart';
 import {
   fetchMarketMetrics,
   formatPrice,
   formatSpread,
   type MarketMetrics,
   type MarketTick,
-} from '../lib/market';
+} from '../../lib/market';
 import {
   formatAdaptiveAmount,
   marketLabel,
   type Position,
-} from '../lib/position';
-import { isCryptoUpDownMarket } from '../lib/markets-list';
+} from '../../lib/position';
+import { isCryptoUpDownMarket } from '../../lib/markets-list';
 import type { MarketListItemDto } from '@polywatch/core/market-list';
 
 interface Props {

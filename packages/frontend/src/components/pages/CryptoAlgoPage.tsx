@@ -8,13 +8,13 @@ import { onGlobalRefresh } from '../../socket';
 import { CRYPTO_ALGO_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../../lib/ui-persistence';
 import { CryptoAlgoCapitalDashboard } from '../algo/CryptoAlgoCapitalDashboard';
 import { CryptoAlgoDataTab } from '../algo/CryptoAlgoDataTab';
-import { CryptoAlgoExecutionsPanel } from '../CryptoAlgoExecutionsPanel';
-import { CryptoAlgoFutureMarketsPanel } from '../CryptoAlgoFutureMarketsPanel';
+import { CryptoAlgoExecutionsPanel } from '../panels/CryptoAlgoExecutionsPanel';
+import { CryptoAlgoFutureMarketsPanel } from '../panels/CryptoAlgoFutureMarketsPanel';
 import { CryptoAlgoHeader } from '../algo/CryptoAlgoHeader';
-import { CryptoAlgoInactiveMarketsPanel } from '../CryptoAlgoInactiveMarketsPanel';
-import { CryptoAlgoLiveMarketsPanel } from '../CryptoAlgoLiveMarketsPanel';
-import { CryptoAlgoPositionsPanel } from '../CryptoAlgoPositionsPanel';
-import { CryptoAlgoSurveillancePanel } from '../CryptoAlgoSurveillancePanel';
+import { CryptoAlgoInactiveMarketsPanel } from '../panels/CryptoAlgoInactiveMarketsPanel';
+import { CryptoAlgoLiveMarketsPanel } from '../panels/CryptoAlgoLiveMarketsPanel';
+import { CryptoAlgoPositionsPanel } from '../panels/CryptoAlgoPositionsPanel';
+import { CryptoAlgoSurveillancePanel } from '../panels/CryptoAlgoSurveillancePanel';
 
 const STATUS_POLL_MS = 10_000;
 

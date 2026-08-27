@@ -3,7 +3,7 @@ import {
   type E2ePositionDto,
   formatPrice,
   formatPnlPercent,
-} from '../lib/e2e-runs';
+} from '../../lib/e2e-runs';
 
 export interface E2eLivePositionsProps {
   positions: E2ePositionDto[];

@@ -1,10 +1,10 @@
 import { createSignal, For, onMount, onCleanup, createEffect, Show } from 'solid-js';
-import { api } from '../api';
-import { formatShortDateTime } from '../lib/date';
-import { connectSocket } from '../socket';
-import { type Execution, executionStatusClass, formatExecutionCashImpact } from '../lib/execution';
-import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
-import { Icon } from './Icon';
+import { api } from '../../api';
+import { formatShortDateTime } from '../../lib/date';
+import { connectSocket } from '../../socket';
+import { type Execution, executionStatusClass, formatExecutionCashImpact } from '../../lib/execution';
+import { CollapsiblePanel, useCollapse } from '../CollapsiblePanel';
+import { Icon } from '../Icon';
 
 type Props = {
   mode: 'sim' | 'real';

@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js';
-import { removeAlgoMarket } from '../stores/algoMarketsStore';
-import type { AlgoMarketPrice } from './algo/AlgoMarketCard';
-import { Icon } from './Icon';
+import { removeAlgoMarket } from '../../stores/algoMarketsStore';
+import type { AlgoMarketPrice } from '../algo/AlgoMarketCard';
+import { Icon } from '../Icon';
 
 export interface CryptoAlgoInactiveMarketsPanelProps {
   markets: AlgoMarketPrice[];

@@ -1,9 +1,9 @@
 import { For, Show, type Accessor } from 'solid-js';
-import { useAlgoCarouselScroll } from '../hooks/useAlgoCarouselScroll';
-import { AlgoCarousel } from './algo/AlgoCarousel';
-import { AlgoCarouselNav } from './algo/AlgoCarouselNav';
-import { AlgoMarketCard, type AlgoMarketPrice } from './algo/AlgoMarketCard';
-import { Icon } from './Icon';
+import { useAlgoCarouselScroll } from '../../hooks/useAlgoCarouselScroll';
+import { AlgoCarousel } from '../algo/AlgoCarousel';
+import { AlgoCarouselNav } from '../algo/AlgoCarouselNav';
+import { AlgoMarketCard, type AlgoMarketPrice } from '../algo/AlgoMarketCard';
+import { Icon } from '../Icon';
 
 export interface CryptoAlgoFutureMarketsPanelProps {
   markets: AlgoMarketPrice[];

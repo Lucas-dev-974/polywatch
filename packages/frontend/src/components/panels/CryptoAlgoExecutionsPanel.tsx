@@ -1,14 +1,14 @@
 import { For, Show } from 'solid-js';
-import { formatShortDateTime } from '../lib/date';
+import { formatShortDateTime } from '../../lib/date';
 import {
   closeExecutionErrorLabel,
   executionReasonLabel,
   executionStatusClass,
   executionStatusLabel,
   formatExecutionCashImpact,
-} from '../lib/execution';
-import type { useCryptoAlgoExecutions } from '../hooks/useCryptoAlgoExecutions';
-import { Icon } from './Icon';
+} from '../../lib/execution';
+import type { useCryptoAlgoExecutions } from '../../hooks/useCryptoAlgoExecutions';
+import { Icon } from '../Icon';
 
 type ExecutionsState = ReturnType<typeof useCryptoAlgoExecutions>;
 

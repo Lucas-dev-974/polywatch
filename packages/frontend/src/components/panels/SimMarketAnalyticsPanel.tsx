@@ -6,26 +6,26 @@ import {
   onMount,
   Show,
 } from 'solid-js';
-import { debounceFn } from '../lib/debounce';
+import { debounceFn } from '../../lib/debounce';
 import {
   compareMarkets,
   defaultSortDirForKey,
   type MarketSortDir,
   type MarketSortKey,
-} from '../lib/market-analytics-sort';
+} from '../../lib/market-analytics-sort';
 import {
   aggregateMarketAnalyticsTotals,
   fetchMarketAnalytics,
   type MarketAnalyticsRow,
-} from '../lib/market-analytics';
-import { connectSocket } from '../socket';
-import { useMarketPnlSeries } from '../hooks/useMarketPnlSeries';
-import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
-import { Icon } from './Icon';
-import { SimMarketAnalyticsRank } from './sim/SimMarketAnalyticsRank';
-import { SimMarketAnalyticsChartSection } from './sim/SimMarketAnalyticsChartSection';
-import { SimMarketAnalyticsTable } from './sim/SimMarketAnalyticsTable';
-import { SimMarketYesNoBreakdown } from './sim/SimMarketYesNoBreakdown';
+} from '../../lib/market-analytics';
+import { connectSocket } from '../../socket';
+import { useMarketPnlSeries } from '../../hooks/useMarketPnlSeries';
+import { CollapsiblePanel, useCollapse } from '../CollapsiblePanel';
+import { Icon } from '../Icon';
+import { SimMarketAnalyticsRank } from '../sim/SimMarketAnalyticsRank';
+import { SimMarketAnalyticsChartSection } from '../sim/SimMarketAnalyticsChartSection';
+import { SimMarketAnalyticsTable } from '../sim/SimMarketAnalyticsTable';
+import { SimMarketYesNoBreakdown } from '../sim/SimMarketYesNoBreakdown';
 
 const REFRESH_DEBOUNCE_MS = 500;
 

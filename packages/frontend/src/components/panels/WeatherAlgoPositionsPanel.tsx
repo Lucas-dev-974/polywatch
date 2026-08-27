@@ -1,11 +1,11 @@
 import { createMemo, Show } from 'solid-js';
-import type { useWeatherAlgoPositions, WeatherPosition } from '../hooks/useWeatherAlgoPositions';
-import { CollapsibleSection } from './CollapsibleSection';
-import { Icon } from './Icon';
+import type { useWeatherAlgoPositions, WeatherPosition } from '../../hooks/useWeatherAlgoPositions';
+import { CollapsibleSection } from '../CollapsibleSection';
+import { Icon } from '../Icon';
 import {
   WeatherPositionGroupedList,
-} from './weather-position-group/WeatherPositionGroupedList';
-import { buildWeatherPositionGroups } from './weather-position-group/buildGroups';
+} from '../weather-position-group/WeatherPositionGroupedList';
+import { buildWeatherPositionGroups } from '../weather-position-group/buildGroups';
 
 export interface WeatherAlgoPositionsPanelProps {
   positions: ReturnType<typeof useWeatherAlgoPositions>;

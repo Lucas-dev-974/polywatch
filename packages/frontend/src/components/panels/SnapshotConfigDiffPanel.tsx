@@ -5,7 +5,7 @@ import {
   type ConfigDiffGroup,
   type SnapshotConfigDiffInput,
   type SnapshotConfigMode,
-} from '../lib/snapshot-config-diff';
+} from '../../lib/snapshot-config-diff';
 
 export interface SnapshotConfigDiffColumn {
   id: number;

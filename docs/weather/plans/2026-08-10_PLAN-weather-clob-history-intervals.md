@@ -1,7 +1,7 @@
 # Plan — Gestion multi-intervalles de l'historique CLOB weather + refonte colonne « En base »
 
 **Date** : 2026-08-10
-**Statut** : **Plan** (à implémenter)
+**Statut** : ✅ **implémenté** (vérifié 2026-08-27)
 **Scope** : Section **Villes → Données télécharger** (`WeatherAlgoHistoryIngestSection`) + timeline CLOB (`WeatherClobTimelineView`)
 **Référence** : `[2026-08-08_PLAN-weather-market-data-persistence.md](./2026-08-08_PLAN-weather-market-data-persistence.md)` (tables `weather_clob_price_history` / `weather_history_ingest_jobs`)
 
@@ -291,9 +291,9 @@ Nouvelles classes (badges d'intervalle, chips de dates, layout grille de la colo
 
 ## 9. Critère de complétude
 
-- [ ] Migration passe (up + down)
-- [ ] Charger la même ville/date en 15 min puis 1 h crée deux séries distinctes
-- [ ] La colonne « En base » affiche les badges d'intervalle avec volume
-- [ ] Supprimer un intervalle précis purge uniquement ces lignes
-- [ ] La timeline CLOB se filtre par intervalle
-- [ ] Tests verts
+- [x] Migration passe (up + down)
+- [x] Charger la même ville/date en 15 min puis 1 h crée deux séries distinctes
+- [x] La colonne « En base » affiche les badges d'intervalle avec volume
+- [x] Supprimer un intervalle précis purge uniquement ces lignes
+- [x] La timeline CLOB se filtre par intervalle
+- [x] Tests verts

@@ -21,17 +21,17 @@ Les quatre constats C7, C10, C11, C12 sont **déjà corrigés dans le code** (v�
 
 **Aucune action requise** — le plan est clos. Reste uniquement les smoke tests prod (§2).
 
-### 1.2 `2026-08-10_PLAN-weather-clob-history-intervals.md` — **Plan (à implémenter)**
+### 1.2 `2026-08-10_PLAN-weather-clob-history-intervals.md` — ✅ **implémenté (vérifié 2026-08-27)**
 
-Gestion multi-intervalles de l'historique CLOB + refonte colonne « En base » :
+Gestion multi-intervalles de l'historique CLOB + refonte colonne « En base » — **tout est livré** :
 
-- Migration `AddClobHistoryIntervalToUniqueKey1700000000104` (clé `(condition_id, side, recorded_at, fidelity_minutes)`)
+- Migration `AddClobHistoryIntervalToUniqueKey1700000000104` (clé `(condition_id, side, recorded_at, fidelity_minutes)`) — enregistrée dans `data-source.ts`
 - Coverage enrichi `intervals` dans `WeatherHistoryCoverageDto`
 - `deleteCityInterval` + endpoint `DELETE /interval`
 - Filtre timeline CLOB par `fidelityMinutes`
 - Refonte UI colonne « En base » (badges d'intervalle) + filtre timeline
 
-> ⚠️ La migration `...0104` est référencée comme pattern existant dans le plan C12 — vérifier l'état réel (partiellement fait ?).
+**Aucune action requise** — le plan est clos.
 
 ### 1.3 `2026-08-09_PLAN-weather-multi-strategy-extensible.md` — **partiellement implémenté**
 

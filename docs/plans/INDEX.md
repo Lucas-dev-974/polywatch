@@ -16,12 +16,12 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 37 |
+| **applied** | 38 |
 | **partial** (racine) | 3 |
 | **not_implemented** (racine) | 2 |
 | **reference** | 7 |
 | **archived** | 7 |
-| **Total** | **56** |
+| **Total** | **57** |
 
 ---
 
@@ -67,6 +67,7 @@
 | [applied/2026-08-24_PLAN-frontend-dedup-snapshots-sim-real.md](applied/2026-08-24_PLAN-frontend-dedup-snapshots-sim-real.md) | Mutualiser snapshots sim/real (`SnapshotsPanel` / `useSnapshots`) | `SnapshotsPanel.tsx`, `useSnapshots.ts` |
 | [applied/2026-08-24_PLAN-frontend-split-snapshot-config-diff.md](applied/2026-08-24_PLAN-frontend-split-snapshot-config-diff.md) | Extraire `SnapshotConfigDiffPanel` | `SnapshotConfigDiffPanel.tsx` |
 | [applied/2026-08-24_PLAN-frontend-refactor-UpDownPriceChart.md](applied/2026-08-24_PLAN-frontend-refactor-UpDownPriceChart.md) | Refactor `UpDownPriceChart` | `UpDownPriceChart.tsx` |
+| [../weather/plans/2026-08-10_PLAN-weather-clob-history-intervals.md](../weather/plans/2026-08-10_PLAN-weather-clob-history-intervals.md) | Multi-intervalles historique CLOB + refonte colonne « En base » | migration `AddClobHistoryIntervalToUniqueKey1700000000104`, `deleteCityInterval`, `DELETE /interval`, filtre timeline `fidelityMinutes`, `WeatherClobPriceHistory.ts` |
 
 ---
 

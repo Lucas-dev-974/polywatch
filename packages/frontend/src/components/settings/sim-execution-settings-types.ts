@@ -9,7 +9,7 @@ export interface RiskConfig {
   shadowSampleRetentionDays: number | null;
 }
 
-import { api } from '../api';
+import { api } from '../../api';
 
 export type SimExecutionSettings = Pick<
   RiskConfig,

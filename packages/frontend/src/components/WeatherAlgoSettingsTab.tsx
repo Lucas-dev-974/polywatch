@@ -7,7 +7,7 @@ import {
 import {
   NumberField,
   ToggleField,
-} from './settings-fields';
+} from './settings/settings-fields';
 import { CollapsibleSection } from './CollapsibleSection';
 
 export function WeatherAlgoSettingsTab() {

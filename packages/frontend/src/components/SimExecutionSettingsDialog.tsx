@@ -1,14 +1,14 @@
 import { createEffect, createSignal, on, onCleanup, Show } from 'solid-js';
 import { fetchGlobalConfig, updateGlobalConfig } from '../api';
 import { Dialog } from './Dialog';
-import { NullableNumberField, ToggleField } from './settings-fields';
+import { NullableNumberField, ToggleField } from './settings/settings-fields';
 import { SimExecutionStatsPanel } from './SimExecutionStatsPanel';
 import {
   fetchSimExecutionStats,
   pickSimExecutionFields,
   type SimExecutionSettings,
   type SimExecutionStats,
-} from './sim-execution-settings-types';
+} from './settings/sim-execution-settings-types';
 
 const STATS_POLL_MS = 15_000;
 

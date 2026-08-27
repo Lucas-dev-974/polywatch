@@ -1,6 +1,6 @@
 // ─── Config API : Global / Copy / Crypto / Weather + EnvSettings legacy ───
 
-import type { EnvSettings } from '../components/env-settings-types';
+import type { EnvSettings } from '../components/settings/env-settings-types';
 import { api } from './http';
 
 export interface GlobalConfig {

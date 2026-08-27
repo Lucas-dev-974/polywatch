@@ -1,15 +1,15 @@
 import { Show } from 'solid-js';
-import type { EnvMode, EnvSettings } from './env-settings-types';
-import { ENV_MODE_LABELS, modeSettingKey } from './env-settings-types';
+import type { EnvMode, EnvSettings } from './settings/env-settings-types';
+import { ENV_MODE_LABELS, modeSettingKey } from './settings/env-settings-types';
 import {
   NumberField,
   PositionAdjustmentsSection,
   PreCloseSection,
   SimInitialCapitalField,
   ToggleField,
-} from './settings-fields';
+} from './settings/settings-fields';
 import { MarketTagsSection } from './MarketTagsSection';
-import { ExitSection, RiskSection, SizingSection } from './settings-sections';
+import { ExitSection, RiskSection, SizingSection } from './settings/settings-sections';
 
 export function SettingsTabIntro(props: { title: string; description: string }) {
   return (

@@ -5,7 +5,7 @@ import {
   searchMarketTags,
   type GammaTag,
 } from '../lib/market-tags';
-import type { EnvMode } from './env-settings-types';
+import type { EnvMode } from './settings/env-settings-types';
 
 function TagChip(props: {
   label: string;

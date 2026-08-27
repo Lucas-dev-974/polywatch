@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { validateIntervalJsonMap } from './crypto-algo-settings-types';
+import { validateIntervalJsonMap } from './settings/crypto-algo-settings-types';
 
 export interface JsonIntervalMapFieldProps {
   label: string;

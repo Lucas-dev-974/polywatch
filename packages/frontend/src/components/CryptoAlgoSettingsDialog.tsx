@@ -13,8 +13,8 @@ import { CryptoAlgoSettingsGeneralTab } from './CryptoAlgoSettingsGeneralTab';
 import {
   pickCryptoAlgoFields,
   type CryptoAlgoSettings,
-} from './crypto-algo-settings-types';
-import { type EnvSettings } from './env-settings-types';
+} from './settings/crypto-algo-settings-types';
+import { type EnvSettings } from './settings/env-settings-types';
 import { Dialog } from './Dialog';
 
 type SettingsTab = 'general' | 'entry' | 'exit' | 'autotrack';

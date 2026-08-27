@@ -7,7 +7,7 @@ import {
   type WeatherStrategyMeta,
 } from '../api';
 import { CollapsibleSection } from './CollapsibleSection';
-import { NumberField, ToggleField, SelectField, NullableNumberField } from './settings-fields';
+import { NumberField, ToggleField, SelectField, NullableNumberField } from './settings/settings-fields';
 
 /** Nullable numeric knobs: stored `0` is coerced to `null` at runtime, so the
  * form uses NullableNumberField to write `null` (disabled) instead of `0`. */

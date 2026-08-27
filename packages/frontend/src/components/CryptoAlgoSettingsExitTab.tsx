@@ -3,9 +3,9 @@ import {
   CODE_DEFAULT_EXIT_BY_INTERVAL,
   CODE_DEFAULT_PRE_CLOSE_SECONDS,
   type CryptoAlgoSettings,
-} from './crypto-algo-settings-types';
+} from './settings/crypto-algo-settings-types';
 import { JsonIntervalMapField } from './JsonIntervalMapField';
-import { NumberField, NullableNumberField, ToggleField } from './settings-fields';
+import { NumberField, NullableNumberField, ToggleField } from './settings/settings-fields';
 
 /** Mirrors core `CRYPTO_INTERVAL_EXIT_DEFAULTS` for 5m hint text. */
 const EXIT_DEFAULTS_5M = CODE_DEFAULT_EXIT_BY_INTERVAL['5m'];

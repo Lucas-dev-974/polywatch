@@ -18,7 +18,7 @@ import { Icon } from './Icon';
 import {
   fetchSimExecutionStats,
   type SimExecutionStats,
-} from './sim-execution-settings-types';
+} from './settings/sim-execution-settings-types';
 
 /** Coalesce bursty pnl_tick bursts before refetching mark-to-market equity. */
 const BALANCE_REFRESH_DEBOUNCE_MS = 500;

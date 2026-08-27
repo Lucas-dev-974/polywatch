@@ -5,7 +5,7 @@ import {
   pickModeFields,
   type EnvMode,
   type EnvSettings,
-} from './env-settings-types';
+} from './settings/env-settings-types';
 import {
   EnvSettingsEntryTab,
   EnvSettingsExitTab,

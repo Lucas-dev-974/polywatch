@@ -2,9 +2,9 @@ import { Show } from 'solid-js';
 import {
   CODE_DEFAULT_SPREAD_ABS_BY_INTERVAL,
   type CryptoAlgoSettings,
-} from './crypto-algo-settings-types';
+} from './settings/crypto-algo-settings-types';
 import { JsonIntervalMapField } from './JsonIntervalMapField';
-import { NullableNumberField, ToggleField } from './settings-fields';
+import { NullableNumberField, ToggleField } from './settings/settings-fields';
 
 export interface CryptoAlgoSettingsEntryTabProps {
   config: CryptoAlgoSettings;

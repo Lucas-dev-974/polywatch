@@ -1,6 +1,6 @@
 import { createSignal, onMount } from 'solid-js';
 import { fetchGlobalConfig } from '../api';
-import type { EnvSettings } from '../components/env-settings-types';
+import type { EnvSettings } from '../components/settings/env-settings-types';
 
 /**
  * Loads the configured `maxSlippagePercent` (global entry slippage guard) so

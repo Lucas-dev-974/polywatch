@@ -1,8 +1,8 @@
 import { createEffect, createSignal, on, Show } from 'solid-js';
 import { fetchGlobalConfig, updateGlobalConfig } from '../api';
-import type { EnvSettings } from './env-settings-types';
+import type { EnvSettings } from './settings/env-settings-types';
 import { Dialog } from './Dialog';
-import { RealAutoSnapshotSection } from './settings-fields';
+import { RealAutoSnapshotSection } from './settings/settings-fields';
 
 interface Props {
   open: boolean;

@@ -1,13 +1,13 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
 
 import { Icon } from '../Icon';
-import { MarketCard } from '../MarketCard';
+import { MarketCard } from '../markets/MarketCard';
 import { MarketMetricsPanel } from '../MarketMetricsPanel';
 import { MarketSyncSettingsDialog } from '../dialogs/MarketSyncSettingsDialog';
-import { MarketsCryptoCurrencyFilterBar } from '../MarketsCryptoCurrencyFilterBar';
-import { MarketsCryptoFilterBar } from '../MarketsCryptoFilterBar';
-import { MarketsIntervalSidebar } from '../MarketsIntervalSidebar';
-import { MarketsTagBar } from '../MarketsTagBar';
+import { MarketsCryptoCurrencyFilterBar } from '../markets/MarketsCryptoCurrencyFilterBar';
+import { MarketsCryptoFilterBar } from '../markets/MarketsCryptoFilterBar';
+import { MarketsIntervalSidebar } from '../markets/MarketsIntervalSidebar';
+import { MarketsTagBar } from '../markets/MarketsTagBar';
 import { useMarketsBrowse } from '../../hooks/useMarketsBrowse';
 import { toMetricsPosition } from '../../lib/markets-list';
 import { loadAlgoMarkets } from '../../stores/algoMarketsStore';

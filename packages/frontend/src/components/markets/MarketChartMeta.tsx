@@ -1,6 +1,6 @@
 import { Show } from 'solid-js';
-import { displayAlgoSymbol } from '../lib/algo-market-display';
-import { formatMarketWindow, parseMarketWindowMs } from '../lib/market-chart';
+import { displayAlgoSymbol } from '../../lib/algo-market-display';
+import { formatMarketWindow, parseMarketWindowMs } from '../../lib/market-chart';
 
 export interface MarketChartMetaProps {
   question?: string | null;

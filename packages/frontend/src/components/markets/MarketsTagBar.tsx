@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 
-import { marketTagLabel, type GammaTag } from '../lib/market-tags';
+import { marketTagLabel, type GammaTag } from '../../lib/market-tags';
 
 interface Props {
   tags: () => GammaTag[];

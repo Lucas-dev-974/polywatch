@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 
-import { INTERVAL_FILTER_OPTIONS } from '../lib/markets-list';
+import { INTERVAL_FILTER_OPTIONS } from '../../lib/markets-list';
 
 interface Props {
   activeInterval: () => string | null;

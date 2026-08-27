@@ -9,7 +9,7 @@ import { Login } from './components/pages/Login';
 import { WatchlistEditor } from './components/WatchlistEditor';
 
 import { NotificationCenter } from './components/NotificationCenter';
-import { MarketChartDialogHost } from './components/MarketChartDialogHost';
+import { MarketChartDialogHost } from './components/markets/MarketChartDialogHost';
 
 import { CountdownProvider } from './components/CountdownContext';
 import { NavClock } from './components/NavClock';

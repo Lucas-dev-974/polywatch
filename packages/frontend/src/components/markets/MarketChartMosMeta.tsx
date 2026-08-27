@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import type { MarketOrderSizeInfo } from '../hooks/useMarketOrderSize';
+import type { MarketOrderSizeInfo } from '../../hooks/useMarketOrderSize';
 
 function formatShares(n: number): string {
   const rounded = Math.round(n * 1000) / 1000;

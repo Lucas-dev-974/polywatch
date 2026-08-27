@@ -8,7 +8,7 @@ import {
   SimInitialCapitalField,
   ToggleField,
 } from './settings/settings-fields';
-import { MarketTagsSection } from './MarketTagsSection';
+import { MarketTagsSection } from './markets/MarketTagsSection';
 import { ExitSection, RiskSection, SizingSection } from './settings/settings-sections';
 
 export function SettingsTabIntro(props: { title: string; description: string }) {

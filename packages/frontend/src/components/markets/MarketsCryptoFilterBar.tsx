@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 
-import { CRYPTO_CATEGORY_OPTIONS } from '../lib/markets-list';
+import { CRYPTO_CATEGORY_OPTIONS } from '../../lib/markets-list';
 
 interface Props {
   activeCategory: () => string | null;

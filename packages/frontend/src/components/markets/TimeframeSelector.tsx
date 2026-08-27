@@ -1,5 +1,5 @@
 import { For } from 'solid-js';
-import { TIMEFRAMES } from '../lib/market-chart';
+import { TIMEFRAMES } from '../../lib/market-chart';
 
 interface TimeframeOption {
   value: string;

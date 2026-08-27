@@ -2,8 +2,8 @@ import { Show, onCleanup } from 'solid-js';
 import {
   closeMarketChart,
   marketChartContext,
-} from '../stores/marketChartStore';
-import { MarketChartDialog } from './dialogs/MarketChartDialog';
+} from '../../stores/marketChartStore';
+import { MarketChartDialog } from '../dialogs/MarketChartDialog';
 
 export function MarketChartDialogHost() {
   onCleanup(() => closeMarketChart());

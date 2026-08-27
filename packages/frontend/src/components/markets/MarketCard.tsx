@@ -9,13 +9,13 @@ import {
   marketListLabel,
   normalizedOutcomes,
   topOutcomes,
-} from '../lib/markets-list';
-import { primaryMarketTagLabel } from '../lib/market-tags';
-import { CountdownTimer } from './CountdownTimer';
-import { Icon } from './Icon';
-import { MarketIcon } from './position/MarketIcon';
+} from '../../lib/markets-list';
+import { primaryMarketTagLabel } from '../../lib/market-tags';
+import { CountdownTimer } from '../CountdownTimer';
+import { Icon } from '../Icon';
+import { MarketIcon } from '../position/MarketIcon';
 import type { MarketListItemDto } from '@polywatch/core/market-list';
-import { toggleAlgoMarket, isAlgoSelected } from '../stores/algoMarketsStore';
+import { toggleAlgoMarket, isAlgoSelected } from '../../stores/algoMarketsStore';
 
 interface Props {
   item: MarketListItemDto;

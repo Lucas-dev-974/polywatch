@@ -21,11 +21,11 @@ import { useExitAttempts } from '../../hooks/useExitAttempts';
 import { useAlgoOpenExecutionsForCondition } from '../../hooks/useAlgoOpenExecutionsForCondition';
 import { useMaxSlippagePercent } from '../../hooks/useMaxSlippagePercent';
 import { Dialog } from '../Dialog';
-import { MarketChartMeta } from '../MarketChartMeta';
-import { MarketChartMosMeta } from '../MarketChartMosMeta';
+import { MarketChartMeta } from '../markets/MarketChartMeta';
+import { MarketChartMosMeta } from '../markets/MarketChartMosMeta';
 import { MarketChartDebugPanel } from '../MarketChartDebugPanel';
 import { UpDownPriceChart } from '../charts/UpDownPriceChart';
-import { TimeframeSelector } from '../TimeframeSelector';
+import { TimeframeSelector } from '../markets/TimeframeSelector';
 
 const RESOLUTION_1MIN_MS = 60_000;
 

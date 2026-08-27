@@ -65,6 +65,14 @@ export function WeatherAlgoBacktestTab() {
       // '' = "Toutes les stratégies actives" (runner-sim multi-stratégies).
       (v): v is string => typeof v === 'string',
     );
+    // Mode de sélection des signaux pour ce backtest. '' = hériter de la
+    // config live (comportement par défaut). 'single' | 'multi' surcharge la
+    // config via configOverrides.weatherAlgoSelectionMode.
+    const [selectionMode, setSelectionMode] = usePersistedSignal(
+      'polywatch_weather_algo_backtest_selection_mode',
+      '',
+      (v): v is string => typeof v === 'string',
+    );
     const [catalog, setCatalog] = createSignal<WeatherStrategyMeta[]>([]);
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
@@ -362,6 +370,12 @@ export function WeatherAlgoBacktestTab() {
               maxConcurrentPositions: maxp,
               fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
               label: label().trim() || undefined,
+              // Surcharge du mode de sélection des signaux (single/multi) pour
+              // ce run. Vide = hériter de la config live.
+              configOverrides:
+                selectionMode() === 'single' || selectionMode() === 'multi'
+                  ? { weatherAlgoSelectionMode: selectionMode() }
+                  : undefined,
             };
       const res = await launchBacktestRun(body);
       setPage(0);
@@ -483,6 +497,8 @@ export function WeatherAlgoBacktestTab() {
                   setLabel={setLabel}
                   strategyId={strategyId}
                   setStrategyId={setStrategyId}
+                  selectionMode={selectionMode}
+                  setSelectionMode={setSelectionMode}
                   launching={launching}
                   launchError={launchError}
                   onFidelityChange={() => void refreshCoverage()}

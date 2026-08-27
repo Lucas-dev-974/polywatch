@@ -39,6 +39,8 @@ interface LaunchBacktestFormProps {
   setLabel: Setter<string>;
   strategyId: Accessor<string>;
   setStrategyId: Setter<string>;
+  selectionMode: Accessor<string>;
+  setSelectionMode: Setter<string>;
   launching: Accessor<boolean>;
   launchError: Accessor<string | null>;
   onFidelityChange: () => void;
@@ -117,6 +119,18 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
                 {(s) => <option value={s.id}>{s.label}</option>}
               </For>
             </Show>
+          </select>
+        </label>
+        <label class="backtest-field">
+          <span>Mode de sélection</span>
+          <select
+            value={props.selectionMode()}
+            onChange={(e) => props.setSelectionMode(e.currentTarget.value)}
+            title="Surcharge le mode de sélection des signaux pour ce backtest. 'Config' = hérite de la config live (single/multi)."
+          >
+            <option value="">Config (défaut)</option>
+            <option value="single">Single (1 signal par event)</option>
+            <option value="multi">Multi (jusqu'à maxSignals par event)</option>
           </select>
         </label>
         <label class="backtest-field">

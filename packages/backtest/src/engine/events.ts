@@ -25,12 +25,6 @@ export interface BookTickEventData {
   snapshotTargetDateIso: string;
   snapshotMetric: string;
   snapshotForecastMean: number | null;
-  /** Parent snapshot id (for fidelity aggregation / dedup). */
-  snapshotId: number;
-  /** Active buckets recorded in the parent snapshot. */
-  snapshotBucketCount: number;
-  /** Total buckets found (active + excluded) in the parent snapshot. */
-  snapshotTotalBucketCount: number;
 }
 
 export interface ForecastRevisionData {

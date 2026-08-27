@@ -390,9 +390,6 @@ async function* loadTickEvents(
           't.targetDateIso',
           't.metric',
           's.forecastMean',
-          's.id',
-          's.bucketCount',
-          's.totalBucketCount',
         ])
         .where('t.recordedAt >= :from', { from })
         .andWhere('t.recordedAt <= :to', { to })
@@ -432,9 +429,6 @@ async function* loadTickEvents(
           snapshotTargetDateIso: row.t_target_date_iso,
           snapshotMetric: row.t_metric,
           snapshotForecastMean: row.s_forecast_mean,
-          snapshotId: row.s_id,
-          snapshotBucketCount: row.s_bucket_count,
-          snapshotTotalBucketCount: row.s_total_bucket_count,
         },
       };
     },

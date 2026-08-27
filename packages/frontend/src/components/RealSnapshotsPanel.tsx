@@ -1,4 +1,4 @@
-import { SnapshotsPanel } from './SnapshotsPanel';
+import { SnapshotsPanel } from './snapshot/SnapshotsPanel';
 import { useRealSnapshots } from '../hooks/useRealSnapshots';
 import { RealSnapshotDialog } from './dialogs/RealSnapshotDialog';
 import { RealSnapshotSettingsDialog } from './dialogs/RealSnapshotSettingsDialog';

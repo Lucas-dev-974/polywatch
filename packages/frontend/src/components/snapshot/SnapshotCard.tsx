@@ -1,6 +1,6 @@
 import { Show } from 'solid-js';
-import { formatShortDateTime } from '../lib/date';
-import { formatPnlAmount, pnlClass } from '../lib/position';
+import { formatShortDateTime } from '../../lib/date';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
 
 interface SourceBadge {
   badgeClass: string;

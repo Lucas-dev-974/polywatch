@@ -1,21 +1,21 @@
 import { createSignal, For, Show } from 'solid-js';
 import type { JSX } from 'solid-js';
-import type { SimAlgoKind } from '../lib/simulation';
-import { formatPnlAmount, pnlClass } from '../lib/position';
-import { formatShortDateTime } from '../lib/date';
-import { SessionElapsed } from './SessionElapsed';
-import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
-import { Icon } from './Icon';
-import { SimSessionCard } from './SimSessionCard';
-import { SimSessionComparePanel } from './SimSessionComparePanel';
-import { SimSnapshotCard } from './SimSnapshotCard';
-import { SimSnapshotComparePanel } from './SimSnapshotComparePanel';
-import { SimSnapshotDetailDialog } from './dialogs/SimSnapshotDetailDialog';
-import { SimSnapshotEquityChart } from './charts/SimSnapshotEquityChart';
-import { SimSnapshotFilters } from './SimSnapshotFilters';
-import type { UseSnapshotsApi } from '../hooks/useSnapshots';
-import type { SimSessionSummary } from '../lib/simulation-sessions';
-import type { SimStateSnapshotDetail, SimStateSnapshotSummary } from '../lib/simulation-snapshots';
+import type { SimAlgoKind } from '../../lib/simulation';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
+import { formatShortDateTime } from '../../lib/date';
+import { SessionElapsed } from '../SessionElapsed';
+import { CollapsiblePanel, useCollapse } from '../CollapsiblePanel';
+import { Icon } from '../Icon';
+import { SimSessionCard } from '../SimSessionCard';
+import { SimSessionComparePanel } from '../SimSessionComparePanel';
+import { SimSnapshotCard } from '../SimSnapshotCard';
+import { SimSnapshotComparePanel } from '../SimSnapshotComparePanel';
+import { SimSnapshotDetailDialog } from '../dialogs/SimSnapshotDetailDialog';
+import { SimSnapshotEquityChart } from '../charts/SimSnapshotEquityChart';
+import { SimSnapshotFilters } from '../SimSnapshotFilters';
+import type { UseSnapshotsApi } from '../../hooks/useSnapshots';
+import type { SimSessionSummary } from '../../lib/simulation-sessions';
+import type { SimStateSnapshotDetail, SimStateSnapshotSummary } from '../../lib/simulation-snapshots';
 
 interface SnapshotsPanelProps {
   snap: UseSnapshotsApi<

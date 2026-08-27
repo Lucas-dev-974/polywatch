@@ -1,4 +1,4 @@
-import { SnapshotsPanel } from './SnapshotsPanel';
+import { SnapshotsPanel } from './snapshot/SnapshotsPanel';
 import { useSimulationSnapshots } from '../hooks/useSimulationSnapshots';
 import { SimSnapshotDialog } from './dialogs/SimSnapshotDialog';
 import { SimSnapshotSettingsDialog } from './dialogs/SimSnapshotSettingsDialog';

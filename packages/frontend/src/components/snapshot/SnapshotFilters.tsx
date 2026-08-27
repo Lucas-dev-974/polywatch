@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import type { SnapshotFiltersShape } from '../hooks/useSnapshots';
+import type { SnapshotFiltersShape } from '../../hooks/useSnapshots';
 
 interface SourceOption {
   value: string;

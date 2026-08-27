@@ -1,5 +1,5 @@
 import { SnapshotFilters } from './SnapshotFilters';
-import type { SnapshotFiltersShape } from '../hooks/useSnapshots';
+import type { SnapshotFiltersShape } from '../../hooks/useSnapshots';
 
 interface Props {
   filters: SnapshotFiltersShape;

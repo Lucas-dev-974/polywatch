@@ -1,5 +1,5 @@
 import { SnapshotCard } from './SnapshotCard';
-import type { RealStateSnapshotSummary } from '../lib/real-snapshots';
+import type { RealStateSnapshotSummary } from '../../lib/real-snapshots';
 
 const REAL_SNAPSHOT_SOURCE: Record<string, { badgeClass: string; badgeLabel: string }> = {
   manual: { badgeClass: 'neutral', badgeLabel: 'Manuel' },

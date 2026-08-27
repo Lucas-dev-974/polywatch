@@ -1,7 +1,7 @@
 # Plan v4 — Persistance données marché weather (buckets par ville suivie)
 
 **Date** : 2026-08-08 (v4 corrigée revue code)
-**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; **Phase 5 implémentée** (2026-08-09) — moteur `@polywatch/backtest` + onglet **Backtest** dans Weather Algo (voir `[../../reference/backtest.md](../../reference/backtest.md)`) ; patch fidélité audit `[2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)` (`0.2.0`). Warnings quantitatifs §12.2 **non livrés**.
+**Statut** : **Phases 0–4 implémentées** (2026-08-08) + UI onglet **Données** (cards / drill-down / purge) ; **Phase 5 implémentée** (2026-08-09) — moteur `@polywatch/backtest` + onglet **Backtest** dans Weather Algo (voir `[../../reference/backtest.md](../../reference/backtest.md)`) ; patch fidélité audit `[2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)` (`0.2.0`). Warnings quantitatifs §12.2 **livrés** (2026-08-27).
 **Doc d’implémentation** : `[2026-08-08_IMPL-weather-market-data-persistence.md](./2026-08-08_IMPL-weather-market-data-persistence.md)`
 **Scope** : Enregistrer les données marché (prix buckets) + forecasts versionnés pour backtester les stratégies weather
 **Référence backtest** : `[../../plans/2026-08-05_PLAN-backtest-engine-universel.md](../../plans/2026-08-05_PLAN-backtest-engine-universel.md)` §1.3 et Phase 0.3
@@ -1059,13 +1059,12 @@ export class AddWeatherMarketDataPersistence1700000000100 implements MigrationIn
 
 ### 12.2 Warnings de fidélité backtest
 
-> **Non livré (2026-08-09)** : les warnings quantitatifs ci-dessous
-> (`inactiveBucketsExcluded`, `arbitrage_unreliable`, `missingSnapshots`, …)
-> ne sont **pas** implémentés dans `packages/backtest`. Voir les codes réellement
-> émis dans `[../../reference/backtest.md](../../reference/backtest.md)` §1 et le patch
-> `[2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](./2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)`.
+> **Livré (2026-08-27)** : les warnings quantitatifs ci-dessous sont implémentés
+> dans `packages/backtest` (`computeWeatherFidelityStats` dans `data-loader.ts`,
+> émission via `AdapterWarnings.emitFidelityStats` en fin de run). Voir les codes
+> réellement émis dans `[../../reference/backtest.md](../../reference/backtest.md)` §1.
 
-Le `WeatherDataLoader` devait émettre ces warnings (fix #11 — buckets inactifs non enregistrés) :
+Le `WeatherDataLoader` émet ces warnings (fix #11 — buckets inactifs non enregistrés) :
 
 ```typescript
 {
@@ -1078,7 +1077,7 @@ Le `WeatherDataLoader` devait émettre ces warnings (fix #11 — buckets inactif
 }
 ```
 
-**Caveat arbitrage** : si `inactiveBucketsExcluded > 0` pour une ville/date, le `Σ yesPrice` calculé en backtest sera **incomplet** → les résultats de `weather-arbitrage` sont non fiables pour ces snapshots. Le backtest doit marquer ces runs avec un warning `arbitrage_unreliable`.
+**Caveat arbitrage** : si `inactiveBucketsExcluded > 0` pour une ville/date, le `Σ yesPrice` calculé en backtest sera **incomplet** → les résultats de `weather-arbitrage` sont non fiables pour ces snapshots. Le backtest marque ces runs avec un warning `arbitrage_unreliable`.
 
 ---
 

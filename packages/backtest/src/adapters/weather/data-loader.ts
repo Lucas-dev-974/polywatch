@@ -11,6 +11,119 @@ import type { BacktestRunParams } from '../../params.js';
 import { mergeEventStreams } from '../../engine/merge-event-streams.js';
 
 /**
+ * Statistiques quantitatives de fidélité (§12.2 du plan market-data-persistence).
+ * Calculées depuis les tables persistées pour alerter sur les approximations
+ * de replay (buckets inactifs exclus, prix null, gaps temporels, révisions).
+ */
+export interface WeatherFidelityStats {
+  /** Σ (total_bucket_count - bucket_count) — buckets inactifs non enregistrés. */
+  inactiveBucketsExcluded: number;
+  /** Nombre de bucket_ticks avec yes_price null. */
+  yesPriceNulls: number;
+  /** Nombre de bucket_ticks avec no_price null. */
+  noPriceNulls: number;
+  /** Nombre total de révisions forecast dans la plage. */
+  forecastRevisions: number;
+  /** Révisions forecast par jour (moyenne). */
+  forecastRevisionsPerDay: number;
+  /** Nombre total de snapshots dans la plage. */
+  snapshots: number;
+  /** Snapshots par jour (moyenne). */
+  snapshotsPerDay: number;
+  /** Ville/date avec forecast mais sans snapshot (gaps temporels). */
+  missingSnapshots: number;
+  /** Snapshots dont des buckets inactifs ont été exclus (Σ yesPrice incomplet). */
+  incompleteCityDates: number;
+}
+
+function dayKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Calcule les statistiques de fidélité sur la plage demandée. Best-effort :
+ * une erreur de requête retourne des zéros (le run continue, warning émis par
+ * l'adapter si les stats sont indisponibles).
+ */
+export async function computeWeatherFidelityStats(
+  ds: DataSource,
+  params: BacktestRunParams,
+): Promise<WeatherFidelityStats> {
+  const from = new Date(params.from);
+  const to = new Date(params.to);
+  const cities = params.cities?.length ? params.cities : null;
+  const cityFilter = (alias: string, column: string) =>
+    cities
+      ? `LOWER(${alias}.${column}) IN (:...cities)`
+      : undefined;
+  const cityParams = cities ? { cities: cities.map((c) => c.toLowerCase()) } : {};
+
+  const snapRepo = ds.getRepository(WeatherMarketSnapshot);
+  const tickRepo = ds.getRepository(WeatherBucketTick);
+  const histRepo = ds.getRepository(WeatherForecastHistory);
+
+  const snapQb = snapRepo
+    .createQueryBuilder('s')
+    .where('s.recordedAt >= :from', { from })
+    .andWhere('s.recordedAt <= :to', { to });
+  const snapCityCond = cityFilter('s', 'cityNormalized');
+  if (snapCityCond) snapQb.andWhere(snapCityCond, cityParams);
+  const snapshots = await snapQb.getMany();
+
+  const tickQb = tickRepo
+    .createQueryBuilder('t')
+    .where('t.recordedAt >= :from', { from })
+    .andWhere('t.recordedAt <= :to', { to });
+  const tickCityCond = cityFilter('t', 'cityNormalized');
+  if (tickCityCond) tickQb.andWhere(tickCityCond, cityParams);
+  const ticks = await tickQb.getMany();
+
+  const histQb = histRepo
+    .createQueryBuilder('f')
+    .where('f.fetchedAt >= :from', { from })
+    .andWhere('f.fetchedAt <= :to', { to });
+  const histCityCond = cityFilter('f', 'city');
+  if (histCityCond) histQb.andWhere(histCityCond, cityParams);
+  const histories = await histQb.getMany();
+
+  const inactiveBucketsExcluded = snapshots.reduce(
+    (acc, s) => acc + Math.max(0, s.totalBucketCount - s.bucketCount),
+    0,
+  );
+  const incompleteCityDates = snapshots.filter((s) => s.totalBucketCount > s.bucketCount).length;
+  const yesPriceNulls = ticks.filter((t) => t.yesPrice == null).length;
+  const noPriceNulls = ticks.filter((t) => t.noPrice == null).length;
+
+  const snapDays = new Set(snapshots.map((s) => dayKey(s.recordedAt))).size;
+  const histDays = new Set(histories.map((h) => dayKey(h.fetchedAt))).size;
+  const snapshotsPerDay = snapDays > 0 ? snapshots.length / snapDays : 0;
+  const forecastRevisionsPerDay = histDays > 0 ? histories.length / histDays : 0;
+
+  const snapCityDates = new Set(
+    snapshots.map((s) => `${s.cityNormalized.trim().toLowerCase()}|${s.targetDateIso}`),
+  );
+  const histCityDates = new Set(
+    histories.map((h) => `${h.city.trim().toLowerCase()}|${dayKey(h.forecastDate)}`),
+  );
+  let missingSnapshots = 0;
+  for (const key of histCityDates) {
+    if (!snapCityDates.has(key)) missingSnapshots += 1;
+  }
+
+  return {
+    inactiveBucketsExcluded,
+    yesPriceNulls,
+    noPriceNulls,
+    forecastRevisions: histories.length,
+    forecastRevisionsPerDay,
+    snapshots: snapshots.length,
+    snapshotsPerDay,
+    missingSnapshots,
+    incompleteCityDates,
+  };
+}
+
+/**
  * Loads weather backtest events from PostgreSQL as merged async streams.
  * Each source paginates in (timestamp, id) order so the k-way merge receives
  * monotonically increasing `event.at` values (required by VirtualClock).
@@ -277,6 +390,9 @@ async function* loadTickEvents(
           't.targetDateIso',
           't.metric',
           's.forecastMean',
+          's.id',
+          's.bucketCount',
+          's.totalBucketCount',
         ])
         .where('t.recordedAt >= :from', { from })
         .andWhere('t.recordedAt <= :to', { to })
@@ -316,6 +432,9 @@ async function* loadTickEvents(
           snapshotTargetDateIso: row.t_target_date_iso,
           snapshotMetric: row.t_metric,
           snapshotForecastMean: row.s_forecast_mean,
+          snapshotId: row.s_id,
+          snapshotBucketCount: row.s_bucket_count,
+          snapshotTotalBucketCount: row.s_total_bucket_count,
         },
       };
     },

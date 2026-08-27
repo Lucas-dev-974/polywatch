@@ -4,7 +4,7 @@ import {
   DEFAULT_WEATHER_STRATEGY_PARAMS,
   type WeatherConfig,
 } from '@polywatch/core';
-import { loadWeatherEvents, countWeatherEvents } from './adapters/weather/data-loader.js';
+import { loadWeatherEvents, countWeatherEvents, computeWeatherFidelityStats } from './adapters/weather/data-loader.js';
 import { WeatherBacktestAdapter } from './adapters/weather/weather-adapter.js';
 import { BacktestRunner, type RunResult } from './engine/runner.js';
 import {
@@ -78,11 +78,14 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     params.maxConcurrentPositions ?? DEFAULT_WEATHER_STRATEGY_PARAMS.maxOpenPositions;
 
   const runner = new BacktestRunner();
+  // Statistiques quantitatives de fidélité (§12.2) — best-effort, ne bloque
+  // pas le run si la requête échoue (retourne des zéros).
+  const fidelityStats = await computeWeatherFidelityStats(input.ds, params).catch(() => null);
   return runner.run({
     runId: input.runId,
     events: () => loadWeatherEvents(input.ds, params),
     estimateTotalEvents: () => countWeatherEvents(input.ds, params),
-    adapterFactory: (ctx) => new WeatherBacktestAdapter(ctx),
+    adapterFactory: (ctx) => new WeatherBacktestAdapter(ctx, fidelityStats),
     initialCapital: params.capital,
     configSnapshot,
     slippageBps: params.slippageBps,

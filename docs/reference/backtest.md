@@ -119,6 +119,13 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 | `entry_skipped_market_resolved` | Entrée runner-sim ignorée : le **tick courant** est déjà collé aux bornes (`yesPrice <= 0.01` ou `>= 0.99`). Le fill reste au prix de décision ; cette garde lit le cache courant pour ne pas ouvrir puis résoudre 10 ms plus tard |
 | `entry_skipped_stale_price` | Entrée runner-sim ignorée : écart prix de décision vs tick courant > 0.10 au flush (fill hors courbe évité) |
 | `entry_skipped_immediate_sl` | Entrée runner-sim ignorée : le tick courant déclencherait le SL dès l’ouverture |
+| `inactiveBucketsExcluded` | Σ `total_bucket_count - bucket_count` — buckets inactifs non enregistrés (Σ yesPrice incomplet) |
+| `yesPriceNulls` | Nombre de `bucket_tick` avec `yes_price` null (pas d'approximation) |
+| `noPriceNulls` | Nombre de `bucket_tick` avec `no_price` null (pas d'approximation `1 - yes`) |
+| `forecastRevisionsPerDay` | Révisions forecast sur la plage (nb + moyenne/jour) |
+| `snapshotsPerDay` | Snapshots marché sur la plage (nb + moyenne/jour) |
+| `missingSnapshots` | Ville/date avec forecast mais sans snapshot (gaps temporels) |
+| `arbitrage_unreliable` | ≥1 snapshot avec buckets inactifs exclus — résultats `weather-arbitrage` non fiables (Σ yesPrice incomplet) |
 
 Garde-fous **implémentés** en backtest (reevaluate **et** replay) :
 `maxExposure`, `maxDailyLoss` (+ `force_close_all` → `KILL_SWITCH`), cash insuffisant,
@@ -139,6 +146,12 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
   mouvements intra-sample des positions non-tickantes. Comportement conservé.
 - **Fill simulé** : prix YES ± slippage, clampé à [0,1]. Un clamp émet
   `fill_price_clamped`. PnL = borne indicative, pas une exécution réelle.
+- **Warnings quantitatifs (§12.2)** : en fin de run, `computeWeatherFidelityStats`
+  (`data-loader.ts`) agrège les tables persistées et émet les warnings
+  `inactiveBucketsExcluded`, `yesPriceNulls`, `noPriceNulls`,
+  `forecastRevisionsPerDay`, `snapshotsPerDay`, `missingSnapshots` et
+  `arbitrage_unreliable` (via `AdapterWarnings.emitFidelityStats`). Best-effort :
+  une erreur de requête retourne des zéros et n'interrompt pas le run.
 - **Résolution** : pas de fallback `entryPrice` (depuis 0.6.0) — seule `tick.yesPrice`
   ou `markPrice`. Les fees de résolution restent 0 (courbe Polymarket nulle aux prix 0/1).
 - **Entrée runner-sim (depuis 0.8.0)** : les ticks d’un même poll (~10–20 ms d’écart)
@@ -212,7 +225,7 @@ positions ouvertes (via cache `lastTickByCondition`, pas seulement le
 
 | Fichier | Rôle |
 |---------|------|
-| `data-loader.ts` | Chargement SQL (keyset) ; replay filtre `decision=signal` + `strategyId` |
+| `data-loader.ts` | Chargement SQL (keyset) ; replay filtre `decision=signal` + `strategyId` ; `computeWeatherFidelityStats` (§12.2) |
 | `context-builder.ts` | Reconstruction de `MarketListItemDto` + `ForecastRevisionStore` |
 | `question-builder.ts` | Synthèse question Polymarket (targets fractionnaires préservés) pour la stratégie |
 | `clocked-weather-strategy.ts` | Factory `createWeatherStrategy(strategyId)` + wrapper clock |
@@ -369,7 +382,11 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 - `src/engine/runner.test.ts` (nouveau) : abort coopératif — `cancelled` et `timeout` mid-stream
   (statut persisté + equity conservée), run vide, progression 100% à completion.
 - `src/adapters/weather/data-loader.test.ts` (nouveau) : pagination keyset ordonnée
-  `(recordedAt, id)`, filtre villes, comptage `countWeatherEvents`.
+  `(recordedAt, id)`, filtre villes, comptage `countWeatherEvents`, **`computeWeatherFidelityStats`
+  (§12.2)** — buckets inactifs, prix null, révisions/snapshots par jour, missing snapshots, filtre villes.
+- `src/adapters/weather/adapter-warnings.test.ts` (nouveau) : émission des warnings quantitatifs
+  §12.2 (`inactiveBucketsExcluded`, `arbitrage_unreliable`, `yesPriceNulls`, `noPriceNulls`,
+  `snapshotsPerDay`, `forecastRevisionsPerDay`, `missingSnapshots`) + déduplication `warnOnce`.
 - `src/adapters/weather/golden-replay.test.ts` (nouveau) : **golden snapshot** — rejoue un scénario
   figé et fige `totalPnl`, `winRate`, `maxDrawdown`, `totalTrades`, `byExitReason` et
   `engineVersion`. Toute régression de sémantique de replay fait échouer le test

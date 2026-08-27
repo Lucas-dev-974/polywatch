@@ -42,6 +42,17 @@ Gestion multi-intervalles de l'historique CLOB + refonte colonne « En base » �
 | `runner-sim` multi-stratégies (sans forcer un seul `strategyId`) | ✅ implémenté (2026-08-27) |
 | SPEC spread / convergence / arbitrage | ❌ futur (hors cette étape) |
 
+### 1.4 `2026-08-08_PLAN-weather-market-data-persistence.md` §12.2 — ✅ **implémenté (2026-08-27)**
+
+Warnings quantitatifs de fidélité backtest — **tout est livré** :
+
+- `computeWeatherFidelityStats` (`data-loader.ts`) : `inactiveBucketsExcluded`, `yesPriceNulls`, `noPriceNulls`, `forecastRevisionsPerDay`, `snapshotsPerDay`, `missingSnapshots`
+- Émission en fin de run via `AdapterWarnings.emitFidelityStats` (déduplication `warnOnce`)
+- Caveat arbitrage : warning `arbitrage_unreliable` si ≥1 snapshot avec buckets inactifs exclus
+- Tests unitaires (`data-loader.test.ts` + `adapter-warnings.test.ts`)
+
+**Aucune action requise** — le plan est clos.
+
 ---
 
 ## 2. Reste à faire en prod (migrations / smoke tests)
@@ -60,7 +71,6 @@ Gestion multi-intervalles de l'historique CLOB + refonte colonne « En base » �
 
 | Issue | Source | Description |
 |-------|--------|-------------|
-| **Warnings quantitatifs backtest §12.2** | `2026-08-08_PLAN-weather-market-data-persistence.md` | `inactiveBucketsExcluded`, `arbitrage_unreliable`, `missingSnapshots`, `yesPriceNulls`, `noPriceNulls`, `forecastRevisionsPerDay`, `snapshotsPerDay` — non implémentés dans `packages/backtest` |
 | **Socket.IO `backtest:*`** | `2026-08-09_audit-weather-algo-backtest.md` | Resté hors livrable |
 | **Prometheus `polywatch_backtest_*`** | `2026-08-09_audit-weather-algo-backtest.md` | Resté hors livrable |
 | **D12 — champs `WeatherConfig` non lus (~30 legacy)** | `2026-08-11_audit-weather-algo-complet.md` | Cross-check champ par champ non fait — audit futur dans un plan dédié |

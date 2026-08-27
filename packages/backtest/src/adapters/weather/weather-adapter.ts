@@ -32,6 +32,7 @@ import {
   selectRunnerSimSignals,
 } from './runner-sim.js';
 import { AdapterWarnings } from './adapter-warnings.js';
+import type { WeatherFidelityStats } from './data-loader.js';
 
 function resolvedExitMeta(risk: WeatherConfig, strategyId?: string | null): Record<string, number | null> {
   const p = resolveWeatherEntryExitParams(risk, 'sim', null, strategyId);
@@ -93,6 +94,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   private readonly strategyId: WeatherStrategyId | null;
   private readonly bag: WeatherStrategyParamsBag;
   private readonly warnings = new AdapterWarnings();
+  private readonly fidelityStats: WeatherFidelityStats | null;
   private killSwitchFired = false;
   /** Latest book tick + event time per conditionId. */
   private lastTickByCondition = new Map<
@@ -100,7 +102,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     { tick: BookTickEventData; at: Date }
   >();
 
-  constructor(ctx: RunContext) {
+  constructor(ctx: RunContext, fidelityStats?: WeatherFidelityStats | null) {
     // En mode runner-sim, si aucun strategyId n'est forcé, on laisse
     // createRunnerSimStrategies résoudre toutes les stratégies actives de la
     // config (multi-stratégies). Le strategyId n'est forcé qu'en mode replay
@@ -113,10 +115,16 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       s.setRiskConfig(getStrategyParams(ctx.configSnapshot, s.id));
     }
     this.exitManager = new WeatherExitManager();
+    this.fidelityStats = fidelityStats ?? null;
   }
 
   async finish(ctx: RunContext): Promise<void> {
     await this.flushPendingRunnerSimSignals(ctx);
+
+    // Warnings quantitatifs de fidélité (§12.2) — émis une fois en fin de run.
+    if (this.fidelityStats) {
+      this.warnings.emitFidelityStats(ctx, this.fidelityStats);
+    }
 
     // Ghost positions : positions encore ouvertes à la fin du run (aucun tick
     // de résolution reçu). On les force à la résolution pour ne pas fausser

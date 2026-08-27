@@ -1,4 +1,5 @@
 import type { RunContext } from '../../engine/runner.js';
+import type { WeatherFidelityStats } from './data-loader.js';
 
 /**
  * Gestion centralisée des warnings de fidélité émis par l'adapter weather.
@@ -68,5 +69,62 @@ export class AdapterWarnings {
       'fill_no_book_depth',
       'Pas de profondeur de carnet — fills non plafonnés par la liquidité',
     );
+  }
+
+  /**
+   * Émet les warnings quantitatifs de fidélité (§12.2) calculés par le
+   * data-loader. Chaque code n'est émis qu'une fois (warnOnce) avec les
+   * valeurs agrégées du run.
+   */
+  emitFidelityStats(ctx: RunContext, stats: WeatherFidelityStats): void {
+    if (stats.inactiveBucketsExcluded > 0) {
+      this.warnOnce(
+        ctx,
+        'inactiveBucketsExcluded',
+        `${stats.inactiveBucketsExcluded} bucket(s) inactif(s) exclus (total_bucket_count - bucket_count) — Σ yesPrice incomplet`,
+      );
+    }
+    if (stats.yesPriceNulls > 0) {
+      this.warnOnce(
+        ctx,
+        'yesPriceNulls',
+        `${stats.yesPriceNulls} bucket_tick(s) avec yes_price null (pas d'approximation)`,
+      );
+    }
+    if (stats.noPriceNulls > 0) {
+      this.warnOnce(
+        ctx,
+        'noPriceNulls',
+        `${stats.noPriceNulls} bucket_tick(s) avec no_price null (pas d'approximation 1 - yes)`,
+      );
+    }
+    if (stats.forecastRevisionsPerDay > 0) {
+      this.warnOnce(
+        ctx,
+        'forecastRevisionsPerDay',
+        `${stats.forecastRevisions} révision(s) forecast sur la plage (${stats.forecastRevisionsPerDay.toFixed(1)}/jour)`,
+      );
+    }
+    if (stats.snapshotsPerDay > 0) {
+      this.warnOnce(
+        ctx,
+        'snapshotsPerDay',
+        `${stats.snapshots} snapshot(s) marché sur la plage (${stats.snapshotsPerDay.toFixed(1)}/jour)`,
+      );
+    }
+    if (stats.missingSnapshots > 0) {
+      this.warnOnce(
+        ctx,
+        'missingSnapshots',
+        `${stats.missingSnapshots} ville/date avec forecast mais sans snapshot (gaps temporels)`,
+      );
+    }
+    if (stats.incompleteCityDates > 0) {
+      this.warnOnce(
+        ctx,
+        'arbitrage_unreliable',
+        `${stats.incompleteCityDates} snapshot(s) avec buckets inactifs exclus — résultats weather-arbitrage non fiables (Σ yesPrice incomplet)`,
+      );
+    }
   }
 }

@@ -79,7 +79,7 @@
 |---------|--------|-----------------|
 | [2026-08-05_PLAN-strategies-crypto-algo-5min.md](2026-08-05_PLAN-strategies-crypto-algo-5min.md) | Stop-bleed + multi-stratégies + RTDS + backtest | Phases 0–2 OK ; Phase 3 RTDS reportée, Phase 4/5 ouvertes |
 | [POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md](POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md) | Checklist conformité protocole Polymarket | Pipelines vérifiés ; tests intégration live et items « à vérifier » ouverts |
-| [../weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md](../weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md) | Persistance données weather (v4) | Phases 0–4 + UI Données **OK** ; Phase 5 backtest **OK** (voir `backtest.md` + patch 0.2.0) ; warnings quantitatifs §12.2 non livrés |
+| [../weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md](../weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md) | Persistance données weather (v4) | Phases 0–4 + UI Données **OK** ; Phase 5 backtest **OK** (voir `backtest.md` + patch 0.2.0) ; warnings quantitatifs §12.2 **OK** (2026-08-27) |
 
 ### Non implémentés
 

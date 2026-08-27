@@ -1,14 +1,12 @@
-import { For, Show } from 'solid-js';
-import type { BacktestRunDto } from '../../api';
+import { For, Show, createMemo } from 'solid-js';
+import type { BacktestRunDto, BacktestMode, BacktestStats } from '../../api';
 import { Pagination } from '../Pagination';
-import { fmtPct, fmtUsd, formatTs } from './format';
+import { fmtPct, fmtUsd } from './format';
+import { BacktestRunCard, strategyLabel } from './BacktestRunCard';
 
-const STATUS_LABEL: Record<string, string> = {
-  queued: 'File',
-  running: 'En cours',
-  completed: 'Terminé',
-  failed: 'Échec',
-  cancelled: 'Annulé',
+const MODE_LABEL: Record<BacktestMode, string> = {
+  reevaluate: 'Re-évaluer',
+  replay: 'Rejouer',
 };
 
 interface BacktestRunListProps {
@@ -21,7 +19,66 @@ interface BacktestRunListProps {
   onPage: (next: number) => void;
 }
 
+/** Clé de stratégie pour le regroupement d'une run. */
+function strategyKey(run: BacktestRunDto): string {
+  return run.strategy?.id ?? (run.params?.strategyId as string | undefined) ?? '__none__';
+}
+
+interface GroupStats {
+  count: number;
+  completed: number;
+  totalPnl: number;
+  totalTrades: number;
+  winRateSum: number;
+  winRateCount: number;
+  running: number;
+}
+
+function emptyGroupStats(): GroupStats {
+  return { count: 0, completed: 0, totalPnl: 0, totalTrades: 0, winRateSum: 0, winRateCount: 0, running: 0 };
+}
+
+function accumulate(stats: GroupStats, run: BacktestRunDto): void {
+  stats.count++;
+  if (run.status === 'running' || run.status === 'queued') stats.running++;
+  if (run.status === 'completed' && run.stats) {
+    const s = run.stats as BacktestStats;
+    stats.completed++;
+    stats.totalPnl += s.totalPnl;
+    stats.totalTrades += s.totalTrades;
+    if (Number.isFinite(s.winRate)) {
+      stats.winRateSum += s.winRate;
+      stats.winRateCount++;
+    }
+  }
+}
+
 export function BacktestRunList(props: BacktestRunListProps) {
+  // Regroupement : mode -> strategyKey -> { label, runs, stats }
+  const groups = createMemo(() => {
+    const byMode = new Map<BacktestMode, Map<string, { label: string; runs: BacktestRunDto[]; stats: GroupStats }>>();
+    for (const run of props.runs) {
+      let byStrat = byMode.get(run.mode);
+      if (!byStrat) {
+        byStrat = new Map();
+        byMode.set(run.mode, byStrat);
+      }
+      const key = strategyKey(run);
+      let bucket = byStrat.get(key);
+      if (!bucket) {
+        bucket = { label: strategyLabel(run), runs: [], stats: emptyGroupStats() };
+        byStrat.set(key, bucket);
+      }
+      bucket.runs.push(run);
+      accumulate(bucket.stats, run);
+    }
+    // Ordre stable : reevaluate d'abord, puis replay.
+    const modes: BacktestMode[] = ['reevaluate', 'replay'];
+    return modes
+      .filter((m) => byMode.has(m))
+      .map((m) => ({ mode: m, strategies: Array.from(byMode.get(m)!.values()) }));
+  });
+
   return (
     <div class="backtest-list">
       <div class="backtest-list-header">
@@ -34,11 +91,47 @@ export function BacktestRunList(props: BacktestRunListProps) {
       <Show when={props.runs.length === 0 && !props.loading}>
         <p class="form-hint">Aucun backtest pour l’instant.</p>
       </Show>
-      <div class="backtest-run-cards">
-        <For each={props.runs}>
-          {(run) => <RunCard run={run} onOpen={() => props.onOpen(run.id)} />}
-        </For>
-      </div>
+      <For each={groups()}>
+        {(modeGroup) => (
+          <section class="backtest-run-group">
+            <div class="backtest-run-group-head">
+              <span class={`backtest-mode-badge backtest-mode-badge--${modeGroup.mode}`}>
+                {MODE_LABEL[modeGroup.mode]}
+              </span>
+              <span class="backtest-run-group-count">
+                {modeGroup.strategies.reduce((n, s) => n + s.runs.length, 0)} run(s)
+              </span>
+            </div>
+            <For each={modeGroup.strategies}>
+              {(strat) => (
+                <div class="backtest-run-subgroup">
+                  <div class="backtest-run-subgroup-head">
+                    <span class="backtest-run-subgroup-label">{strat.label}</span>
+                    <span class="backtest-run-subgroup-stats">
+                      {strat.runs.length} run(s)
+                      <Show when={strat.stats.completed > 0}>
+                        <span>· P&L <strong class={strat.stats.totalPnl >= 0 ? 'backtest-pnl-pos' : 'backtest-pnl-neg'}>{fmtUsd(strat.stats.totalPnl)}</strong></span>
+                        <span>· {strat.stats.totalTrades} trades</span>
+                        <Show when={strat.stats.winRateCount > 0}>
+                          <span>· Winrate <strong>{fmtPct(strat.stats.winRateSum / strat.stats.winRateCount)}</strong></span>
+                        </Show>
+                      </Show>
+                      <Show when={strat.stats.running > 0}>
+                        <span class="backtest-run-subgroup-live">· {strat.stats.running} en cours</span>
+                      </Show>
+                    </span>
+                  </div>
+                  <div class="backtest-run-cards">
+                    <For each={strat.runs}>
+                      {(run) => <BacktestRunCard run={run} onOpen={() => props.onOpen(run.id)} />}
+                    </For>
+                  </div>
+                </div>
+              )}
+            </For>
+          </section>
+        )}
+      </For>
       <Show when={props.pageCount > 1}>
         <Pagination
           page={props.page}
@@ -47,45 +140,5 @@ export function BacktestRunList(props: BacktestRunListProps) {
         />
       </Show>
     </div>
-  );
-}
-
-function RunCard(props: { run: BacktestRunDto; onOpen: () => void }) {
-  const run = props.run;
-  return (
-    <button type="button" class="backtest-run-card" onClick={props.onOpen}>
-      <div class="backtest-run-card-top">
-        <span class="backtest-run-id">#{run.id}</span>
-        <span class={`backtest-status backtest-status--${run.status}`}>
-          {STATUS_LABEL[run.status] ?? run.status}
-        </span>
-      </div>
-      <div class="backtest-run-card-meta">
-        <span>{run.mode === 'replay' ? 'Rejouer' : 'Re-évaluer'}</span>
-        {run.label ? <span>{run.label}</span> : null}
-        <span>{formatTs(run.createdAt)}</span>
-      </div>
-      <Show when={run.status === 'running' || run.status === 'queued'}>
-        <div class="backtest-progress">
-          <div class="backtest-progress-track">
-            <div class="backtest-progress-fill" style={{ width: `${run.progressPct}%` }} />
-          </div>
-          <span>{run.progressPct}%</span>
-        </div>
-      </Show>
-      <Show when={run.stats && run.status === 'completed'}>
-        <div class="backtest-run-card-stats">
-          <span>
-            P&L <strong>{fmtUsd(run.stats?.totalPnl)}</strong>
-          </span>
-          <span>
-            Trades <strong>{run.stats?.totalTrades ?? 0}</strong>
-          </span>
-          <span>
-            Winrate <strong>{fmtPct(run.stats?.winRate)}</strong>
-          </span>
-        </div>
-      </Show>
-    </button>
   );
 }

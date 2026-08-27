@@ -7,7 +7,7 @@ import {
   formatE2eDuration,
 } from '../lib/e2e-runs';
 import { E2eLivePositions } from './E2eLivePositions';
-import { E2eTestResultsList } from './E2eTestResultsList';
+import { E2eTestResultsList } from './e2e/E2eTestResultsList';
 
 export interface E2eRunSuiteDetailPanelProps {
   run: E2eRunDto;

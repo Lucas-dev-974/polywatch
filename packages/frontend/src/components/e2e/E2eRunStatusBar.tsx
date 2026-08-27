@@ -1,11 +1,11 @@
 import { createEffect, createSignal, onCleanup, Show, type Accessor } from 'solid-js';
-import type { E2eRunDto, E2eSuiteDto } from '../lib/e2e-runs';
+import type { E2eRunDto, E2eSuiteDto } from '../../lib/e2e-runs';
 import {
   e2eStatusLabel,
   e2eSummaryText,
   e2eSuiteLabel,
   formatE2eRunDuration,
-} from '../lib/e2e-runs';
+} from '../../lib/e2e-runs';
 
 /** Horloge qui ne tick que pendant un run actif (1 Hz). */
 export function useE2eLiveClock(isRunning: Accessor<boolean>): Accessor<number> {

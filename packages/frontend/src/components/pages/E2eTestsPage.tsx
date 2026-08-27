@@ -9,7 +9,7 @@ import {
   onE2eRunStarted,
 } from '../../socket';
 import { formatShortDateTime } from '../../lib/date';
-import { E2eRunStatusBar, useE2eLiveClock } from '../E2eRunStatusBar';
+import { E2eRunStatusBar, useE2eLiveClock } from '../e2e/E2eRunStatusBar';
 import { E2eLivePositions } from '../E2eLivePositions';
 import { E2eRunSuiteDetailPanel } from '../E2eRunSuiteDetailPanel';
 import {

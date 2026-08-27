@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from 'solid-js';
-import type { E2eTestCaseSummary } from '../lib/e2e-runs';
-import { e2eTestCaseStatusLabel, formatE2eDuration } from '../lib/e2e-runs';
+import type { E2eTestCaseSummary } from '../../lib/e2e-runs';
+import { e2eTestCaseStatusLabel, formatE2eDuration } from '../../lib/e2e-runs';
 
 export interface E2eTestResultsListProps {
   tests: E2eTestCaseSummary[];

@@ -4,14 +4,14 @@ import {
   fetchGlobalConfig,
   updateCopyConfig,
   updateGlobalConfig,
-} from '../api';
-import { useClobCredentials } from '../hooks/useClobCredentials';
-import { useTradingWallet } from '../hooks/useTradingWallet';
-import { EnvSettingsDialogTrigger } from './dialogs/EnvSettingsDialog';
-import { SystemConfigDialog } from './dialogs/SystemConfigDialog';
-import { ModeHeroBalanceStat } from './ModeHeroBalanceStat';
-import { RealSnapshotDialog } from './dialogs/RealSnapshotDialog';
-import { RealPeriodCloseDialog } from './dialogs/RealPeriodCloseDialog';
+} from '../../api';
+import { useClobCredentials } from '../../hooks/useClobCredentials';
+import { useTradingWallet } from '../../hooks/useTradingWallet';
+import { EnvSettingsDialogTrigger } from '../dialogs/EnvSettingsDialog';
+import { SystemConfigDialog } from '../dialogs/SystemConfigDialog';
+import { ModeHeroBalanceStat } from '../ModeHeroBalanceStat';
+import { RealSnapshotDialog } from '../dialogs/RealSnapshotDialog';
+import { RealPeriodCloseDialog } from '../dialogs/RealPeriodCloseDialog';
 
 export function RealHero() {
   const creds = useClobCredentials();

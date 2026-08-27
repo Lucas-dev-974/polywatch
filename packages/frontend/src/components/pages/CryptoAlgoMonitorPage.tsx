@@ -1,5 +1,5 @@
 import { For, Show, createSignal, onMount } from 'solid-js';
-import { useCryptoAlgoMonitor } from '../hooks/useCryptoAlgoMonitor';
+import { useCryptoAlgoMonitor } from '../../hooks/useCryptoAlgoMonitor';
 
 export function CryptoAlgoMonitorPage() {
   const monitor = useCryptoAlgoMonitor();

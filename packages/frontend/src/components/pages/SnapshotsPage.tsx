@@ -1,11 +1,11 @@
 import { Show } from 'solid-js';
-import { SimulationSnapshotsPanel } from './SimulationSnapshotsPanel';
-import { RealSnapshotsPanel } from './RealSnapshotsPanel';
+import { SimulationSnapshotsPanel } from '../SimulationSnapshotsPanel';
+import { RealSnapshotsPanel } from '../RealSnapshotsPanel';
 import {
   SNAPSHOTS_PAGE_MODES,
   UI_KEYS,
   usePersistedEnum,
-} from '../lib/ui-persistence';
+} from '../../lib/ui-persistence';
 
 export function SnapshotsPage() {
   const [mode, setMode] = usePersistedEnum(

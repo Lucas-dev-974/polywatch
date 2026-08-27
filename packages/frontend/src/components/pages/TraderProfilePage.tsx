@@ -1,6 +1,6 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
-import { useCopyFeedback } from '../hooks/useCopyFeedback';
-import { formatPnlAmount, pnlClass } from '../lib/position';
+import { useCopyFeedback } from '../../hooks/useCopyFeedback';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
 import {
   fetchTraderInsight,
   polymarketProfileUrl,
@@ -8,12 +8,12 @@ import {
   regularityLabelFr,
   type LeaderboardEntryContext,
   type TraderInsightResponse,
-} from '../lib/trader-insight';
-import { useWatchlistStore } from '../stores/watchlistStore';
-import { TraderActivityTimelineChart } from './charts/TraderActivityTimelineChart';
-import { TraderCapitalEvolutionChart } from './charts/TraderCapitalEvolutionChart';
-import { TraderFundingSection } from './TraderFundingSection';
-import { TraderMarketBreakdownChart } from './charts/TraderMarketBreakdownChart';
+} from '../../lib/trader-insight';
+import { useWatchlistStore } from '../../stores/watchlistStore';
+import { TraderActivityTimelineChart } from '../charts/TraderActivityTimelineChart';
+import { TraderCapitalEvolutionChart } from '../charts/TraderCapitalEvolutionChart';
+import { TraderFundingSection } from '../TraderFundingSection';
+import { TraderMarketBreakdownChart } from '../charts/TraderMarketBreakdownChart';
 
 function formatUsd(value: number): string {
   const abs = Math.abs(value);

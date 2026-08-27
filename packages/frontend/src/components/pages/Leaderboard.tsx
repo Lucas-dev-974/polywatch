@@ -1,11 +1,11 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
-import { api } from '../api';
+import { api } from '../../api';
 import {
   LEADERBOARD_CATEGORY_OPTIONS,
   type LeaderboardApiCategory,
-} from '../lib/leaderboard-categories';
-import type { LeaderboardEntryContext } from '../lib/trader-insight';
-import { useWatchlistStore } from '../stores/watchlistStore';
+} from '../../lib/leaderboard-categories';
+import type { LeaderboardEntryContext } from '../../lib/trader-insight';
+import { useWatchlistStore } from '../../stores/watchlistStore';
 import { TraderProfilePage } from './TraderProfilePage';
 
 type LeaderboardEntry = LeaderboardEntryContext;

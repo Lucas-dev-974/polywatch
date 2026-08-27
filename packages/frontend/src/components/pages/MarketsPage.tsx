@@ -1,16 +1,16 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
 
-import { Icon } from './Icon';
-import { MarketCard } from './MarketCard';
-import { MarketMetricsPanel } from './MarketMetricsPanel';
-import { MarketSyncSettingsDialog } from './dialogs/MarketSyncSettingsDialog';
-import { MarketsCryptoCurrencyFilterBar } from './MarketsCryptoCurrencyFilterBar';
-import { MarketsCryptoFilterBar } from './MarketsCryptoFilterBar';
-import { MarketsIntervalSidebar } from './MarketsIntervalSidebar';
-import { MarketsTagBar } from './MarketsTagBar';
-import { useMarketsBrowse } from '../hooks/useMarketsBrowse';
-import { toMetricsPosition } from '../lib/markets-list';
-import { loadAlgoMarkets } from '../stores/algoMarketsStore';
+import { Icon } from '../Icon';
+import { MarketCard } from '../MarketCard';
+import { MarketMetricsPanel } from '../MarketMetricsPanel';
+import { MarketSyncSettingsDialog } from '../dialogs/MarketSyncSettingsDialog';
+import { MarketsCryptoCurrencyFilterBar } from '../MarketsCryptoCurrencyFilterBar';
+import { MarketsCryptoFilterBar } from '../MarketsCryptoFilterBar';
+import { MarketsIntervalSidebar } from '../MarketsIntervalSidebar';
+import { MarketsTagBar } from '../MarketsTagBar';
+import { useMarketsBrowse } from '../../hooks/useMarketsBrowse';
+import { toMetricsPosition } from '../../lib/markets-list';
+import { loadAlgoMarkets } from '../../stores/algoMarketsStore';
 import type { MarketListItemDto } from '@polywatch/core/market-list';
 
 export function MarketsPage() {

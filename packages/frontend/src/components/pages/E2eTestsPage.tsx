@@ -1,5 +1,5 @@
 import { createSignal, createEffect, For, onMount, onCleanup, Show } from 'solid-js';
-import { api, apiText } from '../api';
+import { api, apiText } from '../../api';
 import {
   connectSocket,
   onE2eLog,
@@ -7,11 +7,11 @@ import {
   onE2ePositionUpdate,
   onE2eRunFinished,
   onE2eRunStarted,
-} from '../socket';
-import { formatShortDateTime } from '../lib/date';
-import { E2eRunStatusBar, useE2eLiveClock } from './E2eRunStatusBar';
-import { E2eLivePositions } from './E2eLivePositions';
-import { E2eRunSuiteDetailPanel } from './E2eRunSuiteDetailPanel';
+} from '../../socket';
+import { formatShortDateTime } from '../../lib/date';
+import { E2eRunStatusBar, useE2eLiveClock } from '../E2eRunStatusBar';
+import { E2eLivePositions } from '../E2eLivePositions';
+import { E2eRunSuiteDetailPanel } from '../E2eRunSuiteDetailPanel';
 import {
   type E2eRunDto,
   type E2eRunStatus,
@@ -24,7 +24,7 @@ import {
   e2eSuiteLabel,
   formatE2eDuration,
   parseE2eApiError,
-} from '../lib/e2e-runs';
+} from '../../lib/e2e-runs';
 
 const LOG_TAIL_LINES = 500;
 const MAX_LIVE_LINES = 5000;

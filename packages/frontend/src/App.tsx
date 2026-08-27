@@ -4,7 +4,7 @@ import { isLoggedIn, clearTokens, onSessionExpired, refreshSessionTokens } from 
 
 import { disconnectSocket, connectSocket } from './socket';
 
-import { Login } from './components/Login';
+import { Login } from './components/pages/Login';
 
 import { WatchlistEditor } from './components/WatchlistEditor';
 
@@ -26,14 +26,14 @@ import { closeMarketChart } from './stores/marketChartStore';
 
 // Pages chargées paresseusement (code-splitting par route) — le bundle initial
 // ne contient que le shell, le header et la page active.
-const SimulationPage = lazy(() => import('./components/SimulationPage').then((m) => ({ default: m.SimulationPage })));
-const RealPage = lazy(() => import('./components/RealHero').then((m) => ({ default: m.RealHero })));
-const Leaderboard = lazy(() => import('./components/Leaderboard').then((m) => ({ default: m.Leaderboard })));
-const MarketsPage = lazy(() => import('./components/MarketsPage').then((m) => ({ default: m.MarketsPage })));
-const WalletPage = lazy(() => import('./components/WalletPage').then((m) => ({ default: m.WalletPage })));
-const CryptoAlgoPage = lazy(() => import('./components/CryptoAlgoPage').then((m) => ({ default: m.CryptoAlgoPage })));
-const WeatherAlgoPage = lazy(() => import('./components/WeatherAlgoPage').then((m) => ({ default: m.WeatherAlgoPage })));
-const SystemPage = lazy(() => import('./components/SystemPage').then((m) => ({ default: m.SystemPage })));
+const SimulationPage = lazy(() => import('./components/pages/SimulationPage').then((m) => ({ default: m.SimulationPage })));
+const RealPage = lazy(() => import('./components/pages/RealHero').then((m) => ({ default: m.RealHero })));
+const Leaderboard = lazy(() => import('./components/pages/Leaderboard').then((m) => ({ default: m.Leaderboard })));
+const MarketsPage = lazy(() => import('./components/pages/MarketsPage').then((m) => ({ default: m.MarketsPage })));
+const WalletPage = lazy(() => import('./components/pages/WalletPage').then((m) => ({ default: m.WalletPage })));
+const CryptoAlgoPage = lazy(() => import('./components/pages/CryptoAlgoPage').then((m) => ({ default: m.CryptoAlgoPage })));
+const WeatherAlgoPage = lazy(() => import('./components/pages/WeatherAlgoPage').then((m) => ({ default: m.WeatherAlgoPage })));
+const SystemPage = lazy(() => import('./components/pages/SystemPage').then((m) => ({ default: m.SystemPage })));
 
 // Sous-composants de la page "real" (PositionCard/EventsPanel/ExecutionLog).
 // SimulationPage (lazy) les importe en statique → ils vivent dans son chunk ;

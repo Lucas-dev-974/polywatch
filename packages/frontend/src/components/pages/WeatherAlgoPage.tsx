@@ -1,24 +1,24 @@
 import { createSignal, For, Show } from 'solid-js';
-import { useWeatherAlgoDashboard } from '../hooks/useWeatherAlgoDashboard';
-import { useWeatherAlgoPositions } from '../hooks/useWeatherAlgoPositions';
-import { useWeatherAlgoExecutions } from '../hooks/useWeatherAlgoExecutions';
+import { useWeatherAlgoDashboard } from '../../hooks/useWeatherAlgoDashboard';
+import { useWeatherAlgoPositions } from '../../hooks/useWeatherAlgoPositions';
+import { useWeatherAlgoExecutions } from '../../hooks/useWeatherAlgoExecutions';
 import {
   UI_KEYS,
   WEATHER_ALGO_PAGE_TABS,
   usePersistedEnum,
-} from '../lib/ui-persistence';
-import { WeatherAlgoCapitalHero } from './WeatherAlgoCapitalHero';
-import { WeatherAlgoDiscoverPanel } from './WeatherAlgoDiscoverPanel';
-import { WeatherAlgoActiveMarketsPanel } from './WeatherAlgoActiveMarketsPanel';
-import { WeatherAlgoPositionsPanel } from './WeatherAlgoPositionsPanel';
-import { WeatherAlgoExecutionsPanel } from './WeatherAlgoExecutionsPanel';
-import { WeatherAlgoAutoTrackTab } from './WeatherAlgoAutoTrackTab';
-import { WeatherAlgoHistoryIngestSection } from './WeatherAlgoHistoryIngestSection';
-import { WeatherAlgoSettingsTab } from './WeatherAlgoSettingsTab';
-import { WeatherAlgoDataTab } from './WeatherAlgoDataTab';
-import { WeatherAlgoBacktestTab } from './WeatherAlgoBacktestTab';
-import { WeatherAlgoStrategiesTab } from './WeatherAlgoStrategiesTab';
-import { NewSessionResetDialog } from './dialogs/NewSessionResetDialog';
+} from '../../lib/ui-persistence';
+import { WeatherAlgoCapitalHero } from '../WeatherAlgoCapitalHero';
+import { WeatherAlgoDiscoverPanel } from '../WeatherAlgoDiscoverPanel';
+import { WeatherAlgoActiveMarketsPanel } from '../WeatherAlgoActiveMarketsPanel';
+import { WeatherAlgoPositionsPanel } from '../WeatherAlgoPositionsPanel';
+import { WeatherAlgoExecutionsPanel } from '../WeatherAlgoExecutionsPanel';
+import { WeatherAlgoAutoTrackTab } from '../WeatherAlgoAutoTrackTab';
+import { WeatherAlgoHistoryIngestSection } from '../WeatherAlgoHistoryIngestSection';
+import { WeatherAlgoSettingsTab } from '../WeatherAlgoSettingsTab';
+import { WeatherAlgoDataTab } from '../WeatherAlgoDataTab';
+import { WeatherAlgoBacktestTab } from '../WeatherAlgoBacktestTab';
+import { WeatherAlgoStrategiesTab } from '../WeatherAlgoStrategiesTab';
+import { NewSessionResetDialog } from '../dialogs/NewSessionResetDialog';
 
 export function WeatherAlgoPage() {
   const dashboard = useWeatherAlgoDashboard();

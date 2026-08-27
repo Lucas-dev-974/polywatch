@@ -10,7 +10,7 @@ import {
   type SystemPageTab,
   UI_KEYS,
   usePersistedEnum,
-} from '../lib/ui-persistence';
+} from '../../lib/ui-persistence';
 
 const TAB_LABELS: Record<SystemPageTab, string> = {
   overview: 'Overview',

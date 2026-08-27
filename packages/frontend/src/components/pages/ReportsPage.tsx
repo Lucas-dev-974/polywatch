@@ -1,7 +1,7 @@
 import { createEffect, createSignal, For, Show } from 'solid-js';
 import type { AnalysisReportDetail, AnalysisReportSummary } from '@polywatch/core';
-import { formatShortDateTime } from '../lib/date';
-import { formatPnlAmount, pnlClass } from '../lib/position';
+import { formatShortDateTime } from '../../lib/date';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
 import {
   applyRecommendedCryptoAlgoConfig,
   compareAnalysisReports,
@@ -10,10 +10,10 @@ import {
   fetchAnalysisReports,
   fetchCurrentCryptoAlgoConfigFingerprint,
   generateAnalysisReport,
-} from '../lib/analysis-reports';
-import { AnalysisReportComparePanel } from './AnalysisReportComparePanel';
-import { CryptoAlgoReportViewer } from './CryptoAlgoReportViewer';
-import { NewSessionResetDialog } from './dialogs/NewSessionResetDialog';
+} from '../../lib/analysis-reports';
+import { AnalysisReportComparePanel } from '../AnalysisReportComparePanel';
+import { CryptoAlgoReportViewer } from '../CryptoAlgoReportViewer';
+import { NewSessionResetDialog } from '../dialogs/NewSessionResetDialog';
 
 function toIsoStart(dateStr: string): string | null {
   if (!dateStr.trim()) return null;

@@ -1,18 +1,18 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
-import { useClobCredentials } from '../hooks/useClobCredentials';
-import { useCopyFeedback } from '../hooks/useCopyFeedback';
-import { useCredsSetupDialog } from '../hooks/useCredsSetupDialog';
-import { truncateAddress } from '../lib/address';
+import { useClobCredentials } from '../../hooks/useClobCredentials';
+import { useCopyFeedback } from '../../hooks/useCopyFeedback';
+import { useCredsSetupDialog } from '../../hooks/useCredsSetupDialog';
+import { truncateAddress } from '../../lib/address';
 import {
   fetchWallet,
   primaryWalletAccount,
   type WalletAccountView,
   type WalletData,
-} from '../lib/wallet';
-import { ClobCredentialsDialog } from './dialogs/ClobCredentialsDialog';
-import { PusdTransferDialog, type PusdTransferMode } from './dialogs/PusdTransferDialog';
-import { WalletAccountsDialog } from './dialogs/WalletAccountsDialog';
-import { WalletHistorySection } from './WalletHistorySection';
+} from '../../lib/wallet';
+import { ClobCredentialsDialog } from '../dialogs/ClobCredentialsDialog';
+import { PusdTransferDialog, type PusdTransferMode } from '../dialogs/PusdTransferDialog';
+import { WalletAccountsDialog } from '../dialogs/WalletAccountsDialog';
+import { WalletHistorySection } from '../WalletHistorySection';
 
 export function WalletPage() {
   const [wallet, setWallet] = createSignal<WalletData | null>(null);

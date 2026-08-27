@@ -1,5 +1,5 @@
 import { Show, For } from 'solid-js';
-import { useMetricsDashboard } from '../hooks/useMetricsDashboard';
+import { useMetricsDashboard } from '../../hooks/useMetricsDashboard';
 
 export function MetricsDashboardPage() {
   const { data, error } = useMetricsDashboard();

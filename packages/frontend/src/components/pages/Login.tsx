@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { api, setTokens } from '../api';
+import { api, setTokens } from '../../api';
 
 interface Props {
   onLogin: () => void;

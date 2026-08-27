@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js';
-import { useSystemOverview } from '../hooks/useSystemOverview';
-import { useSystemAudit } from '../hooks/useSystemAudit';
-import type { AuditScriptId, ProcessStatus } from '../lib/system-overview';
+import { useSystemOverview } from '../../hooks/useSystemOverview';
+import { useSystemAudit } from '../../hooks/useSystemAudit';
+import type { AuditScriptId, ProcessStatus } from '../../lib/system-overview';
 
 const AUDIT_ACTIONS: { id: AuditScriptId; label: string; dangerous?: boolean }[] = [
   { id: 'redis-queues', label: 'Auditer files Redis' },

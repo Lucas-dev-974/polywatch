@@ -1,20 +1,20 @@
 import { For, onCleanup, onMount, Show } from 'solid-js';
-import { useCryptoAlgoDashboard } from '../hooks/useCryptoAlgoDashboard';
-import { useCryptoAlgoExecutions } from '../hooks/useCryptoAlgoExecutions';
-import { useCryptoAlgoPositions } from '../hooks/useCryptoAlgoPositions';
-import { useCryptoAlgoSurveillance } from '../hooks/useCryptoAlgoSurveillance';
-import { useAlgoWorkerQueueStatus } from '../hooks/useAlgoWorkerQueueStatus';
-import { onGlobalRefresh } from '../socket';
-import { CRYPTO_ALGO_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../lib/ui-persistence';
-import { CryptoAlgoCapitalDashboard } from './CryptoAlgoCapitalDashboard';
-import { CryptoAlgoDataTab } from './CryptoAlgoDataTab';
-import { CryptoAlgoExecutionsPanel } from './CryptoAlgoExecutionsPanel';
-import { CryptoAlgoFutureMarketsPanel } from './CryptoAlgoFutureMarketsPanel';
-import { CryptoAlgoHeader } from './CryptoAlgoHeader';
-import { CryptoAlgoInactiveMarketsPanel } from './CryptoAlgoInactiveMarketsPanel';
-import { CryptoAlgoLiveMarketsPanel } from './CryptoAlgoLiveMarketsPanel';
-import { CryptoAlgoPositionsPanel } from './CryptoAlgoPositionsPanel';
-import { CryptoAlgoSurveillancePanel } from './CryptoAlgoSurveillancePanel';
+import { useCryptoAlgoDashboard } from '../../hooks/useCryptoAlgoDashboard';
+import { useCryptoAlgoExecutions } from '../../hooks/useCryptoAlgoExecutions';
+import { useCryptoAlgoPositions } from '../../hooks/useCryptoAlgoPositions';
+import { useCryptoAlgoSurveillance } from '../../hooks/useCryptoAlgoSurveillance';
+import { useAlgoWorkerQueueStatus } from '../../hooks/useAlgoWorkerQueueStatus';
+import { onGlobalRefresh } from '../../socket';
+import { CRYPTO_ALGO_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../../lib/ui-persistence';
+import { CryptoAlgoCapitalDashboard } from '../CryptoAlgoCapitalDashboard';
+import { CryptoAlgoDataTab } from '../CryptoAlgoDataTab';
+import { CryptoAlgoExecutionsPanel } from '../CryptoAlgoExecutionsPanel';
+import { CryptoAlgoFutureMarketsPanel } from '../CryptoAlgoFutureMarketsPanel';
+import { CryptoAlgoHeader } from '../CryptoAlgoHeader';
+import { CryptoAlgoInactiveMarketsPanel } from '../CryptoAlgoInactiveMarketsPanel';
+import { CryptoAlgoLiveMarketsPanel } from '../CryptoAlgoLiveMarketsPanel';
+import { CryptoAlgoPositionsPanel } from '../CryptoAlgoPositionsPanel';
+import { CryptoAlgoSurveillancePanel } from '../CryptoAlgoSurveillancePanel';
 
 const STATUS_POLL_MS = 10_000;
 

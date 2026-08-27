@@ -1,5 +1,5 @@
-import { SnapshotCard } from './snapshot/SnapshotCard';
-import type { SimStateSnapshotSummary } from '../lib/simulation-snapshots';
+import { SnapshotCard } from '../snapshot/SnapshotCard';
+import type { SimStateSnapshotSummary } from '../../lib/simulation-snapshots';
 
 const SIM_SNAPSHOT_SOURCE: Record<string, { badgeClass: string; badgeLabel: string }> = {
   manual: { badgeClass: 'neutral', badgeLabel: 'Manuel' },

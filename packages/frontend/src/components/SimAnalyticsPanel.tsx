@@ -21,8 +21,8 @@ import { useTraderPnlSeries } from '../hooks/useTraderPnlSeries';
 import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
 import { Icon } from './Icon';
 import { SimAnalyticsCategoryChart } from './charts/SimAnalyticsCategoryChart';
-import { SimAnalyticsChartSection } from './SimAnalyticsChartSection';
-import { SimAnalyticsTable } from './SimAnalyticsTable';
+import { SimAnalyticsChartSection } from './sim/SimAnalyticsChartSection';
+import { SimAnalyticsTable } from './sim/SimAnalyticsTable';
 import { SimMarketAnalyticsPanel } from './SimMarketAnalyticsPanel';
 import type { SimAlgoKind } from '../lib/simulation';
 

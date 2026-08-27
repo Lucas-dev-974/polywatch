@@ -1,46 +1,38 @@
 import { For, Show } from 'solid-js';
-import { formatDurationMs } from '../lib/date';
-import { formatPnlAmount, formatPnlPercent, pnlClass } from '../lib/position';
+import { formatDurationMs } from '../../lib/date';
+import { formatPnlAmount, formatPnlPercent, pnlClass } from '../../lib/position';
 import {
   formatCloseReasonBreakdown,
   formatProfitFactor,
-  marketDisplayLabel,
-  type MarketAnalyticsRow,
-  type MarketAnalyticsTotals,
-} from '../lib/market-analytics';
+  traderDisplayName,
+  type TraderAnalyticsRow,
+  type TraderAnalyticsTotals,
+} from '../../lib/trader-analytics';
 import {
   sortButtonLabel,
-  type MarketSortDir,
-  type MarketSortKey,
-} from '../lib/market-analytics-sort';
+  type SortDir,
+  type SortKey,
+} from '../../lib/sim-analytics-sort';
 
 interface Props {
-  markets: MarketAnalyticsRow[];
-  totals: MarketAnalyticsTotals;
-  sortKey: MarketSortKey;
-  sortDir: MarketSortDir;
-  onToggleSort: (key: MarketSortKey) => void;
+  traders: TraderAnalyticsRow[];
+  totals: TraderAnalyticsTotals;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  selectedWatchlistId: number | null;
+  onToggleSort: (key: SortKey) => void;
+  onSelectTrader: (watchlistId: number | null) => void;
 }
 
-export function SimMarketAnalyticsTable(props: Props) {
+export function SimAnalyticsTable(props: Props) {
   return (
     <div class="sim-analytics-table-wrap panel-scroll">
       <table class="data-table sim-analytics-table">
         <thead>
           <tr>
             <th>
-              <button type="button" class="sim-analytics-sort-btn" onClick={() => props.onToggleSort('market')}>
-                {sortButtonLabel('market', 'Marché', props.sortKey, props.sortDir)}
-              </button>
-            </th>
-            <th>
-              <button type="button" class="sim-analytics-sort-btn" onClick={() => props.onToggleSort('category')}>
-                {sortButtonLabel('category', 'Catégorie', props.sortKey, props.sortDir)}
-              </button>
-            </th>
-            <th>
-              <button type="button" class="sim-analytics-sort-btn" onClick={() => props.onToggleSort('traderCount')}>
-                {sortButtonLabel('traderCount', 'Traders', props.sortKey, props.sortDir)}
+              <button type="button" class="sim-analytics-sort-btn" onClick={() => props.onToggleSort('trader')}>
+                {sortButtonLabel('trader', 'Trader', props.sortKey, props.sortDir)}
               </button>
             </th>
             <th>
@@ -78,7 +70,6 @@ export function SimMarketAnalyticsTable(props: Props) {
                 {sortButtonLabel('profitFactor', 'PF', props.sortKey, props.sortDir)}
               </button>
             </th>
-            <th>Yes/No</th>
             <th>Gain moy.</th>
             <th>Perte moy.</th>
             <th>
@@ -95,89 +86,81 @@ export function SimMarketAnalyticsTable(props: Props) {
           </tr>
         </thead>
         <tbody>
-          <For each={props.markets}>
-            {(market) => (
-              <tr>
+          <For each={props.traders}>
+            {(trader) => (
+              <tr
+                classList={{
+                  'is-selected':
+                    trader.watchlistId != null &&
+                    trader.watchlistId === props.selectedWatchlistId,
+                }}
+                data-selectable={trader.watchlistId != null ? '' : undefined}
+                onClick={() => props.onSelectTrader(trader.watchlistId)}
+              >
                 <td>
                   <div class="sim-analytics-trader-cell">
-                    <span>{marketDisplayLabel(market)}</span>
-                    <Show when={market.marketResolved}>
-                      <span class="badge badge-neutral">résolu</span>
-                    </Show>
-                    <Show when={market.marketClosed && !market.marketResolved}>
-                      <span class="badge badge-warning">fermé</span>
+                    <span>{traderDisplayName(trader)}</span>
+                    <Show when={!trader.inWatchlistSim}>
+                      <span class="badge badge-neutral">hors watchlist</span>
                     </Show>
                   </div>
                 </td>
-                <td>{market.category ?? '—'}</td>
-                <td>{market.traderCount}</td>
                 <td>
                   <div class="sim-analytics-pos-cell">
                     <span>
-                      {market.openPositionCount}/{market.closedPositionCount}
+                      {trader.openPositionCount}/{trader.closedPositionCount}
                     </span>
                     <span class="sim-analytics-pos-total">
-                      ({market.positionCount})
+                      ({trader.positionCount})
                     </span>
                   </div>
                 </td>
-                <td class={pnlClass(market.realizedPnl)}>
-                  {formatPnlAmount(market.realizedPnl, true)}
+                <td class={pnlClass(trader.realizedPnl)}>
+                  {formatPnlAmount(trader.realizedPnl, true)}
                 </td>
-                <td class={pnlClass(market.unrealizedPnl)}>
-                  {formatPnlAmount(market.unrealizedPnl, true)}
+                <td class={pnlClass(trader.unrealizedPnl)}>
+                  {formatPnlAmount(trader.unrealizedPnl, true)}
                 </td>
-                <td class={pnlClass(market.totalPnl)}>
-                  {formatPnlAmount(market.totalPnl, true)}
+                <td class={pnlClass(trader.totalPnl)}>
+                  {formatPnlAmount(trader.totalPnl, true)}
                 </td>
-                <td class={pnlClass(market.roiPercent ?? 0)}>
-                  {formatPnlPercent(market.roiPercent ?? undefined)}
+                <td class={pnlClass(trader.roiPercent ?? 0)}>
+                  {formatPnlPercent(trader.roiPercent ?? undefined)}
                 </td>
                 <td>
-                  {market.winRatePercent != null
-                    ? `${market.winRatePercent.toFixed(0)}%`
+                  {trader.winRatePercent != null
+                    ? `${trader.winRatePercent.toFixed(0)}%`
                     : '—'}
                 </td>
                 <td>
                   {formatProfitFactor(
-                    market.profitFactor,
-                    market.grossWinsTotal,
-                    market.grossLossesTotal,
+                    trader.profitFactor,
+                    trader.grossWinsTotal,
+                    trader.grossLossesTotal,
                   )}
                 </td>
-                <td>
-                  <span class="sim-analytics-outcome-badge is-yes">{market.outcomeBreakdown.yes}</span>
-                  {' / '}
-                  <span class="sim-analytics-outcome-badge is-no">{market.outcomeBreakdown.no}</span>
-                  <Show when={market.outcomeBreakdown.other > 0}>
-                    {' / '}
-                    <span class="sim-analytics-outcome-badge is-other">{market.outcomeBreakdown.other}</span>
-                  </Show>
-                </td>
-                <td class={pnlClass(market.avgWinPnl ?? 0)}>
-                  {market.avgWinPnl != null
-                    ? formatPnlAmount(market.avgWinPnl, true)
+                <td class={pnlClass(trader.avgWinPnl ?? 0)}>
+                  {trader.avgWinPnl != null
+                    ? formatPnlAmount(trader.avgWinPnl, true)
                     : '—'}
                 </td>
-                <td class={pnlClass(market.avgLossPnl ?? 0)}>
-                  {market.avgLossPnl != null
-                    ? formatPnlAmount(market.avgLossPnl, true)
+                <td class={pnlClass(trader.avgLossPnl ?? 0)}>
+                  {trader.avgLossPnl != null
+                    ? formatPnlAmount(trader.avgLossPnl, true)
                     : '—'}
                 </td>
-                <td>{formatDurationMs(market.avgHoldDurationMs)}</td>
+                <td>{formatDurationMs(trader.avgHoldDurationMs)}</td>
                 <td class="sim-analytics-close-reasons">
-                  {formatCloseReasonBreakdown(market.closeReasonBreakdown)}
+                  {formatCloseReasonBreakdown(trader.closeReasonBreakdown)}
                 </td>
-                <td>{formatPnlAmount(market.feesTotal)}</td>
+                <td>{formatPnlAmount(trader.feesTotal)}</td>
               </tr>
             )}
           </For>
         </tbody>
         <tfoot>
           <tr class="sim-analytics-totals-row">
-            <td>Total ({props.totals.marketCount} marchés)</td>
-            <td>—</td>
-            <td>—</td>
+            <td>Total</td>
             <td>
               <div class="sim-analytics-pos-cell">
                 <span>
@@ -211,15 +194,6 @@ export function SimMarketAnalyticsTable(props: Props) {
                 props.totals.grossWinsTotal,
                 props.totals.grossLossesTotal,
               )}
-            </td>
-            <td>
-              <span class="sim-analytics-outcome-badge is-yes">{props.totals.outcomeBreakdown.yes}</span>
-              {' / '}
-              <span class="sim-analytics-outcome-badge is-no">{props.totals.outcomeBreakdown.no}</span>
-              <Show when={props.totals.outcomeBreakdown.other > 0}>
-                {' / '}
-                <span class="sim-analytics-outcome-badge is-other">{props.totals.outcomeBreakdown.other}</span>
-              </Show>
             </td>
             <td>—</td>
             <td>—</td>

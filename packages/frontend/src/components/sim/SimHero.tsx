@@ -1,24 +1,24 @@
 import { createSignal, onCleanup, onMount, Show, For } from 'solid-js';
-import { fetchCopyConfig, updateCopyConfig } from '../api';
-import { debounceFn } from '../lib/debounce';
+import { fetchCopyConfig, updateCopyConfig } from '../../api';
+import { debounceFn } from '../../lib/debounce';
 import {
   fetchSimBalance,
   type SimBalance,
   type SimAlgoKind,
-} from '../lib/simulation';
-import { connectSocket } from '../socket';
-import { EnvSettingsDialogTrigger } from './dialogs/EnvSettingsDialog';
-import { SystemConfigDialog } from './dialogs/SystemConfigDialog';
-import { SimExecutionSettingsDialog } from './dialogs/SimExecutionSettingsDialog';
-import { formatSimExecutionStatsSummary } from './SimExecutionStatsPanel';
-import { ModeHeroBalanceStat } from './ModeHeroBalanceStat';
-import { SimSnapshotDialog } from './dialogs/SimSnapshotDialog';
-import { NewSessionResetDialog } from './dialogs/NewSessionResetDialog';
-import { Icon } from './Icon';
+} from '../../lib/simulation';
+import { connectSocket } from '../../socket';
+import { EnvSettingsDialogTrigger } from '../dialogs/EnvSettingsDialog';
+import { SystemConfigDialog } from '../dialogs/SystemConfigDialog';
+import { SimExecutionSettingsDialog } from '../dialogs/SimExecutionSettingsDialog';
+import { formatSimExecutionStatsSummary } from '../SimExecutionStatsPanel';
+import { ModeHeroBalanceStat } from '../ModeHeroBalanceStat';
+import { SimSnapshotDialog } from '../dialogs/SimSnapshotDialog';
+import { NewSessionResetDialog } from '../dialogs/NewSessionResetDialog';
+import { Icon } from '../Icon';
 import {
   fetchSimExecutionStats,
   type SimExecutionStats,
-} from './settings/sim-execution-settings-types';
+} from '../settings/sim-execution-settings-types';
 
 /** Coalesce bursty pnl_tick bursts before refetching mark-to-market equity. */
 const BALANCE_REFRESH_DEBOUNCE_MS = 500;

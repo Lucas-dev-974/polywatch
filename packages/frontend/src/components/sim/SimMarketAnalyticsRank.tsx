@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
-import { formatPnlAmount, pnlClass } from '../lib/position';
-import { marketDisplayLabel, type MarketAnalyticsRow } from '../lib/market-analytics';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
+import { marketDisplayLabel, type MarketAnalyticsRow } from '../../lib/market-analytics';
 
 interface Props {
   markets: MarketAnalyticsRow[];

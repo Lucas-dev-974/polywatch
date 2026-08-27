@@ -3,7 +3,7 @@ import { EventsPanel } from '../EventsPanel';
 import { ExecutionLog } from '../ExecutionLog';
 import { PositionCard } from '../PositionCard';
 import { SimAnalyticsPanel } from '../SimAnalyticsPanel';
-import { SimHero } from '../SimHero';
+import { SimHero } from '../sim/SimHero';
 import { SIM_PAGE_TABS, UI_KEYS, usePersistedEnum } from '../../lib/ui-persistence';
 import type { SimAlgoKind } from '../../lib/simulation';
 

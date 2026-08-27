@@ -1,17 +1,17 @@
 import { For, Show } from 'solid-js';
-import { formatShortDateTime } from '../lib/date';
-import { formatPnlAmount, pnlClass } from '../lib/position';
+import { formatShortDateTime } from '../../lib/date';
+import { formatPnlAmount, pnlClass } from '../../lib/position';
 import {
   formatSessionDuration,
   type SimSessionSummary,
-} from '../lib/simulation-sessions';
+} from '../../lib/simulation-sessions';
 import {
   configDiffGroupLabel,
   groupConfigDiffPreviewLines,
   type ConfigDiffPreviewLine,
-} from '../lib/snapshot-config-diff';
+} from '../../lib/snapshot-config-diff';
 import type { SimArchiveSummary } from '@polywatch/core';
-import { SessionElapsed } from './SessionElapsed';
+import { SessionElapsed } from '../SessionElapsed';
 
 interface Props {
   session: SimSessionSummary & { archiveSummary?: SimArchiveSummary | null };

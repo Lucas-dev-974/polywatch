@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import { formatCloseReasonBreakdown, type MarketAnalyticsRow } from '../lib/market-analytics';
+import { formatCloseReasonBreakdown, type MarketAnalyticsRow } from '../../lib/market-analytics';
 
 interface Props {
   markets: MarketAnalyticsRow[];

@@ -22,10 +22,10 @@ import { connectSocket } from '../socket';
 import { useMarketPnlSeries } from '../hooks/useMarketPnlSeries';
 import { CollapsiblePanel, useCollapse } from './CollapsiblePanel';
 import { Icon } from './Icon';
-import { SimMarketAnalyticsRank } from './SimMarketAnalyticsRank';
-import { SimMarketAnalyticsChartSection } from './SimMarketAnalyticsChartSection';
-import { SimMarketAnalyticsTable } from './SimMarketAnalyticsTable';
-import { SimMarketYesNoBreakdown } from './SimMarketYesNoBreakdown';
+import { SimMarketAnalyticsRank } from './sim/SimMarketAnalyticsRank';
+import { SimMarketAnalyticsChartSection } from './sim/SimMarketAnalyticsChartSection';
+import { SimMarketAnalyticsTable } from './sim/SimMarketAnalyticsTable';
+import { SimMarketYesNoBreakdown } from './sim/SimMarketYesNoBreakdown';
 
 const REFRESH_DEBOUNCE_MS = 500;
 

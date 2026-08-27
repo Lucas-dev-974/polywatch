@@ -174,8 +174,9 @@ pour chaque CopiedPosition 'open' :
                             En illiquide, fallback sur `lastTradePrice` si celui-ci
                             est plus défavorable (évite un SL qui ne se déclenche pas
                             simplement parce que le bid affiché est un niveau figé).
-  evaluatePreCloseExit()  : fenêtre pre-close — holdIfWinning si PnL vente ≥ 0 USDC ;
-                            PRE_CLOSE_LOSS (jamais PRE_CLOSE_WIN) ; annulé si illiquide
+  evaluatePreCloseExit()  : fenêtre pre-close — keep si keepEnabled et bid ≥ seuil ;
+                            sinon PRE_CLOSE_LOSS / PRE_CLOSE_WIN selon PnL (défaut keep off) ;
+                            PRE_CLOSE_LOSS annulé si illiquide
   → buildCloseOrderSignal() (FAK, hash sur closingAttemptSeq, lastTradePrice embarqué)
     → close-signals
 ```

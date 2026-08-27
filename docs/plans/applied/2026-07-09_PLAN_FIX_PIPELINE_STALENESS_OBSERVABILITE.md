@@ -1,6 +1,6 @@
 # Plan — Pipeline crypto-algo : fraîcheur des carnets, observabilité des abstentions, cohérence spread/Gamma
 
-> **Note resync 2026-08-07** : SL/TP worker = **fail-closed 30 s** (`BOOK_FRESHNESS_WARN_MAX_AGE_MS`) — voir [`docs/code/04-worker.md`](../code/04-worker.md). Gamma TTL = `CryptoConfig` uniquement ([`07-crypto-algo.md`](../code/07-crypto-algo.md)).
+> **Note resync 2026-08-07** : SL/TP worker = **fail-closed 30 s** (`BOOK_FRESHNESS_WARN_MAX_AGE_MS`) — voir [`docs/code/04-worker.md`](../../code/04-worker.md). Gamma TTL = `CryptoConfig` uniquement ([`07-crypto-algo.md`](../../code/07-crypto-algo.md)).
 
 **Date** : 2026-07-09
 **Dernière mise à jour** : 2026-07-09

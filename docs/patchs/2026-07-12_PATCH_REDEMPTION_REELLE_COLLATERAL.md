@@ -2,7 +2,7 @@
 
 **Date** : 2026-07-12  
 **Statut** : **MVP implémenté (Lots 0–5 + garde anti-boucle + auto-wrap)**  
-**Plan** : [`../plans/2026-07-12_PLAN_REDEMPTION_PHASE2.md`](../plans/2026-07-12_PLAN_REDEMPTION_PHASE2.md)  
+**Plan** : [`../plans/applied/2026-07-12_PLAN_REDEMPTION_PHASE2.md`](../plans/applied/2026-07-12_PLAN_REDEMPTION_PHASE2.md)  
 **Recovery ops** : [`../../tools/recover-stranded-redemption/README.md`](../../tools/recover-stranded-redemption/README.md)
 
 ---

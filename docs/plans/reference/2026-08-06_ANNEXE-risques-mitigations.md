@@ -181,7 +181,7 @@ Semaine 4 : Étape 3 consommateurs 7-8 (weather, close-bid) + étape 4 suppressi
 ## R3 — C9 : Purge deprecated constants en fallback — ✅ CLOS (2026-08-07)
 
 > **Commit** : `6d99017` — `fix(audit): disable deprecated gamma fallbacks and fail-closed stale SL/TP`
-> **Doc runtime** : [`docs/code/07-crypto-algo.md`](../code/07-crypto-algo.md) § Cache Gamma
+> **Doc runtime** : [`docs/code/07-crypto-algo.md`](../../code/07-crypto-algo.md) § Cache Gamma
 
 ### État final (implémenté)
 

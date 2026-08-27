@@ -1,8 +1,8 @@
 # Package `@polywatch/backtest` — moteur de backtest événementiel (weather)
 
-> **Vue d'ensemble produit** : [`../backtest.md`](../backtest.md).  
+> **Vue d'ensemble produit** : [`../reference/backtest.md`](../reference/backtest.md).  
 > **Plan d'origine** : [`../plans/2026-08-05_PLAN-backtest-engine-universel.md`](../plans/2026-08-05_PLAN-backtest-engine-universel.md).  
-> **Patch fidélité 0.2.0** : [`../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md).  
+> **Patch fidélité 0.2.0** : [`../weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md).  
 > **Audit fidélité/correctude 0.3.0** : [`../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md) + [`../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md`](../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md).  
 > **Audit moteur 0.4.0** : [`../audits/2026-08-19_audit-weather-backtest-moteur.md`](../audits/2026-08-19_audit-weather-backtest-moteur.md).  
 > **Per-strategy risk guards 0.5.0** : [`../audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md`](../audits/2026-08-21_audit-weather-backtest-per-strategy-risk.md).  
@@ -171,10 +171,10 @@ néanmoins `configSnapshotJson` / fingerprint **avant** overrides (config live).
 
 | Raison | Condition | Throttle re-entry |
 |--------|-----------|-------------------|
-| `WEATHER_PRE_CLOSE` | `hoursToEnd <= closeBeforeResolutionHours` (prioritaire) | Non |
 | `WEATHER_FORECAST_CHANGE` | `|currentMean - entryMean| > threshold` | **Oui** — *non applicable à `weather-highest-yes` en live (évalué en backtest)* |
 | `WEATHER_BUCKET_EXIT` | hors palier + `close_and_reenter` après `hysteresisPolls` avancées espacées de `weatherAlgoPollMs` | **Oui** — *non applicable à `weather-highest-yes` en live (évalué en backtest)* |
-| `SL` / `TP` / `TRAILING` | seuils résolus à l’entrée (`meta.*Percent`) ; `peakBid` pour trailing | Non |
+| `SL` | seuil résolu à l'entrée (`meta.slPercent`) | **Oui** (throttle `reentryThrottleAfterSlMs` ville+date+stratégie) |
+| `TP` / `TRAILING` | seuils résolus à l'entrée (`meta.*Percent`) ; `peakBid` pour trailing | Non |
 | `KILL_SWITCH` | géré dans l'adapter (daily loss per-strategy + `force_close_all`) — ferme **uniquement** les positions de la stratégie déclenchée | Non |
 | `RESOLUTION` | marché résolu (adapter, pas ExitManager) ; `tryResolveByPrice` appelle `markClosed` | **Oui** (throttle ville+date+stratégie) |
 

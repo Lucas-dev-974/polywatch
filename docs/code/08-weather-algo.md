@@ -9,7 +9,7 @@ dédiées (`close-signals`).
 > `weather-highest-yes`).
 > Catalogue + filtres JSON dans `WeatherConfig.weatherAlgoStrategies`. Config runtime =
 > entité **`WeatherConfig`** (`weather_config`), **pas** `RiskConfig` (purgé).
-> Doc produit synthétique : [`../weather-algo.md`](../weather-algo.md).
+> Doc produit synthétique : [`../reference/weather-algo.md`](../reference/weather-algo.md).
 
 ## Arborescence
 
@@ -105,7 +105,7 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
 |---|---|---|
 | `weather-forecast` | `pickBestEdgeBucket` (max edge YES) | oui |
 | `weather-forecast-aligned` | `selectForecastAlignedBucket` | non |
-| `weather-highest-yes` | bucket au max `yesPrice` (≥ `bag.minYesPrice`) | non |
+| `weather-highest-yes` | bucket au max `yesPrice` (≥ `bag.minYesPrice`) — gates `bag.maxYesPrice` (plafond anti-fade, défaut `null`) + `bag.allowedComparisons` (filtre types de paliers) | non |
 
 - **BUY YES uniquement** (même si le type autorise NO).
 - Edge = `forecastYesProb − marketYesPrice` (`core` `weather-edge.ts`) — pour
@@ -195,6 +195,8 @@ Redis :
 - Hysteresis : `weather-bucket-hysteresis:{copiedPositionId}`
 - Re-entry throttle (après bucket/drift) :
   `weather-reentry:{cityNormalized}:{dateIso}:{mode}` TTL `bag.reentryThrottleMs`
+- `reentryThrottleAfterSlMs` (défaut 30 min) : throttle posé par le **worker**
+  après une sortie SL, distinct du throttle bucket/drift. `0` = désactivé.
 - Dedupe close : `weather-close:{posId}:{reason}` (TTL 120 s)
 
 File close : `close-signals` (partagée worker). Bid ≤ 0 → exit **différé**.
@@ -243,7 +245,7 @@ backfill. Globaux structurels restants : `weatherAlgoEnabled` /
 `weatherAlgoSelectionMode` / `weatherAlgoMaxSignalsPerEvent` /
 `weatherAlgoPollMs` / `weatherAlgoStrategies` / recording toggles /
 retentionDays / `simInitialCapitalWeather`. Voir
-[`../configuration.md`](../configuration.md).
+[`../reference/configuration.md`](../reference/configuration.md).
 
 ## Persistance données marché (Phases 0–4)
 
@@ -285,15 +287,15 @@ Lecture / purge manuelle : `WeatherAlgoDataService` + routes
   horodaté **après** le dernier trade. Fenêtre de fetch étendue de `48 h`
   au-delà de `endDate` (`RESOLUTION_MARGIN_SEC`).
 
-Détail : [`../api.md`](../api.md) § Weather Algo history ; [`../modele-donnees.md`](../modele-donnees.md).
+Détail : [`../reference/api.md`](../reference/api.md) § Weather Algo history ; [`../reference/modele-donnees.md`](../reference/modele-donnees.md).
 
-Détail : [`../weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md`](../weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md).
+Détail : [`../weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md`](../weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 ## Raccordements
 
 - **Worker** : consomme `weather-order-signals` + `close-signals`.
 - **Backend** : routes weather-algo (capital, executions, settings) +
-  **weather-algo-data** — [`../api.md`](../api.md) ; métriques internes parse questions.
+  **weather-algo-data** — [`../reference/api.md`](../reference/api.md) ; métriques internes parse questions.
 - **Core** : `discoverWeatherMarkets`, `WeatherForecastService`, edge helpers,
   redis throttles / hysteresis, `resolveWeatherEntryExitParams`, recorders data.
 - **Frontend** : page Weather Algo (Marchés / Positions / Villes / **Données** /

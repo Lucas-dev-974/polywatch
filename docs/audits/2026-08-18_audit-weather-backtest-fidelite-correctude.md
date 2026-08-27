@@ -347,5 +347,5 @@ Supprimer la variable. Voir plan §7.
 
 - Plan de remédiation : [`docs/plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md`](../plans/applied/2026-08-18_PLAN-fix-weather-backtest-audit.md)
 - Audit précédent (highest-yes edge cases) : [`docs/audits/2026-08-15_audit-weather-algo-highest-yes-edge-cases.md`](2026-08-15_audit-weather-algo-highest-yes-edge-cases.md)
-- Plan backtest précédent (appliqué 0.2.0) : [`docs/weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)
-- Doc backtest : [`docs/backtest.md`](../backtest.md)
+- Plan backtest précédent (appliqué 0.2.0) : [`docs/weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)
+- Doc backtest : [`docs/reference/backtest.md`](../reference/backtest.md)

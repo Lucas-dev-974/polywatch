@@ -3,7 +3,7 @@
 **Date** : 2026-07-05  
 **Rùvision** : 2026-07-05 (post-revue ù corrections surcomptage, sùmantique gauges, fraùcheur)  
 **Rùvision 2** : 2026-07-05 (post-vùrification code ù dedup exit corrigùe `closingAttemptSeq === 1` au lieu de `!resumed`, filtre `COPY_CLOSE`/`MANUAL` cùtù worker, comptage avant garde mos)  
-**Contexte** : Audit [`2026-07-05_audit-alignement-documentation-codebase.md`](../audits/2026-07-05_audit-alignement-documentation-codebase.md)  
+**Contexte** : Audit [`2026-07-05_audit-alignement-documentation-codebase.md`](../../audits/2026-07-05_audit-alignement-documentation-codebase.md)  
 **Objectif** : Dùbloquer l'exploitation ù la doc reflùte la rùalitù, et les mùtriques P0 deviennent opùrationnelles pour le monitoring SL/TP et l'ùtat des positions.  
 **Approche** : Option C (hybride) ù correction doc immùdiate, puis instrumentation worker ? backend sur le pattern existant `POST /api/internal/metrics/*`.
 

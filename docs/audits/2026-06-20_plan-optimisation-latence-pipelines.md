@@ -7,7 +7,7 @@
 
 **Documents liés** :
 - [2026-06-20_implementation-optimisations-phases-0-6.md](./2026-06-20_implementation-optimisations-phases-0-6.md) — changements réellement appliqués
-- [docs/pipeline-copy-trading.md](../pipeline-copy-trading.md) — pipeline copy-trading existant
+- [docs/reference/pipeline-copy-trading.md](../reference/pipeline-copy-trading.md) — pipeline copy-trading existant
 - [scripts/archive/audits/AUDIT-OPTIMIZATIONS-2026-06-12.md](../../scripts/archive/audits/AUDIT-OPTIMIZATIONS-2026-06-12.md) — audit optimisations antérieur
 
 ---

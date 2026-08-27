@@ -4,7 +4,7 @@
 **Version :** Polywatch v1.1  
 **Statut :** MVP implémenté (Lots 0–5 + garde anti-boucle + auto-wrap)  
 **Incidents :** #22441 (collatéral pUSD hardcodé → payout 0) ; #22539 (boucle Rachat 0 $, BDD désync)  
-**Patch :** [`../patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md`](../patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md)
+**Patch :** [`../../patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md`](../../patchs/2026-07-12_PATCH_REDEMPTION_REELLE_COLLATERAL.md)
 
 ---
 

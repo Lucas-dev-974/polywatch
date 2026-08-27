@@ -12,7 +12,7 @@ Documentation technique du code (dernière mise à jour : 2026-08-25 — sync
 | [02-pipeline-copy-trading.md](02-pipeline-copy-trading.md) | Le pipeline complet : détection → copie → exécution → finalisation → résolution |
 | [03-core.md](03-core.md) | Package `@polywatch/core` : entités, services, VWAP, idempotence, risque, simulation |
 | [04-worker.md](04-worker.md) | Package `@polywatch/worker` : exécution CLOB, sorties SL/TP, WebSockets, watchdogs |
-| [05-copy-trading.md](05-copy-trading.md) | Package `@polywatch/copy-trading` : détection moves, pipelines entry/exit copy |
+| [05a-copy-trading.md](05a-copy-trading.md) | Package `@polywatch/copy-trading` : détection moves, pipelines entry/exit copy |
 | [05-backend.md](05-backend.md) | Package `@polywatch/backend` : API REST, Socket.IO, crypto, flux dépôt/retrait |
 | [06-frontend.md](06-frontend.md) | Package `@polywatch/frontend` : SolidJS, composants, hooks, flux utilisateur |
 | [07-crypto-algo.md](07-crypto-algo.md) | Package `@polywatch/crypto-algo` : auto-track, stratégies, publication temps réel |
@@ -45,11 +45,11 @@ Résilience unhandled promise rejections & durcissement reset simulation (2026-0
 [`patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md`](../patchs/2026-07-17_PATCH_RESILIENCE_UNHANDLED_REJECTIONS.md)
 
 Audit global / purge RiskConfig / post-entry-mid (2026-08-06) — **appliqué** (C4, C10, C11/C13 doc) :
-[`plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](../plans/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) ·
-[`plans/2026-08-06_PLAN-p0-implementation.md`](../plans/2026-08-06_PLAN-p0-implementation.md)
+[`plans/applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md`](../plans/applied/2026-08-06_PLAN-audit-global-codebase-doc-bugs-fantomes.md) ·
+[`plans/applied/2026-08-06_PLAN-p0-implementation.md`](../plans/applied/2026-08-06_PLAN-p0-implementation.md)
 
 Audit weather-algo (2026-08-04) — **appliqué** :
-[`audit-weather-algo-2026-08-04.md`](../weather-algo-audits-plans/audit-weather-algo-2026-08-04.md)
+[`weather/audits/audit-weather-algo-2026-08-04.md`](../weather/audits/audit-weather-algo-2026-08-04.md)
 
 Sim-reset Redis (2026-07-12 + 4.5) — **appliqué** :
-[`plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](../plans/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)
+[`plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md`](../plans/applied/2026-07-12_PLAN_SIM_RESET_REDIS_HYGIENE.md)

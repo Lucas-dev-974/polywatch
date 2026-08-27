@@ -6,9 +6,9 @@
 **Migration** : `AddSimSessionArchives1700000000049`  
 **Tags** : `simulation`, `snapshots`, `sessions`, `archivage`, `crypto-algo`, `rapports`, `reset`  
 **Références** :
-- [`docs/snapshots-simulation.md`](../snapshots-simulation.md)
-- [`docs/api.md`](../api.md)
-- [`docs/modele-donnees.md`](../modele-donnees.md)
+- [`docs/reference/snapshots-simulation.md`](../../reference/snapshots-simulation.md)
+- [`docs/reference/api.md`](../../reference/api.md)
+- [`docs/reference/modele-donnees.md`](../../reference/modele-donnees.md)
 
 ---
 
@@ -141,9 +141,9 @@ Query : `type=positions|executions|exit_attempts|surveillance|candles`, paginati
 
 ## Lot E — Documentation
 
-- [`docs/snapshots-simulation.md`](../snapshots-simulation.md) — section archivage
-- [`docs/api.md`](../api.md) — routes reset + archive
-- [`docs/modele-donnees.md`](../modele-donnees.md) — tables `sim_archive_*`
+- [`docs/reference/snapshots-simulation.md`](../../reference/snapshots-simulation.md) — section archivage
+- [`docs/reference/api.md`](../../reference/api.md) — routes reset + archive
+- [`docs/reference/modele-donnees.md`](../../reference/modele-donnees.md) — tables `sim_archive_*`
 
 ---
 
@@ -168,7 +168,7 @@ Query : `type=positions|executions|exit_attempts|surveillance|candles`, paginati
 
 ## UI archives — hors scope v1
 
-Consultation basique livrée (`SimSessionArchiveDialog`) ; **pas** d’interface de gestion complète (export, suppression ciblée des `sim_archive_*`, hub dédié, pagination UI). Voir [`docs/snapshots-simulation.md`](../snapshots-simulation.md) section « UI archives — périmètre actuel et évolutions possibles ».
+Consultation basique livrée (`SimSessionArchiveDialog`) ; **pas** d’interface de gestion complète (export, suppression ciblée des `sim_archive_*`, hub dédié, pagination UI). Voir [`docs/reference/snapshots-simulation.md`](../../reference/snapshots-simulation.md) section « UI archives — périmètre actuel et évolutions possibles ».
 
 ---
 

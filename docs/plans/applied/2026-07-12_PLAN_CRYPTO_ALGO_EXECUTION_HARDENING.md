@@ -3,7 +3,7 @@
 **Date :** 2026-07-12  
 **Version :** Polywatch v1.1  
 **Statut :** Livré (PR1 + PR2 E2E + PR3 Ops/Doc + PR4 reset sim Redis)  
-**Contexte :** suite à l’audit [`docs/audits/2026-07-12_audit-crypto-algo-file-worker-pending-execution.md`](../audits/2026-07-12_audit-crypto-algo-file-worker-pending-execution.md)
+**Contexte :** suite à l’audit [`docs/audits/2026-07-12_audit-crypto-algo-file-worker-pending-execution.md`](../../audits/2026-07-12_audit-crypto-algo-file-worker-pending-execution.md)
 
 ---
 

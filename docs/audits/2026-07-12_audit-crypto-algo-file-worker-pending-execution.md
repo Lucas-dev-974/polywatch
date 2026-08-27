@@ -6,8 +6,8 @@
 **Statut :** ✅ Problème résolu opérationnellement + correctifs code (patch 2026-07-11) ; surveillance continue recommandée  
 
 **Documents liés :**
-- Patch détaillé : [`docs/patch-v1-1/2026-07-11_PATCH_CRYPTO_ALGO_EXECUTION_ET_SURVEILLANCE.md`](../patch-v1-1/2026-07-11_PATCH_CRYPTO_ALGO_EXECUTION_ET_SURVEILLANCE.md)
-- Doc module : [`docs/crypto-algo.md`](../crypto-algo.md)
+- Patch détaillé : [`../patchs/2026-07-11_PATCH_CRYPTO_ALGO_EXECUTION_ET_SURVEILLANCE.md`](../patchs/2026-07-11_PATCH_CRYPTO_ALGO_EXECUTION_ET_SURVEILLANCE.md)
+- Doc module : [`docs/reference/crypto-algo.md`](../reference/crypto-algo.md)
 
 ---
 

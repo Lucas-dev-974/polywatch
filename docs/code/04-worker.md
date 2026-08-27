@@ -9,16 +9,17 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 
 1. Initialisation PostgreSQL (TypeORM, schéma vérifié par `assertDatabaseExists`).
 2. **`ensureCashIntegrity()`** — réconciliation du cash simulation depuis le ledger d'exécutions (log si drift réparé).
-3. **6+ connexions Redis** : commandes, pub (heartbeat), sub (`config-changed`, `backend-ready`), et connexions consommateurs dédiées (`order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals`, `execution-results`).
+3. Plusieurs connexions Redis dédiées : commandes, pub (heartbeat), sub (`config-changed`, `backend-ready`), et connexions consommateurs dédiées (`order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals`, `execution-results`).
 4. `waitForBackendReady()` — attend le signal Redis `backend-ready` (timeout 60 s) avant de continuer.
 5. `reconcilePlacingExecutions` (exécutions réelles orphelines en `placing`).
 6. **`startup-reconciler.ts`** — Réconciliation au démarrage : positions, exécutions, réservations.
 7. **`worker-context-refresh.ts`** — Abonnements Redis `config-changed` / `backend-ready` ; refresh du contexte trading (debounce 5 s).
 8. `backfillClosingStartedAt()` — backfill colonne legacy.
-9. `recoverOrphans()` sur les files d'exécution (`order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals`, `execution-results` — clés `:processing` → files normales).
-10. Connexion WebSocket **book** + `syncBookSubscriptions` (10 s) ; WebSocket **user** (`UserChannelManager`).
-11. Boucles : strategy (100 ms), market-resolution (**15 s**), redemption (15 s), closing-watchdog (15 s), placing-janitor (15 s défaut, sim-only), pending-entry-janitor (30 s), reservation-janitor (60 s), purge horaire `MarketPositionTick`.
-12. Abonnements Redis (dispatcher `Map<channel, handler>` — `messageHandlers`) :
+9. `reconcileClosingOnClosedClob()` — révertit les positions `closing`/`closed` dont le marché a `accepting_orders=false` (clôture invalide suite CLOB fermé).
+10. `recoverOrphans()` sur les files d'exécution (`order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals`, `execution-results` — clés `:processing` → files normales).
+11. Connexion WebSocket **book** + `syncBookSubscriptions` (10 s) ; WebSocket **user** (`UserChannelManager`).
+12. Boucles : strategy (100 ms), market-resolution (**15 s**), redemption (15 s), closing-watchdog (15 s), placing-janitor (15 s défaut, sim-only), pending-entry-janitor (30 s), reservation-janitor (60 s).
+13. Abonnements Redis (dispatcher `Map<channel, handler>` — `messageHandlers`) :
     - **`config-changed`** : purge cache TradingContext, resync WS, réévaluation kill switch. Handler enveloppé dans `try/catch` (log error, worker continue).
     - **`backend-ready`** : refresh trading context (debounce 5 s via `refreshWorkerContext`). `.catch()` sur la promesse (log warn).
     - **`simulation-reset`** : bump `SimResetGeneration` + log ; les queues sim sont purgées par le backend ; un échec de job `mode=sim` en vol est converti en `JobDiscardedError` (pas de RPUSH post-purge).
@@ -37,7 +38,7 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 
 | Fichier | File consommée | Rôle |
 |---|---|---|
-| `executor.ts` | `order-signals` / `algo-order-signals` / `weather-order-signals` / `close-signals` | Verrou position, claim + réconciliation in-flight, mos sortie, exécution sim/réelle → `execution-results`. Consomme `COPY_*`, `ALGO_*`, `WEATHER_OPEN` / closes `WEATHER_FORECAST_CHANGE` / `WEATHER_BUCKET_EXIT` / `WEATHER_PRE_CLOSE`. |
+| `executor.ts` | `order-signals` / `algo-order-signals` / `weather-order-signals` / `close-signals` | Verrou position, claim + réconciliation in-flight, mos sortie, exécution sim/réelle → `execution-results`. Consomme `COPY_*`, `ALGO_*`, `WEATHER_OPEN` / closes `WEATHER_FORECAST_CHANGE` / `WEATHER_BUCKET_EXIT`. |
 | `results-consumer.ts` | `execution-results` | `completeExecution` sous `positionLocks` → finalize + retry sorties forcées |
 | `strategy-processing.ts` | — (100 ms + book updates) | Boucle principale ; délègue à `position-exit-evaluator` et `kill-switch-monitor` → `close-signals` |
 | `market-resolution-watcher.ts` | — (**15 s**) | Délègue à `MarketResolutionService` |
@@ -49,7 +50,7 @@ Processus d'exécution : stratégie SL/TP, exécution (simulation et CLOB réel)
 |---|---|
 | `strategy-processing.ts` | Boucle 100 ms, refresh marchés near-end, orchestration |
 | `position-exit-evaluator.ts` | SL/TP/trailing, pre-close |
-| `kill-switch-monitor.ts` | Force-close si perte journalière ≥ seuil |
+| `kill-switch-monitor.ts` | Force-close si perte journalière ≥ seuil. Weather : **par stratégie** (`dailyRealizedPnl(strategyId)`), pas toutes les positions du ledger |
 | `position-branches.ts` | Branches liquide / illiquide, peak PnL |
 | `pnl-tick-publisher.ts` | Push PnL ticks vers backend |
 | `market-percent-publisher.ts` | Push variations % marché au backend sur book update |
@@ -66,8 +67,7 @@ Pipeline auxiliaire déclenché sur chaque mise à jour de carnet :
 | `market-tick-recorder.ts` | Persiste `MarketPositionTick` (throttle 500 ms/asset) pour les positions ouvertes |
 | `market-price-history-syncer.ts` | Sync / persistance `MarketPriceTick` par `conditionId` (graphique UI non-crypto) |
 
-Purge horaire des ticks plus anciens que `MARKET_TICK_RETENTION_DAYS` (via `MarketPositionTickService.purgeOlderThan`).
-Purge `MarketPriceTick` horaire si `MARKET_PRICE_TICK_RETENTION_DAYS` > 0 (défaut 0 = no-op).
+**Purge automatique désactivée** : les timers `marketTickPurgeTimer` / `marketPriceTickPurgeTimer` ont été retirés (`packages/worker/src/index.ts`). `MARKET_TICK_RETENTION_DAYS` / `MARKET_PRICE_TICK_RETENTION_DAYS` restent la rétention théorique ; nettoyage manuel via API/scripts.
 
 ## Module CLOB (`clob/`)
 
@@ -97,7 +97,7 @@ Purge `MarketPriceTick` horaire si `MARKET_PRICE_TICK_RETENTION_DAYS` > 0 (défa
 | `execution/shadow-fill-recorder.ts` | Shadow logging : compare fill réel vs FAK local sur book cache |
 | `watchdogs/sim-realism-janitor.ts` | Purge horaire `clob_latency_samples` / `shadow_fills` (rétention `GlobalConfig`) |
 
-Voir aussi [simulation-execution.md](../simulation-execution.md) pour le pipeline sim complet et les tunables `GlobalConfig`.
+Voir aussi [`../reference/simulation-execution.md`](../reference/simulation-execution.md) pour le pipeline sim complet et les tunables `GlobalConfig`.
 
 ## WebSockets Polymarket (`polymarket/`)
 

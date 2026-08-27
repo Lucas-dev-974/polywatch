@@ -8,8 +8,8 @@ enregistre une surveillance de marché (snapshots open/close) pour analyse.
 
 > État : MVP — **une seule stratégie** (`naive-momentum`) est implémentée à ce
 > jour. Le registre est conçu pour en accueillir d'autres (voir
-> [`../plans/websocket-crypto-algo-plan.md`](../plans/websocket-crypto-algo-plan.md)
-> et [`../plans/IMPLEMENTATION_PLAN_CRYPTO_ALGO_V2.md`](../plans/IMPLEMENTATION_PLAN_CRYPTO_ALGO_V2.md)).
+> [`../plans/archived/websocket-crypto-algo-plan.md`](../plans/archived/websocket-crypto-algo-plan.md)
+> et [`../plans/applied/IMPLEMENTATION_PLAN_CRYPTO_ALGO_V2.md`](../plans/applied/IMPLEMENTATION_PLAN_CRYPTO_ALGO_V2.md)).
 
 ## Démarrage (`index.ts`)
 
@@ -19,7 +19,7 @@ enregistre une surveillance de marché (snapshots open/close) pour analyse.
 4. **3 connexions Redis** dédiées : commandes, pub (heartbeat), sub (`config-changed`).
 5. `SelectionLoader` (snapshot mémoire des sélections actives, refresh pub/sub + safety net 60 s).
 6. `StrategyRegistry` + enregistrement de `NaiveMomentumStrategy`.
-7. `PolymarketConnectionManager` (WebSocket book partagé) + `RedisQueue<OrderSignal>` vers la file `order-signals`.
+7. `PolymarketConnectionManager` (WebSocket book partagé) + `RedisQueue<OrderSignal>` vers la file `algo-order-signals`.
 8. `CryptoAlgoPriceFeed` branché sur le connection manager ; les callbacks book
    sont **composés** via `dispatchBookUpdate()` (price feed + percent publisher
    partagent le même handler `setOnBookUpdate` sans s'écraser).
@@ -83,10 +83,10 @@ interface CryptoAlgoStrategy {
 Stratégie d'entrée par **bande de prix** (token acheté) + garde spread sur le carnet cible :
 
 - **Prix de référence** : mid WebSocket du token **Up** si carnet frais et bilatéral ; sinon prix Gamma YES. Helper exporté : `resolveEntryCandidateFromBand(yesPrice, min, max)`.
-- **Bande d'entrée (activée par défaut)** : le token qu'on va acheter doit être dans `(entryPriceMin, entryPriceMax)` — défaut `(0,50 ; 0,80)` :
-  - YES si `0,50 < prix Up < 0,80`
-  - NO si `0,50 < (1 − prix Up) < 0,80`
-  - Abstention `price_band` sinon (y compris aux bornes exactes 0,50 / 0,80)
+- **Bande d'entrée (activée par défaut)** : le token qu'on va acheter doit être dans `(entryPriceMin, entryPriceMax)` — défaut `(0,55 ; 0,80)` :
+  - YES si `0,55 < prix Up < 0,80`
+  - NO si `0,55 < (1 − prix Up) < 0,80`
+  - Abstention `price_band` sinon (y compris aux bornes exactes 0,55 / 0,80)
 - **Mode legacy** (`entryPriceBandEnabled = false`) : seuil momentum `baseThreshold` (0,55) + ajustement spread absolu sur le token cible ; abstention `neutral_zone` en zone neutre.
 - **Spread max par intervalle** (table mergée `cryptoAlgoSpreadAbsByInterval`) : ex. 5m → 0,05 absolu. Au-delà → `spread_gate`.
 - **Garde liquidité** : carnet cible (Up/Down selon direction) frais + bilatéral obligatoire.
@@ -116,9 +116,9 @@ enqueue. Configurable dans Settings → Crypto algo → Re-entrée.
   `resumeEntryFromReservation` (`@polywatch/core`) si l'enqueue Redis échoue
   après `reserve`.
 - Paramètres de sortie hérités du mode, surchargeables par `CryptoConfig.cryptoAlgo*`
-  (`getCryptoAlgoExitParams`, `resolveCryptoAlgoMinTimeToClose`).
+  (`resolveAlgoEntryExitParams`, `resolveCryptoAlgoMinTimeToClose`, `getCryptoPositionPreCloseParams`).
 - En mode réel : solde disponible on-chain via `fetchAvailableRealCash`.
-- Enfile un `OrderSignal` dans la file Redis `order-signals` (consommée par les
+- Enfile un `OrderSignal` dans la file Redis `algo-order-signals` (consommée par les
   `Executor` du worker principal — voir [`04-worker.md`](04-worker.md)).
 
 Retourne `null` en cas de succès, ou une raison FR d'abandon (skip).
@@ -142,7 +142,7 @@ StrategyRunner.evaluateSelectionUnlocked
 | `curve-descending-gate.ts` | `delta = last.mid - first.mid`, min 3 points, span >= 50 % lookback |
 | `price-feed.ts` | Record + `clearAll()` au disconnect |
 
-Abstain `curve_descending` propage comme les autres (`algo_price_ticks.last_abstain_reason`).
+Abstain `curve_descending` et `curve_insufficient` (historique insuffisant → blocage fail-closed) propagent comme les autres (`algo_price_ticks.last_abstain_reason`).
 
 Patches : [`../patchs/2026-07-21_PATCH_CRYPTO_ALGO_CURVE_DESCENDING_GATE.md`](../patchs/2026-07-21_PATCH_CRYPTO_ALGO_CURVE_DESCENDING_GATE.md), [`../patchs/2026-07-22_PATCH_CRYPTO_ALGO_CURVE_FILTER_HARDENING.md`](../patchs/2026-07-22_PATCH_CRYPTO_ALGO_CURVE_FILTER_HARDENING.md).
 
@@ -157,8 +157,9 @@ via `getCryptoAlgoExitParams` / `resolveAlgoEntryExitParams` /
 ### Pre-close
 
 Fenêtre unique avant `endDate` (`preCloseSeconds`) : `PRE_CLOSE_LOSS` /
-`PRE_CLOSE_WIN` selon PnL ; keep optionnel si bid ≥ seuil. Pas de phase HARD /
-`TIME_EXIT`. Voir [`../crypto-algo.md`](../crypto-algo.md#6-sorties-sltptrailingpre-close).
+`PRE_CLOSE_WIN` selon PnL ; keep optionnel si bid ≥ seuil. **Pas de sortie `TIME_EXIT`** :
+le hard-exit time-based documenté dans d'anciennes versions a été retiré ;
+`evaluatePositionExit` ne gère que SL/TP/trailing + pre-close. Voir [`../reference/crypto-algo.md`](../reference/crypto-algo.md#6-sorties-sltptrailingpre-close).
 
 ## Historique de prix (`price-tick-recorder.ts`)
 
@@ -242,13 +243,14 @@ Même squelette que `@polywatch/weather-algo` (sentinelle, Redis, pipelines, jan
 Drift légitime : crypto = WS price-feed + SL/TP worker ; weather = poll + exit
 in-package + forecast. **Pas** d'`AlgoStrategyRunner` partagé — copie consciente
 uniquement. Voir [`08-weather-algo.md`](./08-weather-algo.md) § Miroir et
-[`../crypto-algo.md`](../crypto-algo.md) §10.
+[`../reference/crypto-algo.md`](../reference/crypto-algo.md) §10.
 
 ## Configuration (extrait `CryptoConfig`)
 
 | Champ | Défaut | Rôle |
 |---|---|---|
 | `cryptoAlgoEnabled` | `false` | Master toggle de la couche d'exécution algo (standby si false) |
+| `cryptoAlgoRecordingEnabled` | `true` | Master toggle du recording & listening marché (WS, polling d'évaluation, `PriceTickRecorder`, `MarketSurveillanceRecorder` open/close). Distinct de `cryptoAlgoEnabled` (exécution/pipeline entry uniquement). Quand désactivé : stoppe tout, reprend à la réactivation sans purger les données existantes. |
 | `cryptoAlgoStrategies` | `["naive-momentum"]` | IDs des stratégies activées (JSON) |
 | `cryptoAlgoEntryPriceBandEnabled` | `true` | Bande d'entrée active (remplace threshold momentum) |
 | `cryptoAlgoEntryPriceMin` | `0.55` | Borne basse exclusive (prix token acheté) |
@@ -265,23 +267,23 @@ uniquement. Voir [`08-weather-algo.md`](./08-weather-algo.md) § Miroir et
 | `cryptoAlgoPreCloseKeepBidThreshold` | `null` | Seuil bid keep (ex. 0,80). |
 | `cryptoAlgoMinTimeToClose` | `null` | Secondes minimales avant `endDate` pour autoriser une entrée. `null` = `preCloseSeconds(interval) + 30s`. |
 
-Plafond taille position : `getModeMaxPositionSizeUsdc(risk, mode)` — pas de champ algo dédié.
+Plafond taille position : `getCryptoMaxPositionSizeUsdc(risk, mode)` — fonction dédiée crypto (paramètres sim/real sur `CryptoConfig`), distincte du copy-trading.
 
 ## Statut runtime
 
 `CryptoAlgoRuntimeStatusPublisher` écrit dans Redis (`crypto-algo:runtime-status`,
 TTL 120 s) : `enabledSelections`, `evaluableSelections`, `wsConnected`,
 `lastEvaluatedAt`, `lastSkipReason/At`. Exposé par le backend via
-`GET /api/algo-markets/status` (voir [`../api.md`](../api.md)).
+`GET /api/algo-markets/status` (voir [`../reference/api.md`](../reference/api.md)).
 
 ## Points de raccordement
 
-- **Worker principal** : consomme la file `order-signals` (ordres algo exécutés
-  par les mêmes `Executor` que le copy-trading).
+- **Worker principal** : consomme la file `algo-order-signals` (ordres algo exécutés
+  par les mêmes `Executor` que le copy-trading ; isolée de `order-signals` copy).
 - **Backend** : routes `/api/algo-*` (gestion sélections, auto-track, capital,
   exécutions, prix marchés, historique surveillance, **market-chart**, statut
   runtime) et routes internes `/api/internal/market-ticks`,
-  `/market-pct-updates`, `/metrics/circuit-breaker` — voir [`../api.md`](../api.md).
+  `/market-pct-updates`, `/metrics/circuit-breaker` — voir [`../reference/api.md`](../reference/api.md).
   Crypto-algo notifie les changements de marchés via
   `POST /api/algo-markets/notify-changed` (sans auth — appel worker de confiance).
 - **Frontend** : page `crypto-algo` (`CryptoAlgoPage`,

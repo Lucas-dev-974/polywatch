@@ -1,6 +1,6 @@
 # Inventaire des plans — Polywatch
 
-> Dernière mise à jour : 2026-08-18  
+> Dernière mise à jour : 2026-08-27  
 > Critère `applied/` : plan d'implémentation dont les livrables concrets sont présents dans le code (vérification codebase, pas seulement les cases `[x]` du markdown).
 
 ## Structure des dossiers
@@ -16,12 +16,12 @@
 
 | Statut | Nombre |
 |--------|--------|
-| **applied** | 28 |
+| **applied** | 37 |
 | **partial** (racine) | 3 |
 | **not_implemented** (racine) | 2 |
 | **reference** | 7 |
-| **archived** | 5 |
-| **Total** | **45** |
+| **archived** | 7 |
+| **Total** | **56** |
 
 ---
 
@@ -48,17 +48,25 @@
 | [applied/2026-07-05_PLAN_P0_METRIQUES.md](applied/2026-07-05_PLAN_P0_METRIQUES.md) | Métriques Prometheus P0 (exits, cycles, freshness) | `MetricsReporter`, `strategy-cycle-metrics.ts`, routes internal metrics |
 | [applied/2026-07-05_PLAN_PATCH_CRYPTO_ALGO_EXITS.md](applied/2026-07-05_PLAN_PATCH_CRYPTO_ALGO_EXITS.md) | Pre-close unique ; purge SOFT/HARD/`TIME_EXIT` | UI crypto/weather, docs code, tests, audit tools |
 | [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` Postgres-only, `test-data-source.ts` pg-mem, docker PG, docs nettoyées |
-| [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` Postgres-only, `test-data-source.ts` pg-mem, docker-compose PG, `dialect.ts` supprimé |
-| [applied/PLAN_REFACTOR_REMOVE_SQLITE.md](applied/PLAN_REFACTOR_REMOVE_SQLITE.md) | Suppression SQLite, Postgres-only + pg-mem | `data-source.ts` PG-only, `test-data-source.ts` pg-mem, `dialect.ts` supprimé, `audit-position-28455.ts` supprimé |
 | [applied/2026-08-07_PLAN-fix-audit-hardening.md](applied/2026-08-07_PLAN-fix-audit-hardening.md) | Fix R1/R2 relayer + C1 copy retry + dedupe exit SELL | `relayer-client.ts`, `copy-processor.ts`, `copy-exit-pipeline.ts` |
 | [applied/2026-08-07_PLAN_audit-crypto-algo.md](applied/2026-08-07_PLAN_audit-crypto-algo.md) | Audit crypto-algo complet (C1–C3, S1–S6, F1–F5) 100% implémenté | `strategy-runner.ts`, `naive-momentum.strategy.ts`, `monitor.ts`, `market-surveillance-recorder.ts`, `position-context-cache.ts` |
-| [../weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md](../weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md) | Persistance snapshots/ticks/eval/forecast history + onglet Données / purge | `weather-algo-data.service.ts`, recorders, `WeatherAlgoDataTab.tsx`, migration `0100` |
-| [../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) | Patch audit backtest weather (B1–B9, F1–F6) → `engineVersion` 0.2.0 + follow-up R1–R3 (§7) | `exit-manager.ts`, `weather-adapter.ts`, `market-active.ts`, `WeatherAlgoBacktestTab.tsx` |
-| [../weather-algo-audits-plans/2026-08-13_PLAN-purge-dead-code-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-purge-dead-code-weather-algo.md) | Partie 2 : purge dead code D1–D11 (8 suppressions + inline + D11 scopé ; D7/D12/D13 conservés) | `WeatherCityGroup.tsx` (suppr), `weather-grouping.ts` (suppr), `api.ts`, `clocked-weather-strategy.ts`, `backtest/src/index.ts`, `context-builder.ts`, `events.ts`, `question-builder.ts`, `strategy-catalog.ts`, `weather-algo-markets.ts`, `weather-auto-track.service.ts`, `auto-track-janitor.ts` (suppr), `index.ts` |
-| [../weather-algo-audits-plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md](../weather-algo-audits-plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md) | Partie 4 : refactors R1–R10 (R4 déjà fait via C2) — agrégateur timeline, split DataTab/BacktestTab, `EXIT_REASON_LABEL` typeorm-free, helpers routes, watched-table, formatters, `FIDELITY_OPTIONS`, split `evaluateExits` | `weather-algo-data.service.ts`, `weather-market-discovery.ts`, `query-params.ts`, `backtest-exit-reasons.ts`, `weather-adapter.ts`, `format.ts`, `fidelity-options.ts`, `Pagination.tsx`, `WeatherWatchedTable.tsx`, `WeatherAlgoDataTab.tsx`, `WeatherAlgoBacktestTab.tsx`, `vite.config.ts` |
-| [../weather-algo-audits-plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md) | Partie 5 : fix Doc vs code F1–F8 (routes manquantes, `fidelityMinutes`, warning `kill_switch_partial_close`, retrait janitor auto-track, wording « 6 tables ») | `api.md`, `backtest.md`, `weather-algo.md`, `code/08-weather-algo.md`, `plans/applied/2026-08-08_IMPL-...`, `plans/2026-08-08_PLAN-...` |
-| [../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md](../weather-algo-audits-plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md) | Fix C7 (proxyFallback), C10 (asymétrie CDF), C11 (tolérance bucket), C12 (clé unique metric) | `resolution.ts`, `forecast-distribution.ts`, `weather-exit-helpers.ts`, `WeatherClobPriceHistory.ts`, `weather-history-ingest.service.ts`, migration `AddMetricToClobHistoryUniqueKey1700000000110` |
+| [../weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md](../weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md) | Persistance snapshots/ticks/eval/forecast history + onglet Données / purge | `weather-algo-data.service.ts`, recorders, `WeatherAlgoDataTab.tsx`, migration `0100` |
+| [../weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md](../weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) | Patch audit backtest weather (B1–B9, F1–F6) → `engineVersion` 0.2.0 + follow-up R1–R3 (§7) | `exit-manager.ts`, `weather-adapter.ts`, `market-active.ts`, `WeatherAlgoBacktestTab.tsx` |
+| [../weather/plans/2026-08-13_PLAN-purge-dead-code-weather-algo.md](../weather/plans/2026-08-13_PLAN-purge-dead-code-weather-algo.md) | Partie 2 : purge dead code D1–D11 (8 suppressions + inline + D11 scopé ; D7/D12/D13 conservés) | `WeatherCityGroup.tsx` (suppr), `weather-grouping.ts` (suppr), `api.ts`, `clocked-weather-strategy.ts`, `backtest/src/index.ts`, `context-builder.ts`, `events.ts`, `question-builder.ts`, `strategy-catalog.ts`, `weather-algo-markets.ts`, `weather-auto-track.service.ts`, `auto-track-janitor.ts` (suppr), `index.ts` |
+| [../weather/plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md](../weather/plans/2026-08-13_PLAN-refactor-weather-algo-r1-r10.md) | Partie 4 : refactors R1–R10 (R4 déjà fait via C2) — agrégateur timeline, split DataTab/BacktestTab, `EXIT_REASON_LABEL` typeorm-free, helpers routes, watched-table, formatters, `FIDELITY_OPTIONS`, split `evaluateExits` | `weather-algo-data.service.ts`, `weather-market-discovery.ts`, `query-params.ts`, `backtest-exit-reasons.ts`, `weather-adapter.ts`, `format.ts`, `fidelity-options.ts`, `Pagination.tsx`, `WeatherWatchedTable.tsx`, `WeatherAlgoDataTab.tsx`, `WeatherAlgoBacktestTab.tsx`, `vite.config.ts` |
+| [../weather/plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md](../weather/plans/2026-08-13_PLAN-fix-doc-vs-code-weather-algo.md) | Partie 5 : fix Doc vs code F1–F8 (routes manquantes, `fidelityMinutes`, warning `kill_switch_partial_close`, retrait janitor auto-track, wording « 6 tables ») | `api.md`, `backtest.md`, `weather-algo.md`, `code/08-weather-algo.md`, `plans/applied/2026-08-08_IMPL-...`, `plans/2026-08-08_PLAN-...` |
+| [../weather/plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md](../weather/plans/2026-08-13_PLAN-fix-c7-c10-c11-c12-weather-algo.md) | Fix C7 (proxyFallback), C10 (asymétrie CDF), C11 (tolérance bucket), C12 (clé unique metric) | `resolution.ts`, `forecast-distribution.ts`, `weather-exit-helpers.ts`, `WeatherClobPriceHistory.ts`, `weather-history-ingest.service.ts`, migration `AddMetricToClobHistoryUniqueKey1700000000110` |
 | [applied/2026-08-18_PLAN-fix-weather-backtest-audit.md](applied/2026-08-18_PLAN-fix-weather-backtest-audit.md) | Audit weather backtest fidélité/correctude (11 findings) → `engineVersion` 0.3.0 : fallback résolution minuit lendemain, params sortie par-stratégie, `entryMean` replay, carry-forward `markPrice`, résolution forcée ghost positions (`BACKTEST_INCOMPLETE_DATA`), garde `isHighestYes` drift/bucket, cleanup `proxyFallback` | `weather-adapter.ts`, `exit-manager.ts`, `events.ts`, `data-loader.ts`, `resolution.ts`, `backtest-exit-reasons.ts`, `engine-version.ts`, `backtest.md` |
+| [applied/2026-08-23_PLAN-perf-ridge-plot-downsampling.md](applied/2026-08-23_PLAN-perf-ridge-plot-downsampling.md) | Ridge plot : downsampling min-max dans `buildPath` | `ridge/scale.ts` |
+| [applied/2026-08-23_PLAN-perf-ridge-plot-precompute.md](applied/2026-08-23_PLAN-perf-ridge-plot-precompute.md) | Ridge plot : pré-calcul / cache par série | `packages/frontend/src/components/backtest/ridge/` |
+| [applied/2026-08-23_PLAN-perf-ridge-plot-projection-player.md](applied/2026-08-23_PLAN-perf-ridge-plot-projection-player.md) | Ridge plot : projection player | `packages/frontend/src/components/backtest/ridge/` |
+| [applied/2026-08-23_PLAN-fix-weather-backtest-audit-complet.md](applied/2026-08-23_PLAN-fix-weather-backtest-audit-complet.md) | Audit weather backtest complet → `engineVersion` 0.6.0 (transparence marks stale, userId lock, cursor SQL) | `weather-adapter.ts`, `backtest.ts`, docs backtest |
+| [applied/2026-08-24_PLAN-fix-backtest-fixed-shares-sizing.md](applied/2026-08-24_PLAN-fix-backtest-fixed-shares-sizing.md) | Honor `fixed_shares` dans le fill-engine backtest | `weather-adapter.ts`, fill-engine |
+| [applied/2026-08-24_PLAN-fix-backtest-sizing-warning.md](applied/2026-08-24_PLAN-fix-backtest-sizing-warning.md) | Warning `risk_sizing_mode_ignored` pour modes non supportés | `adapter-warnings.ts` |
+| [applied/2026-08-24_PLAN-fix-backtest-min-yes-price.md](applied/2026-08-24_PLAN-fix-backtest-min-yes-price.md) | Filtre min YES price backtest | `weather-adapter.ts` |
+| [applied/2026-08-24_PLAN-frontend-dedup-snapshots-sim-real.md](applied/2026-08-24_PLAN-frontend-dedup-snapshots-sim-real.md) | Mutualiser snapshots sim/real (`SnapshotsPanel` / `useSnapshots`) | `SnapshotsPanel.tsx`, `useSnapshots.ts` |
+| [applied/2026-08-24_PLAN-frontend-split-snapshot-config-diff.md](applied/2026-08-24_PLAN-frontend-split-snapshot-config-diff.md) | Extraire `SnapshotConfigDiffPanel` | `SnapshotConfigDiffPanel.tsx` |
+| [applied/2026-08-24_PLAN-frontend-refactor-UpDownPriceChart.md](applied/2026-08-24_PLAN-frontend-refactor-UpDownPriceChart.md) | Refactor `UpDownPriceChart` | `UpDownPriceChart.tsx` |
 
 ---
 
@@ -70,7 +78,7 @@
 |---------|--------|-----------------|
 | [2026-08-05_PLAN-strategies-crypto-algo-5min.md](2026-08-05_PLAN-strategies-crypto-algo-5min.md) | Stop-bleed + multi-stratégies + RTDS + backtest | Phases 0–2 OK ; Phase 3 RTDS reportée, Phase 4/5 ouvertes |
 | [POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md](POLYMARKET_PROTOCOL_VERIFICATION_PLAN.md) | Checklist conformité protocole Polymarket | Pipelines vérifiés ; tests intégration live et items « à vérifier » ouverts |
-| [../weather-algo-audits-plans/2026-08-08_PLAN-weather-market-data-persistence.md](../weather-algo-audits-plans/2026-08-08_PLAN-weather-market-data-persistence.md) | Persistance données weather (v4) | Phases 0–4 + UI Données **OK** ; Phase 5 backtest **OK** (voir `backtest.md` + patch 0.2.0) ; warnings quantitatifs §12.2 non livrés |
+| [../weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md](../weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md) | Persistance données weather (v4) | Phases 0–4 + UI Données **OK** ; Phase 5 backtest **OK** (voir `backtest.md` + patch 0.2.0) ; warnings quantitatifs §12.2 non livrés |
 
 ### Non implémentés
 
@@ -104,6 +112,8 @@
 | [archived/websocket-crypto-algo-plan.md](archived/websocket-crypto-algo-plan.md) | Feed hybride livré via V2 / `price-feed.ts` ; Phase 3 observabilité non reprise |
 | [archived/2026-07-09_PLAN_UI_CRYPTO_ALGO_TUNABLES.md](archived/2026-07-09_PLAN_UI_CRYPTO_ALGO_TUNABLES.md) | Tunables livrés ; maps TIME_EXIT retirées avec le feature |
 | [archived/2026-07-03_PLAN_FIX_SL_TP_PRECLOSE_SIM.md](archived/2026-07-03_PLAN_FIX_SL_TP_PRECLOSE_SIM.md) | Fix 1–2 livrés (shouldSuppressSlTp, pre-close) ; Fix 3/4 obsolètes (FAK sim, bid-points, stop-bleed) |
+| [2026-08-24_PLAN-frontend-reorganiser-components.md](2026-08-24_PLAN-frontend-reorganiser-components.md) | **Annulé** — migration scriptée a corrompu les imports (2026-08-24) |
+| [2026-08-24_PLAN-frontend-generic-data-table-explorer.md](2026-08-24_PLAN-frontend-generic-data-table-explorer.md) | **Non factorisé** — diff préalable sous le seuil (2026-08-24) |
 
 ---
 

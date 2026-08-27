@@ -2,7 +2,7 @@
 
 > Vue synthétique : monorepo, topologie runtime, communication inter-services, modes
 > de trading. Pour le détail des processus applicatifs (démarrage, composants internes,
-> files Redis, persistance, observabilité), voir [`../architecture.md`](../architecture.md).
+> files Redis, persistance, observabilité), voir [`../reference/architecture.md`](../reference/architecture.md).
 
 ## Monorepo
 
@@ -15,6 +15,7 @@ Polywatch-v1/
 │   ├── copy-trading/ @polywatch/copy-trading — détection copy : polling traders, pipelines entry/exit
 │   ├── crypto-algo/ @polywatch/crypto-algo — trading algorithmique crypto court-terme (auto-track, stratégies)
 │   ├── weather-algo/ @polywatch/weather-algo — trading algorithmique météo (température, Open-Meteo)
+│   ├── backtest/   @polywatch/backtest  — moteur événementiel (lib, consommée in-process par le backend)
 │   └── frontend/   @polywatch/frontend  — UI SolidJS (Vite, port 5173)
 ├── scripts/        — generate-secrets, backup DB, spike salt CLOB, inspection wallet
 ├── e2e/            — test Playwright (login) + tests E2E crypto-algo
@@ -23,7 +24,7 @@ Polywatch-v1/
 └── .env / .env.example
 ```
 
-Workspaces npm. `core` est compilé (`dist/`) et consommé par `backend`, `worker`, `copy-trading`, `crypto-algo` et `weather-algo`. TypeScript ESM partout (`tsconfig.base.json`).
+Workspaces npm. `core` est compilé (`dist/`) et consommé par `backend`, `worker`, `copy-trading`, `crypto-algo`, `weather-algo` et `backtest`. TypeScript ESM partout (`tsconfig.base.json`). Le backend dépend aussi de `@polywatch/backtest` (pas de process `dev` autonome).
 
 ## Topologie runtime
 
@@ -54,7 +55,7 @@ Workspaces npm. `core` est compilé (`dist/`) et consommé par `backend`, `worke
 |---|---|
 | **copy-trading** | Poll traders Polymarket, détecte les moves, pipelines copy → enqueue `order-signals` |
 | **crypto-algo** | Signaux algo → enqueue `algo-order-signals` |
-| **weather-algo** | Signaux météo city-first → `weather-order-signals` ; closes drift/bucket/pre-close → `close-signals` |
+| **weather-algo** | Signaux météo city-first → `weather-order-signals` ; closes drift/bucket → `close-signals` |
 | **worker** | Consomme `order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals` ; exécution + sorties risque |
 
 ## Composants d'infrastructure
@@ -63,7 +64,7 @@ Workspaces npm. `core` est compilé (`dist/`) et consommé par `backend`, `worke
 |---|---|
 | **PostgreSQL** | TypeORM, `pg` driver. Schéma créé par `npm run migrate` (`core/src/migrate.ts`, migrations + seed). Connection via `DATABASE_URL`. Timeouts : `statement_timeout=30s`, `lock_timeout=10s`. |
 | **Redis** | Files de jobs : `move-events` (interne copy-trading), `order-signals`, `algo-order-signals`, `weather-order-signals`, `close-signals`, `execution-results`. Pattern `BRPOPLPUSH` vers clés `:processing`, dead-letter queues, canal pub/sub `config-changed`. |
-| **Socket.IO** | Rooms `positions`, `executions`, `alerts`. Auth par access token JWT au handshake. |
+| **Socket.IO** | Rooms `positions`, `executions`, `alerts`, `markets`, `e2e-runs`. Auth par access token JWT au handshake. |
 | **Secrets** | `.env` : `JWT_SECRET`, `JWT_REFRESH_SECRET`, `SERVICE_TOKEN`, `MASTER_ENCRYPTION_KEY` (AES-256-GCM des clés privées et credentials CLOB). `validateProductionSecrets` crash le process en production si valeurs par défaut. `canEnableRealTrading()` bloque le mode réel si secrets insécurisés. |
 
 ## Communication inter-services
@@ -72,7 +73,7 @@ Workspaces npm. `core` est compilé (`dist/`) et consommé par `backend`, `worke
 - **Backend → services** : publication Redis `config-changed` (rechargement à chaud) ; `backend-ready` ; `simulation-reset` ; push direct sur `close-signals` pour les fermetures manuelles.
 - **copy-trading → worker** : file Redis `order-signals` (`COPY_*`). File `move-events` **interne** à copy-trading uniquement.
 - **crypto-algo → worker** : file Redis `algo-order-signals` (`ALGO_*`).
-- **weather-algo → worker** : file Redis `weather-order-signals` (`WEATHER_OPEN`) et `close-signals` (`WEATHER_FORECAST_CHANGE`, `WEATHER_BUCKET_EXIT`, `WEATHER_PRE_CLOSE`).
+- **weather-algo → worker** : file Redis `weather-order-signals` (`WEATHER_OPEN`) et `close-signals` (`WEATHER_FORECAST_CHANGE`, `WEATHER_BUCKET_EXIT`).
 - **worker (strategy) / weather-algo → worker (executor)** : file Redis `close-signals` (SL/TP/pre-close/kill-switch/weather).
 - **Heartbeats** : clés Redis `worker:heartbeat`, `copy-trading:heartbeat`, `crypto-algo:heartbeat`, `weather-algo:heartbeat` (EX 60 s), lues par `/api/system/overview`.
 

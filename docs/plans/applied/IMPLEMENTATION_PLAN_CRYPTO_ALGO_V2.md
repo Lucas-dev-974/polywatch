@@ -1,7 +1,7 @@
 # Plan d'Implémentation CORRIGÉ: Crypto-Algo Court Terme
 ## Corrections après Review du Code Existant
 
-> **Note historique (resync 2026-08-07)** : plan d'implémentation antérieur. Référence runtime : [`docs/code/07-crypto-algo.md`](../code/07-crypto-algo.md).
+> **Note historique (resync 2026-08-07)** : plan d'implémentation antérieur. Référence runtime : [`docs/code/07-crypto-algo.md`](../../code/07-crypto-algo.md).
 
 **Date:** 2025-01-27  
 **Version:** 2.0 (Corrigée)  

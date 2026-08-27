@@ -2,7 +2,7 @@
 
 **Date** : 2026-08-05 (rev. 1)  
 **Sources** : inventaire données/moteurs/UI du codebase v1.1 + `docs/plans/2026-08-05_PLAN-strategies-crypto-algo-5min.md` (Phase 5.1)  
-**Statut 2026-08-09** : **domaine weather livré** (`@polywatch/backtest`, API, UI) — voir [`../backtest.md`](../backtest.md) et patch fidélité [`applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) (`engineVersion` 0.2.0). Crypto/copy, Socket.IO `backtest:*`, Prometheus `polywatch_backtest_*` restent **hors livrable**. Ce document reste la **spec d’origine** (cases non cochées = intention historique, pas l’état du code).  
+**Statut 2026-08-09** : **domaine weather livré** (`@polywatch/backtest`, API, UI) — voir [`../reference/backtest.md`](../reference/backtest.md) et patch fidélité [`applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](applied/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md) (`engineVersion` 0.2.0). Crypto/copy, Socket.IO `backtest:*`, Prometheus `polywatch_backtest_*` restent **hors livrable**. Ce document reste la **spec d’origine** (cases non cochées = intention historique, pas l’état du code).  
 **Objectif** : un **vrai moteur de backtest historique** (replay event-driven sur les données persistées), **générique** sur les 3 domaines, **réutilisant la logique métier live** (stratégies, gates, exits, sizing, fills sim), pilotable depuis l'UI : **configuration** d'un run, **exécution** asynchrone suivie en temps réel, **résultats** détaillés (métriques, equity curve, trades), **métriques Prometheus** d'exploitation.
 
 ---

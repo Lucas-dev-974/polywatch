@@ -3,7 +3,7 @@
 **Date** : 2026-08-23
 **Auteur** : Assistant IA
 **Statut** : ✅ **APPLIQUÉ** — implémentation terminée, tests verts, build OK
-**Référence** : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md)
+**Référence** : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../../audits/2026-08-23_audit-perf-backtest-ridge-plot.md)
 **Portée** : Reco 1 (cause racine). Les reco 2–4 feront l'objet de plans séparés (commits indépendants).
 
 ---
@@ -227,7 +227,7 @@ Le choix min/max exige de **parcourir tous les points d'origine** à chaque appe
 
 ## 🔗 Références
 
-- Audit : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md) (Reco 1, friction P3).
+- Audit : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../../audits/2026-08-23_audit-perf-backtest-ridge-plot.md) (Reco 1, friction P3).
 - Pattern existant : `decimateUpDownPoints` dans `lib/market-chart.ts:37` (décimation temporelle ; le ridge utilisera une **décimation pixel-based min/max**, pas la fonction).
 - Vitest : `packages/frontend/package.json` (`"test": "vitest run"`).
 

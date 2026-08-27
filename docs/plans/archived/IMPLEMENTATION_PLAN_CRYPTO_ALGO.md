@@ -1,7 +1,7 @@
 # Plan d'Implémentation: Crypto-Algo Court Terme
 ## Corrections et Optimisations pour Marchés Up/Down 5min
 
-> **Note historique (resync 2026-08-07)** : plan d'implémentation antérieur. Référence runtime : [`docs/code/07-crypto-algo.md`](../code/07-crypto-algo.md). Snippets `OUTCOME_PRICES_CACHE_TTL_MS` obsolètes.
+> **Note historique (resync 2026-08-07)** : plan d'implémentation antérieur. Référence runtime : [`docs/code/07-crypto-algo.md`](../../code/07-crypto-algo.md). Snippets `OUTCOME_PRICES_CACHE_TTL_MS` obsolètes.
 
 **Date:** 2025-01-27  
 **Projet:** Polywatch v1 - Package `@polywatch/crypto-algo`  

@@ -137,7 +137,7 @@ Tests : `packages/core` 212/212 · `packages/worker` 58/58.
 - **Sim-only** (`loadOrphanPlacingSim`) : les exec réelles `placing` sont
   réconciliées via REST/WS, pas le janitor.
 - Orphelin si la position a quitté l’état attendu (`pending` pour BUY, `closing` pour SELL, `pending_resolution` pour REDEMPTION), **ou** BUY sim encore `pending` avec réservation absente / expirée / âgée (> `SIM_BUY_PLACING_STALE_MS` = 60 s).
-- Voir aussi [`docs/patchs/2026-07-12_PATCH_PENDING_PLACING_ORPHAN.md`](./patchs/2026-07-12_PATCH_PENDING_PLACING_ORPHAN.md).
+- Voir aussi [`docs/patchs/2026-07-12_PATCH_PENDING_PLACING_ORPHAN.md`](../patchs/2026-07-12_PATCH_PENDING_PLACING_ORPHAN.md).
 
 ---
 

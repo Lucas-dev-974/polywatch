@@ -12,20 +12,22 @@ kill switch, limites d'exposition).
 
 | Document | Contenu |
 |----------|---------|
-| [`architecture.md`](./architecture.md) | Vue d'ensemble, monorepo, processus, flux de données |
-| [`pipeline-copy-trading.md`](./pipeline-copy-trading.md) | Pipeline détaillé : détection → copie → exécution → stratégie |
-| [`modele-donnees.md`](./modele-donnees.md) | Entités, base PostgreSQL, files Redis |
-| [`api.md`](./api.md) | Référence des routes REST et des évènements WebSocket |
-| [`configuration.md`](./configuration.md) | Variables d'environnement, configuration du risque, démarrage |
-| [`deployment.md`](./deployment.md) | Déploiement production, Docker, TLS, dry-run, activation trading réel |
-| [`metrics.md`](./metrics.md) | Métriques Prometheus, alerting suggéré |
-| [`metriques-marche.md`](./metriques-marche.md) | Métriques de marché : inventaire Polywatch vs CLOB/APIs, lacunes, pistes d'enrichissement |
-| [`snapshots-simulation.md`](./snapshots-simulation.md) | Snapshots d'état simulation (archive, comparaison, auto-snapshot) |
-| [`rapports-analyse.md`](./rapports-analyse.md) | Hub Rapports (Crypto Algo sim, comparaison, fingerprint, révisions config) |
-| [`frontend.md`](./frontend.md) | Application SolidJS (pages, composants, temps réel) |
-| [`crypto-algo.md`](./crypto-algo.md) | Module d'automatisation et de trading algorithmique (Auto-Track, stratégies) |
-| [`weather-algo.md`](./weather-algo.md) | Module weather-algo (température, Open-Meteo, entrées/sorties, auto-track) |
-| [`backtest.md`](./backtest.md) | Moteur de backtest événementiel (domaine weather : runs, modes, fidélité, API, UI) |
+| [`reference/architecture.md`](./reference/architecture.md) | Vue d'ensemble, monorepo, processus, flux de données |
+| [`reference/pipeline-copy-trading.md`](./reference/pipeline-copy-trading.md) | Pipeline détaillé : détection → copie → exécution → stratégie |
+| [`reference/modele-donnees.md`](./reference/modele-donnees.md) | Entités, base PostgreSQL, files Redis |
+| [`reference/api.md`](./reference/api.md) | Référence des routes REST et des évènements WebSocket |
+| [`reference/configuration.md`](./reference/configuration.md) | Variables d'environnement, configuration du risque, démarrage |
+| [`reference/deployment.md`](./reference/deployment.md) | Déploiement production, Docker, TLS, dry-run, activation trading réel |
+| [`reference/metrics.md`](./reference/metrics.md) | Métriques Prometheus, alerting suggéré |
+| [`reference/metriques-marche.md`](./reference/metriques-marche.md) | Métriques de marché : inventaire Polywatch vs CLOB/APIs, lacunes, pistes d'enrichissement |
+| [`reference/snapshots-simulation.md`](./reference/snapshots-simulation.md) | Snapshots d'état simulation (archive, comparaison, auto-snapshot) |
+| [`reference/snapshots-real.md`](./reference/snapshots-real.md) | Snapshots d'état trading réel (périodes, rotation, archive) |
+| [`reference/simulation-execution.md`](./reference/simulation-execution.md) | Exécution simulation (VWAP FAK, latence, shadow fills) |
+| [`reference/rapports-analyse.md`](./reference/rapports-analyse.md) | Hub Rapports (Crypto Algo sim, comparaison, fingerprint, révisions config) |
+| [`reference/frontend.md`](./reference/frontend.md) | Application SolidJS (pages, composants, temps réel) |
+| [`reference/crypto-algo.md`](./reference/crypto-algo.md) | Module d'automatisation et de trading algorithmique (Auto-Track, stratégies) |
+| [`reference/weather-algo.md`](./reference/weather-algo.md) | Module weather-algo (température, Open-Meteo, entrées/sorties, auto-track) |
+| [`reference/backtest.md`](./reference/backtest.md) | Moteur de backtest événementiel (domaine weather : runs, modes, fidélité, API, UI) |
 | [`code/`](./code/README.md) | Documentation détaillée du code — architecture, pipeline, packages (core, copy-trading, worker, backend, frontend, crypto-algo, weather-algo) |
 
 > Les rapports d'audits et plans d'optimisation sont disponibles dans le dossier [`audits/`](./audits/).
@@ -68,15 +70,15 @@ kill switch, limites d'exposition).
 > [`plans/reference/riskconfig-consumer-matrix.md`](./plans/reference/riskconfig-consumer-matrix.md)
 >
 > Audit weather-algo + correctifs (2026-08-04) — **appliqué** :
-> [`weather-algo-audits-plans/audit-weather-algo-2026-08-04.md`](./weather-algo-audits-plans/audit-weather-algo-2026-08-04.md) ·
+> [`weather/audits/audit-weather-algo-2026-08-04.md`](./weather/audits/audit-weather-algo-2026-08-04.md) ·
 > [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 >
 > Persistance données weather + onglet Données (2026-08-08) — **appliqué** (Phases 0–4) :
-> [`weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md`](./weather-algo-audits-plans/2026-08-08_IMPL-weather-market-data-persistence.md) ·
-> [`weather-algo-audits-plans/2026-08-08_PLAN-weather-market-data-persistence.md`](./weather-algo-audits-plans/2026-08-08_PLAN-weather-market-data-persistence.md)
+> [`weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md`](./weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md) ·
+> [`weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md`](./weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md)
 >
 > Backtest événementiel weather (moteur `@polywatch/backtest` + onglet Backtest) — **appliqué** (2026-08-09) :
-> [`backtest.md`](./backtest.md) ·
+> [`reference/backtest.md`](./reference/backtest.md) ·
 > [`code/09-backtest.md`](./code/09-backtest.md) ·
 > [`plans/2026-08-05_PLAN-backtest-engine-universel.md`](./plans/2026-08-05_PLAN-backtest-engine-universel.md)
 >
@@ -104,27 +106,33 @@ kill switch, limites d'exposition).
 │  (SolidJS)  │ ◄────────── │  (Express)  │
 └─────────────┘             └──────┬──────┘
                                    │ PostgreSQL + Redis
-              ┌────────────────────┼────────────────────┐
-              ▼                    ▼                    ▼
-     ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
-     │ copy-trading   │  │    worker      │  │  crypto-algo   │
-     │ poll → COPY_*  │─►│ exécution+SL   │◄─│ ALGO_* signals │
-     └────────────────┘  └────────────────┘  └────────────────┘
+                                   │ backtest in-process
+        ┌──────────────┬───────────┼───────────┬──────────────┐
+        ▼              ▼           ▼           ▼              ▼
+  copy-trading      worker    crypto-algo  weather-algo   postgres
+  COPY_* →          exécution  ALGO_*       WEATHER_*
+  order-signals     + SL/TP    algo-order-  weather-order-
+                               signals      signals
 ```
 
 - **`@polywatch/core`** — logique métier partagée (entités TypeORM, services,
   pricing/VWAP, sizing, politique de risque, comptabilité de simulation).
 - **`@polywatch/backend`** — API REST (Express), authentification JWT, serveur
   WebSocket (Socket.IO), intégration portefeuille/dépôt/retrait Polymarket.
+  Consomme `@polywatch/backtest` **in-process** (pas de process `dev` dédié).
 - **`@polywatch/copy-trading`** — détection copy : polling traders, MoveDetector,
   pipelines entry/exit, enqueue `COPY_*` sur `order-signals`.
 - **`@polywatch/worker`** — exécution CLOB/sim, sorties SL/TP/pre-close/kill-switch,
   rédemption, janitors (consomme `order-signals` / `algo-order-signals` /
-  `close-signals`).
+  `weather-order-signals` / `close-signals`).
 - **`@polywatch/crypto-algo`** — trading algorithmique autonome sur les marchés
   crypto court-terme (stratégies momentum, auto-track, surveillance OHLC).
+- **`@polywatch/weather-algo`** — trading algorithmique météo (city-first,
+  Open-Meteo) ; signaux `WEATHER_OPEN` sur `weather-order-signals`.
+- **`@polywatch/backtest`** — moteur de backtest événementiel (domaine weather),
+  bibliothèque utilisée par le backend.
 - **`@polywatch/frontend`** — interface SolidJS (dashboards Simulation / Réel,
-  leaderboard, portefeuille, marchés, trader insight, crypto-algo).
+  leaderboard, portefeuille, marchés, trader insight, crypto-algo, weather-algo).
 
 ## Stack technique
 
@@ -163,5 +171,5 @@ worker, copy-trading, crypto-algo, weather-algo, frontend). Le worker, crypto-al
 weather-algo et frontend attendent que le backend réponde sur
 `http://127.0.0.1:3000/health` avant de démarrer.
 
-> Voir [`configuration.md`](./configuration.md) pour le détail des variables
+> Voir [`reference/configuration.md`](./reference/configuration.md) pour le détail des variables
 > d'environnement et des scripts disponibles.

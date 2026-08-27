@@ -8,7 +8,7 @@ Domaine partagé entre backend et worker : entités, services, calculs métier. 
 core/src/
 ├── config/        env (.env racine, chemins), secrets (validation prod)
 ├── database/      DataSource TypeORM PostgreSQL (pg driver)
-├── entities/      50 entités TypeORM
+├── entities/      60 entités TypeORM
 ├── idempotence/   hashes SHA-256 des événements et ordres
 ├── market/        domaine métier : lifecycle (settled/payoff), classifier, tags Gamma, market-type
 ├── move-events/   règles de pertinence des événements
@@ -16,7 +16,7 @@ core/src/
 ├── polymarket/    intégration API/WS/on-chain : signature, market-list, book-freshness, rate-limit, discovery, pUSD
 ├── positions/     prix mark, labels d'outcome
 ├── pricing/       VWAP (walkBook), frais taker
-├── queue/         définition des 5 files worker + dead-letter
+├── queue/         définition des 6 files worker + dead-letter
 ├── risk/          policy + exit-decision + crypto/weather tunables & config-api + sim-execution-tunables
 ├── seed/          défauts initiaux + backfill config héritée
 ├── services/      68 fichiers / 49 hors tests / 39 `*.service.ts` (incluant quartet Global/Copy/Crypto/WeatherConfigService étendant `BaseConfigService<T>` ; + market-*-tick, real-*, simulation-*, algo-surveillance helpers, market-price-history-backfill)
@@ -77,7 +77,7 @@ core/src/
 | `Execution` | `executions` | Statuts `placing → filled/failed` ; fillPrice (VWAP pondéré sur partiels), fillQuantity, fees, realizedPnl, clobOrderId |
 | `PositionReservation` | `position_reservations` | Notionnel USDC réservé, TTL 180 s |
 | `SimulationBalance` | `simulation_balances` | Cash pUSD sim **par `algoKind`** (`crypto` / `weather` / `copy`, unique) |
-| `SimulationStateSnapshot` | `simulation_state_snapshots` | Archives d'état sim (JSON config/traders/positions/exécutions) — [`snapshots-simulation.md`](../snapshots-simulation.md) |
+| `SimulationStateSnapshot` | `simulation_state_snapshots` | Archives d'état sim (JSON config/traders/positions/exécutions) — [`../reference/snapshots-simulation.md`](../reference/snapshots-simulation.md) |
 | `Market` | `markets` | tokenIdYes/No, endDate, negRisk, `feeRate`/`feeExponent` (frais CLOB dynamiques), lifecycle (active/resolved/closed/acceptingOrders/winningTokenId), `category`, `tagSlugs` (cache filtre copie), `marketType` |
 | `AlgoAutoTrackRule` | `algo_auto_track_rules` | Règle auto-track `(cryptoSymbol, interval)` unique, flag `enabled` |
 | `AlgoMarketSelection` | `algo_market_selections` | Marché sélectionné pour crypto-algo (`conditionId`, `cryptoSymbol`, `interval`, `slug`, `enabled`) |
@@ -89,7 +89,7 @@ core/src/
 | `AlgoSurveillanceSnapshot` | `algo_surveillance_snapshots` | Snapshot OHLC surveillance (open/close up/down, `marketStartAt`/`EndAt`, `unresolvedAt`) — `UNIQUE(conditionId)` |
 | `AlgoPriceTick` | `algo_price_ticks` | Ticks UP/DOWN 1 Hz (`PriceTickRecorder`) + métriques enrichies ; purge > 24 h ; chart API |
 | `IntegrationSettings` | `integration_settings` | Paramètres d'intégration tiers (clé API Polygonscan chiffrée, singleton) |
-| `MarketPositionTick` | `market_position_ticks` | Tick de marché persisté par book update (throttle 500 ms/asset) pour les assets avec positions **copy/weather** ouvertes : `bestBid`/`bestAsk`/`midPrice`/`spread`/`spreadPercent`, VWAP exécutables (`executableBidVwap`/`executableAskVwap`), `lastTradePrice`. **Pas** pour crypto-algo (`ALGO_*`) — série dans `algo_price_ticks`. Index : `copiedPositionId`, `(conditionId, createdAt)`, `(assetId, createdAt)`, `createdAt` (purge). Rétention 30 j (`MARKET_TICK_RETENTION_DAYS`), purge horaire batchée par 5 000 lignes via `MarketPositionTickService.purgeOlderThan` |
+| `MarketPositionTick` | `market_position_ticks` | Tick de marché persisté par book update (throttle 500 ms/asset) pour les assets avec positions **copy/weather** ouvertes : `bestBid`/`bestAsk`/`midPrice`/`spread`/`spreadPercent`, VWAP exécutables (`executableBidVwap`/`executableAskVwap`), `lastTradePrice`. **Pas** pour crypto-algo (`ALGO_*`) — série dans `algo_price_ticks`. Index : `copiedPositionId`, `(conditionId, createdAt)`, `(assetId, createdAt)`, `createdAt`. Rétention théorique 30 j (`MARKET_TICK_RETENTION_DAYS`) — **purge horaire worker désactivée** |
 | `E2eTestRun` | `e2e_test_runs` | Runs de tests E2E (suite, statut, durée, logs) — démarrés via `/api/e2e-runs` |
 | `E2eRunPosition` | `e2e_run_positions` | Positions d'un run E2E (conditionId, prix d'entrée, PnL, statut) |
 | `SimulationSession` | `simulation_sessions` | Sessions de simulation entre deux resets **par `algoKind`** (une active par kind) |
@@ -113,6 +113,16 @@ core/src/
 | `ExitAttemptEvent` | `exit_attempt_events` | Journal des tentatives de sortie (SL/TP/PRE_CLOSE) avec mark price et raison de blocage |
 | `ClobLatencySample` | `clob_latency_samples` | Échantillons de latence RTT d'exécution CLOB pour le calibrage simulation |
 | `ShadowFill` | `shadow_fills` | Fills simulés (shadow logging) pour l'audit de réalisme d'exécution |
+| `WeatherForecastHistory` | `weather_forecast_history` | Historique append-only des fetchs Open-Meteo (backtest) |
+| `WeatherMarketSnapshot` | `weather_market_snapshots` | Snapshot marché par cycle × ville × date |
+| `WeatherBucketTick` | `weather_bucket_ticks` | Prix YES/NO d'un bucket actif (timeline / ridge / backtest) |
+| `WeatherEvaluationLog` | `weather_evaluation_log` | Journal signal/abstain weather |
+| `WeatherClobPriceHistory` | `weather_clob_price_history` | Historique prix CLOB par bucket météo (ingestion) |
+| `WeatherHistoryIngestJob` | `weather_history_ingest_jobs` | Job d'ingestion historique CLOB |
+| `BacktestRun` | `backtest_runs` | Run de backtest (params, stats, fingerprint, `engineVersion`) |
+| `BacktestPosition` | `backtest_positions` | Position simulée d'un run ; FK `run_id` CASCADE |
+| `BacktestEquityPoint` | `backtest_equity_points` | Points d'equity d'un run |
+| `BacktestExcludedTick` | `backtest_excluded_ticks` | Ticks exclus d'un run (hors plage, gap) |
 
 ## Idempotence (`idempotence/hash.ts`)
 
@@ -231,7 +241,7 @@ réexporte (ex. `market-list.ts` réexporte `marketClassifier` et définit
 | `SystemConfigService` | CRUD configuration système (clés/valeurs, catégories) |
 | `ExitAttemptEventService` | `listByPosition` — journal des tentatives de sortie |
 | `CryptoAlgoRuntimeStatusService` | Publication/lecture du statut runtime crypto-algo via Redis |
-| `WeatherAutoTrackService` / `WeatherForecastService` / `WeatherPositionForecastService` | Auto-track, cache Open-Meteo, snapshot forecast d'entrée (voir [`../weather-algo.md`](../weather-algo.md)) |
+| `WeatherAutoTrackService` / `WeatherForecastService` / `WeatherPositionForecastService` | Auto-track, cache Open-Meteo, snapshot forecast d'entrée (voir [`../reference/weather-algo.md`](../reference/weather-algo.md)) |
 | `AlgoSurveillanceService` | `findLiveMarkets`, gestion snapshots de surveillance OHLC |
 | `AlgoSelectionBookAssets` | Résolution des assets de book pour les sélections algo |
 

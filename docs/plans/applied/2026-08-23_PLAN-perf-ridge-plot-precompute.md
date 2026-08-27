@@ -3,7 +3,7 @@
 **Date** : 2026-08-23
 **Auteur** : Assistant IA
 **Statut** : ✅ **APPLIQUÉ** — implémentation terminée, tests verts, build OK
-**Référence** : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md)
+**Référence** : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../../audits/2026-08-23_audit-perf-backtest-ridge-plot.md)
 **Dépend de** : Reco 1 (downsampling) — les deux sont compatibles et additifs. Ce plan cible la **friction P4** (`Date.parse` répétés) et fournit la **base géométrique stable** (coordonnées temps/prix relatives) nécessaire à la reco 2.
 
 ---
@@ -199,7 +199,7 @@ Ce plan ne **réduit pas à lui seul** le `scan O(n)` à chaque interaction (rec
 
 ## 🔗 Références
 
-- Audit : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md) (friction P4).
+- Audit : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../../audits/2026-08-23_audit-perf-backtest-ridge-plot.md) (friction P4).
 - Dépend : plan reco 1 (downsampling) — le pré-calcul se combine avec le min-max.
 - Donne la base : plan reco 2 (projection découplée / clipPath).
 

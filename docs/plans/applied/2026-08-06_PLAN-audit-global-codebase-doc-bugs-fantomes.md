@@ -272,7 +272,7 @@ L'audit suit le skill **audit-codebase-docs** (double passage Doc→Code puis Co
 
 #### 2.10 — `@polywatch/copy-trading`
 
-- [x] Vérifier `docs/pipeline-copy-trading.md` + `docs/code/05-copy-trading.md` contre `copy-trading/src/` ✅ P0 config corrigé
+- [x] Vérifier `docs/pipeline-copy-trading.md` + `docs/code/05a-copy-trading.md` contre `copy-trading/src/` ✅ P0 config corrigé
 - [x] Vérifier les pipelines entry/exit, MoveDetector, CopyProcessor ✅ partiel (MOS/depth mentionnés dans 02-)
 - [x] Vérifier la duplication `polymarket/` dans copy-trading (C5) ✅ section C5 dans `05-`
 - [ ] **Observations** :

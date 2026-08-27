@@ -1,7 +1,7 @@
 # Plan de remédiation — Audit weather backtest (fidélité + correctitude + bugs fantômes)
 
 **Date** : 2026-08-18
-**Source** : [`docs/audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md)
+**Source** : [`docs/audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md)
 **Vérification** : audit confronté au code en double passe (session 2026-08-18) — 11 findings confirmés
 **Statut** : **applied** (implémenté + vérifié + tests verts, session 2026-08-18)
 **Engine version cible** : `@polywatch/backtest` `0.3.0` ✅
@@ -784,7 +784,7 @@ export const BACKTEST_ENGINE_VERSION = '0.3.0';
 
 ## Liens
 
-- Audit source : [`docs/audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md)
-- Audit précédent (highest-yes) : [`docs/audits/2026-08-15_audit-weather-algo-highest-yes-edge-cases.md`](../audits/2026-08-15_audit-weather-algo-highest-yes-edge-cases.md)
-- Plan backtest précédent (0.2.0) : [`docs/weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../weather-algo-audits-plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)
+- Audit source : [`docs/audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](../../audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md)
+- Audit précédent (highest-yes) : [`docs/audits/2026-08-15_audit-weather-algo-highest-yes-edge-cases.md`](../../audits/2026-08-15_audit-weather-algo-highest-yes-edge-cases.md)
+- Plan backtest précédent (0.2.0) : [`docs/weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md`](../../weather/plans/2026-08-09_PLAN-PATCH-weather-algo-backtest-audit.md)
 - INDEX des plans : [`docs/plans/INDEX.md`](INDEX.md)

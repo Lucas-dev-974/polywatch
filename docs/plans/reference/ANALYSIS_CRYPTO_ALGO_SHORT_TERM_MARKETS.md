@@ -1,6 +1,6 @@
 # Analyse Crypto-Algo: Gestion des Marchés Court Terme (Up/Down 5min)
 
-> **Note historique (resync 2026-08-07)** : snapshot d'analyse (2025-01). Comportement actuel : [`docs/code/07-crypto-algo.md`](../code/07-crypto-algo.md), [`docs/crypto-algo.md`](../crypto-algo.md). Constantes `OUTCOME_PRICES_CACHE_TTL_*` / `RE_ENTRY_WINDOW_MS` supprimées (`6d99017`).
+> **Note historique (resync 2026-08-07)** : snapshot d'analyse (2025-01). Comportement actuel : [`docs/code/07-crypto-algo.md`](../../code/07-crypto-algo.md), [`docs/reference/crypto-algo.md`](../../reference/crypto-algo.md). Constantes `OUTCOME_PRICES_CACHE_TTL_*` / `RE_ENTRY_WINDOW_MS` supprimées (`6d99017`).
 
 **Date:** 2025-01-27  
 **Auteur:** PMA (Project Manager Agent)  

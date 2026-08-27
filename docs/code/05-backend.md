@@ -8,6 +8,7 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 2. `bootstrapWalletAccounts` (migration des comptes existants).
 3. Middlewares : `cors()` avec whitelist d'origines (`CORS_ORIGIN`, défaut localhost), `express.json()`, `pinoHttp()` avec redaction (`authorization`, `x-service-token`, `cookie`), rate-limiter (1 000 req/min en prod, exempté si `x-service-token`).
 4. Montage des routes, `/metrics` Prometheus (protégé par `requireServiceToken`), serveur HTTP + Socket.IO (même whitelist CORS).
+5. Publication du signal Redis `backend-ready` (clé TTL 60 s + pub/sub) une fois le serveur en écoute — le worker l'attend via `waitForBackendReady()` avant de démarrer.
 
 ## Authentification
 
@@ -33,7 +34,9 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 | GET | `/api/market-tags` | Tags marché pour l'UI (`nav` + `tags` avec `?search=`, proxy Gamma) |
 | GET | `/api/simulation-balance` | Snapshot simulation (cash + equity) — query **`algoKind`** (défaut `crypto`) |
 | POST | `/api/simulation-balance/reset` | Reset **d'un** périmètre (`algoKind` requis dans le body). Archive / wipe / purge Redis **scopés** au kind. **Lock Redis `sim:reset:lock:${algoKind}`** (SET NX PX 10 s) → 409 si déjà en cours, 503 si Redis injoignable. Side-effects post-commit isolés ; réponse : `archiveSummary`, `redisPurge`, `warnings`. |
-| GET/POST/GET/:id/DELETE | `/api/simulation-snapshots` | Archives d'état simulation — voir [`snapshots-simulation.md`](../snapshots-simulation.md) |
+| GET/POST/GET/:id/DELETE | `/api/simulation-snapshots` | Archives d'état simulation — voir [`../reference/snapshots-simulation.md`](../reference/snapshots-simulation.md) |
+| GET/POST | `/api/reports/*` | Hub Rapports (optimize crypto, liste, apply) — [`../reference/rapports-analyse.md`](../reference/rapports-analyse.md) |
+| GET/POST/DELETE | `/api/backtest/*` | Runs backtest weather, equity, markets-series, excluded-ticks — [`../reference/api.md`](../reference/api.md) |
 | GET/POST/DELETE | `/api/clob-credentials(/status)` | Statut / enregistrement chiffré / suppression des credentials CLOB |
 | GET | `/api/executions` | Liste des exécutions (filtre mode) |
 | GET | `/api/leaderboard` | Proxy du leaderboard Polymarket |
@@ -51,9 +54,9 @@ API Express + Socket.IO. Sert le frontend, expose les routes internes du worker,
 ### Internes (`/api/internal`, service token uniquement)
 
 Consommées par le worker / copy-trading / crypto-algo / weather-algo. Liste complète :
-[`../api.md`](../api.md) § Internes — inclut aussi `POST /metrics/exit-event|strategy-cycle|weather-question-parse` et `GET /metrics/dashboard`.
+[`../reference/api.md`](../reference/api.md) § Internes — inclut aussi `POST /metrics/exit-event|strategy-cycle|weather-question-parse` et `GET /metrics/dashboard`.
 
-Routes JWT weather-algo / crypto-algo-monitor / e2e-runs : voir [`../api.md`](../api.md).
+Routes JWT weather-algo / crypto-algo-monitor / e2e-runs : voir [`../reference/api.md`](../reference/api.md).
 
 Également : POST `/api/executions` (service token) — notification d'exécution du worker, relayée en WebSocket.
 
@@ -75,6 +78,8 @@ Fichiers : `suites.ts`, `process.ts`, `summary-parser.ts`, `run-dto.ts`,
 | `simulation_balance` / `simulation_reset` | positions(+executions) | Comptabilité sim |
 | `alert` | alerts | Alertes (kill switch, erreurs) |
 | `algo_chart_tick` | markets | Ticks chart crypto-algo live |
+| `real_snapshot_created` / `real_period_rotated` | positions(+executions) | Snapshots / rotation période réelle |
+| `system:audit:*` | broadcast | Audit système Overview |
 | `e2e_*` | e2e-runs | Progression / fin des runs E2E API |
 
 ## Module `polymarket/` — flux on-chain

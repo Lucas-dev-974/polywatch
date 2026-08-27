@@ -3,7 +3,7 @@
 **Date** : 2026-08-23
 **Auteur** : Assistant IA
 **Statut** : ✅ **APPLIQUÉ** — implémentation terminée, tests verts, build OK
-**Référence** : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md)
+**Référence** : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../../audits/2026-08-23_audit-perf-backtest-ridge-plot.md)
 **Dépend de** : Reco 3 (pré-calcul des séries) — ce plan suppose des séries enrichies en timestamps numériques (ou, à défaut, isole la projection).
 
 ---
@@ -192,7 +192,7 @@ Où `revealW()` est la largeur du rect qui suit le playhead (projection O(1) de 
 
 ## 🔗 Références
 
-- Audit : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../audits/2026-08-23_audit-perf-backtest-ridge-plot.md) (frictions P1, P2).
+- Audit : [`docs/audits/2026-08-23_audit-perf-backtest-ridge-plot.md`](../../audits/2026-08-23_audit-perf-backtest-ridge-plot.md) (frictions P1, P2).
 - Dépend : plan reco 3 (pré-calcul) + reco 1 (downsampling).
 - Files touchées : `ridge/scale.ts`, `ridge/RidgeLines.tsx`, `BacktestRidgeChart.tsx`, `ridge/useRidgePlayerFocus.ts`, `ridge/projection.ts`.
 

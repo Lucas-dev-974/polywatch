@@ -9,7 +9,7 @@
 - [2026-06-21_plan-filtre-momentum-entree.md](./2026-06-21_plan-filtre-momentum-entree.md) — plan d'implémentation du filtre momentum (toggle UI)
 - [2026-06-20_plan-optimisation-latence-pipelines.md](./2026-06-20_plan-optimisation-latence-pipelines.md) — latence pipelines (phases 0–6 implémentées)
 - [scripts/archive/audits/ANALYSE-GAINS-POLYWATCH-v0.6-2026-06-14.md](../../scripts/archive/audits/ANALYSE-GAINS-POLYWATCH-v0.6-2026-06-14.md) — audit gains antérieur
-- [docs/pipeline-copy-trading.md](../pipeline-copy-trading.md) — pipeline copy-trading
+- [docs/reference/pipeline-copy-trading.md](../reference/pipeline-copy-trading.md) — pipeline copy-trading
 
 **Source des métriques** : PostgreSQL `polywatch` (conteneur `polywatch-v07-postgres-1`), snapshot **2026-06-21**.  
 **Limite méthodologique** : échantillon modeste (104 closes sim, 16 closes real) → conclusions **directionnelles**, pas statistiquement définitives.

@@ -349,6 +349,6 @@ L'audit ne contient **aucune erreur logique bloquante**. Les 8 points exacts son
 
 ## 🔗 Liens
 
-- Doc backtest : [`docs/backtest.md`](../backtest.md)
+- Doc backtest : [`docs/reference/backtest.md`](../reference/backtest.md)
 - Audit précédent (11 findings résolus) : [`docs/audits/2026-08-18_audit-weather-backtest-fidelite-correctude.md`](./2026-08-18_audit-weather-backtest-fidelite-correctude.md)
-- API backtest : [`docs/api.md`](../api.md)
+- API backtest : [`docs/reference/api.md`](../reference/api.md)

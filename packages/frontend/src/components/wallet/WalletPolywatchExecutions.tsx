@@ -1,12 +1,12 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { api } from '../api';
-import { formatShortDateTime } from '../lib/date';
+import { api } from '../../api';
+import { formatShortDateTime } from '../../lib/date';
 import {
   type Execution,
   executionStatusClass,
   executionStatusLabel,
-} from '../lib/execution';
-import { connectSocket } from '../socket';
+} from '../../lib/execution';
+import { connectSocket } from '../../socket';
 
 interface ExecutionsResponse {
   items: Execution[];

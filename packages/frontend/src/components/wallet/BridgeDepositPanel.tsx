@@ -1,9 +1,9 @@
 import { createEffect, createSignal, For, on, onCleanup, Show } from 'solid-js';
-import { truncateAddress } from '../lib/address';
-import { sendBridgeDepositViaMetaMask, chainExplorerTxUrl } from '../lib/bridge-metamask';
-import { useCopyFeedback } from '../hooks/useCopyFeedback';
-import { hasMetaMask } from '../lib/ethereum';
-import { mapPusdTransferError } from '../lib/pusd-errors';
+import { truncateAddress } from '../../lib/address';
+import { sendBridgeDepositViaMetaMask, chainExplorerTxUrl } from '../../lib/bridge-metamask';
+import { useCopyFeedback } from '../../hooks/useCopyFeedback';
+import { hasMetaMask } from '../../lib/ethereum';
+import { mapPusdTransferError } from '../../lib/pusd-errors';
 import {
   BRIDGE_ADDRESS_LABELS,
   BRIDGE_DEPOSIT_CRYPTO_OPTIONS,
@@ -15,7 +15,7 @@ import {
   type BridgeDepositAssetSymbol,
   type BridgeDepositQuote,
   type BridgeTransaction,
-} from '../lib/bridge';
+} from '../../lib/bridge';
 
 interface BridgeDepositPanelProps {
   active: boolean;

@@ -15,7 +15,7 @@ import {
 } from '../../lib/clob-credentials';
 import { CredsFieldList } from '../CredsFieldList';
 import { Dialog } from '../Dialog';
-import { MetaMaskButton } from '../MetaMaskButton';
+import { MetaMaskButton } from '../wallet/MetaMaskButton';
 import { useFormSave } from '../../hooks/useFormSave';
 
 interface ClobCredentialsDialogProps {

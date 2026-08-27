@@ -12,7 +12,7 @@ import {
 import { ClobCredentialsDialog } from '../dialogs/ClobCredentialsDialog';
 import { PusdTransferDialog, type PusdTransferMode } from '../dialogs/PusdTransferDialog';
 import { WalletAccountsDialog } from '../dialogs/WalletAccountsDialog';
-import { WalletHistorySection } from '../WalletHistorySection';
+import { WalletHistorySection } from '../wallet/WalletHistorySection';
 
 export function WalletPage() {
   const [wallet, setWallet] = createSignal<WalletData | null>(null);

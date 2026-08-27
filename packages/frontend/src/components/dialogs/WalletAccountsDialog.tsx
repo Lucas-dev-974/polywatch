@@ -8,7 +8,7 @@ import {
   type WalletAccountView,
 } from '../../lib/wallet';
 import { Dialog } from '../Dialog';
-import { MetaMaskButton } from '../MetaMaskButton';
+import { MetaMaskButton } from '../wallet/MetaMaskButton';
 
 interface WalletAccountsDialogProps {
   open: boolean;

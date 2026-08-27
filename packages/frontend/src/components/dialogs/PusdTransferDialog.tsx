@@ -16,11 +16,11 @@ import {
   type WalletData,
   type WithdrawOutputAsset,
 } from '../../lib/wallet';
-import { BridgeDepositPanel } from '../BridgeDepositPanel';
+import { BridgeDepositPanel } from '../wallet/BridgeDepositPanel';
 import { Dialog } from '../Dialog';
-import { MetaMaskButton } from '../MetaMaskButton';
-import { PusdTransferSummary } from '../PusdTransferSummary';
-import { WithdrawTransferFields } from '../WithdrawTransferFields';
+import { MetaMaskButton } from '../wallet/MetaMaskButton';
+import { PusdTransferSummary } from '../wallet/PusdTransferSummary';
+import { WithdrawTransferFields } from '../wallet/WithdrawTransferFields';
 
 export type PusdTransferMode = 'deposit' | 'withdraw';
 

@@ -4,8 +4,8 @@ import {
   WITHDRAW_RECIPIENT_CUSTOM,
   type WithdrawOutputAsset,
   type WithdrawRecipientOption,
-} from '../lib/wallet';
-import { truncateAddress } from '../lib/address';
+} from '../../lib/wallet';
+import { truncateAddress } from '../../lib/address';
 
 interface WithdrawTransferFieldsProps {
   amount: string;

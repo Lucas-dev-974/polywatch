@@ -1,6 +1,6 @@
 import { Show } from 'solid-js';
-import { truncateAddress } from '../lib/address';
-import type { WalletAccountView } from '../lib/wallet';
+import { truncateAddress } from '../../lib/address';
+import type { WalletAccountView } from '../../lib/wallet';
 
 interface PusdTransferSummaryProps {
   account: WalletAccountView;

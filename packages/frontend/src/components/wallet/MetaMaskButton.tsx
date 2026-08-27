@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js';
-import { connectMetaMaskAccount } from '../lib/ethereum';
-import { useMetaMaskAvailable } from '../hooks/useMetaMaskAvailable';
+import { connectMetaMaskAccount } from '../../lib/ethereum';
+import { useMetaMaskAvailable } from '../../hooks/useMetaMaskAvailable';
 
 interface MetaMaskButtonProps {
   onConnected: (address: string) => void;

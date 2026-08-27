@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js';
-import { Icon } from './Icon';
-import { formatCents } from '../lib/format';
+import { Icon } from '../Icon';
+import { formatCents } from '../../lib/format';
 
 export interface WeatherSeriesLegendItem {
   key: number;

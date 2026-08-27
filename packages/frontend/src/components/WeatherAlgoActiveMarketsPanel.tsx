@@ -1,6 +1,6 @@
 import type { AutoTrackRule } from '../hooks/useWeatherAlgoDashboard';
 import { CollapsibleSection } from './CollapsibleSection';
-import { WeatherWatchedTable } from './WeatherWatchedTable';
+import { WeatherWatchedTable } from './weather/WeatherWatchedTable';
 
 export interface WeatherAlgoActiveMarketsPanelProps {
   rules: AutoTrackRule[];

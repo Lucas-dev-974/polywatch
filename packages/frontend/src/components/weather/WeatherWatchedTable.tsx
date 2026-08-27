@@ -1,6 +1,6 @@
 import { For, Show, type JSX } from 'solid-js';
-import type { AutoTrackRule } from '../hooks/useWeatherAlgoDashboard';
-import { formatMetric } from '../lib/weather-metric';
+import type { AutoTrackRule } from '../../hooks/useWeatherAlgoDashboard';
+import { formatMetric } from '../../lib/weather-metric';
 
 export interface WeatherWatchedTableProps {
   rules: AutoTrackRule[];

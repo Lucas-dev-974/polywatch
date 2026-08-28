@@ -73,6 +73,9 @@ kill switch, limites d'exposition).
 > [`weather/audits/audit-weather-algo-2026-08-04.md`](./weather/audits/audit-weather-algo-2026-08-04.md) ·
 > [`code/08-weather-algo.md`](./code/08-weather-algo.md)
 >
+> Placements weather **real** 100 % fail (2026-08-28) — **correctifs round 1+2 livrés** :
+> [`weather/audits/2026-08-28_audit-weather-real-placements.md`](./weather/audits/2026-08-28_audit-weather-real-placements.md)
+>
 > Persistance données weather + onglet Données (2026-08-08) — **appliqué** (Phases 0–4) :
 > [`weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md`](./weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md) ·
 > [`weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md`](./weather/plans/2026-08-08_PLAN-weather-market-data-persistence.md)

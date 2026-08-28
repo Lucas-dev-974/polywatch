@@ -1,7 +1,6 @@
 import type { TickSize } from '@polymarket/clob-client-v2';
 import type { DataSource } from 'typeorm';
 import {
-  computeTakerFee,
   Market,
   MarketService,
   GlobalConfigService,
@@ -18,7 +17,8 @@ import {
 import { failedExecution } from './execution-result.js';
 import type { ClobMarketInfoLookup } from './min-order-size.js';
 import { resolveMinOrderSharesForSignal } from './min-order-size.js';
-import { resolveTickSizeCached, roundToTick } from './tick-size.js';
+import { ceilToTick, floorToTick, resolveTickSizeCached } from './tick-size.js';
+import { SLIPPAGE_GUARDED_REASONS } from '../constants.js';
 import pino from 'pino';
 
 const log = pino({ name: 'prepare-fak-order' });
@@ -29,6 +29,7 @@ const ENTRY_BUY_PREPARE_REASONS = new Set([
   'COPY_INCREASE',
   'ALGO_OPEN',
   'ALGO_INCREASE',
+  'WEATHER_OPEN',
 ]);
 
 export type PreparedFakOrder = {
@@ -111,35 +112,6 @@ export async function prepareFakMarketOrder(
     platformFeeParams = fees;
   }
 
-  if (signal.referenceVwap != null && signal.referenceVwap > 0) {
-    const guard = evaluateSlippageGuard(signal, fillPrice, maxSlippage);
-    if (guard.blocked) {
-      return {
-        ok: false,
-        result: failedExecution(signal, 'slippage_exceeded', {
-          referenceVwap: signal.referenceVwap,
-          slippagePercent: guard.slippagePercent,
-        }),
-      };
-    }
-    if (isForcedExitSlippageExceeded(guard.slippagePercent, maxSlippage)) {
-      log.warn(
-        {
-          signalId: signal.id,
-          reason: signal.reason,
-          slippagePercent: guard.slippagePercent,
-          maxSlippagePercent: maxSlippage,
-        },
-        'forced exit slippage exceeds configured max (not blocked)',
-      );
-    }
-  } else {
-    log.warn(
-      { signalId: signal.id, reason: signal.reason },
-      'slippage guard skipped — no referenceVwap',
-    );
-  }
-
   let tickSize: TickSize;
   try {
     tickSize = await resolveTickSizeCached(signal.assetId, {
@@ -168,9 +140,62 @@ export async function prepareFakMarketOrder(
     usableFillPrice = signal.lastTradePrice;
   }
 
-  const limitPrice = roundToTick(usableFillPrice, tickSize);
+  // BUY FAK must not round *below* the ask (nearest can miss the book).
+  // SELL FAK must not round *above* the bid.
+  let limitPrice =
+    signal.side === 'BUY'
+      ? ceilToTick(usableFillPrice, tickSize)
+      : floorToTick(usableFillPrice, tickSize);
   if (limitPrice <= 0) {
     return { ok: false, result: failedExecution(signal, 'price_rounded_to_zero') };
+  }
+
+  if (signal.referenceVwap != null && signal.referenceVwap > 0) {
+    const tick = Number(tickSize);
+    const guard = evaluateSlippageGuard(signal, limitPrice, maxSlippage, {
+      tickSize: Number.isFinite(tick) && tick > 0 ? tick : undefined,
+    });
+    if (guard.blocked) {
+      return {
+        ok: false,
+        result: failedExecution(signal, 'slippage_exceeded', {
+          referenceVwap: signal.referenceVwap,
+          slippagePercent: guard.slippagePercent,
+        }),
+      };
+    }
+    if (
+      !(SLIPPAGE_GUARDED_REASONS as readonly string[]).includes(signal.reason) &&
+      isForcedExitSlippageExceeded(guard.slippagePercent, maxSlippage)
+    ) {
+      log.warn(
+        {
+          signalId: signal.id,
+          reason: signal.reason,
+          slippagePercent: guard.slippagePercent,
+          maxSlippagePercent: maxSlippage,
+        },
+        'forced exit slippage exceeds configured max (not blocked)',
+      );
+    }
+  } else {
+    log.warn(
+      { signalId: signal.id, reason: signal.reason },
+      'slippage guard skipped — no referenceVwap',
+    );
+  }
+
+  // Weather YES books are thin: posting *at* the ask is often unmatched by the
+  // CLOB FAK matcher. Pay one extra tick after the slippage check so the order
+  // is marketable without counting the pad as a market move.
+  if (signal.side === 'BUY' && signal.reason === 'WEATHER_OPEN') {
+    const tick = Number(tickSize);
+    if (Number.isFinite(tick) && tick > 0) {
+      limitPrice = ceilToTick(limitPrice + tick, tickSize);
+    }
+    if (limitPrice <= 0) {
+      return { ok: false, result: failedExecution(signal, 'price_rounded_to_zero') };
+    }
   }
 
   const minOrderShares = await resolveMinOrderSharesForSignal(

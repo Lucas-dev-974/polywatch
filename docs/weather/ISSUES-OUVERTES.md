@@ -1,6 +1,6 @@
 # Issues ouvertes — Weather Algo
 
-> Dernière mise à jour : 2026-08-13
+> Dernière mise à jour : 2026-08-28
 > Centralise les issues **encore ouvertes** identifiées dans les audits/plans du dossier `weather/`.
 > **Exclu** : les tests d'observation (laisser tourner l'algo puis re-générer un audit) — voir §5.
 
@@ -53,6 +53,10 @@ Warnings quantitatifs de fidélité backtest — **tout est livré** :
 
 **Aucune action requise** — le plan est clos.
 
+### 1.5 `2026-08-28_audit-weather-real-placements.md` — ✅ **correctifs livrés (2026-08-28, round 2)**
+
+100 % des BUY `WEATHER_OPEN` **real** en échec. Round 1 : slippage tick-aware, book frais 15 s, `ceilToTick`, `orderType: FAK`. Round 2 (après FAK deploy, encore 9/9 fail, UI « aucun acheteur ») : bump real `MIN_ORDER_USDC`, `forceRefreshBook` avant prepare, +1 tick BUY `WEATHER_OPEN`, label UI `order_not_matched`. Observer une session real après redémarrage worker + weather-algo.
+
 ---
 
 ## 2. Reste à faire en prod (migrations / smoke tests)
@@ -64,6 +68,7 @@ Warnings quantitatifs de fidélité backtest — **tout est livré** :
 | `2026-08-12_PLAN-fix-c3-c4-c5` | Smoke tests routes : `DELETE /tables/:id` (200/400), `GET /backtest/:id/positions?exitReason=...`, `GET /weather-algo-forecasts?metric=temp` (400), ingest `metric` invalide (400) |
 | `2026-08-13_PLAN-fix-t1-t7` | Smoke test backend `GET /api/weather-algo-history/jobs` ; timer stale-sweep annulé au SIGTERM/SIGINT ; UI unmount pendant poll sans warning post-unmount |
 | `2026-08-13_PLAN-refactor-r1-r10` | Redémarrer Vite (ou vider `node_modules/.vite`) pour le sous-chemin `@polywatch/core/backtest/exit-reasons` ; smoke test UI onglets Backtest / Données / timelines / watched-cities |
+| `2026-08-28_audit-weather-real-placements` | Redémarrer **worker** + **weather-algo** ; observer une session real : fills `WEATHER_OPEN` (qty ≥ `MIN_ORDER_USDC`, plus le libellé trompeur « aucun acheteur ») |
 
 ---
 
@@ -87,7 +92,7 @@ Warnings quantitatifs de fidélité backtest — **tout est livré** :
 | R6 | Pre-close inconditionnel si `liquidityStatus=illiquid` et `hoursToEnd < 3h` | Code |
 | R7 | Forcer `cityFollowSwitchMode=hold` si `hoursToEnd < 3h` | Code |
 | P3 | Métrique Prometheus `weather_open_positions` / `weather_pnl` labellisées | Code |
-| P3 | Investiguer le slippage 96 % sur pos#29557 | Ops |
+| P3 | Investiguer le slippage 96 % sur pos#29557 | Ops — voir aussi `audits/2026-08-28_audit-weather-real-placements.md` (slippage tick-aware livré) |
 
 ### 4.2 `2026-08-09_audit-weather-algo-strategy-live.md`
 
@@ -104,7 +109,7 @@ Warnings quantitatifs de fidélité backtest — **tout est livré** :
 | # | Recommandation | Type |
 |---|----------------|------|
 | P3 | Métrique Prometheus `weather_open_positions` / `weather_pnl` labellisées | Code |
-| P3 | Investiguer le slippage 96 % sur pos#29557 | Ops |
+| P3 | Investiguer le slippage 96 % sur pos#29557 | Ops — voir aussi `audits/2026-08-28_audit-weather-real-placements.md` (slippage tick-aware livré) |
 
 ---
 

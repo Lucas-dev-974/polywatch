@@ -38,3 +38,25 @@ export function roundToTick(value: number, tickSize: string): number {
   const decimals = (tickSize.split('.')[1] ?? '').length;
   return Number((Math.round(value / tick) * tick).toFixed(decimals));
 }
+
+/**
+ * Round **up** to the next tick (BUY FAK limit). Epsilon keeps values already
+ * on a tick from jumping one increment due to float residue.
+ */
+export function ceilToTick(value: number, tickSize: string): number {
+  const tick = Number(tickSize);
+  if (!Number.isFinite(tick) || tick <= 0) return value;
+  const decimals = (tickSize.split('.')[1] ?? '').length;
+  return Number((Math.ceil(value / tick - 1e-12) * tick).toFixed(decimals));
+}
+
+/**
+ * Round **down** to the previous tick (SELL FAK limit). Epsilon keeps values
+ * already on a tick from dropping one increment due to float residue.
+ */
+export function floorToTick(value: number, tickSize: string): number {
+  const tick = Number(tickSize);
+  if (!Number.isFinite(tick) || tick <= 0) return value;
+  const decimals = (tickSize.split('.')[1] ?? '').length;
+  return Number((Math.floor(value / tick + 1e-12) * tick).toFixed(decimals));
+}

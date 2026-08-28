@@ -40,7 +40,7 @@ sentinelle n'est pas pollée par le MoveDetector Data API.
 |-----------|---------|------|
 | `WeatherStrategyRunner` | `weatherAlgoPollMs` (défaut 30 min), **aligné sur une grille UTC** | Sorties puis entrées city-follow. Chaque cycle est planifié sur le prochain multiple de `pollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de démarrage et stable d'un redémarrage à l'autre (ex. 15 min → :00/:15/:30/:45 UTC). Au boot, une passe d'exit **immédiate** réévalue les positions ouvertes (reprise) mais **aucun** cycle d'entrée n'est déclenché — le premier cycle complet se fait au prochain créneau aligné. Un cycle immédiat est en revanche forcé sur `config-changed` pour appliquer la config à chaud. |
 | `WeatherExitEvaluator` | début de chaque cycle | Drift + bucket-exit (hysteresis) |
-| `runWeatherEntryPipeline` | sur signal | Gate throttle re-entry + enqueue `WEATHER_OPEN` |
+| `runWeatherEntryPipeline` | sur signal | Gate throttle re-entry + enqueue `WEATHER_OPEN` **FAK** |
 | Heartbeat / runtime-status | 30 s | Redis `weather-algo:heartbeat`, `weather-algo:runtime-status` |
 
 Le polling du `WeatherStrategyRunner` est **phasé sur une grille horaire fixe** :
@@ -211,7 +211,7 @@ limites `maxDailyLossUsdc` / `maxExposureUsdc` / `maxOpenPositions` /
 | Onglet UI Données (cards, drill-down, purge) | Actif |
 | Onglet UI **Backtest** (lancer runs, métriques, equity, positions) | Actif (domaine weather) |
 | Onglet UI **Stratégies** (catalogue, activation, params) | Actif |
-| Onglet UI **Villes → Données télécharger** (ingestion historique CLOB) | Actif |
+| Placement réel CLOB (FAK, book REST avant POST, +1 tick WEATHER_OPEN, slippage tick-aware, bump `MIN_ORDER_USDC`) | Actif |
 
 ---
 

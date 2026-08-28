@@ -204,6 +204,15 @@ export const SLIPPAGE_GUARDED_REASONS = [
 ] as const;
 
 /**
+ * Minimum adverse move, in tick increments, always tolerated by the slippage
+ * guard. On cheap weather YES tokens (1–5 ¢) one CLOB tick is 20–100 % of
+ * `referenceVwap`, so a fixed `maxSlippagePercent` (e.g. 7 %) rejects fills
+ * that only moved by a single tick. The effective cap is
+ * `max(maxSlippagePercent, minTicks × tick / referenceVwap × 100)`.
+ */
+export const MIN_SLIPPAGE_TICKS = 2;
+
+/**
  * Max age (ms) for the order book bid used in SL/TP evaluation. Aligned with
  * {@link STALE_BOOK_THRESHOLD_MS} (the REST re-sync trigger): a book older
  * than this skips SL/TP evaluation (fail-closed — no close signal emitted).

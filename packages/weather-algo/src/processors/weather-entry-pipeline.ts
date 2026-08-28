@@ -27,6 +27,7 @@ import {
   isWeatherReentryCountBlocked,
   hasWeatherReentryThrottle,
   MIN_ORDER_SHARES,
+  MIN_ORDER_USDC,
   resumeEntryFromReservation,
   ExecutionService,
   resolveWeatherEntryExitParams,
@@ -410,7 +411,7 @@ async function runMode(args: {
   }
 
   const finalQty = mosGate.quantity;
-  const finalAskVwap = mosGate.askVwap;
+  let finalAskVwap = mosGate.askVwap;
   if (mosGate.bumped) {
     log.info(
       { conditionId: signal.conditionId, mode, originalQty: targetQty, bumpedQty: finalQty },
@@ -418,17 +419,90 @@ async function runMode(args: {
     );
   }
 
+  let orderQty = finalQty;
+  if (mode === 'real') {
+    const notional = orderQty * finalAskVwap;
+    if (notional + 1e-9 < MIN_ORDER_USDC) {
+      const maxUsdc =
+        typeof bag.maxPositionSizeUsdc === 'number' && bag.maxPositionSizeUsdc > 0
+          ? bag.maxPositionSizeUsdc
+          : Number.POSITIVE_INFINITY;
+      // Always add at least 1 share so float ceil(1/ask) cannot stall at the same qty.
+      const needQty = Math.max(
+        orderQty + 1,
+        Math.ceil(MIN_ORDER_USDC / finalAskVwap - 1e-12),
+      );
+      const bumpedNotional = needQty * finalAskVwap;
+      if (
+        bumpedNotional > balances.cash + 1e-9 ||
+        bumpedNotional > maxUsdc + 1e-9
+      ) {
+        log.warn(
+          {
+            conditionId: signal.conditionId,
+            mode,
+            orderQty,
+            finalAskVwap,
+            notional,
+            minOrderUsdc: MIN_ORDER_USDC,
+          },
+          'weather real entry skipped — notional below live USDC minimum',
+        );
+        return `Montant cible réel insuffisant (${MIN_ORDER_USDC} USDC)`;
+      }
+      const bumpedPrices = await connectionManager.fetchExecutablePrices(
+        signal.assetId,
+        needQty,
+      );
+      if (bumpedPrices.executableAskVwap <= 0) {
+        return 'Pas de liquidité à la quantité min USDC';
+      }
+      const bumpedAsk = bumpedPrices.executableAskVwap;
+      const liveNotional = needQty * bumpedAsk;
+      if (
+        liveNotional + 1e-9 < MIN_ORDER_USDC ||
+        liveNotional > balances.cash + 1e-9 ||
+        liveNotional > maxUsdc + 1e-9
+      ) {
+        log.warn(
+          {
+            conditionId: signal.conditionId,
+            mode,
+            needQty,
+            bumpedAsk,
+            liveNotional,
+            minOrderUsdc: MIN_ORDER_USDC,
+          },
+          'weather real entry skipped — bumped notional still below live USDC minimum or over cap',
+        );
+        return `Montant cible réel insuffisant (${MIN_ORDER_USDC} USDC)`;
+      }
+      log.info(
+        {
+          conditionId: signal.conditionId,
+          mode,
+          originalQty: orderQty,
+          bumpedQty: needQty,
+          askVwap: bumpedAsk,
+        },
+        'weather real entry quantity bumped to meet MIN_ORDER_USDC',
+      );
+      orderQty = needQty;
+      finalAskVwap = bumpedAsk;
+    }
+  }
+
   // --- Depth retry -----------------------------------------------------------
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId: signal.assetId,
-    targetQty: finalQty,
+    targetQty: orderQty,
     maxRetries: bag.entryDepthRetryMax,
     delayMs: bag.entryDepthRetryDelayMs,
     connectionManager,
   });
   if (!depthResult.ok) {
     log.warn(
-      { conditionId: signal.conditionId, mode, targetQty: finalQty, attempts: depthResult.attempts },
+      { conditionId: signal.conditionId, mode, targetQty: orderQty, attempts: depthResult.attempts },
       'weather entry skipped — insufficient depth',
     );
     return depthResult.skipReason ?? 'Profondeur insuffisante';
@@ -441,7 +515,7 @@ async function runMode(args: {
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     mode,
-    notionalUsdc: finalQty * finalAskVwap,
+    notionalUsdc: orderQty * finalAskVwap,
     reason: 'WEATHER_OPEN',
     outcome: signal.outcome,
     slPercent: exit.slPercent ?? undefined,
@@ -479,9 +553,9 @@ async function runMode(args: {
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     side: 'BUY',
-    quantity: finalQty,
-    usdcAmount: finalQty * finalAskVwap,
-    orderType: 'GTC',
+    quantity: orderQty,
+    usdcAmount: orderQty * finalAskVwap,
+    orderType: 'FAK',
     limitPrice: finalAskVwap,
     referenceVwap: finalAskVwap,
     reason: 'WEATHER_OPEN',
@@ -521,7 +595,7 @@ async function runMode(args: {
       {
         conditionId: signal.conditionId,
         mode,
-        amount: finalQty,
+        amount: orderQty,
         price: finalAskVwap,
         orderSignalId,
       },

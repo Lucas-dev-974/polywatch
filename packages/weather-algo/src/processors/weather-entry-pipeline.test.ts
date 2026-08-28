@@ -109,6 +109,7 @@ vi.mock('@polywatch/core', () => ({
   resolveEntryMinOrderSharesDetailed: mocks.resolveEntryMinOrderSharesDetailed,
   effectiveEntryMos: mocks.effectiveEntryMos,
   MIN_ORDER_SHARES: 1,
+  MIN_ORDER_USDC: 1,
   ExecutionService: mocks.ExecutionService,
   RiskService: mocks.RiskService,
   // Stub forecast services used by persistEntryForecastSnapshot fallback.
@@ -421,6 +422,101 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     const params = buildParams();
     const result = await runWeatherEntryPipeline(params);
     expect(result).toBeNull();
+    expect(mocks.enqueueEntrySignal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job: expect.objectContaining({ orderType: 'FAK', reason: 'WEATHER_OPEN' }),
+      }),
+    );
+  });
+
+  it('bumps real qty so notional meets MIN_ORDER_USDC (5 × 0.14 → 8 shares)', async () => {
+    mocks.computeEntryTargetQuantity.mockReturnValue(5);
+    mocks.applyEntryMosGate.mockResolvedValue({
+      ok: true,
+      quantity: 5,
+      askVwap: 0.14,
+      bumped: false,
+    });
+    mocks.getStrategyParamsForMode.mockReturnValueOnce({
+      minEdge: null,
+      maxForecastStd: null,
+      minForecastProbability: null,
+      entryUsdc: null,
+      maxPositionSizeUsdc: 2,
+      entryDepthRetryMax: null,
+      entryDepthRetryDelayMs: null,
+      maxOpenPositions: null,
+      maxExposureUsdc: null,
+      maxDailyLossUsdc: null,
+      killSwitchAction: null,
+      forecastChangeThreshold: null,
+      cityFollowSwitchMode: null,
+      bucketHysteresisPolls: null,
+      reentryThrottleMs: null,
+      maxReentriesPerCityDate: 0,
+    });
+    const fetchExecutablePrices = vi.fn(async () => ({
+      executableAskVwap: 0.14,
+      executableBidVwap: 0.1,
+    }));
+    const params = buildParams({
+      signal: baseSignal({ mode: 'real' }),
+      risk: baseRisk({ weatherAlgoSimEnabled: false, weatherAlgoRealEnabled: true }),
+      globalConfig: baseGlobalConfig({ realTradingEnabled: true }),
+      connectionManager: { fetchExecutablePrices },
+    });
+    const result = await runWeatherEntryPipeline(params);
+    expect(result).toBeNull();
+    expect(fetchExecutablePrices).toHaveBeenCalledWith('asset-1', 8);
+    expect(mocks.fetchEntryAskLiquidityWithRetries).toHaveBeenCalledWith(
+      expect.objectContaining({ targetQty: 8 }),
+    );
+    expect(mocks.enqueueEntrySignal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job: expect.objectContaining({
+          quantity: 8,
+          usdcAmount: 8 * 0.14,
+          orderType: 'FAK',
+          reason: 'WEATHER_OPEN',
+        }),
+      }),
+    );
+  });
+
+  it('skips real entry when bumping to MIN_ORDER_USDC would exceed maxPositionSizeUsdc', async () => {
+    mocks.computeEntryTargetQuantity.mockReturnValue(5);
+    mocks.applyEntryMosGate.mockResolvedValue({
+      ok: true,
+      quantity: 5,
+      askVwap: 0.14,
+      bumped: false,
+    });
+    mocks.getStrategyParamsForMode.mockReturnValueOnce({
+      minEdge: null,
+      maxForecastStd: null,
+      minForecastProbability: null,
+      entryUsdc: null,
+      maxPositionSizeUsdc: 1,
+      entryDepthRetryMax: null,
+      entryDepthRetryDelayMs: null,
+      maxOpenPositions: null,
+      maxExposureUsdc: null,
+      maxDailyLossUsdc: null,
+      killSwitchAction: null,
+      forecastChangeThreshold: null,
+      cityFollowSwitchMode: null,
+      bucketHysteresisPolls: null,
+      reentryThrottleMs: null,
+      maxReentriesPerCityDate: 0,
+    });
+    const params = buildParams({
+      signal: baseSignal({ mode: 'real' }),
+      risk: baseRisk({ weatherAlgoSimEnabled: false, weatherAlgoRealEnabled: true }),
+      globalConfig: baseGlobalConfig({ realTradingEnabled: true }),
+    });
+    const result = await runWeatherEntryPipeline(params);
+    expect(result).toBe('Aucun mode exécutable');
+    expect(mocks.enqueueEntrySignal).not.toHaveBeenCalled();
   });
 
   it('returns "Aucun mode exécutable" when weather kill-switch blocks entries', async () => {

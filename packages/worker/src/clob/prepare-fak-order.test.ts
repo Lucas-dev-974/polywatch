@@ -82,6 +82,91 @@ describe('prepareFakMarketOrder', () => {
     }
   });
 
+  it('ceils BUY FAK limit so the order is not posted below the ask', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.041,
+        lastTradePrice: undefined,
+      }),
+      mockConnection({ executableBidVwap: 0.03, executableAskVwap: 0.041 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.prepared.fillPrice).toBe(0.041);
+      expect(result.prepared.limitPrice).toBe(0.06);
+    }
+  });
+
+  it('does not pad COPY_OPEN BUY beyond ceilToTick', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'COPY_OPEN',
+        referenceVwap: 0.041,
+        lastTradePrice: undefined,
+      }),
+      mockConnection({ executableBidVwap: 0.03, executableAskVwap: 0.041 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.prepared.limitPrice).toBe(0.05);
+  });
+
+  it('allows a 1-tick WEATHER_OPEN BUY that exceeds a 7 % cap without tick floor', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.04,
+        lastTradePrice: undefined,
+      }),
+      mockConnection({ executableBidVwap: 0.03, executableAskVwap: 0.05 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.prepared.limitPrice).toBe(0.06);
+  });
+
+  it('still rejects WEATHER_OPEN BUY when the book jumped ~20 ticks', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.22,
+        lastTradePrice: undefined,
+      }),
+      mockConnection({ executableBidVwap: 0.2, executableAskVwap: 0.42 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.result.error).toBe('slippage_exceeded');
+  });
+
+  it('requests a fresh book for WEATHER_OPEN BUY', async () => {
+    const connection = mockConnection({
+      executableBidVwap: 0.4,
+      executableAskVwap: 0.5,
+    });
+    await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.5,
+        lastTradePrice: undefined,
+      }),
+      connection,
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(connection.fetchExecutablePrices).toHaveBeenCalledWith(
+      'token-1',
+      10,
+      { maxAgeMs: 15_000 },
+    );
+  });
+
   it('rejects below_min_order_size for tiny SELL qty', async () => {
     const result = await prepareFakMarketOrder(
       baseSignal({ quantity: 0.01, reason: 'SL' }),

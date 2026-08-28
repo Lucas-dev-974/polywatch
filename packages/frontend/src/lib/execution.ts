@@ -61,7 +61,7 @@ export function executionReasonLabel(reason: string | null | undefined): string 
 }
 
 const CLOSE_EXECUTION_ERROR_LABELS: Record<string, string> = {
-  order_not_matched: 'aucun acheteur (marché illiquide)',
+  order_not_matched: 'ordre FAK non matché (pas de contrepartie au prix)',
   no_liquidity: 'liquidité insuffisante',
   placing_orphan: 'exécution interrompue (worker)',
   slippage_exceeded: 'glissement trop élevé',

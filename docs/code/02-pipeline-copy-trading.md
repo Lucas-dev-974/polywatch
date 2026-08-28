@@ -111,17 +111,18 @@ positionLocks.runSequentially(copiedPositionId, async (signal) => {  // timeout 
 
 **RealExecutor** (`worker/src/clob/real-executor.ts`) :
 1. `loadTradingContext()` — ClobClient POLY_1271 + deposit wallet (cache 30 min).
-2. Prix exécutable depuis le carnet en mémoire ; **slippage guard** pour les raisons gardées.
-3. `roundToTick()` selon le tick size du marché (cache 5 min).
-4. Min order **SELL** : `resolveMinOrderShares()` (`getClobMarketInfo().mos` → book `min_order_size`).
-5. **Sorties forcées / carnet figé** : si le `OrderSignal` `SELL` porte un
+2. `forceRefreshBook` REST **avant** `prepareFakMarketOrder` (carnet live, pas un snapshot WS stale).
+3. Prix exécutable ; **slippage guard** pour les raisons gardées (cap tick-aware, voir `MIN_SLIPPAGE_TICKS`). BUY `WEATHER_OPEN` : **+1 tick** après le guard.
+4. Arrondi au tick : **BUY `ceilToTick`** (ne pas poster sous l'ask), **SELL `floorToTick`** (ne pas poster au-dessus du bid). Cache tick 5 min.
+5. Min order **SELL** : `resolveMinOrderShares()` (`getClobMarketInfo().mos` → book `min_order_size`).
+6. **Sorties forcées / carnet figé** : si le `OrderSignal` `SELL` porte un
    `lastTradePrice` inférieur au `executableBidVwap` affiché, le prix limite
    FAK devient `min(executableBidVwap, lastTradePrice)` arrondi au tick. L'ordre
    est alors très probablement exécutable au dernier prix marché connu, au lieu
    de rester non matché contre un bid fantôme.
-6. `createAndPostMarketOrder()` (FAK, timeout 30 s) ; `clobOrderId` enregistré immédiatement.
-7. `parseFillResponse()` — BUY/SELL sémantique CLOB ; `delayed` → return null (reste `placing`).
-8. Frais : `resolvePlatformFeeParams` + formule taker (`pricing/fees.ts`).
+7. `createAndPostMarketOrder()` (FAK, timeout 30 s) ; `clobOrderId` enregistré immédiatement.
+8. `parseFillResponse()` — BUY/SELL sémantique CLOB ; `delayed` → return null (reste `placing`).
+9. Frais : `resolvePlatformFeeParams` + formule taker (`pricing/fees.ts`).
 
 **Réconciliation** (`execution-reconciler.ts`, `startup-reconciler.ts`) :
 - Au boot, reconnexion WS user, retry executor : `getOrder` puis `getTrades` ;

@@ -75,7 +75,7 @@ Pipeline auxiliaire déclenché sur chaque mise à jour de carnet :
 |---|---|
 | `trading-context.ts` | Cache singleton (TTL 30 min) : ClobClient POLY_1271, deposit wallet, credentials WS. Sync collatéral 5 min. Invalidé par `config-changed` / `backend-ready`. Fetch `clob-approvals/ensure` borné par `BACKEND_HTTP_TIMEOUT_MS`. Compteur `cacheGeneration` : un build en vol ne réécrit jamais le cache après une invalidation |
 | `client-factory.ts` / `credentials.ts` | Construction du ClobClient ; credentials via `/api/internal/clob-credentials` |
-| `real-executor.ts` | Ordre FAK : prix → slippage → tick → **mos (SELL)** → `lastTradePrice` pour sorties forcées → post (timeout 30 s) |
+| `real-executor.ts` | REST `forceRefreshBook` puis prepare FAK (prix → slippage tick-aware → tick → **mos (SELL)** → `lastTradePrice` sorties forcées) → post (timeout 30 s). BUY `WEATHER_OPEN` : +1 tick après le guard |
 | `execution-reconciler.ts` | Réconciliation `getOrder` / `getTrades` |
 | `min-order-size.ts` | `resolveMinOrderShares` : mos CLOB → book → fallback |
 | `position-lock-registry.ts` | Mutex par `copiedPositionId` — Executor, ResultsConsumer, UserChannelHandler |
@@ -88,8 +88,8 @@ Pipeline auxiliaire déclenché sur chaque mise à jour de carnet :
 |---|---|
 | `clob/execution-completion.ts` | Finalisation d'exécution CLOB |
 | `clob/notify-execution.ts` | Notification backend avec circuit breaker |
-| `clob/prepare-fak-order.ts` | Pré-ordre FAK partagé sim/réel (slippage, tick, MOS sortie) |
-| `execution/slippage-guard.ts` | Protection slippage avant envoi ordre. `computeSlippagePercent(fill, ref, side)` est **signé** (BUY : > 0 si trop cher ; SELL : > 0 si trop bas) ; le guard ne bloque que le slippage **défavorable** — un fill plus avantageux que le VWAP de référence passe toujours. Sans `side`, fallback sur la distance absolue (métriques legacy) |
+| `clob/prepare-fak-order.ts` | Pré-ordre FAK partagé sim/réel : book (frais 15 s pour `COPY_OPEN` / `ALGO_OPEN` / `WEATHER_OPEN` BUY), slippage **tick-aware**, arrondi BUY `ceilToTick` / SELL `floorToTick`, **+1 tick** BUY `WEATHER_OPEN` après le guard, MOS sortie, `lastTradePrice` SELL |
+| `execution/slippage-guard.ts` | Protection slippage avant envoi ordre. `computeSlippagePercent(fill, ref, side)` est **signé** (BUY : > 0 si trop cher ; SELL : > 0 si trop bas) ; le guard ne bloque que le slippage **défavorable** — un fill plus avantageux que le VWAP de référence passe toujours. Sans `side`, fallback sur la distance absolue (métriques legacy). Cap effectif = `max(maxSlippagePercent, MIN_SLIPPAGE_TICKS × tick / referenceVwap × 100)` (`MIN_SLIPPAGE_TICKS = 2`) pour ne pas rejeter un mouvement d'1–2 ticks sur un token à 1–5 ¢ |
 | `execution/sl-close-retry.ts` | Retry des forced exits (SL, trailing, kill-switch) |
 | `execution/latency-calibrator.ts` | Latence sim calibrée depuis échantillons RTT réels (`clob_latency_samples`) |
 | `execution/self-impact-registry.ts` | Auto-impact liquidité : profondeur consommée par fills sim récents (TTL mémoire) |
@@ -118,7 +118,7 @@ Voir aussi [`../reference/simulation-execution.md`](../reference/simulation-exec
 
 ### Politique book stale — SL/TP
 
-- **Entry** (algo) : fail-closed ~15 s (`stale_book` / `ALGO_BOOK_FRESH_MS`).
+- **Entry** (copy / crypto / weather BUY) : fail-closed ~15 s (`stale_book` / `ALGO_BOOK_FRESH_MS`) — `WEATHER_OPEN` est dans le même set que `ALGO_OPEN`.
 - **SL/TP / exits worker** : **fail-closed** à 30 s (`BOOK_FRESHNESS_WARN_MAX_AGE_MS` dans `constants.ts`) — si `bookUpdatedAt` est plus vieux que le seuil, `evaluateCloseLogic` logue et **retourne sans émettre de close** (`position-exit-evaluator`). Pas d'enregistrement `exit-attempt` pour ce skip.
 - **`lastTradePrice` stale** : warn-only (comportement inchangé).
 

@@ -61,6 +61,9 @@ export class RealExecutor {
       'real order placement on deposit wallet (CLOB V2 POLY_1271)',
     );
 
+    // REST book immediately before prepare so the FAK limit is not a stale WS snapshot.
+    await connectionManager.forceRefreshBook?.(signal.assetId);
+
     const preparedResult = await prepareFakMarketOrder(signal, connectionManager, {
       ds: this.ds,
       getTickSize: (tokenID) => trading.clobClient.getTickSize(tokenID),

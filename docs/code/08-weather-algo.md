@@ -181,6 +181,20 @@ signal.strategyId)` ; si `blockEntries` → skip `'Kill-switch actif
 forecast ASAP (`maxPositionsPerCityDate` par ville+date+stratégie+**mode**, `strategyId` persisté sur
 `WeatherPositionForecast`).
 
+**Exécution worker (sim + réel)** : le signal porte `orderType: 'FAK'` (comme le
+copy-trading). Le `RealExecutor` n'envoie **jamais** de GTC resting — FOK si
+`signal.orderType === 'FOK'`, sinon FAK (`createAndPostMarketOrder`).
+`prepareFakMarketOrder` traite `WEATHER_OPEN` comme les autres BUY d'entrée
+(`COPY_OPEN` / `ALGO_OPEN`) : book frais ≤ `ALGO_BOOK_FRESH_MS` (15 s), limite
+BUY arrondie **au tick supérieur**, garde-fou slippage **tick-aware** (plancher
+`MIN_SLIPPAGE_TICKS = 2` ticks, pour que 1 tick à 4 ¢ ne soit pas rejeté comme
+25 % de slippage). En **real**, le pipeline bump la quantité pour que le
+notionnel atteigne `MIN_ORDER_USDC` (1 USDC) — 5 parts × 0.14 $ = 0.70 $ est
+sous le minimum CLOB live, d'où des FAK unmatched ; skip si le bump dépasse
+cash ou `maxPositionSizeUsdc`. Le `RealExecutor` fait un `forceRefreshBook`
+REST **avant** le prepare. Les BUY `WEATHER_OPEN` paient **+1 tick** après le
+guard slippage pour rendre l'ordre marketable sur un carnet YES fin.
+
 ## Sorties (`weather-exit-evaluator.ts`)
 
 Paramètres lus depuis le bag de la stratégie d'origine **pour l'environnement
@@ -231,7 +245,7 @@ pas dans ce package) : `bag.slPercent` / `bag.tpPercent` /
 | Watchlist sentinelle + seed | Adresse `'weather-algo'` |
 | Redis ×3, heartbeat, runtime-status | TTL status 300 s ; pas de `wsConnected` |
 | Registry + stratégies catalogue | `weather-forecast` + `weather-forecast-aligned` + `weather-highest-yes` |
-| Entry pipeline sizing/MOS/reserve | File `weather-order-signals`, reason `WEATHER_OPEN` |
+| Entry pipeline sizing/MOS/reserve | File `weather-order-signals`, reason `WEATHER_OPEN`, `orderType: FAK` |
 | `config-changed` reload | Ignore kinds copy/crypto ; `WeatherConfig` |
 | — | Exit evaluator **in-package** (crypto délègue SL/TP au worker) |
 | — | Forecast + city-follow + hysteresis + reentry ville+date |

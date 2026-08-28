@@ -211,6 +211,14 @@ export function WalletAccountsDialog(props: WalletAccountsDialogProps) {
                       maximumFractionDigits: 4,
                     })}{' '}
                     pUSD
+                    <Show when={account.usdcEBalance != null}>
+                      {' · '}
+                      {account.usdcEBalance!.toLocaleString('fr-FR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      })}{' '}
+                      USDC.e
+                    </Show>
                   </span>
                 </div>
                 <div class="wallet-card-actions">

@@ -16,6 +16,8 @@ export interface WeatherTimelineBucketData {
   /** Libellé complet affiché dans le tooltip (ex. `≥ 10°`). */
   fullLabel: string;
   series: WeatherTimelineSeriesPoint[];
+  /** ConditionId du marché (bucket) — permet d'exempter un bucket du filtre minPrice (ex. bucket d'une position). */
+  conditionId?: string;
 }
 
 export interface WeatherTimelineCityData<TCity> {

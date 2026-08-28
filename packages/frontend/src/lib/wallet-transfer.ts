@@ -5,7 +5,7 @@ import {
   parsePusdAmount,
 } from '@polywatch/core/polymarket/pusd-amount';
 import { hasMetaMask } from './ethereum';
-import { withdrawL2ViaMetaMask } from './metamask-relayer-withdraw';
+import { wrapL2ViaMetaMask, withdrawL2ViaMetaMask } from './metamask-relayer-withdraw';
 import { withdrawPusdViaMetaMask } from './pusd-transfer';
 import {
   usesMetamaskDepositWithdraw,
@@ -20,6 +20,13 @@ export interface WithdrawResponse {
   txHash: string;
   outputAsset: WithdrawOutputAsset;
   /** Absent when the post-withdraw balance RPC was unavailable. */
+  pUsdBalance?: number;
+  usdcEBalance?: number;
+}
+
+export interface WrapResponse {
+  txHash: string;
+  /** Absent when the post-wrap balance RPC was unavailable. */
   pUsdBalance?: number;
   usdcEBalance?: number;
 }
@@ -146,4 +153,66 @@ export function receivedTokenLabel(
 ): string {
   if (mode === 'deposit') return 'pUSD';
   return outputAsset === 'usdc_e' ? 'USDC.e' : 'pUSD';
+}
+
+export function validateWrapAmount(input: string, availableUsdce: number): bigint {
+  const parsed = validateTransferAmount(input);
+  if (!hasSufficientPusdBalance(availableUsdce, parsed)) {
+    throw new Error('Montant superieur au solde USDC.e disponible');
+  }
+  return parsed;
+}
+
+async function submitServerWrap(
+  account: WalletAccountView,
+  parsed: bigint,
+  recipient: string,
+): Promise<string> {
+  const result = await api<WrapResponse>('/wallet/usdce/wrap', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: formatPusdAmount(parsed),
+      recipient,
+      walletAccountId: account.id,
+    }),
+  });
+  return result.txHash;
+}
+
+export async function submitWalletWrap(
+  account: WalletAccountView,
+  amount: string,
+): Promise<string> {
+  const available = account.usdcEBalance ?? 0;
+  const parsed = validateWrapAmount(amount, available);
+  // Wrap always credits pUSD back to the same deposit address — never the MetaMask EOA.
+  const recipient = account.depositAddress;
+
+  // Stored signer can execute the deposit-wallet batch via the relayer.
+  // Do not force a MetaMask account switch when the key is already on the server.
+  if (account.hasSigner) {
+    return submitServerWrap(account, parsed, recipient);
+  }
+
+  if (!hasMetaMask()) {
+    if (account.isL2Deposit) {
+      throw new Error('MetaMask requis pour convertir depuis un wallet L2');
+    }
+    throw new Error('signer_missing');
+  }
+
+  if (usesMetamaskDepositWithdraw(account)) {
+    return wrapL2ViaMetaMask(account, parsed, recipient);
+  }
+
+  throw new Error(
+    'Le wrap USDC.e necessite une cle signer ou un wallet L2. Configurez un signer ou un wallet L2.',
+  );
+}
+
+export function wrapButtonLabel(account: WalletAccountView): string {
+  if (account.hasSigner) return 'Convertir en pUSD';
+  return usesMetamaskDepositWithdraw(account)
+    ? 'Signer et convertir en pUSD'
+    : 'Convertir en pUSD';
 }

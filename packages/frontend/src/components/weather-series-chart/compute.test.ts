@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { downsampleMinMax } from './compute';
+import { downsampleMinMax, filterBucketsByMinPrice } from './compute';
 import type { ChartPoint } from './types';
+import type { WeatherTimelineBucketData } from '../weather-timeline-types';
 
 function pts(values: number[]): ChartPoint[] {
   return values.map((y, i) => ({ t: i * 1000, y }));
+}
+
+function bucket(conditionId: string, prices: number[]): WeatherTimelineBucketData {
+  return {
+    label: conditionId,
+    fullLabel: conditionId,
+    series: prices.map((y, i) => ({ t: i * 1000, y })),
+    conditionId,
+  };
 }
 
 describe('downsampleMinMax', () => {
@@ -42,5 +52,30 @@ describe('downsampleMinMax', () => {
     for (let i = 1; i < out.length; i++) {
       expect(out[i]!.t).toBeGreaterThan(out[i - 1]!.t);
     }
+  });
+});
+
+describe('filterBucketsByMinPrice', () => {
+  it('returns all buckets when minPrice is 0', () => {
+    const buckets = [bucket('a', [0.1]), bucket('b', [0.05])];
+    expect(filterBucketsByMinPrice(buckets, 0)).toBe(buckets);
+  });
+
+  it('filters buckets below the threshold', () => {
+    const buckets = [bucket('a', [0.5]), bucket('b', [0.05])];
+    const out = filterBucketsByMinPrice(buckets, 0.2);
+    expect(out.map((b) => b.conditionId)).toEqual(['a']);
+  });
+
+  it('keeps the alwaysShow bucket even below the threshold', () => {
+    const buckets = [bucket('a', [0.5]), bucket('b', [0.05])];
+    const out = filterBucketsByMinPrice(buckets, 0.2, 'b');
+    expect(out.map((b) => b.conditionId)).toEqual(['a', 'b']);
+  });
+
+  it('ignores alwaysShowConditionId when it matches no bucket', () => {
+    const buckets = [bucket('a', [0.5]), bucket('b', [0.05])];
+    const out = filterBucketsByMinPrice(buckets, 0.2, 'zzz');
+    expect(out.map((b) => b.conditionId)).toEqual(['a']);
   });
 });

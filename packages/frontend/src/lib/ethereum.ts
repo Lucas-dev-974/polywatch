@@ -46,6 +46,39 @@ export async function connectMetaMaskAccount(): Promise<string> {
   return accounts[0].toLowerCase();
 }
 
+/**
+ * Ensures the selected MetaMask account is `expectedAddress`.
+ * On mismatch, opens the MetaMask account picker once, then retries.
+ */
+export async function connectMatchingMetaMaskAccount(
+  expectedAddress: string,
+): Promise<string> {
+  if (!window.ethereum) throw new Error('MetaMask non detecte');
+  await ensurePolygonNetwork();
+
+  const expected = expectedAddress.toLowerCase();
+  let selected = await connectMetaMaskAccount();
+  if (selected === expected) return selected;
+
+  try {
+    await window.ethereum.request({
+      method: 'wallet_requestPermissions',
+      params: [{ eth_accounts: {} }],
+    });
+  } catch (err) {
+    const code = (err as { code?: number | string }).code;
+    if (code === 4001 || code === 'ACTION_REJECTED') {
+      throw new Error('metamask_sign_rejected');
+    }
+    throw err;
+  }
+
+  selected = await connectMetaMaskAccount();
+  if (selected === expected) return selected;
+
+  throw new Error(`metamask_account_mismatch:${expected}:${selected}`);
+}
+
 export async function ensurePolygonNetwork(): Promise<void> {
   await ensureEthereumChain(POLYGON_CHAIN_ID);
 }

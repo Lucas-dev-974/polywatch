@@ -23,9 +23,11 @@ export function averagePriceOf(b: WeatherTimelineBucketData): number | null {
 export function filterBucketsByMinPrice(
   buckets: WeatherTimelineBucketData[],
   minPrice: number,
+  alwaysShowConditionId?: string,
 ): WeatherTimelineBucketData[] {
   if (minPrice <= 0) return buckets;
   return buckets.filter((b) => {
+    if (alwaysShowConditionId && b.conditionId === alwaysShowConditionId) return true;
     const avg = averagePriceOf(b);
     return avg != null && avg >= minPrice;
   });

@@ -51,6 +51,7 @@ const source: WeatherTimelineSource<BucketTimelineCity> = {
       label: formatBucketTargetLabel(b),
       fullLabel: formatTimelineBucketLabel(b),
       series: toChartPoints(b.series),
+      conditionId: b.conditionId,
     })),
   }),
 

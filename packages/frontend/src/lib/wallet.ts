@@ -9,6 +9,7 @@ export interface WalletAccountView {
   signatureType: number;
   isPrimary: boolean;
   pUsdBalance: number;
+  usdcEBalance: number | null;
   hasSigner: boolean;
   hasBuilderCreds: boolean;
   effectiveWithdrawMode: EffectiveWithdrawMode;
@@ -35,6 +36,7 @@ export interface WalletData {
   signatureType: number | null;
   hasBuilderCreds: boolean;
   pUsdBalance: number;
+  usdcEBalance: number | null;
   openPositionsCount: number;
   positionsValueUsdc: number;
 }

@@ -18,10 +18,12 @@ import { getBuilderCreds, resolveRelayerUrl } from './clob-creds.js';
 import {
   buildUnwrapDepositWalletCalls,
   buildUnwrapTransactions,
+  buildWrapDepositWalletCalls,
+  buildWrapTransactions,
   transactionsToDepositWalletCalls,
 } from './collateral-ramp.js';
 import { createPolygonProvider, POLYGON_CHAIN_ID, parsePusdAmountRaw } from './polygon.js';
-import { assertRelayerWithdrawReady } from './wallet-validation.js';
+import { assertRelayerWrapReady, assertRelayerWithdrawReady } from './wallet-validation.js';
 import { buildDepositWalletDeadline } from './deposit-wallet-signing.js';
 import { normalizeRelayerError } from './relayer-errors.js';
 import {
@@ -42,6 +44,7 @@ export const SIGNATURE_TYPE_DEPOSIT_WALLET = 3;
 
 export type RelayerWithdrawMode = 'proxy' | 'safe' | 'deposit';
 export type RelayerWithdrawAsset = 'pusd' | 'usdc_e';
+export type RelayerWrapAsset = 'usdce_wrap';
 
 export class BuilderNotConfiguredError extends Error {
   constructor() {
@@ -63,7 +66,7 @@ function idempotencyKey(
   depositAddress: string,
   recipientAddress: string,
   amountRaw: bigint,
-  asset: RelayerWithdrawAsset,
+  asset: RelayerWithdrawAsset | RelayerWrapAsset,
 ): string {
   return `withdraw:pending:${depositAddress.toLowerCase()}:${recipientAddress.toLowerCase()}:${amountRaw.toString()}:${asset}`;
 }
@@ -333,6 +336,67 @@ export async function withdrawViaRelayer(
       log.error(
         { err, txHash, idemKey },
         'withdraw succeeded on-chain but post-mark failed',
+      );
+      return txHash;
+    }
+    await clearReservation(idemKey).catch(() => {});
+    throw normalizeRelayerError(err);
+  }
+}
+
+export async function wrapViaRelayer(
+  creds: ClobCredentials,
+  depositAddress: string,
+  recipientAddress: string,
+  amount: number,
+  mode: RelayerWithdrawMode,
+): Promise<string> {
+  if (!creds.signerPkEnc) throw new Error('signer_missing');
+
+  const amountRaw = parsePusdAmountRaw(amount);
+  const idemKey = idempotencyKey(depositAddress, recipientAddress, amountRaw, 'usdce_wrap');
+  const reservation = await reserveOrGet(idemKey);
+  if (reservation.kind === 'existing') return reservation.hash;
+  if (reservation.kind === 'inflight') {
+    throw new Error('withdraw_in_progress');
+  }
+
+  let txHash: string | undefined;
+  try {
+    await assertRelayerWrapReady(
+      creds.signerPkEnc,
+      depositAddress,
+      mode,
+      amountRaw,
+    );
+
+    const signerPrivateKey = decrypt(creds.signerPkEnc);
+    const client = createRelayClient(creds, signerPrivateKey, mode);
+
+    if (mode === 'deposit') {
+      const response = await client.executeDepositWalletBatch(
+        buildWrapDepositWalletCalls(recipientAddress, amountRaw),
+        depositAddress,
+        buildDepositWalletDeadline(false),
+      );
+      txHash = await waitForTxHash(response);
+    } else {
+      const response = await client.execute(
+        buildWrapTransactions(recipientAddress, amountRaw),
+        'Polywatch USDC.e wrap to pUSD',
+      );
+      txHash = await waitForTxHash(response);
+    }
+
+    await markCompleted(idemKey, txHash);
+    return txHash;
+  } catch (err) {
+    if (txHash) {
+      // On-chain success — never clear; best-effort mark so retries return the hash.
+      await markCompleted(idemKey, txHash).catch(() => {});
+      log.error(
+        { err, txHash, idemKey },
+        'wrap succeeded on-chain but post-mark failed',
       );
       return txHash;
     }

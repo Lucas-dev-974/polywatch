@@ -36,9 +36,11 @@ export function SeriesChart(props: {
   minPrice: number;
   /** Markers de position (entrée/sortie) superposés sur le graph, alignés sur le temps et le prix. */
   markers?: SeriesChartMarker[];
+  /** ConditionId d'un bucket à toujours afficher, même si son prix moyen est sous `minPrice`. */
+  alwaysShowConditionId?: string;
 }) {
   const filteredBuckets = createMemo(() =>
-    filterBucketsByMinPrice(props.buckets, props.minPrice),
+    filterBucketsByMinPrice(props.buckets, props.minPrice, props.alwaysShowConditionId),
   );
 
   // Borne le nombre de points par segment pour éviter un path SVG géant et un

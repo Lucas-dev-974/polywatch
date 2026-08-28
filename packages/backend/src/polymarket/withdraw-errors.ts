@@ -94,6 +94,8 @@ export function mapWithdrawError(err: unknown): WithdrawErrorResponse | null {
       };
     case 'insufficient_balance':
       return { status: 400, body: { error: 'insufficient_balance' } };
+    case 'insufficient_usdce_balance':
+      return { status: 400, body: { error: 'insufficient_usdce_balance' } };
     case 'offramp_paused':
       return {
         status: 400,
@@ -109,6 +111,23 @@ export function mapWithdrawError(err: unknown): WithdrawErrorResponse | null {
           error: 'offramp_insufficient_liquidity',
           message:
             'Liquidite USDC.e insuffisante dans l offramp. Essayez un montant plus faible ou retirez en pUSD.',
+        },
+      };
+    case 'onramp_paused':
+      return {
+        status: 400,
+        body: {
+          error: 'onramp_paused',
+          message: 'Le CollateralOnramp Polymarket est temporairement en pause.',
+        },
+      };
+    case 'onramp_insufficient_liquidity':
+      return {
+        status: 400,
+        body: {
+          error: 'onramp_insufficient_liquidity',
+          message:
+            'Liquidite USDC.e insuffisante dans l onramp. Essayez un montant plus faible.',
         },
       };
     case 'eoa_deposit_mismatch':
@@ -198,6 +217,15 @@ export function mapWithdrawError(err: unknown): WithdrawErrorResponse | null {
           error: 'offramp_reverted',
           message:
             'Le unwrap pUSD -> USDC.e on-chain a echoue. L offramp est peut-etre en pause ou la liquidite est insuffisante.',
+        },
+      };
+    case 'onramp_reverted':
+      return {
+        status: 502,
+        body: {
+          error: 'onramp_reverted',
+          message:
+            'Le wrap USDC.e -> pUSD on-chain a echoue. L onramp est peut-etre en pause ou la liquidite est insuffisante.',
         },
       };
     default: {

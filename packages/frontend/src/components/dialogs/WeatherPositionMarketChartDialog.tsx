@@ -106,6 +106,7 @@ export function WeatherPositionMarketChartDialog(
       label: formatBucketTargetLabel(b),
       fullLabel: formatTimelineBucketLabel(b),
       series: toChartPoints(b.series),
+      conditionId: b.conditionId,
     }));
 
   const markers = (): SeriesChartMarker[] => {
@@ -156,6 +157,7 @@ export function WeatherPositionMarketChartDialog(
                 buckets={buckets()}
                 minPrice={minPrice()}
                 markers={markers()}
+                alwaysShowConditionId={pos().conditionId}
                 renderHeader={() => (
                   <Show when={data.forecastMean != null}>
                     <span class="weather-bucket-forecast-annot">

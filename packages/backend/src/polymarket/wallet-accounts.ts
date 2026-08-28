@@ -8,7 +8,7 @@ import { encrypt } from '../crypto/encryption.js';
 import { validatePrivateKey } from '../crypto/private-key.js';
 import { hasBuilderCredentials } from './clob-creds.js';
 import { resolveDepositForCredentials } from './deposit-wallet.js';
-import { tryFetchPusdBalance } from './pusd-balance.js';
+import { tryFetchPusdBalance, tryFetchUsdcEBalance } from './pusd-balance.js';
 import {
   resolveAccountWithdrawMode,
   type EffectiveWithdrawMode,
@@ -23,6 +23,7 @@ export interface WalletAccountView {
   signatureType: number;
   isPrimary: boolean;
   pUsdBalance: number;
+  usdcEBalance: number | null;
   hasSigner: boolean;
   hasBuilderCreds: boolean;
   effectiveWithdrawMode: EffectiveWithdrawMode;
@@ -39,6 +40,7 @@ export interface WalletOverviewResponse {
   signatureType: number | null;
   hasBuilderCreds: boolean;
   pUsdBalance: number;
+  usdcEBalance: number | null;
 }
 
 export interface UpsertWalletAccountInput {
@@ -193,8 +195,10 @@ export async function buildWalletAccountView(
   const withdrawCtx = resolveAccountWithdrawMode(account);
   // Display-only context: degrade to 0 (logged) instead of failing the
   // whole accounts list when the Polygon RPC hiccups.
-  const pUsdBalance =
-    (await tryFetchPusdBalance(withdrawCtx.depositAddress)) ?? 0;
+  const [pUsdBalance, usdcEBalance] = await Promise.all([
+    tryFetchPusdBalance(withdrawCtx.depositAddress),
+    tryFetchUsdcEBalance(withdrawCtx.depositAddress),
+  ]);
 
   return {
     id: account.id,
@@ -205,7 +209,8 @@ export async function buildWalletAccountView(
     signatureType: withdrawCtx.signatureType,
     effectiveWithdrawMode: withdrawCtx.effectiveWithdrawMode,
     isPrimary: account.isPrimary,
-    pUsdBalance,
+    pUsdBalance: pUsdBalance ?? 0,
+    usdcEBalance,
     hasSigner: !!account.signerPkEnc,
     hasBuilderCreds: hasBuilderCredentials(creds),
   };
@@ -235,6 +240,7 @@ export async function buildWalletOverview(
     signatureType: primary?.signatureType ?? null,
     hasBuilderCreds: hasBuilderCredentials(creds),
     pUsdBalance: primary?.pUsdBalance ?? 0,
+    usdcEBalance: primary?.usdcEBalance ?? null,
   };
 }
 

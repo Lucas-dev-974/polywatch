@@ -7,7 +7,7 @@ import {
   requireAccountSignerAddress,
   resolveAccountWithdrawMode,
 } from './wallet-account-context.js';
-import { assertPusdBalanceOnDeposit } from './wallet-validation.js';
+import { assertPusdBalanceOnDeposit, assertSignerControlsDeposit, assertUsdceBalanceOnDeposit } from './wallet-validation.js';
 import { parsePusdAmountRaw, POLYGON_CHAIN_ID } from './polygon.js';
 import type { WithdrawOutputAsset } from './pusd-transfer.js';
 import {
@@ -18,6 +18,7 @@ import {
   verifyDepositWalletSignature,
   type DepositWalletTypedDataV4,
 } from './deposit-wallet-signing.js';
+import { buildWrapDepositWalletCalls } from './collateral-ramp.js';
 import {
   buildRelayerDepositWalletCalls,
   fetchRelayerNonce,
@@ -35,12 +36,15 @@ export interface WithdrawPrepareResponse {
   typedData: DepositWalletTypedDataV4;
 }
 
+type MetamaskRampDirection = 'unwrap' | 'wrap';
+
 interface PreparedMetamaskWithdraw {
   creds: ClobCredentials;
   depositAddress: string;
   recipient: string;
   amount: number;
   outputAsset: WithdrawOutputAsset;
+  direction: MetamaskRampDirection;
   signerAddress: string;
   nonce: string;
   deadline: string;
@@ -68,18 +72,66 @@ export async function prepareMetamaskWithdraw(
   amount: number,
   outputAsset: WithdrawOutputAsset,
 ): Promise<WithdrawPrepareResponse> {
+  return prepareMetamaskRamp(
+    creds,
+    account,
+    recipientAddress,
+    amount,
+    outputAsset,
+    'unwrap',
+  );
+}
+
+export async function prepareMetamaskWrap(
+  creds: ClobCredentials,
+  account: WalletAccount,
+  recipientAddress: string,
+  amount: number,
+  signerOverride?: string,
+): Promise<WithdrawPrepareResponse> {
+  return prepareMetamaskRamp(
+    creds,
+    account,
+    recipientAddress,
+    amount,
+    'usdc_e',
+    'wrap',
+    signerOverride,
+  );
+}
+
+async function prepareMetamaskRamp(
+  creds: ClobCredentials,
+  account: WalletAccount,
+  recipientAddress: string,
+  amount: number,
+  outputAsset: WithdrawOutputAsset,
+  direction: MetamaskRampDirection,
+  signerOverride?: string,
+): Promise<WithdrawPrepareResponse> {
   cleanupPrepared();
 
   const { depositAddress, effectiveWithdrawMode } = resolveAccountWithdrawMode(account);
-  const signerAddress = requireAccountSignerAddress(account);
+  const signerAddress = signerOverride?.trim()
+    ? getAddress(signerOverride)
+    : requireAccountSignerAddress(account);
   if (effectiveWithdrawMode !== 'deposit') {
     throw new Error('metamask_withdraw_unsupported_mode');
   }
+  if (signerOverride?.trim()) {
+    await assertSignerControlsDeposit(depositAddress, signerAddress);
+  }
   const amountRaw = parsePusdAmountRaw(amount);
-  await assertPusdBalanceOnDeposit(depositAddress, amountRaw);
+  if (direction === 'wrap') {
+    await assertUsdceBalanceOnDeposit(depositAddress, amountRaw);
+  } else {
+    await assertPusdBalanceOnDeposit(depositAddress, amountRaw);
+  }
 
   const calls = checksumDepositWalletCalls(
-    buildRelayerDepositWalletCalls(outputAsset, recipientAddress, amountRaw),
+    direction === 'wrap'
+      ? buildWrapDepositWalletCalls(recipientAddress, amountRaw)
+      : buildRelayerDepositWalletCalls(outputAsset, recipientAddress, amountRaw),
   );
   const deadline = buildDepositWalletDeadline(true);
   const nonce = await fetchRelayerNonce(creds, getAddress(signerAddress), TransactionType.WALLET);
@@ -94,6 +146,7 @@ export async function prepareMetamaskWithdraw(
     recipient: recipientAddress,
     amount,
     outputAsset,
+    direction,
     signerAddress: getAddress(signerAddress),
     nonce,
     deadline,

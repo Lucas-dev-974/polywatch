@@ -1,6 +1,6 @@
 import { BrowserProvider } from 'ethers';
 import { api } from '../api';
-import { ensurePolygonNetwork } from './ethereum';
+import { connectMatchingMetaMaskAccount, connectMetaMaskAccount, ensurePolygonNetwork } from './ethereum';
 import {
   depositWalletBatchMessage,
   type DepositWalletTypedDataV4,
@@ -24,15 +24,10 @@ async function signDepositWalletTypedData(
   typedData: DepositWalletTypedDataV4,
 ): Promise<string> {
   if (!window.ethereum) throw new Error('MetaMask non detecte');
-  await ensurePolygonNetwork();
+  await connectMatchingMetaMaskAccount(signerAddress);
 
   const provider = new BrowserProvider(window.ethereum);
-  await provider.send('eth_requestAccounts', []);
-  const signer = await provider.getSigner();
-  const address = await signer.getAddress();
-  if (address.toLowerCase() !== signerAddress.toLowerCase()) {
-    throw new Error('metamask_account_mismatch');
-  }
+  const signer = await provider.getSigner(signerAddress);
 
   try {
     return await signer.signTypedData(
@@ -71,6 +66,41 @@ export async function withdrawL2ViaMetaMask(
   );
 
   const submitted = await api<WithdrawSubmitResponse>('/wallet/pusd/withdraw/submit', {
+    method: 'POST',
+    body: JSON.stringify({
+      prepareId: prepare.prepareId,
+      signature,
+      signerAddress: prepare.signerAddress,
+    }),
+  });
+
+  return submitted.txHash;
+}
+
+export async function wrapL2ViaMetaMask(
+  account: WalletAccountView,
+  amountRaw: bigint,
+  recipient: string,
+): Promise<string> {
+  await ensurePolygonNetwork();
+  const connected = await connectMetaMaskAccount();
+
+  const prepare = await api<WithdrawPrepareResponse>('/wallet/usdce/wrap/prepare', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: formatPusdAmount(amountRaw),
+      recipient,
+      walletAccountId: account.id,
+      signerAddress: connected,
+    }),
+  });
+
+  const signature = await signDepositWalletTypedData(
+    prepare.signerAddress,
+    prepare.typedData,
+  );
+
+  const submitted = await api<WithdrawSubmitResponse>('/wallet/usdce/wrap/submit', {
     method: 'POST',
     body: JSON.stringify({
       prepareId: prepare.prepareId,

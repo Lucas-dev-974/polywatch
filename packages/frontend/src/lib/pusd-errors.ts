@@ -1,4 +1,5 @@
 import type { DepositTab, WithdrawOutputAsset } from './wallet';
+import { truncateAddress } from './address';
 
 const SESSION_EXPIRED_MESSAGE =
   'Session expiree. Reconnectez-vous puis relancez le retrait.';
@@ -11,13 +12,21 @@ const PUSD_TRANSFER_ERRORS: Record<string, string> = {
   invalid_signer_private_key:
     'Cle privee signer invalide pour ce wallet. Reexportez-la depuis MetaMask et mettez a jour le wallet.',
   insufficient_balance: 'Solde pUSD insuffisant sur le wallet de depot.',
+  insufficient_usdce_balance: 'Solde USDC.e insuffisant sur le wallet de depot.',
   offramp_paused: 'Le unwrap Polymarket est temporairement en pause.',
   offramp_insufficient_liquidity:
     'Liquidite USDC.e insuffisante. Essayez un montant plus faible ou retirez en pUSD brut.',
+  onramp_paused: 'Le wrap Polymarket est temporairement en pause.',
+  onramp_insufficient_liquidity:
+    'Liquidite USDC.e insuffisante dans l onramp. Essayez un montant plus faible.',
+  onramp_reverted:
+    'Le wrap USDC.e -> pUSD on-chain a echoue. L onramp est peut-etre en pause ou la liquidite est insuffisante.',
+  approve_reverted:
+    'L approbation ERC20 on-chain a echoue (revert). Verifiez le solde POL pour le gas.',
   eoa_deposit_mismatch:
     'Le wallet de depot ne correspond pas au signer. Utilisez un wallet L2 avec credentials Builder.',
   deposit_signer_mismatch:
-    'La cle signer ne controle pas ce depot Polymarket. Verifiez le signer associe a ce wallet.',
+    'Ce compte ne controle pas le depot Polymarket. Verifiez le funder ou la cle signer associe a ce wallet.',
   deposit_relayer_wallet_mismatch:
     'Le depot Polymarket ne correspond pas au type de signature configure. Utilisez le type 3 (Proxy / Deposit Wallet) et verifiez l adresse depot et l EOA MetaMask.',
   relayer_tx_failed:
@@ -32,10 +41,13 @@ const PUSD_TRANSFER_ERRORS: Record<string, string> = {
   relayer_config_error: 'Configuration relayer invalide pour Polygon.',
   relayer_network_error: 'Impossible de joindre le relayer Polymarket.',
   withdraw_failed: 'Echec du retrait. Verifiez la configuration du wallet.',
+  wrap_failed: 'Echec de la conversion USDC.e → pUSD. Verifiez la configuration du wallet.',
+  wrap_prepare_failed: 'Impossible de preparer la conversion. Reessayez.',
+  wrap_submit_failed: 'Echec de la soumission de la conversion. Reessayez.',
   metamask_funder_required:
     'Configurez l EOA MetaMask (funder) dans Gerer les wallets avant de retirer.',
   metamask_account_mismatch:
-    'Connectez le compte MetaMask qui controle ce wallet Polymarket.',
+    'Connectez le compte MetaMask (funder) qui controle ce wallet Polymarket. Ce n est pas l adresse de depot.',
   metamask_sign_rejected: 'Signature MetaMask annulee.',
   withdraw_prepare_expired: 'Demande expiree. Relancez le retrait.',
   metamask_withdraw_unsupported_mode:
@@ -71,7 +83,20 @@ export function mapPusdTransferError(message: string): string {
   if (message === 'bridge_address_missing') {
     return 'Adresse bridge introuvable. Reessayez dans quelques instants.';
   }
-  return PUSD_TRANSFER_ERRORS[message] ?? message;
+  if (message.startsWith('metamask_account_mismatch:')) {
+    const rest = message.slice('metamask_account_mismatch:'.length);
+    const [expected, actual] = rest.split(':');
+    if (expected?.startsWith('0x')) {
+      const actualLabel =
+        actual?.startsWith('0x') ? truncateAddress(actual) : 'un autre compte';
+      return `Compte MetaMask incorrect. Selectionnez le funder ${truncateAddress(expected)} (actuel : ${actualLabel}).`;
+    }
+  }
+  const exact = PUSD_TRANSFER_ERRORS[message];
+  if (exact) return exact;
+  const code = message.split(':')[0];
+  if (code && PUSD_TRANSFER_ERRORS[code]) return PUSD_TRANSFER_ERRORS[code];
+  return message;
 }
 
 export function pusdTransferHint(

@@ -12,6 +12,7 @@ import {
 import { ClobCredentialsDialog } from '../dialogs/ClobCredentialsDialog';
 import { PusdTransferDialog, type PusdTransferMode } from '../dialogs/PusdTransferDialog';
 import { WalletAccountsDialog } from '../dialogs/WalletAccountsDialog';
+import { WrapUsdceDialog } from '../dialogs/WrapUsdceDialog';
 import { WalletHistorySection } from '../wallet/WalletHistorySection';
 
 export function WalletPage() {
@@ -22,6 +23,8 @@ export function WalletPage() {
   const [transferMode, setTransferMode] = createSignal<PusdTransferMode>('deposit');
   const [transferAccount, setTransferAccount] = createSignal<WalletAccountView | null>(null);
   const [accountsDialogOpen, setAccountsDialogOpen] = createSignal(false);
+  const [wrapOpen, setWrapOpen] = createSignal(false);
+  const [wrapAccount, setWrapAccount] = createSignal<WalletAccountView | null>(null);
 
   async function loadWallet() {
     try {
@@ -55,6 +58,11 @@ export function WalletPage() {
     setTransferAccount(target);
     setTransferMode(mode);
     setTransferOpen(true);
+  }
+
+  function openWrap(account: WalletAccountView) {
+    setWrapAccount(account);
+    setWrapOpen(true);
   }
 
   // wallet() is null while loading or after a failed fetch — never assume it.
@@ -181,6 +189,26 @@ export function WalletPage() {
                   <span class="wallet-balance-currency">pUSD</span>
                 </div>
 
+                <Show when={account.usdcEBalance != null}>
+                  <div class="wallet-address-meta" style="margin-top: 0.25rem;">
+                    Depot USDC.e :{' '}
+                    {account.usdcEBalance!.toLocaleString('fr-FR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 6,
+                    })}{' '}
+                    USDC.e
+                    <Show when={account.usdcEBalance! > 0}>
+                      <button
+                        class="btn btn-secondary btn-sm"
+                        style="margin-left: 0.5rem;"
+                        onClick={() => openWrap(account)}
+                      >
+                        Convertir en pUSD
+                      </button>
+                    </Show>
+                  </div>
+                </Show>
+
                 <div class="wallet-card-actions">
                   <Show when={account.isPrimary}>
                     <button
@@ -209,6 +237,15 @@ export function WalletPage() {
             wallet={wallet()!}
             account={transferAccount()!}
             onClose={() => setTransferOpen(false)}
+            onSuccess={() => void loadWallet()}
+          />
+        </Show>
+
+        <Show when={wrapAccount() && wallet()}>
+          <WrapUsdceDialog
+            open={wrapOpen()}
+            account={wrapAccount()!}
+            onClose={() => setWrapOpen(false)}
             onSuccess={() => void loadWallet()}
           />
         </Show>

@@ -1,4 +1,4 @@
-import { createSignal, Show, type JSX } from 'solid-js';
+import { createMemo, createSignal, Show, type JSX } from 'solid-js';
 import { useChartWidth } from '../../hooks/useChartWidth';
 import { WeatherSeriesLegend } from '../weather/WeatherSeriesLegend';
 import type {
@@ -7,6 +7,7 @@ import type {
 import { splitSegments } from '../weather-series-chart/segments';
 import {
   boundsOf,
+  downsampleMinMax,
   filterBucketsByMinPrice,
   lastPriceOf,
 } from '../weather-series-chart/compute';
@@ -36,10 +37,24 @@ export function SeriesChart(props: {
   /** Markers de position (entrée/sortie) superposés sur le graph, alignés sur le temps et le prix. */
   markers?: SeriesChartMarker[];
 }) {
-  const filteredBuckets = () => filterBucketsByMinPrice(props.buckets, props.minPrice);
+  const filteredBuckets = createMemo(() =>
+    filterBucketsByMinPrice(props.buckets, props.minPrice),
+  );
 
-  const segments = (): SegmentedBucket[] =>
-    filteredBuckets().map((b) => ({ bucket: b, segments: splitSegments(b.series) }));
+  // Borne le nombre de points par segment pour éviter un path SVG géant et un
+  // crosshair O(n) quand une fenêtre non bornée (dialog Positions) renvoie des
+  // milliers de points par bucket. Le downsampling min-max préserve la forme.
+  // Mémoïsé : splitSegments (O(n log n)) + downsampleMinMax par bucket sont
+  // coûteux et lus plusieurs fois par rendu (header, légende, grid, lines…).
+  const MAX_POINTS_PER_SEGMENT = 2000;
+  const segments = createMemo<SegmentedBucket[]>(() =>
+    filteredBuckets().map((b) => ({
+      bucket: b,
+      segments: splitSegments(b.series).map((seg) =>
+        downsampleMinMax(seg, MAX_POINTS_PER_SEGMENT),
+      ),
+    })),
+  );
 
   const [wrapEl, setWrapEl] = createSignal<HTMLDivElement>();
   const width = useChartWidth(wrapEl);
@@ -57,29 +72,35 @@ export function SeriesChart(props: {
     setHiddenSeries(next);
   };
 
-  const visibleSegments = () => segments().filter((_, i) => !hiddenSeries().has(i));
-  const visibleFlat = (): ChartPoint[] => visibleSegments().flatMap((s) => s.segments).flat();
-  const totalPoints = () => visibleFlat().length;
-  const visibleCount = () => visibleSegments().length;
+  const visibleSegments = createMemo(() =>
+    segments().filter((_, i) => !hiddenSeries().has(i)),
+  );
+  const visibleFlat = createMemo<ChartPoint[]>(() =>
+    visibleSegments().flatMap((s) => s.segments).flat(),
+  );
+  const totalPoints = createMemo(() => visibleFlat().length);
+  const visibleCount = createMemo(() => visibleSegments().length);
 
-  // Bornes temporelles réactives : si on déstructure ici (non réactif), les
-  // données asynchrones (dialog Positions) résolvent APRÈS le mount et la
-  // borne reste figée à {0,1} → lignes/labels/markers écrasés à gauche. On
-  // recalcule donc les bornes dans un accessor lu à chaque rendu.
-  const bounds = () => boundsOf(visibleFlat());
-  const scale = () => buildChartScale(width(), bounds().minT, bounds().maxT);
+  // Bornes temporelles mémoïsées : restent réactives aux données asynchrones
+  // (le memo se recalcule quand visibleFlat change), mais ne sont pas
+  // recalculées à chaque lecture — sans mémoïsation, bounds() était lu ~10×
+  // par rendu.
+  const bounds = createMemo(() => boundsOf(visibleFlat()));
+  const scale = createMemo(() =>
+    buildChartScale(width(), bounds().minT, bounds().maxT),
+  );
 
-  const visibleMarkers = () => {
+  const visibleMarkers = createMemo(() => {
     const { minT, maxT } = bounds();
     return (props.markers ?? []).filter(
       (m) => m.t >= minT && m.t <= maxT && m.y >= 0 && m.y <= 1,
     );
-  };
+  });
 
-  const xTicks = () => {
+  const xTicks = createMemo(() => {
     const { minT, maxT } = bounds();
     return buildXTicks(minT, maxT, scale().plotW);
-  };
+  });
 
   const onMouseMove = (e: MouseEvent) => {
     const svg = e.currentTarget as SVGSVGElement;
@@ -92,23 +113,32 @@ export function SeriesChart(props: {
     }
     const s = scale();
     const t = s.minT + ((svgX - CHART_MARGIN.left) / s.plotW) * s.spanT;
-    let best: ChartPoint | null = null;
-    let bestDist = Infinity;
-    for (const p of flat) {
-      const d = Math.abs(p.t - t);
-      if (d < bestDist) {
-        bestDist = d;
-        best = p;
-      }
+    // Les points sont triés par t (segments ASC) : recherche dichotomique O(log n)
+    // au lieu d'un scan linéaire O(n) à chaque mousemove — source de freeze quand
+    // une fenêtre non bornée (dialog Positions) renvoie des milliers de points.
+    let lo = 0;
+    let hi = flat.length - 1;
+    if (t <= flat[0]!.t) {
+      setHovered({ t: flat[0]!.t, svgX: s.xPos(flat[0]!.t) });
+      return;
     }
-    if (best) {
-      setHovered({ t: best.t, svgX: s.xPos(best.t) });
+    if (t >= flat[hi]!.t) {
+      setHovered({ t: flat[hi]!.t, svgX: s.xPos(flat[hi]!.t) });
+      return;
     }
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (flat[mid]!.t < t) lo = mid;
+      else hi = mid;
+    }
+    const best =
+      Math.abs(flat[lo]!.t - t) <= Math.abs(flat[hi]!.t - t) ? flat[lo]! : flat[hi]!;
+    setHovered({ t: best.t, svgX: s.xPos(best.t) });
   };
 
   const onMouseLeave = () => setHovered(null);
 
-  const hoveredBuckets = (): TooltipRow[] => {
+  const hoveredBuckets = createMemo<TooltipRow[]>(() => {
     const h = hovered();
     if (!h) return [];
     const threshold = scale().spanT * 0.02;
@@ -129,7 +159,7 @@ export function SeriesChart(props: {
       }
     });
     return out;
-  };
+  });
 
   return (
     <div class="weather-bucket-chart" ref={setWrapEl}>

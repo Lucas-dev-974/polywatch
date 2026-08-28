@@ -51,3 +51,41 @@ export function boundsOf(points: ChartPoint[]): { minT: number; maxT: number } {
   }
   return { minT, maxT };
 }
+
+/**
+ * Downsampling min-max : réduit une série de points (triés par t) à au plus
+ * `maxPoints` points en conservant, par groupe, le min et le max de y.
+ * Préserve l'ordre temporel et garde toujours le premier et le dernier point.
+ *
+ * Utilisé pour borner le coût de rendu SVG et du crosshair quand une fenêtre
+ * temporelle non bornée (dialog Positions) renvoie des milliers de points par
+ * bucket. Sans ce garde-fou, le path SVG devient énorme et le crosshair
+ * parcourt tous les points à chaque mousemove → freeze de l'UI.
+ */
+export function downsampleMinMax(points: ChartPoint[], maxPoints: number): ChartPoint[] {
+  if (points.length <= maxPoints || maxPoints < 2) return points;
+  const bucketSize = points.length / maxPoints;
+  const out: ChartPoint[] = [points[0]!];
+  let i = 1;
+  while (i < points.length - 1) {
+    const end = Math.min(points.length - 1, Math.floor(i + bucketSize));
+    let minIdx = i;
+    let maxIdx = i;
+    for (let j = i + 1; j <= end; j++) {
+      if (points[j]!.y < points[minIdx]!.y) minIdx = j;
+      if (points[j]!.y > points[maxIdx]!.y) maxIdx = j;
+    }
+    if (minIdx === maxIdx) {
+      out.push(points[minIdx]!);
+    } else if (minIdx < maxIdx) {
+      out.push(points[minIdx]!, points[maxIdx]!);
+    } else {
+      out.push(points[maxIdx]!, points[minIdx]!);
+    }
+    i = end + 1;
+  }
+  if (out[out.length - 1] !== points[points.length - 1]) {
+    out.push(points[points.length - 1]!);
+  }
+  return out;
+}

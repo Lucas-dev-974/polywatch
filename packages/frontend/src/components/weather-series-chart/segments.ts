@@ -17,11 +17,19 @@ export function splitSegments(series: WeatherTimelineSeriesPoint[]): ChartPoint[
 
   // Seuil de coupure : 3× l'écart médian entre points consécutifs valides.
   // Si la série est trop courte pour calculer un écart, on ne coupe pas.
+  // Pour limiter le coût (O(n log n) du sort) sur les très longues séries
+  // (fenêtre non bornée du dialog Positions : dizaines de milliers de
+  // points), on estime la médiane sur un échantillon régulier — suffisant
+  // pour détecter les trous implicites sans geler le rendu initial.
   const gaps: number[] = [];
+  const stride = series.length > 4096 ? Math.ceil(series.length / 4096) : 1;
+  let sampled = 0;
   for (let i = 1; i < series.length; i++) {
     const a = series[i - 1]!;
     const b = series[i]!;
-    if (a.y != null && b.y != null) gaps.push(b.t - a.t);
+    if (a.y != null && b.y != null) {
+      if (sampled++ % stride === 0) gaps.push(b.t - a.t);
+    }
   }
   gaps.sort((a, b) => a - b);
   const medianGap = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)]! : 0;

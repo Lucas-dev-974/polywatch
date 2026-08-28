@@ -168,6 +168,7 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12 },
       risk: risk(),
+      strategyEnv: 'sim',
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
     expect(mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast')).toBe(true);
@@ -191,6 +192,7 @@ describe('WeatherExitManager re-entry throttle (B3)', () => {
         entryBucketComparison: 'or_above',
         entryBucketBounds: { target: 12 },
         risk: risk(),
+        strategyEnv: 'sim',
       },
     );
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
@@ -245,6 +247,7 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12 },
       risk: risk(),
+      strategyEnv: 'sim',
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
     expect(mgr.isReentryBlocked('', null, now, null)).toBe(false);
@@ -262,6 +265,7 @@ describe('WeatherExitManager null-city throttle (T7)', () => {
       entryBucketComparison: 'or_above',
       entryBucketBounds: { target: 12 },
       risk: risk(),
+      strategyEnv: 'sim',
     });
     expect(decision?.reason).toBe('WEATHER_FORECAST_CHANGE');
     expect(mgr.isReentryBlocked('london', '2026-01-01', now, 'weather-forecast')).toBe(true);
@@ -286,6 +290,7 @@ describe('WeatherExitManager hysteresis poll window (F1)', () => {
       entryBucketComparison: 'or_above' as const,
       entryBucketBounds: { target: 12 },
       risk: cfg,
+      strategyEnv: 'sim' as const,
     };
 
     // First advance at t0 — consecutive=1, no exit yet

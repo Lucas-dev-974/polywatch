@@ -737,6 +737,7 @@ export class WeatherAlgoDataService {
     to?: Date;
     strategyId?: string;
     decision?: string;
+    mode?: 'sim' | 'real';
     limit: number;
     offset: number;
   }): Promise<{ items: WeatherEvaluationLog[]; total: number }> {
@@ -756,6 +757,9 @@ export class WeatherAlgoDataService {
     }
     if (options.decision) {
       qb.andWhere('e.decision = :decision', { decision: options.decision });
+    }
+    if (options.mode) {
+      qb.andWhere('e.mode = :mode', { mode: options.mode });
     }
 
     const [items, total] = await qb.skip(options.offset).take(options.limit).getManyAndCount();

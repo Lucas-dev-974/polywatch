@@ -18,7 +18,7 @@ import {
   resolveEntryBalances,
   applyEntryMosGate,
   fetchEntryAskLiquidityWithRetries,
-  getStrategyParams,
+  getStrategyParamsForMode,
   enqueueEntrySignal,
   resolveEntryEnqueueBlocked,
   hasAlgoEntryCooldown,
@@ -118,7 +118,9 @@ export async function runWeatherEntryPipeline(
   }
 
   // --- Per-mode processing -------------------------------------------------
-  const modes: TradingMode[] = ['sim', 'real'];
+  // Each signal is scoped to exactly one environment (signal.mode). Only that
+  // mode may execute this signal — the other mode is never a candidate.
+  const modes: TradingMode[] = [signal.mode];
   let anyModeEnqueued = false;
 
   for (const mode of modes) {
@@ -217,7 +219,7 @@ async function runMode(args: {
     return 'Kill-switch actif (block_entries)';
   }
 
-  const bag = getStrategyParams(risk, signal.strategyId);
+  const bag = getStrategyParamsForMode(risk, signal.strategyId, mode);
 
   const exit: WeatherEntryExitParams = resolveWeatherEntryExitParams(
     risk,

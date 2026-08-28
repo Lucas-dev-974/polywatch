@@ -47,6 +47,7 @@ export function makeWeatherSignal(
     confidence: 0.2,
     reasons: ['weather-algo e2e test'],
     strategyId: 'weather-forecast',
+    mode: 'sim',
     eventSlug: 'paris-weather-aug2',
     city: 'Paris',
     metric: 'highest_temp',

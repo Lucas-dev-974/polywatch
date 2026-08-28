@@ -4,6 +4,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 @Index(['snapshotId'])
 @Index(['conditionId', 'evaluatedAt'])
 @Index(['strategyId', 'evaluatedAt'])
+@Index(['mode', 'evaluatedAt'])
 @Index(['evaluatedAt'])
 export class WeatherEvaluationLog {
   @PrimaryGeneratedColumn()
@@ -29,6 +30,10 @@ export class WeatherEvaluationLog {
 
   @Column({ type: 'text', name: 'strategy_id' })
   strategyId!: string;
+
+  /** Trading environment of the evaluation pass ('sim' | 'real'). */
+  @Column({ type: 'text', default: 'sim' })
+  mode!: string;
 
   @Column({ type: 'real', name: 'yes_price', nullable: true })
   yesPrice!: number | null;

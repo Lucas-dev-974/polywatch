@@ -354,7 +354,11 @@ export class PositionExitEvaluator {
     } else if (algoKind === 'crypto') {
       slConfirmationTicks = (algoConfig as CryptoConfig).cryptoAlgoSlConfirmationTicks ?? 1;
     } else {
-      slConfirmationTicks = getWeatherSlConfirmationTicks(algoConfig as WeatherConfig, pos.strategyId);
+      slConfirmationTicks = getWeatherSlConfirmationTicks(
+        algoConfig as WeatherConfig,
+        pos.mode === 'real' ? 'real' : 'sim',
+        pos.strategyId,
+      );
     }
     if (closeReason === 'SL' && slConfirmationTicks > 1) {
       const prev = this.slConfirmations.get(pos.id);

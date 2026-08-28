@@ -80,6 +80,8 @@ interface LaunchBacktestFormProps {
   setLabel: Setter<string>;
   strategyId: Accessor<string>;
   setStrategyId: Setter<string>;
+  strategyEnv: Accessor<'sim' | 'real'>;
+  setStrategyEnv: Setter<'sim' | 'real'>;
   selectionMode: Accessor<string>;
   setSelectionMode: Setter<string>;
   /** Params live par stratégie (weatherAlgoStrategyParams de la config live). */
@@ -169,6 +171,17 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
           <label class="backtest-field-row">
             <span>Au</span>
             <input type="date" value={props.to()} onInput={(e) => props.setTo(e.currentTarget.value)} />
+          </label>
+          <label class="backtest-field-row">
+            <span>Environnement</span>
+            <select
+              value={props.strategyEnv()}
+              onChange={(e) => props.setStrategyEnv(e.currentTarget.value === 'real' ? 'real' : 'sim')}
+              title="Sélectionne la liste de stratégies + params de l'environnement (sim/réel) pour ce backtest. Ne réutilise pas le champ mode (toujours 'reevaluate')."
+            >
+              <option value="sim">Simulation (sim)</option>
+              <option value="real">Réel (real)</option>
+            </select>
           </label>
           <label class="backtest-field-row">
             <span>Mode de sélection</span>

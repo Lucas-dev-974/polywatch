@@ -38,6 +38,7 @@ describe('WeatherForecastAlignedStrategy', () => {
     const result = await strategy.evaluateGroup(markets, {
       forecastMean: 24,
       forecastStdDev: 0.5,
+      mode: 'sim',
     });
 
     expect(result.kind).toBe('signal');
@@ -59,6 +60,7 @@ describe('WeatherForecastAlignedStrategy', () => {
     const result = await strategy.evaluateGroup(markets, {
       forecastMean: 30,
       forecastStdDev: 0.5,
+      mode: 'sim',
     });
 
     expect(result.kind).toBe('abstain');

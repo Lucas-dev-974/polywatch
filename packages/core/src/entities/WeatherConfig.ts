@@ -208,4 +208,25 @@ export class WeatherConfig {
   /** JSON object of per-strategy params, e.g. `{ "weather-forecast": { ... } }`. */
   @Column({ type: 'text', name: 'weather_algo_strategy_params', default: '{}' })
   weatherAlgoStrategyParams!: string;
+
+  // ── Multi-strategy per environment (sim / real) ─────────────────────
+  // Colonnes legacy (read-only après migration 0121) : conservées en base
+  // pour le fallback des anciens snapshots backtest et la rétrocompatibilité
+  // GET. Plus jamais écrites par le backend.
+
+  /** JSON array of active strategy IDs for the sim environment. */
+  @Column({ type: 'text', name: 'sim_weather_algo_strategies', default: '["weather-forecast"]' })
+  simWeatherAlgoStrategies!: string;
+
+  /** JSON array of active strategy IDs for the real environment. */
+  @Column({ type: 'text', name: 'real_weather_algo_strategies', default: '["weather-forecast"]' })
+  realWeatherAlgoStrategies!: string;
+
+  /** JSON object of per-strategy params for the sim environment. */
+  @Column({ type: 'text', name: 'sim_weather_algo_strategy_params', default: '{}' })
+  simWeatherAlgoStrategyParams!: string;
+
+  /** JSON object of per-strategy params for the real environment. */
+  @Column({ type: 'text', name: 'real_weather_algo_strategy_params', default: '{}' })
+  realWeatherAlgoStrategyParams!: string;
 }

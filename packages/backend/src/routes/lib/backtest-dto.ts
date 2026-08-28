@@ -1,5 +1,5 @@
 import {
-  getStrategyParams,
+  getStrategyParamsForMode,
   getWeatherStrategyMeta,
   parseWeatherAlgoStrategyParams,
   type BacktestRun,
@@ -31,6 +31,7 @@ interface RunDto {
   progressPct: number;
   domain: string;
   mode: string;
+  strategyEnv: 'sim' | 'real';
   label: string | null;
   params: unknown;
   dataRangeFrom: string | null;
@@ -44,6 +45,14 @@ interface RunDto {
 
 export function toRunDto(run: BacktestRun): RunDto {
   const params = safeParseJson(run.paramsJson);
+  const runParams =
+    params && typeof params === 'object' && !Array.isArray(params)
+      ? (params as Record<string, unknown>)
+      : {};
+  const strategyEnv =
+    runParams.strategyEnv === 'real' || runParams.strategyEnv === 'sim'
+      ? runParams.strategyEnv
+      : 'sim';
   return {
     id: run.id,
     createdAt: run.createdAt.toISOString(),
@@ -53,6 +62,7 @@ export function toRunDto(run: BacktestRun): RunDto {
     progressPct: run.progressPct,
     domain: run.domain,
     mode: run.mode,
+    strategyEnv,
     label: run.label,
     params,
     dataRangeFrom: run.dataRangeFrom ? run.dataRangeFrom.toISOString() : null,
@@ -82,17 +92,26 @@ export function resolveBacktestRunStrategy(
   const resolvedId = strategyId ?? 'weather-forecast';
   const meta = getWeatherStrategyMeta(resolvedId);
   const snapshot = safeParseJson(run.configSnapshotJson) as Partial<WeatherConfig> | null;
-  const hasSnapshot =
-    snapshot != null &&
-    typeof snapshot === 'object' &&
-    typeof snapshot.weatherAlgoStrategyParams === 'string';
+  // The run's strategy environment determines which params map the bag is read
+  // from (fallback legacy when the 4 per-env columns are absent from the snapshot).
+  const strategyEnv =
+    runParams.strategyEnv === 'real' || runParams.strategyEnv === 'sim'
+      ? runParams.strategyEnv
+      : 'sim';
+  const hasSnapshot = snapshot != null && typeof snapshot === 'object';
 
   const rows: BacktestRunStrategyParamDto[] = [];
   if (hasSnapshot && meta) {
     const bag: WeatherStrategyParamsBag = {
-      ...getStrategyParams(
-        snapshot as Pick<WeatherConfig, 'weatherAlgoStrategyParams'>,
+      ...getStrategyParamsForMode(
+        snapshot as Pick<
+          WeatherConfig,
+          | 'weatherAlgoStrategyParams'
+          | 'simWeatherAlgoStrategyParams'
+          | 'realWeatherAlgoStrategyParams'
+        >,
         resolvedId,
+        strategyEnv,
       ),
     };
     // Overrides du formulaire de lancement — ce sont les valeurs réellement

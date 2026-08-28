@@ -1,6 +1,7 @@
 import pino from 'pino';
 import type { DataSource } from 'typeorm';
 import { WeatherEvaluationLog } from '../entities/WeatherEvaluationLog.js';
+import type { TradingMode } from '../types/index.js';
 
 const log = pino({ name: 'core:weather-evaluation-recorder' });
 const BATCH_SIZE = 5_000;
@@ -13,6 +14,7 @@ export interface EvaluationLogInput {
   bucketLow: number | null;
   bucketHigh: number | null;
   strategyId: string;
+  mode: TradingMode;
   yesPrice: number | null;
   forecastProb: number | null;
   edge: number | null;

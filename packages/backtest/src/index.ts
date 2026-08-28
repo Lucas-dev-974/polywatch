@@ -4,6 +4,7 @@ import {
   DEFAULT_WEATHER_STRATEGY_PARAMS,
   parseWeatherAlgoStrategyParams,
   sanitizeWeatherStrategyParams,
+  serializeWeatherAlgoStrategyParams,
   validateWeatherStrategyParamsUpdate,
   type WeatherConfig,
 } from '@polywatch/core';
@@ -31,6 +32,7 @@ export interface RunBacktestInput {
 export function applyConfigOverrides(
   config: WeatherConfig,
   overrides?: Record<string, unknown>,
+  strategyEnv: 'sim' | 'real' = 'sim',
 ): WeatherConfig {
   if (!overrides || Object.keys(overrides).length === 0) {
     return config;
@@ -84,7 +86,22 @@ export function applyConfigOverrides(
     }
   }
 
-  return { ...config, ...overrides } as WeatherConfig;
+  // Le patch UI backtest s'appelle toujours `weatherAlgoStrategyParams` (JSON
+  // string). Après validation, on le copie dans la map de l'environnement
+  // sélectionné (`sim`/`real`) selon `strategyEnv` (lu depuis `params`, pas des
+  // overrides). Les 4 colonnes per-env ne sont pas exposées en override.
+  const envMapKey =
+    strategyEnv === 'real'
+      ? 'realWeatherAlgoStrategyParams'
+      : 'simWeatherAlgoStrategyParams';
+
+  const next = { ...config, ...overrides } as Record<string, unknown>;
+  if (typeof rawParams === 'string') {
+    const parsed = parseWeatherAlgoStrategyParams(rawParams);
+    const sanitized = sanitizeWeatherStrategyParams(parsed);
+    next[envMapKey] = serializeWeatherAlgoStrategyParams(sanitized);
+  }
+  return next as unknown as WeatherConfig;
 }
 
 /**
@@ -96,6 +113,7 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
   const configSnapshot = applyConfigOverrides(
     input.configSnapshot,
     params.configOverrides,
+    params.strategyEnv,
   );
 
   const entryUsdc = params.entryUsdc ?? DEFAULT_WEATHER_STRATEGY_PARAMS.entryUsdc;
@@ -117,6 +135,7 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     maxConcurrentPositions,
     entryUsdc,
     strategyId: params.strategyId,
+    strategyEnv: params.strategyEnv,
     fidelityMinutes: params.fidelityMinutes,
     service: input.service,
     getAbortReason: input.getAbortReason,

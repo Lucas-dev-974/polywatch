@@ -144,19 +144,26 @@ répartis en deux catégories :
    toggles d'activation, polling, sélection, recording/retention, capital sim.
    Modifiables via `PUT /api/config/weather` (`weatherConfigUpdateSchema`).
 
-2. **Per-strategy** (`weatherAlgoStrategyParams` JSON, onglet **Stratégies**) :
+2. **Per-strategy et per-env** (`simWeatherAlgoStrategyParams` /
+   `realWeatherAlgoStrategyParams` JSON, onglet **Stratégies** scindé sim/réel) :
    chaque stratégie activée porte sa config complète — gates d'entrée, sizing,
-   sorties, SL/TP/trailing, risk limits, kill-switch, pre-close. Bag typé
+   sorties, SL/TP/trailing, risk limits, kill-switch, pre-close — **pour chacun
+   des deux environnements**. Bag typé
    `WeatherStrategyParamsBag` (`packages/core/src/weather/strategy-catalog.ts`),
-   résolu au runtime par `getStrategyParams(cfg, strategyId)`. Catalogue des
-   params déclaratifs servi par `GET /api/weather-algo/strategy-catalog`.
+   résolu au runtime par `getStrategyParamsForMode(cfg, strategyId, mode)`.
+   Catalogue des params déclaratifs servi par `GET /api/weather-algo/strategy-catalog`.
 
 Les colonnes `weatherAlgo*` legacy (minEdge, entryUsdc, forecastChangeThreshold,
 …) ne sont plus lues au runtime — elles servent uniquement de **source au
 backfill** (migrations `AddWeatherStrategyId1700000000106` /
 `BackfillWeatherStrategyParams1700000000107` /
-`BackfillWeatherStrategyRepair1700000000108`). `weatherConfigUpdateSchema`
-rejette les champs per-strategy via `.strict()`.
+`BackfillWeatherStrategyRepair1700000000108`). Les colonnes legacy
+`weatherAlgoStrategies` / `weatherAlgoStrategyParams` sont **figées** (lecture
+seule) : `weatherConfigUpdateSchema` (`.partial().strict()`) accepte les 4
+champs per-env **et** ces 2 champs legacy (dépréciés : pas de 400, **retirés
+du patch** avant persist). Tout autre knob legacy (`weatherAlgoMinEdge`, …) →
+400. Seul le fallback de rétrocompat (snapshots backtest anciens, colonne
+per-env `undefined`/`null`/`''`) relit les 2 colonnes figées.
 
 ##### Globaux structurels (onglet Paramètres)
 
@@ -168,7 +175,11 @@ rejette les champs per-strategy via `.strict()`.
 | `weatherAlgoSelectionMode` | `single` | Mode de selection entre **villes** : `single` (meilleure ville), `multi` (top N villes). Toute valeur non reconnue retombe sur `single`. |
 | `weatherAlgoMaxSignalsPerEvent` | `3` | Max villes en mode `multi` |
 | `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min, min 10_000). Les polls sont **alignés sur une grille horaire UTC** : chaque cycle est planifié sur le prochain multiple de `weatherAlgoPollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de démarrage (ex. 15 min → :00/:15/:30/:45 UTC), stable d'un redémarrage à l'autre. Au boot, une **passe d'exit immédiate** réévalue les positions ouvertes (reprise) mais aucun cycle d'entrée n'est déclenché : le premier cycle complet se fait au prochain créneau aligné. Hot-reload : le timer est recréé à chaud et ré-aligné sur le prochain créneau ; un cycle d'évaluation **immédiat** est quand même lancé sur `config-changed` (`kind` weather/global/absent) pour appliquer la nouvelle config sans attendre. Anti-overlap + pendingRerun si un cycle est déjà en cours. Surcharge aussi via env `WEATHER_ALGO_POLL_MS` au démarrage. |
-| `weatherAlgoStrategies` | `["weather-forecast"]` | Liste des stratégies activées (IDs catalogue : `weather-forecast`, `weather-forecast-aligned`, `weather-highest-yes`). Ordre = priorité first-wins. |
+| `weatherAlgoStrategies` | `["weather-forecast"]` | **Legacy, lecture seule (figé)** — liste des stratégies activées (IDs catalogue : `weather-forecast`, `weather-forecast-aligned`, `weather-highest-yes`). Non écrit par l'API ; fallback backfill/rétrocompat. |
+| `simWeatherAlgoStrategies` | `["weather-forecast"]` | Stratégies actives **mode sim** (ordre = priorité first-wins) |
+| `realWeatherAlgoStrategies` | `["weather-forecast"]` | Stratégies actives **mode real** (ordre = priorité first-wins) |
+| `simWeatherAlgoStrategyParams` | `{}` | Map params par stratégie **mode sim** |
+| `realWeatherAlgoStrategyParams` | `{}` | Map params par stratégie **mode real** |
 | `weatherAlgoForecastHistoryRecordingEnabled` | `true` | Enregistre `weather_forecast_history` a chaque fetch Open-Meteo reel |
 | `weatherAlgoMarketSnapshotRecordingEnabled` | `true` | Enregistre snapshots + bucket ticks a chaque cycle |
 | `weatherAlgoEvaluationLogRecordingEnabled` | `true` | Enregistre le journal d'evaluation (signal/abstain) |
@@ -179,15 +190,25 @@ rejette les champs per-strategy via `.strict()`.
 
 ##### Per-strategy (onglet Stratégies → section de chaque stratégie)
 
-Résolus via `getStrategyParams(cfg, strategyId)` → `WeatherStrategyParamsBag`.
+Résolus via `getStrategyParamsForMode(cfg, strategyId, mode)` →
+`WeatherStrategyParamsBag`, pour l'environnement sélectionné.
 Knobs nullables (`slPercent`, `tpPercent`, `trailingPercent`,
 `trailingActivationPercent`, `maxForecastStd`, `minForecastProbability`) :
 UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 
-> **Pas de distinction sim/real** dans le bag weather : les getters
-> `getWeather*(cfg, mode, strategyId)` acceptent un paramètre `mode` pour
-> alignement d'API avec copy/crypto, mais l'ignorent — la valeur du bag est
-> utilisée telle quelle pour les deux modes.
+> **Distinction sim/real dans le bag weather** : depuis le plan per-env
+> (2026-08-27), chaque environnement possède sa propre map params
+> (`simWeatherAlgoStrategyParams` / `realWeatherAlgoStrategyParams`) et sa
+> propre liste de stratégies. `getStrategyParamsForMode(cfg, strategyId, mode)`
+> lit la map du `mode` demandé. Fallback legacy **uniquement** si la colonne
+> per-env est `undefined` / `null` / `''` — `'[]'` / `'{}'` ne retombent pas
+> (`'[]'` parse vers `['weather-forecast']`). Les getters
+> `getWeather*(cfg, mode, strategyId)` et la capacité ville+date sont donc
+> **découplés par mode** — une position sim n'épuise pas le slot réel.
+>
+> **UI** : onglet **Stratégies** (éditeur) + sélecteurs du **CapitalHero**
+> partagent la config dashboard. Un PUT hero (`setActiveStrategy`) resynchronise
+> les listes de l'onglet sans écraser des params locaux non sauvés.
 
 | Clé bag | Defaut | Effet |
 |---------|--------|-------|
@@ -232,7 +253,9 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 > désactivé par défaut) s'appliquent à l'entrée ; SL/TP/trailing restent actifs.
 
 UI : onglet **Paramètres** (globaux) + onglet **Stratégies** (activation +
-params per-strategy) + onglet **Donnees** (exploration/purge). Voir
+params per-strategy, scindé sim/réel) + sélecteurs stratégie du CapitalHero +
+onglet **Donnees** (exploration/purge, filtre `mode` sur le journal
+d'évaluation). Voir
 [`weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md`](../weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md).
 
 ##### Colonnes legacy (source backfill, non modifiables API)
@@ -243,7 +266,9 @@ Les colonnes `weatherAlgoMinEdge`, `weatherAlgoMaxForecastStd`,
 `weatherAlgoCloseBeforeResolutionHours`, `weatherAlgoCityFollowSwitchMode`,
 `weatherAlgoBucketHysteresisPolls`, `weatherAlgoReentryThrottleMs`, etc.
 restent présentes en DB pour le backfill initial (migrations `0107`/`0108`)
-mais ne sont plus lues au runtime ni acceptées par l'API.
+mais ne sont plus lues au runtime : hors schéma PUT → **400**. Distinct :
+`weatherAlgoStrategies` / `weatherAlgoStrategyParams` restent dans le schéma
+(acceptés puis **retirés** du patch) pour la rétrocompat GET / snapshots.
 
 #### Bande d'entree crypto-algo (`cryptoAlgoEntryPrice*`)
 

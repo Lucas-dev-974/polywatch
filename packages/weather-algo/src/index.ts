@@ -67,10 +67,15 @@ async function main() {
   const redisPub = createRedis();
   const redisSub = createRedis();
 
-  const registry = new WeatherStrategyRegistry();
-  registry.register(new WeatherForecastStrategy());
-  registry.register(new WeatherForecastAlignedStrategy());
-  registry.register(new WeatherHighestYesStrategy());
+  const registrySim = new WeatherStrategyRegistry();
+  registrySim.register(new WeatherForecastStrategy());
+  registrySim.register(new WeatherForecastAlignedStrategy());
+  registrySim.register(new WeatherHighestYesStrategy());
+
+  const registryReal = new WeatherStrategyRegistry();
+  registryReal.register(new WeatherForecastStrategy());
+  registryReal.register(new WeatherForecastAlignedStrategy());
+  registryReal.register(new WeatherHighestYesStrategy());
 
   const connectionManager = new PolymarketConnectionManager({
     wsUrl: config.wsUrl,
@@ -114,10 +119,10 @@ async function main() {
     redisCmd,
   });
 
-  const onSignal = async (signal: WeatherSignal): Promise<boolean> => {
+  const onSignal = async (signal: WeatherSignal, risk: typeof weatherConfig): Promise<boolean> => {
     const result = await runWeatherEntryPipeline({
       signal,
-      risk: weatherConfig,
+      risk,
       globalConfig,
       watchlistId,
       connectionManager,
@@ -158,7 +163,8 @@ async function main() {
     ds,
     autoTrackService,
     forecastService,
-    registry,
+    registrySim,
+    registryReal,
     redisCmd,
     onSignal,
     pollMs: config.pollMs,

@@ -49,7 +49,7 @@ describe('runner-sim helpers', () => {
     const signal = await evaluateRunnerSimGroup(
       [forecast, aligned],
       markets,
-      { forecastMean: 24, forecastStdDev: 0.5 },
+      { forecastMean: 24, forecastStdDev: 0.5, mode: 'sim' },
       new Date(nowMs),
     );
 
@@ -65,18 +65,48 @@ describe('runner-sim helpers', () => {
     const signals: WeatherSignal[] = [
       {
         conditionId: 'a',
-        city: 'paris',
-        targetDate: new Date('2026-08-02T12:00:00Z'),
-        edge: 0.2,
+        assetId: 'a1',
+        outcome: 'YES',
+        side: 'BUY',
+        confidence: 0.5,
+        reasons: [],
         strategyId: 'weather-forecast',
-      } as WeatherSignal,
+        mode: 'sim',
+        eventSlug: 'evt',
+        city: 'paris',
+        metric: 'highest_temp',
+        targetDate: new Date('2026-08-02T12:00:00Z'),
+        forecastMean: 0,
+        forecastStdDev: 0,
+        forecastProbability: 0,
+        marketPrice: 0,
+        edge: 0.2,
+        dynamicMinEdge: 0,
+        entryBucketComparison: 'exact',
+        entryBucketBounds: { target: 33 },
+      },
       {
         conditionId: 'b',
-        city: 'paris',
-        targetDate: new Date('2026-08-02T12:00:00Z'),
-        edge: 0.3,
+        assetId: 'b1',
+        outcome: 'YES',
+        side: 'BUY',
+        confidence: 0.5,
+        reasons: [],
         strategyId: 'weather-forecast',
-      } as WeatherSignal,
+        mode: 'sim',
+        eventSlug: 'evt',
+        city: 'paris',
+        metric: 'highest_temp',
+        targetDate: new Date('2026-08-02T12:00:00Z'),
+        forecastMean: 0,
+        forecastStdDev: 0,
+        forecastProbability: 0,
+        marketPrice: 0,
+        edge: 0.3,
+        dynamicMinEdge: 0,
+        entryBucketComparison: 'exact',
+        entryBucketBounds: { target: 33 },
+      },
     ];
 
     const selected = selectRunnerSimSignals(signals, risk);
@@ -109,7 +139,7 @@ describe('runner-sim helpers', () => {
     const signal = await evaluateRunnerSimGroup(
       [aligned],
       markets,
-      { forecastMean: 24, forecastStdDev: 0.5 },
+      { forecastMean: 24, forecastStdDev: 0.5, mode: 'sim' },
       new Date(nowMs),
     );
 

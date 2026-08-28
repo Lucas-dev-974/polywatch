@@ -45,6 +45,24 @@ const mocks = vi.hoisted(() => {
       reentryThrottleMs: null,
       maxReentriesPerCityDate: 0,
     })),
+    getStrategyParamsForMode: vi.fn(() => ({
+      minEdge: null,
+      maxForecastStd: null,
+      minForecastProbability: null,
+      entryUsdc: null,
+      maxPositionSizeUsdc: null,
+      entryDepthRetryMax: null,
+      entryDepthRetryDelayMs: null,
+      maxOpenPositions: null,
+      maxExposureUsdc: null,
+      maxDailyLossUsdc: null,
+      killSwitchAction: null,
+      forecastChangeThreshold: null,
+      cityFollowSwitchMode: null,
+      bucketHysteresisPolls: null,
+      reentryThrottleMs: null,
+      maxReentriesPerCityDate: 0,
+    })),
     enqueueEntrySignal: vi.fn(async () => ({ enqueued: true })),
     resolveEntryEnqueueBlocked: vi.fn(async () => null),
     resumeEntryFromReservation: vi.fn(async () => null),
@@ -84,6 +102,7 @@ vi.mock('@polywatch/core', () => ({
   getWeatherEntryDepthRetryMax: mocks.getWeatherEntryDepthRetryMax,
   getWeatherEntryDepthRetryDelayMs: mocks.getWeatherEntryDepthRetryDelayMs,
   getStrategyParams: mocks.getStrategyParams,
+  getStrategyParamsForMode: mocks.getStrategyParamsForMode,
   enqueueEntrySignal: mocks.enqueueEntrySignal,
   resolveEntryEnqueueBlocked: mocks.resolveEntryEnqueueBlocked,
   resumeEntryFromReservation: mocks.resumeEntryFromReservation,
@@ -121,6 +140,7 @@ function baseSignal(overrides: Partial<WeatherSignal> = {}): WeatherSignal {
     confidence: 0.5,
     reasons: [],
     strategyId: 'weather-forecast',
+    mode: 'sim',
     eventSlug: 'paris-aug-2',
     city: 'Paris',
     metric: 'highest_temp',
@@ -353,9 +373,10 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     expect(result).toBe('Aucun mode exécutable');
   });
 
-  it('returns null when sim mode enqueues successfully despite real mode cash unavailability', async () => {
-    // Enable real mode + global real trading so runMode(real) reaches resolveEntryBalances.
-    // sim mode enqueues first (success), real mode throws real_cash_unavailable.
+  it('returns null when sim signal enqueues — real mode is not executed for a sim signal', async () => {
+    // Per-env model (§6 plan) : a signal carries a single `mode`. A sim signal
+    // never runs runMode(real), so real-mode cash unavailability is unreachable.
+    // Enable real mode + global real trading to prove real is skipped for sim.
     mocks.hasAlgoEntryCooldown.mockResolvedValueOnce(false);
     mocks.hasWeatherReentryThrottle.mockResolvedValueOnce(false);
     mocks.computeEntryTargetQuantity.mockReturnValueOnce(100);
@@ -363,17 +384,16 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     mocks.fetchEntryAskLiquidityWithRetries.mockResolvedValueOnce({ ok: true, attempts: 1 });
     mocks.enqueueEntrySignal.mockResolvedValueOnce({ enqueued: true });
     mocks.resolveEntryEnqueueBlocked.mockResolvedValueOnce(null);
-    // real mode: balances throw real_cash_unavailable
-    mocks.resolveEntryBalances.mockImplementationOnce(async () => {
-      throw new Error('real_cash_unavailable');
-    });
     const params = buildParams({
       risk: baseRisk({ weatherAlgoSimEnabled: true, weatherAlgoRealEnabled: true }),
       globalConfig: baseGlobalConfig({ realTradingEnabled: true }),
     });
-    // sim enqueued → pipeline returns null (success) overall
+    // sim signal enqueued → pipeline returns null (success) overall.
     const result = await runWeatherEntryPipeline(params);
     expect(result).toBeNull();
+    // resolveEntryBalances runs once (sim) — real mode is never evaluated for a
+    // sim-scoped signal, so it would have been called twice under the old model.
+    expect(mocks.resolveEntryBalances).toHaveBeenCalledTimes(1);
   });
 
   it('returns "Aucun mode exécutable" when real mode only and balances throw real_cash_unavailable', async () => {

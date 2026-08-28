@@ -37,6 +37,7 @@ function makeSpec(
     maxConcurrentPositions: 10,
     entryUsdc: 10,
     strategyId: 'weather-forecast',
+    strategyEnv: 'sim',
     service: opts.service,
     getAbortReason: opts.getAbortReason,
   };
@@ -134,6 +135,7 @@ describe('BacktestRunner', () => {
       maxConcurrentPositions: 10,
       entryUsdc: 10,
       strategyId: 'weather-forecast',
+      strategyEnv: 'sim',
       service,
       getAbortReason: () => (aborted ? 'cancelled' : null),
     };
@@ -170,6 +172,7 @@ describe('BacktestRunner', () => {
       maxConcurrentPositions: 10,
       entryUsdc: 10,
       strategyId: 'weather-forecast',
+      strategyEnv: 'sim',
       service,
       getAbortReason: () => (timedOut ? 'timeout' : null),
     };

@@ -1,7 +1,8 @@
-import { Show } from 'solid-js';
+import { For, Show } from 'solid-js';
 import { formatWeatherAlgoCapital, type WeatherAlgoCapital } from '../../lib/weather-algo-capital';
 import { formatPnlAmount, pnlClass } from '../../lib/position';
 import { CollapsibleSection } from '../CollapsibleSection';
+import type { WeatherStrategyMeta } from '../../api';
 
 export interface WeatherAlgoCapitalHeroProps {
   capital: WeatherAlgoCapital | null;
@@ -10,6 +11,12 @@ export interface WeatherAlgoCapitalHeroProps {
   weatherAlgoRealEnabled: boolean;
   onToggleRealTrading: () => void;
   onResetSim?: () => void;
+  simStrategyCatalog: WeatherStrategyMeta[];
+  realStrategyCatalog: WeatherStrategyMeta[];
+  simActiveStrategyId?: string;
+  realActiveStrategyId?: string;
+  onSelectSimStrategy: (id: string) => void;
+  onSelectRealStrategy: (id: string) => void;
 }
 
 export function WeatherAlgoCapitalHero(props: WeatherAlgoCapitalHeroProps) {
@@ -96,6 +103,20 @@ export function WeatherAlgoCapitalHero(props: WeatherAlgoCapitalHeroProps) {
                         {props.weatherAlgoSimEnabled ? 'Actif' : 'Inactif'}
                       </span>
                     </div>
+                    <div class="algo-capital-detail">
+                      <span class="detail-label">Stratégie sim</span>
+                      <span class="detail-value">
+                        <select
+                          class="algo-capital-strategy-select"
+                          value={props.simActiveStrategyId ?? ''}
+                          onChange={(e) => props.onSelectSimStrategy(e.currentTarget.value)}
+                        >
+                          <For each={props.simStrategyCatalog}>
+                            {(s) => <option value={s.id}>{s.label}</option>}
+                          </For>
+                        </select>
+                      </span>
+                    </div>
                   </div>
                   <div class="algo-capital-actions">
                     <button
@@ -143,6 +164,20 @@ export function WeatherAlgoCapitalHero(props: WeatherAlgoCapitalHeroProps) {
                   <span class="detail-label">Mode réel weather</span>
                   <span class={`detail-value ${props.weatherAlgoRealEnabled ? 'real' : 'neutral'}`}>
                     {props.weatherAlgoRealEnabled ? 'Actif' : 'Inactif'}
+                  </span>
+                </div>
+                <div class="algo-capital-detail">
+                  <span class="detail-label">Stratégie réel</span>
+                  <span class="detail-value">
+                    <select
+                      class="algo-capital-strategy-select"
+                      value={props.realActiveStrategyId ?? ''}
+                      onChange={(e) => props.onSelectRealStrategy(e.currentTarget.value)}
+                    >
+                      <For each={props.realStrategyCatalog}>
+                        {(s) => <option value={s.id}>{s.label}</option>}
+                      </For>
+                    </select>
                   </span>
                 </div>
                 <Show when={cap().real.note}>

@@ -10,6 +10,11 @@ export function weatherReentryThrottleKey(
   return `weather-reentry:${normalizeWeatherCity(city)}:${targetDateIso}:${mode}`;
 }
 
+/** Pre per-mode deployments used `weather-reentry:{city}:{date}` without a mode suffix. */
+export function weatherReentryThrottleLegacyKey(city: string, targetDateIso: string): string {
+  return `weather-reentry:${normalizeWeatherCity(city)}:${targetDateIso}`;
+}
+
 export async function setWeatherReentryThrottle(
   redis: Pick<Redis, 'set'>,
   city: string,
@@ -29,5 +34,8 @@ export async function hasWeatherReentryThrottle(
   mode: TradingMode,
 ): Promise<boolean> {
   if (!city || !targetDateIso) return false;
-  return (await redis.exists(weatherReentryThrottleKey(city, targetDateIso, mode))) === 1;
+  const key = weatherReentryThrottleKey(city, targetDateIso, mode);
+  if ((await redis.exists(key)) === 1) return true;
+  // Transition: honour TTL keys written before the per-mode suffix existed.
+  return (await redis.exists(weatherReentryThrottleLegacyKey(city, targetDateIso))) === 1;
 }

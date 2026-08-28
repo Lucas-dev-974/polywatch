@@ -167,10 +167,12 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
   (`pairDecidedAtBySignal`). `fill_price_clamped` n’est émis qu’après la garde SL
   immédiat (entrée réellement ouverte).
 
-> **Résolution per-strategy (depuis 0.5.0)** : `maxExposureUsdc`, `maxDailyLossUsdc`,
-> `maxPositionSizeUsdc`, `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
-> via `getStrategyParams(cfgSnapshot, strategyId)` pour **chaque position** — pas via
-> un bag global. Le bag de `signal.strategyId` est utilisé pour chaque position. Le kill-switch ferme uniquement les
+> **Résolution per-strategy (depuis 0.5.0) et per-env (plan 2026-08-27)** :
+> `maxExposureUsdc`, `maxDailyLossUsdc`, `maxPositionSizeUsdc`,
+> `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
+> via `getStrategyParamsForMode(cfgSnapshot, strategyId, strategyEnv)` pour
+> **chaque position** — pas via un bag global. Le bag de `signal.strategyId` +
+> `strategyEnv` est utilisé pour chaque position. Le kill-switch ferme uniquement les
 > positions de la stratégie déclenchée (pas toutes les positions du ledger).
 
 ---
@@ -184,6 +186,20 @@ catalogue (`createWeatherStrategy(strategyId)`) pour décider l'entrée. Pour
 sur le prix YES courant. Le mode `replay` (rejouer les décisions `signal`
 enregistrées dans `weather_evaluation_log`) a été **retiré** — le champ `mode`
 est conservé dans le schéma pour rétro-compat API mais est toujours `reevaluate`.
+
+**Environnement du run (`strategyEnv`)** : le paramètre `strategyEnv`
+(`'sim'` | `'real'`, défaut `'sim'`) sélectionne la liste de stratégies + params
+de **cet environnement** pour le run. C'est **distinct** de `mode` (toujours
+`reevaluate`). `applyConfigOverrides` n'accepte que des clés préfixées
+`weatherAlgo` : les clés `simWeatherAlgo*` / `realWeatherAlgo*` sont **rejetées**.
+Le patch UI `weatherAlgoStrategyParams` est copié vers
+`simWeatherAlgoStrategyParams` / `realWeatherAlgoStrategyParams` selon
+`strategyEnv`, et le runner/exit-manager résolvent les bags via
+`getStrategyParamsForMode(config, id, strategyEnv)`. Snapshots anciens sans les 4
+colonnes (raw `undefined`/`null`/`''`) → fallback legacy
+(`weatherAlgoStrategies` / `weatherAlgoStrategyParams`) ; `'[]'` / `'{}'` ne
+retombent pas. Un `strategyEnv: 'sim'` ≈ l'ancien global tant que sim n'a pas
+divergé. Pas de bump `engineVersion` (changement de config, pas du moteur).
 
 **Filtre par intervalle (`fidelityMinutes`)** : paramètre **optionnel** transmis au
 lancement. Seuls les `book_tick` dont `fidelity_minutes` correspond sont chargés
@@ -275,11 +291,13 @@ visibles de tous (rétro-compatibilité) et ne se collisionnent pas entre eux
 
 ## 5. Sorties weather (exits)
 
-Paramètres lus depuis le bag per-strategy
-(`getStrategyParams(cfgSnapshot, strategyId)` → `WeatherStrategyParamsBag`).
+Paramètres lus depuis le bag per-strategy **et per-env**
+(`getStrategyParamsForMode(cfgSnapshot, strategyId, strategyEnv)` →
+`WeatherStrategyParamsBag`).
 `strategyId` attaché à chaque position/snapshot ; legacy `null` → fallback
 `'weather-forecast'`. En `runner-sim` multi-stratégies, chaque position utilise
-**son propre** bag (résolu via `pos.meta.strategyId`), pas un bag global.
+**son propre** bag (résolu via `pos.meta.strategyId`), pas un bag global. Le bag
+de l'exit est résolu pour l'environnement de la position (`pos.mode`).
 
 | Raison | Déclencheur |
 |--------|-------------|
@@ -336,7 +354,9 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
 `BacktestEquityChart`) :
 
 - **Couverture de données** affichée avant lancement.
-- **Formulaire** : période, villes, capital, slippage, stratégie, mode de
+- **Formulaire** : période, villes, capital, slippage, stratégie, **environnement**
+  (`strategyEnv` : Simulation / Réel — sélectionne la liste de stratégies + params
+  de l'environnement pour le run ; persisté dans un signal localStorage), mode de
   sélection des signaux (single/multi, surcharge via `configOverrides`).
 - **Section « Config stratégie »** (toujours visible) : regroupe les réglages
   propres à la run en cours, sans affecter le live sim/réel.
@@ -355,8 +375,14 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   - **Surcharge des paramètres de stratégie** (visible quand une stratégie
     précise est sélectionnée) : via `configOverrides.weatherAlgoStrategyParams`
     (string JSON). Pré-remplie avec les valeurs effectives de la config live
-    (WYSIWYG) ; seuls les champs modifiés sont envoyés, fusionnés avec la partial
-    live stockée. Seuls les params réellement consommés par le moteur de backtest
+    (WYSIWYG) de l'environnement `strategyEnv` ; seuls les champs modifiés sont
+    envoyés, fusionnés avec la partial live stockée. **Le patch UI s'appelle
+    toujours `weatherAlgoStrategyParams`** ; le moteur
+    (`applyConfigOverrides`) le copie ensuite vers la map de l'environnement
+    sélectionné (`simWeatherAlgoStrategyParams` / `realWeatherAlgoStrategyParams`)
+    selon `strategyEnv`. Les clés `simWeatherAlgo*` / `realWeatherAlgo*` dans
+    `configOverrides` sont **rejetées** (préfixe attendu `weatherAlgo`).
+    Seuls les params réellement consommés par le moteur de backtest
     sont exposés (les knobs d'exécution live sont exclus).
 - **Liste des runs** : statut, progression, métriques.
 - **Détail** : métriques (PnL, win rate, PF avec `∞` si null, expectancy, durée

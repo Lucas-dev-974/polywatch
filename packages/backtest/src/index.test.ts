@@ -64,4 +64,29 @@ describe('applyConfigOverrides', () => {
       }),
     ).toThrow(/weatherAlgoStrategyParams invalide/);
   });
+
+  it('copies weatherAlgoStrategyParams override onto the selected env map', () => {
+    const cfg = {
+      ...baseConfig(),
+      simWeatherAlgoStrategyParams: '{}',
+      realWeatherAlgoStrategyParams: '{}',
+    } as WeatherConfig;
+    const payload = JSON.stringify({ 'weather-forecast': { minEdge: 0.25 } });
+    const simOut = applyConfigOverrides(cfg, { weatherAlgoStrategyParams: payload }, 'sim');
+    expect(simOut.simWeatherAlgoStrategyParams).toBe(payload);
+    expect(simOut.realWeatherAlgoStrategyParams).toBe('{}');
+
+    const realOut = applyConfigOverrides(cfg, { weatherAlgoStrategyParams: payload }, 'real');
+    expect(realOut.realWeatherAlgoStrategyParams).toBe(payload);
+    expect(realOut.simWeatherAlgoStrategyParams).toBe('{}');
+  });
+
+  it('rejects per-env override keys (simWeatherAlgo* / realWeatherAlgo*)', () => {
+    expect(() =>
+      applyConfigOverrides(baseConfig(), { simWeatherAlgoStrategyParams: '{}' }),
+    ).toThrow(/clés inconnues/);
+    expect(() =>
+      applyConfigOverrides(baseConfig(), { realWeatherAlgoStrategies: '["weather-forecast"]' }),
+    ).toThrow(/clés inconnues/);
+  });
 });

@@ -35,4 +35,34 @@ describe('weather-config-api', () => {
     });
     expect(update.weatherAlgoAllowedMarketTags).toBe('["weather"]');
   });
+
+  it('presents the 4 per-env fields as parsed arrays/maps, not raw strings', () => {
+    const presented = presentWeatherConfigForApi(
+      baseConfig({
+        simWeatherAlgoStrategies: '["weather-forecast"]',
+        realWeatherAlgoStrategies: '["weather-highest-yes"]',
+        simWeatherAlgoStrategyParams: '{"weather-forecast":{"minEdge":0.2}}',
+        realWeatherAlgoStrategyParams: '{}',
+        weatherAlgoStrategies: '["weather-forecast"]',
+        weatherAlgoStrategyParams: '{}',
+      }),
+    );
+    expect(presented.simWeatherAlgoStrategies).toEqual(['weather-forecast']);
+    expect(presented.realWeatherAlgoStrategies).toEqual(['weather-highest-yes']);
+    expect(presented.simWeatherAlgoStrategyParams['weather-forecast']?.minEdge).toBe(0.2);
+    expect(typeof presented.simWeatherAlgoStrategies).not.toBe('string');
+  });
+
+  it('never writes legacy weatherAlgoStrategies / weatherAlgoStrategyParams', () => {
+    const update = toWeatherConfigEntityUpdate({
+      weatherAlgoStrategies: ['weather-highest-yes'],
+      weatherAlgoStrategyParams: { 'weather-forecast': { minEdge: 0.2 } },
+      simWeatherAlgoStrategies: ['weather-forecast'],
+      realWeatherAlgoStrategies: ['weather-highest-yes'],
+    });
+    expect(update).not.toHaveProperty('weatherAlgoStrategies');
+    expect(update).not.toHaveProperty('weatherAlgoStrategyParams');
+    expect(update.simWeatherAlgoStrategies).toBe('["weather-forecast"]');
+    expect(update.realWeatherAlgoStrategies).toBe('["weather-highest-yes"]');
+  });
 });

@@ -1,4 +1,4 @@
-import type { MarketListItemDto } from '@polywatch/core';
+import type { MarketListItemDto, TradingMode } from '@polywatch/core';
 import type { WeatherStrategyParamsBag } from '@polywatch/core';
 import type { WeatherMetric } from '@polywatch/core';
 
@@ -10,6 +10,8 @@ export interface WeatherSignal {
   confidence: number;
   reasons: string[];
   strategyId: string;
+  /** Trading environment that produced this signal ('sim' | 'real'). */
+  mode: TradingMode;
   eventSlug: string;
   city: string;
   metric: WeatherMetric;
@@ -31,6 +33,8 @@ export interface WeatherSignal {
 export interface WeatherEvaluationContext {
   forecastMean: number;
   forecastStdDev: number;
+  /** Trading environment the current evaluation pass belongs to ('sim' | 'real'). */
+  mode: TradingMode;
 }
 
 export type WeatherEvaluationResult =

@@ -3,7 +3,7 @@ import type { CopyConfig } from '../entities/CopyConfig.js';
 import type { CryptoConfig } from '../entities/CryptoConfig.js';
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import {
-  getStrategyParams,
+  getStrategyParamsForMode,
   DEFAULT_WEATHER_STRATEGY_PARAMS,
   type WeatherStrategyParamsBag,
 } from '../weather/strategy-catalog.js';
@@ -495,91 +495,96 @@ export function getCryptoSlConfirmationTicks(cfg: CryptoConfig): number {
 // ─── Weather getters ──────────────────────────────────────────────────
 //
 // Per-strategy config: when a strategyId is provided the getter resolves the
-// full params bag via getStrategyParams (catalogue defaults + stored overrides).
-// When strategyId is null/undefined (legacy positions, backtest, copy/crypto
-// callers) the getter falls back to the catalogue defaults — never to the
-// legacy global WeatherConfig columns.
+// full params bag via getStrategyParamsForMode (catalogue defaults + stored
+// overrides for the given environment). When strategyId is null/undefined
+// (legacy positions, backtest, copy/crypto callers) the getter falls back to
+// the catalogue defaults — never to the legacy global WeatherConfig columns.
 
-function weatherBag(cfg: WeatherConfig, strategyId?: string | null): WeatherStrategyParamsBag {
-  if (strategyId) return getStrategyParams(cfg, strategyId);
+function weatherBag(
+  cfg: WeatherConfig,
+  mode: TradingMode,
+  strategyId?: string | null,
+): WeatherStrategyParamsBag {
+  if (strategyId) return getStrategyParamsForMode(cfg, strategyId, mode);
   return DEFAULT_WEATHER_STRATEGY_PARAMS;
 }
 
 export function getWeatherMaxOpenPositions(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).maxOpenPositions;
+  return weatherBag(cfg, mode, strategyId).maxOpenPositions;
 }
 
 export function getWeatherMaxPositionSizeUsdc(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).maxPositionSizeUsdc;
+  return weatherBag(cfg, mode, strategyId).maxPositionSizeUsdc;
 }
 
 export function getWeatherMaxExposureUsdc(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).maxExposureUsdc;
+  return weatherBag(cfg, mode, strategyId).maxExposureUsdc;
 }
 
 export function getWeatherMaxDailyLossUsdc(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).maxDailyLossUsdc;
+  return weatherBag(cfg, mode, strategyId).maxDailyLossUsdc;
 }
 
 export function getWeatherEntryDepthRetryMax(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).entryDepthRetryMax;
+  return weatherBag(cfg, mode, strategyId).entryDepthRetryMax;
 }
 
 export function getWeatherEntryDepthRetryDelayMs(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).entryDepthRetryDelayMs;
+  return weatherBag(cfg, mode, strategyId).entryDepthRetryDelayMs;
 }
 
 export function getWeatherSlCloseMaxRetries(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).slCloseMaxRetries;
+  return weatherBag(cfg, mode, strategyId).slCloseMaxRetries;
 }
 
 export function getWeatherKillSwitchAction(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): string {
-  return weatherBag(cfg, strategyId).killSwitchAction;
+  return weatherBag(cfg, mode, strategyId).killSwitchAction;
 }
 
 export function getWeatherMinBidToAskRatio(
   cfg: WeatherConfig,
-  _mode: TradingMode,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).minBidToAskRatio;
+  return weatherBag(cfg, mode, strategyId).minBidToAskRatio;
 }
 
 export function getWeatherSlConfirmationTicks(
   cfg: WeatherConfig,
+  mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, strategyId).slConfirmationTicks;
+  return weatherBag(cfg, mode, strategyId).slConfirmationTicks;
 }

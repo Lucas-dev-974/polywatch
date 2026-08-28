@@ -20,6 +20,7 @@ import {
   type BacktestPositionDto,
   type BacktestRunDto,
   type BacktestRunParamsInput,
+  type WeatherConfig,
   type WeatherStrategyMeta,
 } from '../../api';
 import { UI_KEYS, usePersistedSignal } from '../../lib/ui-persistence';
@@ -65,6 +66,14 @@ export function WeatherAlgoBacktestTab() {
       // '' = "Toutes les stratégies actives" (runner-sim multi-stratégies).
       (v): v is string => typeof v === 'string',
     );
+    // Environnement de stratégie (sim/réel) du backtest. Définit la liste de
+    // stratégies + la map de params lue par le runner. Distinct du champ `mode`
+    // (toujours 'reevaluate').
+    const [strategyEnv, setStrategyEnv] = usePersistedSignal(
+      'polywatch_weather_algo_backtest_strategy_env',
+      'sim',
+      (v): v is 'sim' | 'real' => v === 'sim' || v === 'real',
+    );
     // Mode de sélection des signaux pour ce backtest. '' = hériter de la
     // config live (comportement par défaut). 'single' | 'multi' surcharge la
     // config via configOverrides.weatherAlgoSelectionMode.
@@ -76,7 +85,9 @@ export function WeatherAlgoBacktestTab() {
     const [catalog, setCatalog] = createSignal<WeatherStrategyMeta[]>([]);
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
-  // Params live par stratégie (weatherAlgoStrategyParams de la config live) —
+  // Config live complète (par env) — pré-remplissage WYSIWYG du formulaire.
+  const [weatherConfig, setWeatherConfig] = createSignal<WeatherConfig | null>(null);
+  // Params live par stratégie (map de l'env sélectionné via strategyEnv) —
   // pré-remplissage WYSIWYG de la section « Config stratégie ».
   const [liveStrategyParams, setLiveStrategyParams] = createSignal<
     Record<string, Record<string, number | boolean | string | null>>
@@ -317,6 +328,18 @@ export function WeatherAlgoBacktestTab() {
     }
   });
 
+  // Re-pré-remplit les params WYSIWYG quand l'utilisateur change l'environnement
+  // (sim/réel) — la map live lue provient de la config de cet env.
+  createEffect(() => {
+    const env = strategyEnv();
+    const cfg = weatherConfig();
+    if (!cfg) return;
+    setLiveStrategyParams(
+      (env === 'real' ? cfg.realWeatherAlgoStrategyParams : cfg.simWeatherAlgoStrategyParams) ?? {},
+    );
+    setStrategyConfigOverrides({});
+  });
+
   onMount(() => {
     void refreshCoverage();
     void refreshList();
@@ -326,7 +349,14 @@ export function WeatherAlgoBacktestTab() {
       .then((res) => setCatalog(res.strategies))
       .catch(() => setCatalog([]));
     void fetchWeatherConfig()
-      .then((cfg) => setLiveStrategyParams(cfg.weatherAlgoStrategyParams ?? {}))
+      .then((cfg) => {
+        setWeatherConfig(cfg);
+        setLiveStrategyParams(
+          (strategyEnv() === 'real'
+            ? cfg.realWeatherAlgoStrategyParams
+            : cfg.simWeatherAlgoStrategyParams) ?? {},
+        );
+      })
       .catch(() => setLiveStrategyParams({}));
     const restoredId = selectedId();
     if (restoredId != null) {
@@ -383,6 +413,9 @@ export function WeatherAlgoBacktestTab() {
               // Une stratégie vide = toutes les stratégies actives de la config
               // (runner-sim multi-stratégies).
               strategyId: sid || undefined,
+              // Environnement de stratégie (sim/réel) — détermine la liste de
+              // stratégies + map de params (cf. §9 du plan per-env).
+              strategyEnv: strategyEnv(),
               capital: cap,
               entryUsdc: entry,
               slippageBps: slip,
@@ -518,6 +551,8 @@ export function WeatherAlgoBacktestTab() {
                   setLabel={setLabel}
                   strategyId={strategyId}
                   setStrategyId={setStrategyId}
+                  strategyEnv={strategyEnv}
+                  setStrategyEnv={setStrategyEnv}
                   selectionMode={selectionMode}
                   setSelectionMode={setSelectionMode}
                   liveStrategyParams={liveStrategyParams}

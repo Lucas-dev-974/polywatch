@@ -67,6 +67,7 @@ export interface BacktestRunParamsInput {
   to: string;
   cities?: string[];
   strategyId?: string;
+  strategyEnv?: 'sim' | 'real';
   configOverrides?: Record<string, unknown>;
   capital?: number;
   entryUsdc?: number;

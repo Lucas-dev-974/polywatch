@@ -311,6 +311,10 @@ const weatherConfigUpdateSchema = z.object({
   weatherAlgoEvaluationLogRetentionDays: z.number().int().min(1).max(365),
   weatherAlgoStrategies: z.array(weatherStrategyId).min(1).max(10),
   weatherAlgoStrategyParams: weatherStrategyParamsMapSchema,
+  simWeatherAlgoStrategies: z.array(weatherStrategyId).min(1).max(10),
+  realWeatherAlgoStrategies: z.array(weatherStrategyId).min(1).max(10),
+  simWeatherAlgoStrategyParams: weatherStrategyParamsMapSchema,
+  realWeatherAlgoStrategyParams: weatherStrategyParamsMapSchema,
 }).partial().strict();
 
 // ─── Router factory ──────────────────────────────────────────────────
@@ -456,26 +460,82 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
       });
       return;
     }
-    if (parsed.data.weatherAlgoStrategies || parsed.data.weatherAlgoStrategyParams) {
+    const hasPerEnvStrategies = [
+      'simWeatherAlgoStrategies',
+      'realWeatherAlgoStrategies',
+      'simWeatherAlgoStrategyParams',
+      'realWeatherAlgoStrategyParams',
+    ].some((k) => k in parsed.data);
+    const hasLegacyStrategies =
+      parsed.data.weatherAlgoStrategies !== undefined ||
+      parsed.data.weatherAlgoStrategyParams !== undefined;
+
+    // Validate/sanitize per-env strategy params whenever any of the 4 fields is
+    // present. PATCH-partial (e.g. CapitalHero `{ simWeatherAlgoStrategies: [id] }`)
+    // merges with the presented config to validate the bag of that id.
+    if (hasPerEnvStrategies || hasLegacyStrategies) {
       const current = await weatherService.getConfig();
       const presented = presentWeatherConfigForApi(current);
-      const nextStrategies = parsed.data.weatherAlgoStrategies ?? presented.weatherAlgoStrategies;
-      const nextParams = sanitizeWeatherStrategyParams(
-        parsed.data.weatherAlgoStrategyParams ?? presented.weatherAlgoStrategyParams,
-      );
-      const paramErrors = validateWeatherStrategyParamsUpdate(nextStrategies, nextParams);
-      if (paramErrors.length > 0) {
-        res.status(400).json({
-          error: 'invalid_strategy_params',
-          message: paramErrors
-            .map((e) => `${e.strategyId}.${e.key}: ${e.message}`)
-            .join('; '),
-        });
+
+      const mergeEnvParams = (
+        incoming: Record<string, Partial<import('@polywatch/core').WeatherStrategyParamsBag>> | undefined,
+        presentedParams: Record<string, Partial<import('@polywatch/core').WeatherStrategyParamsBag>>,
+        incomingStrategies: import('@polywatch/core').WeatherStrategyId[] | undefined,
+        presentedStrategies: import('@polywatch/core').WeatherStrategyId[],
+      ): {
+        strategies: import('@polywatch/core').WeatherStrategyId[];
+        params: Record<string, Partial<import('@polywatch/core').WeatherStrategyParamsBag>>;
+      } => {
+        const nextStrategies: import('@polywatch/core').WeatherStrategyId[] =
+          incomingStrategies ?? presentedStrategies;
+        const nextParams = sanitizeWeatherStrategyParams(
+          incoming ?? presentedParams,
+        );
+        const paramErrors = validateWeatherStrategyParamsUpdate(nextStrategies, nextParams);
+        if (paramErrors.length > 0) {
+          throw new Error(
+            paramErrors
+              .map((e) => `${e.strategyId}.${e.key}: ${e.message}`)
+              .join('; '),
+          );
+        }
+        return { strategies: nextStrategies, params: nextParams };
+      };
+
+      try {
+        if (parsed.data.simWeatherAlgoStrategies !== undefined || parsed.data.simWeatherAlgoStrategyParams !== undefined || hasLegacyStrategies) {
+          const merged = mergeEnvParams(
+            parsed.data.simWeatherAlgoStrategyParams,
+            presented.simWeatherAlgoStrategyParams,
+            parsed.data.simWeatherAlgoStrategies,
+            presented.simWeatherAlgoStrategies,
+          );
+          parsed.data.simWeatherAlgoStrategies = merged.strategies;
+          parsed.data.simWeatherAlgoStrategyParams = merged.params;
+        }
+        if (parsed.data.realWeatherAlgoStrategies !== undefined || parsed.data.realWeatherAlgoStrategyParams !== undefined || hasLegacyStrategies) {
+          const merged = mergeEnvParams(
+            parsed.data.realWeatherAlgoStrategyParams,
+            presented.realWeatherAlgoStrategyParams,
+            parsed.data.realWeatherAlgoStrategies,
+            presented.realWeatherAlgoStrategies,
+          );
+          parsed.data.realWeatherAlgoStrategies = merged.strategies;
+          parsed.data.realWeatherAlgoStrategyParams = merged.params;
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        res.status(400).json({ error: 'invalid_strategy_params', message });
         return;
       }
-      // Persist sanitized map so retired catalogue keys (e.g. useGlobalMinEdge) are dropped.
-      parsed.data.weatherAlgoStrategyParams = nextParams;
     }
+
+    // Legacy columns are never persisted: strip them from the patch even though
+    // the schema accepts them (deprecated, retro-compat GET). toWeatherConfigEntityUpdate
+    // also strips them defensively.
+    delete parsed.data.weatherAlgoStrategies;
+    delete parsed.data.weatherAlgoStrategyParams;
+
     const updated = await weatherService.updateConfig(
       toWeatherConfigEntityUpdate(parsed.data),
     );

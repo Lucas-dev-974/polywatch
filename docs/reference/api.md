@@ -419,7 +419,7 @@ Doc : [`../weather/plans/2026-08-08_IMPL-weather-market-data-persistence.md`](..
 | GET | `/api/weather-algo-data/market-snapshots` | Liste (`city`, `from`, `to`, `limit`≤200) ; `includeTicks=true` pour embarquer les ticks (défaut **false**) |
 | GET | `/api/weather-algo-data/bucket-ticks` | Liste (`city`, `conditionId`, `from`, `to`, `limit`≤500) |
 | GET | `/api/weather-algo-data/bucket-ticks/dates` | Liste des dates distinctes de bucket ticks |
-| GET | `/api/weather-algo-data/evaluation-log` | Liste (`from`, `to`, `strategyId`, `decision`, `limit`≤500) |
+| GET | `/api/weather-algo-data/evaluation-log` | Liste (`from`, `to`, `strategyId`, `decision`, `mode`=`sim`\|`real`, `limit`≤500) |
 | GET | `/api/weather-algo-data/forecast-cache` | Liste cache Open-Meteo opérationnel |
 | GET | `/api/weather-algo-data/position-forecasts` | Liste snapshots d’entrée (+ `openedAt` joint) |
 | GET | `/api/weather-algo-data/clob-price-history` | Liste (`city`, `from`, `to`, `limit`≤500) |
@@ -468,9 +468,20 @@ Doc : [`backtest.md`](./backtest.md).
 | GET | `/api/backtest/markets-series` | Séries YES live paginées (indépendant d'un run) — query `fidelityMinutes`, `offset`, `limit`, `minAvgYes` ; plafond `BACKTEST_MARKETS_SERIES_LIMIT` (défaut 500) |
 | GET | `/api/backtest/runs/:id/markets-series` | Séries de prix YES par marché (ridge plot) `{ items: [{ conditionId, city, targetDateIso, points: [{ t, yesPrice }] }], truncated }` — dérivées de `weather_bucket_ticks` sur la plage du run, avec le même filtre `fidelityMinutes` que le moteur ; `{ items: [], truncated: false }` si le run n'est pas terminé |
 
-Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` — seul mode supporté ; le mode `replay` a été retiré), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId` (défaut `weather-forecast` — instancie la stratégie en `reevaluate`, y compris `weather-highest-yes` sans forecast), `backtestExecutionMode` (`strategy` | `runner-sim`, défaut `runner-sim` — **ignoré** : l'exécution est toujours `runner-sim` depuis la consolidation ; le champ est conservé pour rétro-compat API — voir [`backtest.md`](./backtest.md)), `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `fidelityMinutes` (optionnel — filtre les `book_tick`), `label`.
+Paramètres de run (`POST /runs`) : `domain` (`weather`), `mode` (`reevaluate` — seul mode supporté ; le mode `replay` a été retiré), `from`/`to` (ISO, `to > from`), `cities[]`, `strategyId` (défaut `weather-forecast` — instancie la stratégie en `reevaluate`, y compris `weather-highest-yes` sans forecast), `strategyEnv` (`'sim'` | `'real'`, défaut `'sim'` — sélectionne la liste de stratégies + params de **cet environnement** pour le run ; **ne pas** confondre avec `mode` qui reste `reevaluate` ; voir [`backtest.md`](./backtest.md)), `backtestExecutionMode` (`strategy` | `runner-sim`, défaut `runner-sim` — **ignoré** : l'exécution est toujours `runner-sim` depuis la consolidation ; le champ est conservé pour rétro-compat API — voir [`backtest.md`](./backtest.md)), `configOverrides` (`Record<string, unknown>` — shallow merge sur `WeatherConfig` au lancement ; clés **préfixées `weatherAlgo`** uniquement — `simWeatherAlgo*` / `realWeatherAlgo*` sont **rejetées** ; le patch UI backtest reste toujours `weatherAlgoStrategyParams`, copié par `applyConfigOverrides` vers `simWeatherAlgoStrategyParams` ou `realWeatherAlgoStrategyParams` selon `strategyEnv` ; le snapshot/fingerprint stockés restent ceux de la config live), `capital` (défaut 1000), `entryUsdc`, `slippageBps` (défaut 50), `maxConcurrentPositions`, `fidelityMinutes` (optionnel — filtre les `book_tick`), `label`.
 
-Config weather (`PUT /api/config/weather`) accepte `weatherAlgoStrategies` (array d'IDs catalogue, min 1) et `weatherAlgoStrategyParams` (objet par strategyId, validé contre le schéma catalogue). **Per-strategy** : chaque stratégie porte sa config complète (gates d'entrée, sizing, sorties, SL/TP/trailing, risk limits, kill-switch, pre-close) — voir [`configuration.md`](./configuration.md) § Weather Algo. Les champs legacy (`weatherAlgoMinEdge`, `weatherAlgoEntryUsdc`, …) sont **rejetés** par `weatherConfigUpdateSchema` (`.strict()`). Refonte : [`../weather/plans/2026-08-11_PLAN-weather-per-strategy-config.md`](../weather/plans/2026-08-11_PLAN-weather-per-strategy-config.md).
+Config weather (`PUT /api/config/weather`) accepte les **4 champs per-env** :
+`simWeatherAlgoStrategies` / `realWeatherAlgoStrategies` (arrays d'IDs catalogue,
+min 1) et `simWeatherAlgoStrategyParams` / `realWeatherAlgoStrategyParams`
+(objet par strategyId, validé contre le schéma catalogue). **Per-strategy** :
+chaque stratégie porte sa config complète (gates d'entrée, sizing, sorties,
+SL/TP/trailing, risk limits, kill-switch, pre-close) — voir
+[`configuration.md`](./configuration.md) § Weather Algo. Les 2 champs legacy
+`weatherAlgoStrategies` / `weatherAlgoStrategyParams` sont **dépréciés** :
+acceptés par le schéma (pas de 400) mais **non persistés** (retirés du patch).
+Les autres knobs legacy (`weatherAlgoMinEdge`, `weatherAlgoEntryUsdc`, …) sont
+hors schéma → **400** (`.strict()`). Le live lit uniquement les 4 champs per-env
+(fallback `undefined`/`null`/`''` → legacy). Refonte : [`../weather/plans/2026-08-11_PLAN-weather-per-strategy-config.md`](../weather/plans/2026-08-11_PLAN-weather-per-strategy-config.md) et [`../weather/plans/2026-08-27_PLAN-weather-per-env-strategies.md`](../weather/plans/2026-08-27_PLAN-weather-per-env-strategies.md).
 
 `engine_version` du run = `BACKTEST_ENGINE_VERSION` du package (`0.8.0`). Runs
 `< 0.8.0` non comparables (sémantique d’entrée runner-sim ; les runs `0.7.0` n’avaient

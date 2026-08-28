@@ -125,16 +125,17 @@ src/
 │   │   └── CryptoAlgoSettingsAutotrackTab.tsx  auto-track
 │   ├── CryptoAlgoMonitorPage.tsx       moniteur système (Système → onglet)
 │   ├── WeatherAlgoPage.tsx             shell weather (7 onglets)
-│   │   ├── WeatherAlgoCapitalHero.tsx (en-tête capital + status badge inline)
+│   │   ├── WeatherAlgoCapitalHero.tsx (en-tête capital + status + sélecteurs stratégie sim/réel)
 │   │   ├── WeatherAlgoActiveMarketsPanel.tsx / WeatherAlgoDiscoverPanel.tsx
 │   │   ├── WeatherAlgoPositionsPanel.tsx / WeatherAlgoExecutionsPanel.tsx
 │   │   │   └── WeatherPositionGroupedList.tsx  positions groupées (ville → date) ; bouton « Voir graph » → WeatherPositionMarketChartDialog.tsx (graphique de marché avec markers entrée/sortie)
 │   │   ├── WeatherAlgoAutoTrackTab.tsx
 │   │   ├── WeatherAlgoHistoryIngestSection.tsx  Villes → Données télécharger : ingestion historique CLOB (période, intervalle, Charger, statut job, couverture)
-│   │   ├── WeatherAlgoDataTab.tsx      Données : cards tables, drill-down, purge
-│   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire, liste, détail (poll `onCleanup` ; capital chart = `run.params` ; equity/positions si `completed` ; métriques byExit/byCity)
+│   │   ├── WeatherAlgoDataTab.tsx      Données : cards tables, drill-down, purge ; journal d'évaluation filtrable par `mode`
+│   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire (`strategyEnv` sim/réel), liste, détail (poll `onCleanup` ; capital chart = `run.params` ; equity/positions si `completed` ; métriques byExit/byCity)
 │   │   │   ├── BacktestEquityChart.tsx courbe d'equity (SVG, axe X = champ `t`)
 │   │   │   └── backtest/ridge/         ridge plot : `RidgePlayTooltip` / `RidgeTooltip` affichent `Position #{id}` ; `fmtHolding` en ms/s sous 1 min
+│   │   ├── WeatherAlgoStrategiesTab.tsx  Stratégies : 2 sections sim/réel ; synchro listes avec CapitalHero via dashboard
 │   │   ├── WeatherAlgoSettingsTab.tsx  toggles recording + rétention
 │   ├── AlgoMarketCard.tsx, AlgoCarousel.tsx, AlgoCarouselNav.tsx
 │   ├── AlgoMarketChartTrigger.tsx / SurveillanceHistoryCard.tsx

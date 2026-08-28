@@ -37,6 +37,7 @@ export interface RunContext {
       entryUsdc: number;
       capital: number;
       strategyId?: string;
+      strategyEnv: 'sim' | 'real';
       fidelityMinutes?: number;
   };
   cancelRequested(): boolean;
@@ -66,6 +67,7 @@ export interface RunSpec {
   maxConcurrentPositions: number;
   entryUsdc: number;
   strategyId?: string;
+  strategyEnv: 'sim' | 'real';
   fidelityMinutes?: number;
   service: BacktestRunService;
   /** Cooperative abort: 'cancelled' (user) or 'timeout'. */
@@ -142,6 +144,7 @@ export class BacktestRunner {
         entryUsdc: spec.entryUsdc,
         capital: spec.initialCapital,
         strategyId: spec.strategyId,
+        strategyEnv: spec.strategyEnv,
         fidelityMinutes: spec.fidelityMinutes,
       },
       cancelRequested: () => (spec.getAbortReason ? spec.getAbortReason() != null : false),

@@ -138,6 +138,7 @@ export async function evaluateBucketGate(
       `hoursToResolution=${hoursToResolution.toFixed(1)}`,
     ],
     strategyId: opts.strategyId,
+    mode: ctx.mode,
     eventSlug: market.eventSlug ?? market.conditionId,
     city: parsed.city,
     metric: parsed.metric,

@@ -191,6 +191,11 @@ export function WeatherAlgoDataTab() {
     '',
     isPersistedString,
   );
+  const [evalMode, setEvalMode] = usePersistedSignal(
+    'polywatch_weather_algo_data_eval_mode',
+    '',
+    (v): v is string => v === '' || v === 'sim' || v === 'real',
+  );
   const [decision, setDecision] = usePersistedSignal(
     UI_KEYS.weatherAlgoDataDecision,
     '',
@@ -257,6 +262,7 @@ export function WeatherAlgoDataTab() {
             to: base.to,
             strategyId: strategyId().trim() || undefined,
             decision: decision().trim() || undefined,
+            mode: evalMode() ? (evalMode() as 'sim' | 'real') : undefined,
             limit: base.limit,
             offset: base.offset,
           });
@@ -401,6 +407,7 @@ export function WeatherAlgoDataTab() {
     setIntervalFidelity('');
     setStrategyId('');
     setDecision('');
+    setEvalMode('');
     setPage(0);
     setRows([]);
     setTotal(0);
@@ -656,6 +663,17 @@ export function WeatherAlgoDataTab() {
                     placeholder="signal | abstain"
                   />
                 </label>
+                <label class="weather-data-filter">
+                  <span>mode</span>
+                  <select
+                    value={evalMode()}
+                    onChange={(e) => setEvalMode(e.currentTarget.value)}
+                  >
+                    <option value="">Tous</option>
+                    <option value="sim">Sim</option>
+                    <option value="real">Réel</option>
+                  </select>
+                </label>
               </Show>
               <button type="submit" class="btn btn-sm btn-secondary">
                 Filtrer
@@ -732,7 +750,7 @@ function DetailHeaders(props: { id: WeatherAlgoDataTableId }) {
       'Fidélité',
       'Recorded',
     ],
-    evaluation_log: ['Stratégie', 'Décision', 'Edge', 'Prob', 'Evaluated'],
+    evaluation_log: ['Mode', 'Stratégie', 'Décision', 'Edge', 'Prob', 'Evaluated'],
     forecast_cache: ['Ville', 'Date forecast', 'Mean', 'Expires', 'Fetched'],
     position_forecasts: [
       'Ville',
@@ -830,6 +848,7 @@ function DetailRow(props: { id: WeatherAlgoDataTableId; row: WeatherAlgoDataRow 
     case 'evaluation_log':
       return (
         <tr>
+          <td>{str('mode')}</td>
           <td>{str('strategyId')}</td>
           <td>{str('decision')}</td>
           <td>{num('edge')}</td>

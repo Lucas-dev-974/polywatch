@@ -1,6 +1,6 @@
 # Inventaire des plans — Polywatch
 
-> Dernière mise à jour : 2026-08-27  
+> Dernière mise à jour : 2026-08-28  
 > Critère `applied/` : plan d'implémentation dont les livrables concrets sont présents dans le code (vérification codebase, pas seulement les cases `[x]` du markdown).
 
 ## Structure des dossiers
@@ -18,7 +18,7 @@
 |--------|--------|
 | **applied** | 38 |
 | **partial** (racine) | 3 |
-| **not_implemented** (racine) | 2 |
+| **not_implemented** (racine + weather) | 3 |
 | **reference** | 7 |
 | **archived** | 7 |
 | **Total** | **57** |
@@ -87,6 +87,7 @@
 |---------|--------|-----------------|
 | [2026-08-05_PLAN-backtest-engine-universel.md](2026-08-05_PLAN-backtest-engine-universel.md) | Moteur backtest universel event-driven | **Weather v1 livré** (`packages/backtest`, UI, API) ; crypto/copy, Socket.IO, Prometheus hors scope |
 | [2026-08-06_PLAN-phase3-data-stream-rtds.md](2026-08-06_PLAN-phase3-data-stream-rtds.md) | Phase 3 RTDS/oracle data stream | **Désimplémenté / reporté 2026-08-07** — spec conservée, aucun code en repo |
+| [../weather/plans/2026-08-27_PLAN-weather-per-env-strategies.md](../weather/plans/2026-08-27_PLAN-weather-per-env-strategies.md) | Stratégies + params weather distincts par env sim/réel (runner double-passe, UI hero + onglet Stratégies, backtest `strategyEnv`) | Migration `0121`, 4 colonnes `sim*`/`real*`, 2 registres runner, ~35 fichiers — **implémenté** (étapes 1–12 ✅) |
 
 ---
 

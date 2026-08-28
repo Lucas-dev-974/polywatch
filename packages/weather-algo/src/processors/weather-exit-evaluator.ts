@@ -18,8 +18,8 @@ import {
   setWeatherReentryThrottle,
   incrementWeatherBucketHysteresis,
   resetWeatherBucketHysteresis,
-  getStrategyParams,
-  resolveEnabledWeatherStrategies,
+  getStrategyParamsForMode,
+  resolveEnabledWeatherStrategiesForMode,
   WEATHER_FORECAST_STRATEGY_ID,
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   isWeatherMetric,
@@ -92,15 +92,18 @@ export class WeatherExitEvaluator {
       return;
     }
 
-    // Resolve per-strategy params from the position's originating strategy.
-    // Legacy positions (strategyId = null) fall back to the catalogue defaults.
+    // Resolve per-strategy params from the position's originating strategy AND
+    // the position's environment (pos.mode). Legacy positions (strategyId = null)
+    // fall back to the catalogue defaults.
+    const posMode = pos.mode === 'real' ? 'real' : 'sim';
     const strategyId = snapshot.strategyId ?? pos.strategyId;
     if (!strategyId) {
       log.warn({ positionId: pos.id }, 'weather exit — legacy position without strategyId; using defaults');
     }
-    const bag = getStrategyParams(
+    const bag = getStrategyParamsForMode(
       risk,
-      strategyId ?? resolveEnabledWeatherStrategies(risk)[0] ?? WEATHER_FORECAST_STRATEGY_ID,
+      strategyId ?? resolveEnabledWeatherStrategiesForMode(risk, posMode)[0] ?? WEATHER_FORECAST_STRATEGY_ID,
+      posMode,
     );
 
     // highest-yes holds until resolution: no forecast drift and no bucket-exit.

@@ -95,16 +95,20 @@ describe('weather-algo activeStrategies e2e', () => {
   }
 
   function buildRunner(risk: Parameters<WeatherStrategyRunner['setRiskConfig']>[0]) {
-    const registry = new WeatherStrategyRegistry();
-    registry.register(new WeatherForecastStrategy());
-    registry.register(new WeatherForecastAlignedStrategy());
-    registry.register(new WeatherHighestYesStrategy());
+    const registrySim = new WeatherStrategyRegistry();
+    const registryReal = new WeatherStrategyRegistry();
+    for (const registry of [registrySim, registryReal]) {
+      registry.register(new WeatherForecastStrategy());
+      registry.register(new WeatherForecastAlignedStrategy());
+      registry.register(new WeatherHighestYesStrategy());
+    }
 
     const runner = new WeatherStrategyRunner({
       ds,
       autoTrackService: new WeatherAutoTrackService(ds),
       forecastService: new WeatherForecastService(ds),
-      registry,
+      registrySim,
+      registryReal,
       redisCmd: redis as never,
       onSignal: async () => false,
       pollMs: 60_000,
@@ -117,11 +121,13 @@ describe('weather-algo activeStrategies e2e', () => {
     return runner;
   }
 
-  it('publishes activeStrategies to runtime-status after a cycle', async () => {
+  it('publishes activeStrategiesSim/Real to runtime-status after a cycle', async () => {
     await seedCityRule();
     await seedForecast();
     const risk = await configureWeatherAlgoRisk(ds, {
-      weatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
+      weatherAlgoRealEnabled: true,
+      simWeatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
+      realWeatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
       weatherAlgoMarketSnapshotRecordingEnabled: true,
       weatherAlgoEvaluationLogRecordingEnabled: true,
     });
@@ -132,15 +138,21 @@ describe('weather-algo activeStrategies e2e', () => {
 
     const raw = await redis.get(RUNTIME_STATUS_KEY);
     expect(raw).not.toBeNull();
-    const status = JSON.parse(raw!) as { activeStrategies: string[] };
-    expect(status.activeStrategies).toEqual(['weather-forecast', 'weather-forecast-aligned']);
+    const status = JSON.parse(raw!) as {
+      activeStrategiesSim: string[];
+      activeStrategiesReal: string[];
+    };
+    expect(status.activeStrategiesSim).toEqual(['weather-forecast', 'weather-forecast-aligned']);
+    expect(status.activeStrategiesReal).toEqual(['weather-forecast', 'weather-forecast-aligned']);
   });
 
   it('publishes only the enabled strategies (single strategy)', async () => {
     await seedCityRule();
     await seedForecast();
     const risk = await configureWeatherAlgoRisk(ds, {
-      weatherAlgoStrategies: JSON.stringify(['weather-forecast']),
+      weatherAlgoRealEnabled: true,
+      simWeatherAlgoStrategies: JSON.stringify(['weather-forecast']),
+      realWeatherAlgoStrategies: JSON.stringify(['weather-forecast']),
     });
 
     const runner = buildRunner(risk);
@@ -148,7 +160,11 @@ describe('weather-algo activeStrategies e2e', () => {
 
     const raw = await redis.get(RUNTIME_STATUS_KEY);
     expect(raw).not.toBeNull();
-    const status = JSON.parse(raw!) as { activeStrategies: string[] };
-    expect(status.activeStrategies).toEqual(['weather-forecast']);
+    const status = JSON.parse(raw!) as {
+      activeStrategiesSim: string[];
+      activeStrategiesReal: string[];
+    };
+    expect(status.activeStrategiesSim).toEqual(['weather-forecast']);
+    expect(status.activeStrategiesReal).toEqual(['weather-forecast']);
   });
 });

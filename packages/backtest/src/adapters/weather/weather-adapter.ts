@@ -2,7 +2,7 @@ import {
   type WeatherConfig,
   computeTakerFee,
   resolveWeatherEntryExitParams,
-  getStrategyParams,
+  getStrategyParamsForMode,
   type WeatherStrategyParamsBag,
   WEATHER_FORECAST_STRATEGY_ID,
   WEATHER_HIGHEST_YES_STRATEGY_ID,
@@ -34,8 +34,12 @@ import {
 import { AdapterWarnings } from './adapter-warnings.js';
 import type { WeatherFidelityStats } from './data-loader.js';
 
-function resolvedExitMeta(risk: WeatherConfig, strategyId?: string | null): Record<string, number | null> {
-  const p = resolveWeatherEntryExitParams(risk, 'sim', null, strategyId);
+function resolvedExitMeta(
+  risk: WeatherConfig,
+  strategyId?: string | null,
+  env: 'sim' | 'real' = 'sim',
+): Record<string, number | null> {
+  const p = resolveWeatherEntryExitParams(risk, env, null, strategyId);
   return {
     slPercent: p.slPercent,
     tpPercent: p.tpPercent,
@@ -90,6 +94,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   private exitManager: WeatherExitManager;
   private forecastStore = new ForecastRevisionStore();
   private readonly strategyId: WeatherStrategyId | null;
+  private readonly strategyEnv: 'sim' | 'real';
   private readonly bag: WeatherStrategyParamsBag;
   private readonly warnings = new AdapterWarnings();
   private readonly fidelityStats: WeatherFidelityStats | null;
@@ -107,10 +112,19 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     // demande un explicitement.
     const strategyId = (ctx.params.strategyId ?? null) as WeatherStrategyId | null;
     this.strategyId = strategyId;
-    this.bag = getStrategyParams(ctx.configSnapshot, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
-    this.runnerSimStrategies = createRunnerSimStrategies(ctx.configSnapshot, strategyId ?? undefined);
+    this.strategyEnv = ctx.params.strategyEnv ?? 'sim';
+    this.bag = getStrategyParamsForMode(
+      ctx.configSnapshot,
+      strategyId ?? WEATHER_FORECAST_STRATEGY_ID,
+      this.strategyEnv,
+    );
+    this.runnerSimStrategies = createRunnerSimStrategies(
+      ctx.configSnapshot,
+      strategyId ?? undefined,
+      this.strategyEnv,
+    );
     for (const s of this.runnerSimStrategies) {
-      s.setRiskConfig(getStrategyParams(ctx.configSnapshot, s.id));
+      s.setRiskConfig(getStrategyParamsForMode(ctx.configSnapshot, s.id, this.strategyEnv));
     }
     this.exitManager = new WeatherExitManager();
     this.fidelityStats = fidelityStats ?? null;
@@ -207,7 +221,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
    */
   private isDailyLossBreached(ctx: RunContext, strategyId: string | null): boolean {
     const bag = strategyId
-      ? getStrategyParams(ctx.configSnapshot, strategyId)
+      ? getStrategyParamsForMode(ctx.configSnapshot, strategyId, this.strategyEnv)
       : this.bag;
     const maxDailyLoss = bag.maxDailyLossUsdc;
     if (maxDailyLoss == null) return false;
@@ -226,7 +240,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
   ): boolean {
     this.emitStaticFidelityWarnings(ctx);
     const bag = strategyId
-      ? getStrategyParams(ctx.configSnapshot, strategyId)
+      ? getStrategyParamsForMode(ctx.configSnapshot, strategyId, this.strategyEnv)
       : this.bag;
     // Garde-fou : un sizingMode non supporté par le backtest est signalé
     // (filet pour les modes futurs) — fixed_usdc / fixed_shares sont honorés.
@@ -306,7 +320,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const blockedStrategies: string[] = [];
     for (const [strategyId, _positions] of positionsByStrategy) {
       const bag = strategyId
-        ? getStrategyParams(ctx.configSnapshot, strategyId)
+        ? getStrategyParamsForMode(ctx.configSnapshot, strategyId, this.strategyEnv)
         : this.bag;
       if (!this.isDailyLossBreached(ctx, strategyId)) continue;
       const action = bag.killSwitchAction;
@@ -426,7 +440,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           ? `${cityKey}|${signal.targetDate.toISOString().slice(0, 10)}|${signal.strategyId}`
           : null;
       // §6 : résoudre maxPositionsPerCityDate par stratégie émettrice (alignement live).
-      const signalBag = getStrategyParams(risk, signal.strategyId);
+      const signalBag = getStrategyParamsForMode(risk, signal.strategyId, this.strategyEnv);
       const maxPerCityDate = Math.max(1, signalBag.maxPositionsPerCityDate ?? 1);
       if (cityDateKey && (seenCityDates.get(cityDateKey) ?? 0) >= maxPerCityDate) continue;
       if (ctx.ledger.isDuplicateOpen(signal.conditionId)) continue;
@@ -473,7 +487,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         fixedShareCount: signalBag.fixedShareCount,
       });
 
-      const exitMeta = resolvedExitMeta(risk, signal.strategyId);
+      const exitMeta = resolvedExitMeta(risk, signal.strategyId, signal.mode);
       if (this.isImmediateStopLoss(currentPrice, fill, exitMeta.slPercent)) {
         this.warnOnce(
           ctx,
@@ -552,6 +566,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const ctxWeather = {
       forecastMean: forecast?.forecastMean ?? data.snapshotForecastMean ?? 0,
       forecastStdDev: forecast?.forecastStdDev ?? 0,
+      mode: this.strategyEnv,
     };
 
     const ticks = this.bucketGroupStore.ticksForGroup(groupKey);
@@ -636,7 +651,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     if (this.exitManager.isReentryBlocked(city, targetDateIso, ctx.clock.now(), strategyId)) {
       return true;
     }
-    const bag = getStrategyParams(risk, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
+    const bag = getStrategyParamsForMode(risk, strategyId ?? WEATHER_FORECAST_STRATEGY_ID, this.strategyEnv);
     return this.exitManager.isEntryCapReached(
       city,
       targetDateIso,
@@ -713,7 +728,11 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     // ré-entrée pour la ville/date/stratégie, cohérent avec drift/bucket exit.
     if (pos.city) {
       const strategyId = (pos.meta.strategyId as string | undefined) ?? null;
-      const bag = getStrategyParams(ctx.configSnapshot, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
+      const bag = getStrategyParamsForMode(
+        ctx.configSnapshot,
+        strategyId ?? WEATHER_FORECAST_STRATEGY_ID,
+        this.strategyEnv,
+      );
       this.exitManager.markClosed(
         pos.city,
         pos.targetDateIso,
@@ -817,7 +836,11 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         });
         if (slTp.reason === 'SL' && pos.city) {
           const strategyId = (pos.meta.strategyId as string | undefined) ?? null;
-          const bag = getStrategyParams(ctx.configSnapshot, strategyId ?? WEATHER_FORECAST_STRATEGY_ID);
+          const bag = getStrategyParamsForMode(
+            ctx.configSnapshot,
+            strategyId ?? WEATHER_FORECAST_STRATEGY_ID,
+            this.strategyEnv,
+          );
           this.exitManager.markReentryBlocked(
             pos.city,
             pos.targetDateIso,
@@ -869,6 +892,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
           target?: number | null;
         } | null | undefined) ?? null,
       risk: ctx.configSnapshot,
+      strategyEnv: this.strategyEnv,
     });
     if (!decision) return false;
     this.noteFillClampedIfNeeded(ctx, yesPrice, false);

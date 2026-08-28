@@ -14,11 +14,21 @@ import {
 
 export type WeatherConfigApi = Omit<
   WeatherConfig,
-  'weatherAlgoAllowedMarketTags' | 'weatherAlgoStrategies' | 'weatherAlgoStrategyParams'
+  | 'weatherAlgoAllowedMarketTags'
+  | 'weatherAlgoStrategies'
+  | 'weatherAlgoStrategyParams'
+  | 'simWeatherAlgoStrategies'
+  | 'realWeatherAlgoStrategies'
+  | 'simWeatherAlgoStrategyParams'
+  | 'realWeatherAlgoStrategyParams'
 > & {
   weatherAlgoAllowedMarketTags: string[];
   weatherAlgoStrategies: WeatherStrategyId[];
   weatherAlgoStrategyParams: WeatherStrategyParamsMap;
+  simWeatherAlgoStrategies: WeatherStrategyId[];
+  realWeatherAlgoStrategies: WeatherStrategyId[];
+  simWeatherAlgoStrategyParams: WeatherStrategyParamsMap;
+  realWeatherAlgoStrategyParams: WeatherStrategyParamsMap;
 };
 
 type WeatherTagsUpdate = {
@@ -28,6 +38,10 @@ type WeatherTagsUpdate = {
 type WeatherStrategiesUpdate = {
   weatherAlgoStrategies?: WeatherStrategyId[] | string;
   weatherAlgoStrategyParams?: WeatherStrategyParamsMap | string;
+  simWeatherAlgoStrategies?: WeatherStrategyId[] | string;
+  realWeatherAlgoStrategies?: WeatherStrategyId[] | string;
+  simWeatherAlgoStrategyParams?: WeatherStrategyParamsMap | string;
+  realWeatherAlgoStrategyParams?: WeatherStrategyParamsMap | string;
 };
 
 export function presentWeatherConfigForApi(config: WeatherConfig): WeatherConfigApi {
@@ -36,6 +50,14 @@ export function presentWeatherConfigForApi(config: WeatherConfig): WeatherConfig
     weatherAlgoAllowedMarketTags: parseAllowedMarketTags(config.weatherAlgoAllowedMarketTags),
     weatherAlgoStrategies: parseWeatherAlgoStrategies(config.weatherAlgoStrategies),
     weatherAlgoStrategyParams: parseWeatherAlgoStrategyParams(config.weatherAlgoStrategyParams),
+    simWeatherAlgoStrategies: parseWeatherAlgoStrategies(config.simWeatherAlgoStrategies),
+    realWeatherAlgoStrategies: parseWeatherAlgoStrategies(config.realWeatherAlgoStrategies),
+    simWeatherAlgoStrategyParams: parseWeatherAlgoStrategyParams(
+      config.simWeatherAlgoStrategyParams,
+    ),
+    realWeatherAlgoStrategyParams: parseWeatherAlgoStrategyParams(
+      config.realWeatherAlgoStrategyParams,
+    ),
   };
 }
 
@@ -46,6 +68,10 @@ export function toWeatherConfigEntityUpdate<T extends WeatherTagsUpdate & Weathe
     weatherAlgoAllowedMarketTags,
     weatherAlgoStrategies,
     weatherAlgoStrategyParams,
+    simWeatherAlgoStrategies,
+    realWeatherAlgoStrategies,
+    simWeatherAlgoStrategyParams,
+    realWeatherAlgoStrategyParams,
     ...rest
   } = data;
   const update: Partial<WeatherConfig> = { ...rest };
@@ -60,20 +86,47 @@ export function toWeatherConfigEntityUpdate<T extends WeatherTagsUpdate & Weathe
     }
   }
 
-  if (weatherAlgoStrategies !== undefined) {
-    if (typeof weatherAlgoStrategies === 'string') {
-      update.weatherAlgoStrategies = weatherAlgoStrategies;
+  // Colonnes legacy : lues par le GET mais plus jamais écrites par le backend.
+  // Elles sont retirées du patch même si présentes dans l'input.
+  void weatherAlgoStrategies;
+  void weatherAlgoStrategyParams;
+
+  if (simWeatherAlgoStrategies !== undefined) {
+    if (typeof simWeatherAlgoStrategies === 'string') {
+      update.simWeatherAlgoStrategies = simWeatherAlgoStrategies;
     } else {
-      update.weatherAlgoStrategies = serializeWeatherAlgoStrategies(weatherAlgoStrategies);
+      update.simWeatherAlgoStrategies = serializeWeatherAlgoStrategies(
+        simWeatherAlgoStrategies,
+      );
     }
   }
 
-  if (weatherAlgoStrategyParams !== undefined) {
-    if (typeof weatherAlgoStrategyParams === 'string') {
-      update.weatherAlgoStrategyParams = weatherAlgoStrategyParams;
+  if (realWeatherAlgoStrategies !== undefined) {
+    if (typeof realWeatherAlgoStrategies === 'string') {
+      update.realWeatherAlgoStrategies = realWeatherAlgoStrategies;
     } else {
-      update.weatherAlgoStrategyParams = serializeWeatherAlgoStrategyParams(
-        weatherAlgoStrategyParams,
+      update.realWeatherAlgoStrategies = serializeWeatherAlgoStrategies(
+        realWeatherAlgoStrategies,
+      );
+    }
+  }
+
+  if (simWeatherAlgoStrategyParams !== undefined) {
+    if (typeof simWeatherAlgoStrategyParams === 'string') {
+      update.simWeatherAlgoStrategyParams = simWeatherAlgoStrategyParams;
+    } else {
+      update.simWeatherAlgoStrategyParams = serializeWeatherAlgoStrategyParams(
+        simWeatherAlgoStrategyParams,
+      );
+    }
+  }
+
+  if (realWeatherAlgoStrategyParams !== undefined) {
+    if (typeof realWeatherAlgoStrategyParams === 'string') {
+      update.realWeatherAlgoStrategyParams = realWeatherAlgoStrategyParams;
+    } else {
+      update.realWeatherAlgoStrategyParams = serializeWeatherAlgoStrategyParams(
+        realWeatherAlgoStrategyParams,
       );
     }
   }

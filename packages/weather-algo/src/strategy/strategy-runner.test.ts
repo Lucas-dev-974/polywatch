@@ -65,7 +65,8 @@ function buildRunner(exitEvaluator: WeatherExitEvaluator) {
       listEnabled: async () => [],
     } as never,
     forecastService: {} as never,
-    registry,
+    registrySim: registry,
+    registryReal: registry,
     redisCmd: {} as never,
     onSignal: async () => false,
     pollMs: 60_000,
@@ -74,22 +75,32 @@ function buildRunner(exitEvaluator: WeatherExitEvaluator) {
 }
 
 describe('WeatherStrategyRunner setRiskConfig propagation', () => {
-  it('calls setRiskConfig on each registered strategy that implements it', () => {
-    const setRiskConfig = vi.fn();
-    const strategy = {
+  it('calls setRiskConfig on each registered strategy of both registries', () => {
+    const setRiskConfigSim = vi.fn();
+    const setRiskConfigReal = vi.fn();
+    const strategySim = {
       id: 'mock-strategy',
       evaluate: vi.fn(),
-      setRiskConfig,
+      setRiskConfig: setRiskConfigSim,
     } as unknown as WeatherStrategy;
-    const registry = {
-      getAll: () => [strategy],
+    const strategyReal = {
+      id: 'mock-strategy',
+      evaluate: vi.fn(),
+      setRiskConfig: setRiskConfigReal,
+    } as unknown as WeatherStrategy;
+    const registrySim = {
+      getAll: () => [strategySim],
+    } as unknown as WeatherStrategyRegistry;
+    const registryReal = {
+      getAll: () => [strategyReal],
     } as unknown as WeatherStrategyRegistry;
 
     const runner = new WeatherStrategyRunner({
       ds: { getRepository: () => ({ find: async () => [] }) } as never,
       autoTrackService: { listEnabled: async () => [] } as never,
       forecastService: {} as never,
-      registry,
+      registrySim,
+      registryReal,
       redisCmd: {} as never,
       onSignal: async () => false,
       pollMs: 60_000,
@@ -98,10 +109,11 @@ describe('WeatherStrategyRunner setRiskConfig propagation', () => {
     const risk = minimalRisk({ weatherAlgoMinEdge: 0.25, weatherAlgoMaxForecastStd: 1.2 });
     runner.setRiskConfig(risk);
 
-    expect(setRiskConfig).toHaveBeenCalledTimes(1);
-    // The runner resolves the per-strategy bag; unknown strategy id falls back
-    // to catalogue defaults (weather-forecast bag has default minEdge 0.1).
-    const bag = setRiskConfig.mock.calls[0][0] as { minEdge: number };
+    // One call per registry instance (sim + real), same unknown strategy id
+    // falls back to catalogue defaults (weather-forecast bag has default minEdge 0.1).
+    expect(setRiskConfigSim).toHaveBeenCalledTimes(1);
+    expect(setRiskConfigReal).toHaveBeenCalledTimes(1);
+    const bag = setRiskConfigSim.mock.calls[0][0] as { minEdge: number };
     expect(bag.minEdge).toBe(0.1);
   });
 
@@ -110,7 +122,10 @@ describe('WeatherStrategyRunner setRiskConfig propagation', () => {
       id: 'no-setconfig-strategy',
       evaluate: vi.fn(),
     } as unknown as WeatherStrategy;
-    const registry = {
+    const registrySim = {
+      getAll: () => [strategy],
+    } as unknown as WeatherStrategyRegistry;
+    const registryReal = {
       getAll: () => [strategy],
     } as unknown as WeatherStrategyRegistry;
 
@@ -118,7 +133,8 @@ describe('WeatherStrategyRunner setRiskConfig propagation', () => {
       ds: { getRepository: () => ({ find: async () => [] }) } as never,
       autoTrackService: { listEnabled: async () => [] } as never,
       forecastService: {} as never,
-      registry,
+      registrySim,
+      registryReal,
       redisCmd: {} as never,
       onSignal: async () => false,
       pollMs: 60_000,
@@ -248,6 +264,7 @@ describe('pickBestEdgeBucket', () => {
       confidence: 0.2,
       reasons: [],
       strategyId: 'weather-forecast',
+      mode: 'sim',
       eventSlug: 'slug',
       city: 'Paris',
       metric: 'highest_temp',
@@ -345,6 +362,7 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
             confidence: 0.5,
             reasons: [],
             strategyId: 'weather-forecast',
+            mode: 'sim',
             eventSlug: m.eventSlug!,
             city: 'Paris',
             metric: 'highest_temp',
@@ -372,7 +390,10 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       }),
     } as unknown as WeatherStrategy;
 
-    const registry = {
+    const registrySim = {
+      getAll: () => [strategy],
+    } as unknown as WeatherStrategyRegistry;
+    const registryReal = {
       getAll: () => [strategy],
     } as unknown as WeatherStrategyRegistry;
 
@@ -384,7 +405,8 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       forecastService: {
         getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
       } as never,
-      registry,
+      registrySim,
+      registryReal,
       redisCmd: {} as never,
       onSignal: async () => false,
       pollMs: 60_000,
@@ -397,21 +419,24 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       market({ conditionId: 'm-35', question: 'Will the highest temperature in Paris be 35°C on August 2?' }),
     ];
 
-    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<{ sim: WeatherSignal | null; real: WeatherSignal | null }> }).evaluateCityFollowDateGroup(
       1,
       'Paris',
       'highest_temp',
       '2026-08-02',
       markets,
       [],
-      [strategy],
-      1,
+      { sim: [strategy], real: [strategy] },
       new Map(),
+      true,
+      true,
     );
 
     expect(result).not.toBeNull();
-    expect(result!.conditionId).toBe('m-34');
-    expect(result!.entryBucketBounds).toEqual({ target: 34 });
+    expect(result!.sim).not.toBeNull();
+    expect(result!.sim!.conditionId).toBe('m-34');
+    expect(result!.sim!.entryBucketBounds).toEqual({ target: 34 });
+    expect(result!.real).not.toBeNull();
   });
 
   it('returns null when all buckets abstain', async () => {
@@ -420,33 +445,38 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
       evaluate: vi.fn(async () => ({ kind: 'abstain' as const, reason: 'insufficient_edge' })),
     } as unknown as WeatherStrategy;
 
-    const registry = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
+    const registrySim = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
+    const registryReal = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
     const runner = new WeatherStrategyRunner({
       ds: { getRepository: () => ({ find: async () => [] }) } as never,
       autoTrackService: { listEnabled: async () => [] } as never,
       forecastService: {
         getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
       } as never,
-      registry,
+      registrySim,
+      registryReal,
       redisCmd: {} as never,
       onSignal: async () => false,
       pollMs: 60_000,
       exitEvaluator: undefined,
     });
 
-    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<{ sim: WeatherSignal | null; real: WeatherSignal | null }> }).evaluateCityFollowDateGroup(
       1,
       'Paris',
       'highest_temp',
       '2026-08-02',
       [market()],
       [],
-      [strategy],
-      1,
+      { sim: [strategy], real: [strategy] },
       new Map(),
+      true,
+      true,
     );
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.sim).toBeNull();
+    expect(result!.real).toBeNull();
   });
 });
 
@@ -459,6 +489,7 @@ describe('city+date gating', () => {
       confidence: 0.2,
       reasons: [],
       strategyId: 'weather-highest-yes',
+      mode: 'sim',
       eventSlug: 'slug',
       city: 'Paris',
       metric: 'highest_temp',
@@ -572,7 +603,8 @@ describe('evaluateCityFollowDateGroup with open position', () => {
       evaluate: vi.fn(async () => ({ kind: 'signal' as const, reason: undefined })),
     } as unknown as WeatherStrategy;
     const recordSnapshot = vi.fn(async () => ({ snapshotId: 1 }));
-    const registry = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
+    const registrySim = { getAll: () => [strategy] } as unknown as WeatherStrategyRegistry;
+    const registryReal = { getAll: () => [] } as unknown as WeatherStrategyRegistry;
 
     const runner = new WeatherStrategyRunner({
       ds: { getRepository: () => ({ find: async () => [] }) } as never,
@@ -580,7 +612,8 @@ describe('evaluateCityFollowDateGroup with open position', () => {
       forecastService: {
         getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
       } as never,
-      registry,
+      registrySim,
+      registryReal,
       redisCmd: {} as never,
       onSignal: async () => false,
       pollMs: 60_000,
@@ -593,19 +626,21 @@ describe('evaluateCityFollowDateGroup with open position', () => {
       }),
     );
 
-    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<WeatherSignal | null> }).evaluateCityFollowDateGroup(
+    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<{ sim: WeatherSignal | null; real: WeatherSignal | null }> }).evaluateCityFollowDateGroup(
       1,
       'Paris',
       'highest_temp',
       '2026-08-02',
       [market()],
       [],
-      [strategy],
-      new Map([['paris|2026-08-02|weather-forecast', 1]]),
+      { sim: [strategy], real: [] },
+      new Map([['paris|2026-08-02|weather-forecast|sim', 1]]),
+      true,
+      true,
     );
 
     expect(recordSnapshot).toHaveBeenCalledTimes(1);
-    expect(result).toBeNull();
+    expect(result!.sim).toBeNull();
     expect(strategy.evaluate).not.toHaveBeenCalled();
   });
 });
@@ -644,6 +679,7 @@ describe('WeatherStrategyRunner safe reload', () => {
                 confidence: 0.5,
                 reasons: [],
                 strategyId: id,
+                mode: 'sim',
                 eventSlug: 'paris-aug-2',
                 city: 'Paris',
                 metric: 'highest_temp',
@@ -671,7 +707,11 @@ describe('WeatherStrategyRunner safe reload', () => {
         .map((id) => [forecastStrategy, alignedStrategy].find((s) => s.id === id))
         .filter((s): s is WeatherStrategy => Boolean(s)),
     );
-    const registry = {
+    const registrySim = {
+      getAll: () => [forecastStrategy, alignedStrategy],
+      getOrdered,
+    } as unknown as WeatherStrategyRegistry;
+    const registryReal = {
       getAll: () => [forecastStrategy, alignedStrategy],
       getOrdered,
     } as unknown as WeatherStrategyRegistry;
@@ -699,17 +739,20 @@ describe('WeatherStrategyRunner safe reload', () => {
       forecastService: {
         getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
       } as never,
-      registry,
+      registrySim,
+      registryReal,
       redisCmd: {} as never,
       onSignal: async () => false,
       pollMs: 60_000,
       exitEvaluator,
     });
 
-    // Cycle 1 starts with only weather-forecast enabled.
+    // Cycle 1 starts with only weather-forecast enabled (both env toggles on).
     runner.setRiskConfig(
       minimalRisk({
         weatherAlgoEnabled: true,
+        weatherAlgoSimEnabled: true,
+        weatherAlgoRealEnabled: true,
         weatherAlgoStrategies: JSON.stringify(['weather-forecast']),
       }),
     );
@@ -723,6 +766,8 @@ describe('WeatherStrategyRunner safe reload', () => {
     runner.setRiskConfig(
       minimalRisk({
         weatherAlgoEnabled: true,
+        weatherAlgoSimEnabled: true,
+        weatherAlgoRealEnabled: true,
         weatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
       }),
     );
@@ -731,12 +776,18 @@ describe('WeatherStrategyRunner safe reload', () => {
     // Let cycle 1 finish. getOrdered was called with the snapshot taken at
     // cycle start (only weather-forecast) — the mid-cycle change did NOT apply.
     await vi.waitFor(() => expect(exitCalls).toBe(1));
-    expect(getOrdered).toHaveBeenLastCalledWith(['weather-forecast']);
+    // Both sim and real passes resolve from the same legacy fallback.
+    await vi.waitFor(() => expect(getOrdered).toHaveBeenLastCalledWith(['weather-forecast']));
 
     // Cycle 2 runs with the new config — both strategies are now enabled.
     runner.requestEvaluationCycle();
     await vi.waitFor(() => expect(exitCalls).toBe(2));
-    expect(getOrdered).toHaveBeenLastCalledWith(['weather-forecast', 'weather-forecast-aligned']);
+    await vi.waitFor(() =>
+      expect(getOrdered).toHaveBeenLastCalledWith([
+        'weather-forecast',
+        'weather-forecast-aligned',
+      ]),
+    );
 
     runner.stop();
   });
@@ -752,6 +803,7 @@ describe('applySelectionMode', () => {
       confidence: 0.2,
       reasons: [],
       strategyId: 'weather-forecast',
+      mode: 'sim',
       eventSlug: 'slug',
       city: 'Paris',
       metric: 'highest_temp',
@@ -848,6 +900,7 @@ describe('dedupSignalsByCityDate', () => {
       confidence: 0.2,
       reasons: [],
       strategyId: 'weather-forecast',
+      mode: 'sim',
       eventSlug: 'slug',
       city,
       metric: 'highest_temp',

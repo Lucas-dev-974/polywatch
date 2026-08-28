@@ -151,6 +151,7 @@ import { AddWeatherExitPercentColumns1700000000117 } from '../migrations/AddWeat
 import { DropWeatherAlgoBidPointsColumns1700000000118 } from '../migrations/DropWeatherAlgoBidPointsColumns1700000000118.js';
 import { AddBacktestRunUserIdAndActiveUnique1700000000119 } from '../migrations/AddBacktestRunUserIdAndActiveUnique1700000000119.js';
 import { CopyCryptoExitToPercent1700000000120 } from '../migrations/CopyCryptoExitPercentMigration1700000000120.js';
+import { AddWeatherAlgoStrategiesPerEnv1700000000121 } from '../migrations/AddWeatherAlgoStrategiesPerEnv1700000000121.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -267,6 +268,7 @@ export const migrations = [
   DropWeatherAlgoBidPointsColumns1700000000118,
   AddBacktestRunUserIdAndActiveUnique1700000000119,
   CopyCryptoExitToPercent1700000000120,
+  AddWeatherAlgoStrategiesPerEnv1700000000121,
 ];
 
 export const entities = [

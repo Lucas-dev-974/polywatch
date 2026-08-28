@@ -28,6 +28,7 @@ describe('WeatherForecastStrategy city-first', () => {
     const result = await strategy.evaluate(market(), {
       forecastMean: 24,
       forecastStdDev: 0.5,
+      mode: 'sim',
     });
 
     expect(result.kind).toBe('signal');
@@ -57,6 +58,7 @@ describe('WeatherForecastStrategy city-first', () => {
       {
         forecastMean: 18,
         forecastStdDev: 0.5,
+        mode: 'sim',
       },
     );
 
@@ -77,6 +79,7 @@ describe('WeatherForecastStrategy city-first', () => {
     const result = await strategy.evaluate(market(), {
       forecastMean: 22,
       forecastStdDev: 0.5,
+      mode: 'sim',
     });
 
     expect(result.kind).toBe('abstain');
@@ -94,6 +97,7 @@ describe('WeatherForecastStrategy city-first', () => {
     const result = await strategy.evaluate(market(), {
       forecastMean: 24,
       forecastStdDev: 0.5,
+      mode: 'sim',
     });
 
     expect(result.kind).toBe('signal');
@@ -109,6 +113,7 @@ describe('WeatherForecastStrategy city-first', () => {
     const result = await strategy.evaluate(market(), {
       forecastMean: 25.2,
       forecastStdDev: 0.5,
+      mode: 'sim',
     });
 
     // Either a signal (if edge passes) or abstain for a non-probability reason;
@@ -142,6 +147,7 @@ describe('WeatherForecastStrategy city-first', () => {
     const result = await strategy.evaluateGroup([lowEdge, highEdge], {
       forecastMean: 24,
       forecastStdDev: 0.5,
+      mode: 'sim',
     });
 
     expect(result.kind).toBe('signal');

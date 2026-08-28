@@ -1,4 +1,5 @@
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
+import type { TradingMode } from '../types/index.js';
 
 export const WEATHER_FORECAST_STRATEGY_ID = 'weather-forecast' as const;
 export const WEATHER_FORECAST_ALIGNED_STRATEGY_ID = 'weather-forecast-aligned' as const;
@@ -424,6 +425,66 @@ export function resolveEnabledWeatherStrategies(
   config: Pick<WeatherConfig, 'weatherAlgoStrategies'>,
 ): WeatherStrategyId[] {
   return parseWeatherAlgoStrategies(config.weatherAlgoStrategies);
+}
+
+/**
+ * Per-mode resolution of the active strategy ids.
+ *
+ * Reads the raw `simWeatherAlgoStrategies` / `realWeatherAlgoStrategies`
+ * column. Falls back to the legacy `weatherAlgoStrategies` column **only when
+ * the raw value is undefined / null / ''** — never after
+ * `parseWeatherAlgoStrategies`, which already collapses empty/invalid values
+ * to `['weather-forecast']` (otherwise the fallback would never fire). A
+ * populated `'{}'` / `'[]'` does NOT fall back (`'[]'` already parses to the
+ * forecast default).
+ */
+export function resolveEnabledWeatherStrategiesForMode(
+  config: Pick<
+    WeatherConfig,
+    'weatherAlgoStrategies' | 'simWeatherAlgoStrategies' | 'realWeatherAlgoStrategies'
+  >,
+  mode: TradingMode,
+): WeatherStrategyId[] {
+  const raw =
+    mode === 'sim' ? config.simWeatherAlgoStrategies : config.realWeatherAlgoStrategies;
+  const effectiveRaw =
+    raw === undefined || raw === null || raw === '' ? config.weatherAlgoStrategies : raw;
+  return parseWeatherAlgoStrategies(effectiveRaw);
+}
+
+function rawStrategyParamsForMode(
+  config: Pick<
+    WeatherConfig,
+    'weatherAlgoStrategyParams' | 'simWeatherAlgoStrategyParams' | 'realWeatherAlgoStrategyParams'
+  >,
+  mode: TradingMode,
+): string | null | undefined {
+  const raw =
+    mode === 'sim' ? config.simWeatherAlgoStrategyParams : config.realWeatherAlgoStrategyParams;
+  return raw === undefined || raw === null || raw === ''
+    ? config.weatherAlgoStrategyParams
+    : raw;
+}
+
+/**
+ * Per-mode resolution of the strategy params bag for a given strategy.
+ * Reads the params from the correct environment map, falling back to the
+ * legacy global map only when the per-mode raw value is empty.
+ */
+export function getStrategyParamsForMode(
+  config: Pick<
+    WeatherConfig,
+    | 'weatherAlgoStrategyParams'
+    | 'simWeatherAlgoStrategyParams'
+    | 'realWeatherAlgoStrategyParams'
+  >,
+  strategyId: string,
+  mode: TradingMode,
+): WeatherStrategyParamsBag {
+  return getStrategyParams(
+    { weatherAlgoStrategyParams: rawStrategyParamsForMode(config, mode) ?? '{}' },
+    strategyId,
+  );
 }
 
 export type StrategyParamsValidationError = { strategyId: string; key: string; message: string };

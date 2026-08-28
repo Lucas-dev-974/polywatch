@@ -4,7 +4,7 @@ import {
   shouldCloseForBucketExit,
   shouldEmitBucketExit,
   resolveCityFollowSwitchMode,
-  getStrategyParams,
+  getStrategyParamsForMode,
   DEFAULT_WEATHER_STRATEGY_PARAMS,
   type BacktestExitReason,
 } from '@polywatch/core';
@@ -123,12 +123,13 @@ export class WeatherExitManager {
       entryBucketComparison: string | null;
       entryBucketBounds: { low?: number | null; high?: number | null; target?: number | null } | null;
       risk: WeatherConfig;
+      strategyEnv: 'sim' | 'real';
     },
   ): ExitDecision | null {
     const now = input.now;
     const strategyId = (pos.meta.strategyId as string | undefined) ?? null;
     const bag = strategyId
-      ? getStrategyParams(input.risk, strategyId)
+      ? getStrategyParamsForMode(input.risk, strategyId, input.strategyEnv)
       : DEFAULT_WEATHER_STRATEGY_PARAMS;
 
     let drift = false;

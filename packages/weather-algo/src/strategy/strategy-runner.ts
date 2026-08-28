@@ -26,10 +26,11 @@ import {
   resolveMarketTargetDateIso,
   isMarketActiveForWeather,
   type BucketCandidate,
-  resolveEnabledWeatherStrategies,
-  getStrategyParams,
+  resolveEnabledWeatherStrategiesForMode,
+  getStrategyParamsForMode,
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
+  type TradingMode,
 } from '@polywatch/core';
 import type { WeatherStrategyRegistry } from './registry.js';
 import type { WeatherSignal, WeatherStrategy, WeatherEvaluationResult } from './strategy.js';
@@ -45,9 +46,10 @@ export interface StrategyRunnerParams {
   ds: DataSource;
   autoTrackService: WeatherAutoTrackService;
   forecastService: WeatherForecastService;
-  registry: WeatherStrategyRegistry;
+  registrySim: WeatherStrategyRegistry;
+  registryReal: WeatherStrategyRegistry;
   redisCmd: Redis;
-  onSignal: (signal: WeatherSignal) => Promise<boolean>;
+  onSignal: (signal: WeatherSignal, risk: WeatherConfig) => Promise<boolean>;
   pollMs: number;
   forecastCacheTtlMs?: number;
   runtimeStatus?: WeatherAlgoRuntimeStatusPublisher;
@@ -66,9 +68,10 @@ export class WeatherStrategyRunner {
   private readonly ds: DataSource;
   private readonly autoTrackService: WeatherAutoTrackService;
   private readonly forecastService: WeatherForecastService;
-  private readonly registry: WeatherStrategyRegistry;
+  private readonly registrySim: WeatherStrategyRegistry;
+  private readonly registryReal: WeatherStrategyRegistry;
   private readonly redisCmd: Redis;
-  private readonly onSignal: (signal: WeatherSignal) => Promise<boolean>;
+  private readonly onSignal: (signal: WeatherSignal, risk: WeatherConfig) => Promise<boolean>;
   private pollMs: number;
   private readonly forecastCacheTtlMs: number;
   private risk: WeatherConfig | null = null;
@@ -83,7 +86,8 @@ export class WeatherStrategyRunner {
     this.ds = params.ds;
     this.autoTrackService = params.autoTrackService;
     this.forecastService = params.forecastService;
-    this.registry = params.registry;
+    this.registrySim = params.registrySim;
+    this.registryReal = params.registryReal;
     this.redisCmd = params.redisCmd;
     this.onSignal = params.onSignal;
     this.pollMs = params.pollMs;
@@ -107,10 +111,14 @@ export class WeatherStrategyRunner {
         }
       }
     }
-    for (const strategy of this.registry.getAll()) {
-      const bag = getStrategyParams(risk, strategy.id);
-      strategy.setRiskConfig?.(bag);
-    }
+    const apply = (registry: WeatherStrategyRegistry, mode: TradingMode) => {
+      for (const strategy of registry.getAll()) {
+        const bag = getStrategyParamsForMode(risk, strategy.id, mode);
+        strategy.setRiskConfig?.(bag);
+      }
+    };
+    apply(this.registrySim, 'sim');
+    apply(this.registryReal, 'real');
   }
 
   /**
@@ -229,16 +237,21 @@ export class WeatherStrategyRunner {
       lastEvaluatedAt: null as number | null,
       lastSkipReason: null as string | null,
       lastSkipAt: null as number | null,
-      activeStrategies: [] as string[],
+      activeStrategiesSim: [] as string[],
+      activeStrategiesReal: [] as string[],
     };
 
     // Snapshot config at cycle start — safe reload: mid-cycle config changes apply next cycle.
     const risk = this.risk;
-    const enabledStrategyIds: WeatherStrategyId[] = risk
-      ? resolveEnabledWeatherStrategies(risk)
+    const enabledSim: WeatherStrategyId[] = risk
+      ? resolveEnabledWeatherStrategiesForMode(risk, 'sim')
       : [];
-    status.activeStrategies = [...enabledStrategyIds];
-    const strategies = this.registry.getOrdered(enabledStrategyIds);
+    const enabledReal: WeatherStrategyId[] = risk
+      ? resolveEnabledWeatherStrategiesForMode(risk, 'real')
+      : [];
+    // Resolved at cycle start regardless of env toggles; publish [] for an env that is off.
+    status.activeStrategiesSim = risk?.weatherAlgoSimEnabled ? [...enabledSim] : [];
+    status.activeStrategiesReal = risk?.weatherAlgoRealEnabled ? [...enabledReal] : [];
 
     try {
       if (!risk) {
@@ -247,7 +260,8 @@ export class WeatherStrategyRunner {
         return;
       }
 
-      // 1. Exits first — avoids opening a new bucket before closing the old one
+      // 1. Exits first — avoids opening a new bucket before closing the old one.
+      // Global: exit evaluator reads pos.mode + strategyId, so one pass covers both envs.
       if (this.exitEvaluator) {
         try {
           await this.exitEvaluator.evaluateOpenPositions();
@@ -263,10 +277,15 @@ export class WeatherStrategyRunner {
         return;
       }
 
-      if (strategies.length === 0) {
+      const simEnabled = !!risk.weatherAlgoSimEnabled;
+      const realEnabled = !!risk.weatherAlgoRealEnabled;
+      const strategiesSim = simEnabled ? this.registrySim.getOrdered(enabledSim) : [];
+      const strategiesReal = realEnabled ? this.registryReal.getOrdered(enabledReal) : [];
+
+      if (strategiesSim.length === 0 && strategiesReal.length === 0) {
         status.lastSkipReason = 'no_strategies';
         status.lastSkipAt = Date.now();
-        log.warn({ enabledStrategyIds }, 'no registered strategies for enabled ids');
+        log.warn({ enabledSim, enabledReal }, 'no registered strategies for enabled ids');
         return;
       }
 
@@ -285,6 +304,7 @@ export class WeatherStrategyRunner {
         ...cityFollowRules.map((r) => r.lookAheadDays ?? 1),
       );
       const discoveryTargetDates = buildLookAheadTargetDates(maxLookAhead);
+      // Discovery + open positions load once per cycle, shared by both passes.
       const discovery = await discoverWeatherMarkets({
         limit: 100,
         targetDates: discoveryTargetDates,
@@ -314,54 +334,68 @@ export class WeatherStrategyRunner {
           ruleCount: cityFollowRules.length,
           openCityDates: [...openCityDates.keys()],
           maxLookAhead,
-          activeStrategies: enabledStrategyIds,
+          activeStrategiesSim: enabledSim,
+          activeStrategiesReal: enabledReal,
           targetDates: discoveryTargetDates.map((d) => d.toISOString().slice(0, 10)),
           resolvedMarkets: resolvedMarkets.length,
         },
         'evaluating city-follow rules',
       );
 
-      const allSignals = await this.evaluateCityFollowRules(
+      const strategiesByMode: { sim: WeatherStrategy[]; real: WeatherStrategy[] } = {
+        sim: strategiesSim,
+        real: strategiesReal,
+      };
+
+      const { simSignals, realSignals } = await this.evaluateCityFollowRules(
         cityFollowRules,
         discovery.temperatureMarkets,
         resolvedMarkets,
         openCityDates,
-        strategies,
+        strategiesByMode,
+        simEnabled,
+        realEnabled,
       );
 
-      const dedupedSignals = dedupSignalsByCityDate(allSignals);
-      const selectedSignals = applySelectionMode(dedupedSignals, risk);
+      // Dedup + selection per pass (signals already carry mode).
+      const dedupedSim = dedupSignalsByCityDate(simSignals);
+      const selectedSim = applySelectionMode(dedupedSim, risk);
+      const dedupedReal = dedupSignalsByCityDate(realSignals);
+      const selectedReal = applySelectionMode(dedupedReal, risk);
 
-      // Safety guard: enforce max open positions per (city, target date, strategy)
-      // across the emitted batch. dedupedSignals already carries at most one
-      // signal per (city, date, strategy) lane, but seenCityDates also counts
-      // pairs that already have an open/pending position (defensive against any
-      // upstream regression in the open city+date filter).
+      // Safety guard: enforce max open positions per (city, target date, strategy, mode)
+      // across the emitted batch. Capacity is now decoupled per mode.
       const seenCityDates = new Map<string, number>(openCityDates);
-      for (const signal of selectedSignals) {
-        const cityDateKey = `${normalizeWeatherCity(signal.city)}|${signal.targetDate.toISOString().slice(0, 10)}|${signal.strategyId}`;
-        const maxForStrategy = Math.max(
-          1,
-          getStrategyParams(risk, signal.strategyId).maxPositionsPerCityDate,
-        );
-        const current = seenCityDates.get(cityDateKey) ?? 0;
-        if (current >= maxForStrategy) {
-          log.debug({ city: signal.city, dateKey: cityDateKey, strategyId: signal.strategyId, conditionId: signal.conditionId }, 'skip signal — city+date+strategy already at capacity');
-          continue;
-        }
-        try {
-          const accepted = await this.onSignal(signal);
-          if (accepted) {
-            seenCityDates.set(cityDateKey, current + 1);
-            log.info(
-              { conditionId: signal.conditionId, eventSlug: signal.eventSlug, edge: signal.edge, city: signal.city, dateKey: cityDateKey },
-              'weather signal accepted',
-            );
+      const dispatchLot = async (signals: WeatherSignal[]): Promise<void> => {
+        for (const signal of signals) {
+          const cityDateKey = `${normalizeWeatherCity(signal.city)}|${signal.targetDate.toISOString().slice(0, 10)}|${signal.strategyId}|${signal.mode}`;
+          const maxForStrategy = Math.max(
+            1,
+            getStrategyParamsForMode(risk, signal.strategyId, signal.mode)
+              .maxPositionsPerCityDate,
+          );
+          const current = seenCityDates.get(cityDateKey) ?? 0;
+          if (current >= maxForStrategy) {
+            log.debug({ city: signal.city, dateKey: cityDateKey, strategyId: signal.strategyId, mode: signal.mode, conditionId: signal.conditionId }, 'skip signal — city+date+strategy+mode already at capacity');
+            continue;
           }
-        } catch (err) {
-          log.error({ err, conditionId: signal.conditionId }, 'weather signal dispatch failed');
+          try {
+            const accepted = await this.onSignal(signal, risk);
+            if (accepted) {
+              seenCityDates.set(cityDateKey, current + 1);
+              log.info(
+                { conditionId: signal.conditionId, eventSlug: signal.eventSlug, edge: signal.edge, city: signal.city, dateKey: cityDateKey, mode: signal.mode },
+                'weather signal accepted',
+              );
+            }
+          } catch (err) {
+            log.error({ err, conditionId: signal.conditionId }, 'weather signal dispatch failed');
+          }
         }
-      }
+      };
+
+      // Parallel dispatch between modes; sequential onSignal within each lot.
+      await Promise.all([dispatchLot(selectedSim), dispatchLot(selectedReal)]);
 
       status.lastEvaluatedAt = Date.now();
     } catch (err) {
@@ -374,10 +408,10 @@ export class WeatherStrategyRunner {
   }
 
   /**
-   * Open WEATHER_OPEN positions keyed by `(normalizedCity|targetDateIso)` with a
-   * count of how many positions are active for each (city, target date) pair.
+   * Open WEATHER_OPEN positions keyed by `(normalizedCity|targetDateIso|strategyId|mode)`
+   * with a count of how many positions are active for each lane.
    * Includes pending (reserved, not filled) and closing (exit enqueued / in progress)
-   * so we never exceed `maxPositionsPerCityDate` for the same city+date+strategy.
+   * so we never exceed `maxPositionsPerCityDate` for the same city+date+strategy+mode.
    *
    * A pending position with quantity 0 is only considered active when it has a
    * non-expired reservation. Otherwise it is a stale zombie left by an earlier
@@ -402,8 +436,10 @@ export class WeatherStrategyRunner {
     });
     for (const snap of snaps) {
       if (!snap.city) continue;
-      const strategyId = posById.get(snap.copiedPositionId)?.strategyId ?? 'weather-forecast';
-      const key = `${normalizeWeatherCity(snap.city)}|${snap.targetDate.toISOString().slice(0, 10)}|${strategyId}`;
+      const pos = posById.get(snap.copiedPositionId);
+      const strategyId = pos?.strategyId ?? 'weather-forecast';
+      const mode = pos?.mode === 'real' ? 'real' : 'sim';
+      const key = `${normalizeWeatherCity(snap.city)}|${snap.targetDate.toISOString().slice(0, 10)}|${strategyId}|${mode}`;
       cityDates.set(key, (cityDates.get(key) ?? 0) + 1);
     }
     return cityDates;
@@ -447,9 +483,12 @@ export class WeatherStrategyRunner {
     temperatureMarkets: MarketListItemDto[],
     resolvedMarkets: MarketListItemDto[],
     openCityDates: Map<string, number>,
-    strategies: WeatherStrategy[],
-  ): Promise<WeatherSignal[]> {
-    const signals: WeatherSignal[] = [];
+    strategiesByMode: { sim: WeatherStrategy[]; real: WeatherStrategy[] },
+    simEnabled: boolean,
+    realEnabled: boolean,
+  ): Promise<{ simSignals: WeatherSignal[]; realSignals: WeatherSignal[] }> {
+    const simSignals: WeatherSignal[] = [];
+    const realSignals: WeatherSignal[] = [];
 
     // Index resolved markets per city + date so we can inject them into the
     // snapshot for the matching city/date group (resolved-only, never traded).
@@ -525,38 +564,40 @@ export class WeatherStrategyRunner {
         }
       }
 
-      const citySignals: WeatherSignal[] = [];
+      const citySimSignals: WeatherSignal[] = [];
+      const cityRealSignals: WeatherSignal[] = [];
       for (const [dateKey, markets] of byDate) {
         const resolvedForDate =
           resolvedByCityDate.get(`${cityKey}|${metric}|${dateKey}`) ?? [];
         try {
-          const signal = await this.evaluateCityFollowDateGroup(
+          const signals = await this.evaluateCityFollowDateGroup(
             rule.id,
             rule.city,
             metric,
             dateKey,
             markets,
             resolvedForDate,
-            strategies,
+            strategiesByMode,
             openCityDates,
+            simEnabled,
+            realEnabled,
           );
-          if (signal) citySignals.push(signal);
+          if (signals.sim) citySimSignals.push(signals.sim);
+          if (signals.real) cityRealSignals.push(signals.real);
         } catch (err) {
           log.error({ err, city: rule.city, dateKey }, 'city-follow date group evaluation failed');
         }
       }
 
-      // Snapshot has already been recorded above regardless of open capacity.
-      // Capacity is enforced per (city, date, strategy) inside
-      // evaluateCityFollowDateGroup. Push one candidate per date:
-      // evaluateCityFollowDateGroup returns at most one signal per date, so
-      // multiple dates of the same city can coexist when each lane has capacity.
-      for (const signal of citySignals) {
-        signals.push(signal);
+      for (const signal of citySimSignals) {
+        simSignals.push(signal);
+      }
+      for (const signal of cityRealSignals) {
+        realSignals.push(signal);
       }
     }
 
-    return signals;
+    return { simSignals, realSignals };
   }
 
   private async evaluateCityFollowDateGroup(
@@ -566,13 +607,15 @@ export class WeatherStrategyRunner {
     dateKey: string,
     markets: MarketListItemDto[],
     resolvedMarkets: MarketListItemDto[],
-    strategies: WeatherStrategy[],
+    strategiesByMode: { sim: WeatherStrategy[]; real: WeatherStrategy[] },
     openCityDateCounts: Map<string, number>,
-  ): Promise<WeatherSignal | null> {
+    simEnabled: boolean,
+    realEnabled: boolean,
+  ): Promise<{ sim: WeatherSignal | null; real: WeatherSignal | null }> {
     const targetDate = new Date(`${dateKey}T12:00:00Z`);
     if (Number.isNaN(targetDate.getTime())) {
       log.warn({ city, dateKey, metric }, 'city-follow: invalid dateKey — skipping');
-      return null;
+      return { sim: null, real: null };
     }
 
     const allBuckets: BucketCandidate[] = [];
@@ -638,6 +681,7 @@ export class WeatherStrategyRunner {
       );
     }
 
+    // Snapshot recorded ONCE per city+date, before the two strategy loops.
     if (snapshotEnabled && this.marketSnapshotRecorder) {
       const snapshotBuckets = mergeBucketsForSnapshot(allBuckets, resolvedBuckets);
       const totalBucketCount = snapshotBuckets.length;
@@ -685,37 +729,98 @@ export class WeatherStrategyRunner {
       }
     }
 
-    if (!forecast) {
-      const hasHighestYes = strategies.some((s) => s.id === WEATHER_HIGHEST_YES_STRATEGY_ID);
-      if (!hasHighestYes) {
-        log.warn({ city, dateKey, metric }, 'city-follow: forecast unavailable — skipping evaluate');
-        return null;
-      }
-      // highest-yes activée : procéder avec un ctx placeholder, les stratégies
-      // forecast-dépendantes s'abstiendront (proba forecast nulle → edge nul).
+    const activeMarkets = activeBuckets.map((b) => b.market);
+
+    // Both passes share the same snapshot; they may run sequentially (dispatch
+    // happens after, between modes, in runEvaluationCycle).
+    const sim = simEnabled
+      ? await this.evaluateStrategyPass({
+          city,
+          dateKey,
+          mode: 'sim',
+          strategies: strategiesByMode.sim,
+          activeBuckets,
+          activeMarkets,
+          forecast,
+          snapshotId,
+          openCityDateCounts,
+          evalLogEnabled,
+        })
+      : null;
+    const real = realEnabled
+      ? await this.evaluateStrategyPass({
+          city,
+          dateKey,
+          mode: 'real',
+          strategies: strategiesByMode.real,
+          activeBuckets,
+          activeMarkets,
+          forecast,
+          snapshotId,
+          openCityDateCounts,
+          evalLogEnabled,
+        })
+      : null;
+
+    return { sim, real };
+  }
+
+  /** One sim or real strategy pass for a city+date group (shared snapshot). */
+  private async evaluateStrategyPass(params: {
+    city: string;
+    dateKey: string;
+    mode: TradingMode;
+    strategies: WeatherStrategy[];
+    activeBuckets: BucketCandidate[];
+    activeMarkets: MarketListItemDto[];
+    forecast: Awaited<ReturnType<WeatherForecastService['getOrFetch']>>;
+    snapshotId: number | null;
+    openCityDateCounts: Map<string, number>;
+    evalLogEnabled: boolean;
+  }): Promise<WeatherSignal | null> {
+    const {
+      city,
+      dateKey,
+      mode,
+      strategies,
+      activeBuckets,
+      activeMarkets,
+      forecast,
+      snapshotId,
+      openCityDateCounts,
+      evalLogEnabled,
+    } = params;
+
+    if (strategies.length === 0) return null;
+
+    const hasHighestYes = strategies.some((s) => s.id === WEATHER_HIGHEST_YES_STRATEGY_ID);
+    if (!forecast && !hasHighestYes) {
+      log.warn({ city, dateKey, mode }, 'city-follow: forecast unavailable — skipping evaluate');
+      return null;
     }
     if (activeBuckets.length === 0) {
-      log.debug({ city, dateKey, marketCount: markets.length }, 'city-follow: no active markets');
+      log.debug({ city, dateKey, mode, marketCount: activeMarkets.length }, 'city-follow: no active markets');
       return null;
     }
 
+    // One ctx per pass — mode scoped to this environment.
     const ctx = {
       forecastMean: forecast?.forecastMean ?? 0,
       forecastStdDev: forecast?.forecastStdDev ?? 0,
+      mode,
     };
 
     const evaluationInputs: EvaluationLogInput[] = [];
     const abstainReasons: string[] = [];
-    const activeMarkets = activeBuckets.map((b) => b.market);
 
     for (const strategy of strategies) {
       const risk = this.risk;
       if (risk) {
-        const laneKey = `${normalizeWeatherCity(city)}|${dateKey}|${strategy.id}`;
+        const laneKey = `${normalizeWeatherCity(city)}|${dateKey}|${strategy.id}|${mode}`;
         const openCount = openCityDateCounts.get(laneKey) ?? 0;
         const maxForStrategy = Math.max(
           1,
-          getStrategyParams(risk, strategy.id).maxPositionsPerCityDate,
+          getStrategyParamsForMode(risk, strategy.id, mode).maxPositionsPerCityDate,
         );
         if (openCount >= maxForStrategy) {
           abstainReasons.push(`${strategy.id}:city_date_at_capacity`);
@@ -725,9 +830,6 @@ export class WeatherStrategyRunner {
 
       let result: WeatherEvaluationResult = { kind: 'abstain', reason: 'no_signal' };
       // forecast-dependent strategies must abstain when the forecast is null.
-      // Passing a ctx placeholder {0,0} would make normalCDF a step function
-      // (stdDev=0) and produce phantom signals with edge≈1 on low-target
-      // `or_below` buckets, which would then shadow highest-yes (edge=0).
       if (!forecast && strategy.id !== WEATHER_HIGHEST_YES_STRATEGY_ID) {
         abstainReasons.push(`${strategy.id}:forecast_unavailable`);
         if (evalLogEnabled && this.evaluationRecorder) {
@@ -741,6 +843,7 @@ export class WeatherStrategyRunner {
               bucketLow: bucket.parsed.targetValueLow,
               bucketHigh: bucket.parsed.targetValueHigh,
               strategyId: strategy.id,
+              mode,
               yesPrice: prices.yesPrice,
               forecastProb: null,
               edge: null,
@@ -770,6 +873,7 @@ export class WeatherStrategyRunner {
               bucketLow: bucket.parsed.targetValueLow,
               bucketHigh: bucket.parsed.targetValueHigh,
               strategyId: strategy.id,
+              mode,
               yesPrice: prices.yesPrice,
               forecastProb:
                 perBucket.kind === 'signal'
@@ -799,6 +903,7 @@ export class WeatherStrategyRunner {
               bucketLow: bucket.parsed.targetValueLow,
               bucketHigh: bucket.parsed.targetValueHigh,
               strategyId: strategy.id,
+              mode,
               yesPrice: prices.yesPrice,
               forecastProb:
                 result.kind === 'signal'
@@ -824,13 +929,14 @@ export class WeatherStrategyRunner {
           try {
             await this.evaluationRecorder.recordBatch(evaluationInputs);
           } catch (err) {
-            log.warn({ err, city, dateKey }, 'evaluation log batch failed — continuing');
+            log.warn({ err, city, dateKey, mode }, 'evaluation log batch failed — continuing');
           }
         }
         log.info(
           {
             city,
             dateKey,
+            mode,
             strategyId: strategy.id,
             forecastMean: forecast?.forecastMean,
             conditionId: result.signal.conditionId,
@@ -848,12 +954,12 @@ export class WeatherStrategyRunner {
       try {
         await this.evaluationRecorder.recordBatch(evaluationInputs);
       } catch (err) {
-        log.warn({ err, city, dateKey }, 'evaluation log batch failed — continuing');
+        log.warn({ err, city, dateKey, mode }, 'evaluation log batch failed — continuing');
       }
     }
 
     log.debug(
-      { city, dateKey, bucketCount: activeBuckets.length, abstainReasons },
+      { city, dateKey, mode, bucketCount: activeBuckets.length, abstainReasons },
       'city-follow: no strategy signal',
     );
     return null;
@@ -864,7 +970,8 @@ export class WeatherStrategyRunner {
     lastEvaluatedAt: number | null;
     lastSkipReason: string | null;
     lastSkipAt: number | null;
-    activeStrategies: string[];
+    activeStrategiesSim: string[];
+    activeStrategiesReal: string[];
   }): Promise<void> {
     if (!this.runtimeStatus) return;
     try {

@@ -10,8 +10,8 @@ import {
   getCryptoKillSwitchAction,
   getCopyMaxDailyLossUsdc,
   getCryptoMaxDailyLossUsdc,
-  getStrategyParams,
-  resolveEnabledWeatherStrategies,
+  getStrategyParamsForMode,
+  resolveEnabledWeatherStrategiesForMode,
   openingReasonsForAlgoKind,
   algoKindFromReason,
   type OrderSignal,
@@ -83,11 +83,12 @@ export class KillSwitchMonitor {
           { algoKind: 'crypto', triggered: cryptoTriggered, action: cryptoAction },
         ];
 
-        // Weather kill-switch is evaluated per strategy: each enabled strategy
-        // has its own maxDailyLossUsdc and killSwitchAction.
-        const weatherStrategies = resolveEnabledWeatherStrategies(weatherCfg);
+        // Weather kill-switch is evaluated per strategy AND per environment:
+        // only the strategy ids active for THIS mode are scored (never a union
+        // of sim+real, which would mix real PnL with sim thresholds).
+        const weatherStrategies = resolveEnabledWeatherStrategiesForMode(weatherCfg, mode);
         for (const strategyId of weatherStrategies) {
-          const bag = getStrategyParams(weatherCfg, strategyId);
+          const bag = getStrategyParamsForMode(weatherCfg, strategyId, mode);
           const dailyNet = await this.getDailyNetForAlgo(mode, 'weather', startOfDay, strategyId);
           const triggered = dailyNet < 0 && Math.abs(dailyNet) >= bag.maxDailyLossUsdc;
           results.push({

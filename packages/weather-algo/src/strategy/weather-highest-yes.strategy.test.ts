@@ -45,6 +45,7 @@ describe('WeatherHighestYesStrategy', () => {
     const result = await strategy.evaluateGroup([low, high], {
       forecastMean: 0,
       forecastStdDev: 0,
+      mode: 'sim',
     });
 
     expect(result.kind).toBe('signal');
@@ -53,6 +54,7 @@ describe('WeatherHighestYesStrategy', () => {
       expect(result.signal.outcome).toBe('YES');
       expect(result.signal.side).toBe('BUY');
       expect(result.signal.assetId).toBe('yes-token');
+      expect(result.signal.mode).toBe('sim');
       expect(result.signal.marketPrice).toBe(0.8);
       expect(result.signal.edge).toBe(0);
       expect(result.signal.forecastMean).toBe(0);
@@ -73,7 +75,7 @@ describe('WeatherHighestYesStrategy', () => {
           ],
         }),
       ],
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     expect(result.kind).toBe('abstain');
@@ -103,7 +105,7 @@ describe('WeatherHighestYesStrategy', () => {
           ],
         }),
       ],
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     // 0.80 dépasse le plafond 0.70 → exclu ; seul 0.55 reste éligible.
@@ -127,7 +129,7 @@ describe('WeatherHighestYesStrategy', () => {
           ],
         }),
       ],
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     expect(result.kind).toBe('abstain');
@@ -147,7 +149,7 @@ describe('WeatherHighestYesStrategy', () => {
           { outcome: 'No', price: 0.20 },
         ],
       }),
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     expect(result.kind).toBe('abstain');
@@ -167,7 +169,7 @@ describe('WeatherHighestYesStrategy', () => {
           outcomePrices: [],
         }),
       ],
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     expect(result.kind).toBe('abstain');
@@ -187,7 +189,7 @@ describe('WeatherHighestYesStrategy', () => {
           { outcome: 'No', price: -0.2 },
         ],
       }),
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     expect(result.kind).toBe('signal');
@@ -207,7 +209,7 @@ describe('WeatherHighestYesStrategy', () => {
           { outcome: 'No', price: 0.4 },
         ],
       }),
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     expect(result.kind).toBe('abstain');
@@ -228,7 +230,7 @@ describe('WeatherHighestYesStrategy', () => {
           { outcome: 'No', price: 0.3 },
         ],
       }),
-      { forecastMean: 0, forecastStdDev: 0 },
+      { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
     );
 
     expect(result.kind).toBe('abstain');
@@ -266,7 +268,7 @@ describe('WeatherHighestYesStrategy', () => {
             ],
           }),
         ],
-        { forecastMean: 0, forecastStdDev: 0 },
+        { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
       );
 
       expect(result.kind).toBe('signal');
@@ -293,7 +295,7 @@ describe('WeatherHighestYesStrategy', () => {
             ],
           }),
         ],
-        { forecastMean: 0, forecastStdDev: 0 },
+        { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
       );
 
       expect(result.kind).toBe('abstain');
@@ -317,7 +319,7 @@ describe('WeatherHighestYesStrategy', () => {
             ],
           }),
         ],
-        { forecastMean: 0, forecastStdDev: 0 },
+        { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
       );
 
       expect(result.kind).toBe('signal');
@@ -341,7 +343,7 @@ describe('WeatherHighestYesStrategy', () => {
             { outcome: 'No', price: 0.20 },
           ],
         }),
-        { forecastMean: 0, forecastStdDev: 0 },
+        { forecastMean: 0, forecastStdDev: 0, mode: 'sim' },
       );
 
       expect(result.kind).toBe('abstain');

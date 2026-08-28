@@ -11,6 +11,7 @@ function signal(overrides: Partial<WeatherSignal>): WeatherSignal {
     confidence: 0.5,
     reasons: [],
     strategyId: 'weather-forecast',
+    mode: 'sim',
     eventSlug: 'evt',
     city: 'Paris',
     metric: 'highest_temp',

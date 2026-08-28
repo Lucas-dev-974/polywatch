@@ -8,7 +8,10 @@ export interface WeatherAlgoRuntimeStatus {
   lastEvaluatedAt: number | null;
   lastSkipReason: string | null;
   lastSkipAt: number | null;
-  activeStrategies: string[];
+  /** Resolved active strategy ids for the sim environment ([] when off). */
+  activeStrategiesSim: string[];
+  /** Resolved active strategy ids for the real environment ([] when off). */
+  activeStrategiesReal: string[];
 }
 
 export class WeatherAlgoRuntimeStatusPublisher {

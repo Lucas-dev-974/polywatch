@@ -60,8 +60,9 @@ export function createWeatherAlgoDataRouter(ds: DataSource): Router {
       typeof req.query.strategyId === 'string' ? req.query.strategyId : undefined;
     const decision =
       typeof req.query.decision === 'string' ? req.query.decision : undefined;
+    const mode = req.query.mode === 'sim' || req.query.mode === 'real' ? req.query.mode : undefined;
     res.json(
-      await service.listEvaluationLog({ from, to, strategyId, decision, limit, offset }),
+      await service.listEvaluationLog({ from, to, strategyId, decision, mode, limit, offset }),
     );
   });
 

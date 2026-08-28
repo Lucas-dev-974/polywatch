@@ -58,7 +58,7 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
 
   async evaluate(
     market: MarketListItemDto,
-    _ctx: WeatherEvaluationContext,
+    ctx: WeatherEvaluationContext,
     now?: Date,
   ): Promise<WeatherEvaluationResult> {
     if (!this.isComparisonAllowed(market)) {
@@ -85,12 +85,12 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
         detail: `yesPrice=${yesPrice.toFixed(4)} > max=${this.maxYesPrice.toFixed(4)}`,
       };
     }
-    return this.buildSignal(market, yesPrice, now);
+    return this.buildSignal(market, yesPrice, ctx, now);
   }
 
   async evaluateGroup(
     markets: MarketListItemDto[],
-    _ctx: WeatherEvaluationContext,
+    ctx: WeatherEvaluationContext,
     now?: Date,
   ): Promise<WeatherEvaluationResult> {
     let best: { market: MarketListItemDto; yesPrice: number } | null = null;
@@ -121,7 +121,7 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
       { conditionId: best.market.conditionId, yesPrice: best.yesPrice },
       'weather highest-yes strategy emitted signal',
     );
-    return this.buildSignal(best.market, best.yesPrice, now);
+    return this.buildSignal(best.market, best.yesPrice, ctx, now);
   }
 
   /**
@@ -154,6 +154,7 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
   private buildSignal(
     market: MarketListItemDto,
     yesPrice: number,
+    ctx: WeatherEvaluationContext,
     now?: Date,
   ): WeatherEvaluationResult {
     const parsed = parseWeatherQuestion(market.question ?? '');
@@ -178,6 +179,7 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
         `city=${parsed?.city ?? 'unknown'}`,
       ],
       strategyId: this.id,
+      mode: ctx.mode,
       eventSlug: market.eventSlug ?? market.conditionId,
       city: parsed?.city ?? 'unknown',
       metric: parsed?.metric ?? 'highest_temp',

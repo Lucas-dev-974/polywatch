@@ -3,6 +3,7 @@ import type { DataSource } from 'typeorm';
 import { createTestDataSource, initializeDataSource, type WeatherConfig } from '@polywatch/core';
 import { WeatherMarketSnapshot, WeatherBucketTick, WeatherForecastHistory } from '@polywatch/core';
 import { runBacktest } from '../../index.js';
+import type { WeatherSignal } from '@polywatch/weather-algo';
 import { pairDecidedAtBySignal } from './weather-adapter.js';
 import { BacktestRunService } from '@polywatch/core';
 
@@ -651,8 +652,22 @@ describe('runBacktest (weather reevaluate)', () => {
   it('pairDecidedAtBySignal keeps each signal own decidedAt by object identity (F5)', () => {
     const t1 = new Date('2026-01-01T00:00:00.000Z');
     const t2 = new Date('2026-01-01T00:00:00.500Z');
-    const s1 = { conditionId: 'cond-x', edge: 0.3 } as never;
-    const s2 = { conditionId: 'cond-x', edge: 0.2 } as never;
+    const s1: WeatherSignal = {
+      conditionId: 'cond-x', assetId: 'a1', outcome: 'YES', side: 'BUY',
+      confidence: 0.5, reasons: [], strategyId: 'weather-forecast', mode: 'sim',
+      eventSlug: 'evt', city: 'paris', metric: 'highest_temp',
+      targetDate: new Date('2026-08-02T12:00:00Z'),
+      forecastMean: 0, forecastStdDev: 0, forecastProbability: 0, marketPrice: 0,
+      edge: 0.3, dynamicMinEdge: 0,
+    };
+    const s2: WeatherSignal = {
+      conditionId: 'cond-x', assetId: 'a2', outcome: 'YES', side: 'BUY',
+      confidence: 0.5, reasons: [], strategyId: 'weather-forecast', mode: 'sim',
+      eventSlug: 'evt', city: 'paris', metric: 'highest_temp',
+      targetDate: new Date('2026-08-02T12:00:00Z'),
+      forecastMean: 0, forecastStdDev: 0, forecastProbability: 0, marketPrice: 0,
+      edge: 0.2, dynamicMinEdge: 0,
+    };
     const map = pairDecidedAtBySignal([
       { signal: s1, decidedAt: t1 },
       { signal: s2, decidedAt: t2 },

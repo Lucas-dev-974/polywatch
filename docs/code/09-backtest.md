@@ -117,11 +117,14 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
   Les events `forecast` mettent à jour le store (pas d'évaluation stratégie).
 - **Garde-fous** : `maxExposure`, `maxDailyLoss` (+
   `force_close_all` → clôture `KILL_SWITCH`), cash insuffisant,
-  capacité `maxPositionsPerCityDate` par ville+date (`targetDateIso` sur le ledger),
+  capacité `maxPositionsPerCityDate` par ville+date (`targetDateIso` sur le ledger ;
+  un run a un seul `strategyEnv`, donc la clé n'inclut pas `mode` — contrairement
+  au live `city|date|strategyId|mode`),
   `maxPositionSizeUsdc`, throttle re-entry ville+date (bucket/drift seulement).
   **Depuis 0.5.0**, ces garde-fous sont résolus **par stratégie** :
   `canEnter(ctx, entryUsdc, yesPrice, strategyId)` utilise
-  `getStrategyParams(cfgSnapshot, strategyId)` pour le bag (pas `this.bag` global) ;
+  `getStrategyParamsForMode(cfgSnapshot, strategyId, strategyEnv)` pour le bag
+  (pas `this.bag` global) ;
   `isDailyLossBreached(ctx, strategyId)` filtre `dailyRealizedPnl` par stratégie ;
   `maybeForceCloseAll` groupe les positions par `strategyId` et n'évalue le
   kill-switch que pour les stratégies dont le daily loss est atteint, en ne fermant
@@ -132,7 +135,7 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
   `evaluateExits` opère une **garde explicite `isHighestYes`** : drift/bucket-exit
   ne sont **pas** appliqués à `weather-highest-yes` (aligné sur le live). En
   `runner-sim` multi-stratégies, chaque position utilise son bag
-  (`getStrategyParams(risk, pos.meta.strategyId)`) — voir `exit-manager.ts`.
+  (`getStrategyParamsForMode(risk, pos.meta.strategyId, strategyEnv)`) — voir `exit-manager.ts`.
 - **Entrée runner-sim (0.8.0)** : signaux bufferisés avec `decidedAt` ; flush
   coalescé (1 s) via `maybeFlushRunnerSimBatch` ; `entryAt` = décision ; gardes
   `entry_skipped_market_resolved`, `entry_skipped_stale_price`,
@@ -164,15 +167,18 @@ merge) sur le snapshot `WeatherConfig` **avant** le run. La route backend stocke
 néanmoins `configSnapshotJson` / fingerprint **avant** overrides (config live).
 `BACKTEST_ENGINE_VERSION` est écrit dans `backtest_runs.engine_version` au launch.
 
-`applyConfigOverrides` valide les overrides : clés préfixées `weatherAlgo`,
+`applyConfigOverrides` valide les overrides : clés préfixées `weatherAlgo`
+uniquement (`simWeatherAlgo*` / `realWeatherAlgo*` sont **rejetées**),
 valeurs primitives (string/number/boolean/null). Depuis la section « Config
 stratégie » du formulaire, `weatherAlgoStrategyParams` (string JSON) est
 **sanitisé + validé** (`sanitizeWeatherStrategyParams` +
 `validateWeatherStrategyParamsUpdate`, mêmes règles que le PUT `/config/weather`)
 avant fusion — une valeur malformée ou hors bornes lève une erreur claire au lieu
-de produire des comparaisons NaN silencieuses. L'override remplace la map entière
-(`{ ...config, ...overrides }`), donc le frontend fusionne la partial live stockée
-avec les champs modifiés avant d'envoyer.
+de produire des comparaisons NaN silencieuses. Après validation, le patch est
+**copié** vers `simWeatherAlgoStrategyParams` ou `realWeatherAlgoStrategyParams`
+selon `strategyEnv` (défaut `'sim'`). L'override remplace la map entière
+(`{ ...config, ...overrides }` puis copie env), donc le frontend fusionne la
+partial live stockée avec les champs modifiés avant d'envoyer.
 
 ## 4. Exits (`engine/exit-manager.ts`)
 

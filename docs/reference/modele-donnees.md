@@ -57,13 +57,13 @@ entites sont declarees dans `packages/core/src/entities/` et enregistrees dans
 | `E2eRunPosition` | `e2e_run_positions` | Positions d'un run E2E (conditionId, cryptoSymbol, interval, prix d'entree, PnL, statut) |
 | `WeatherMarketSelection` | `weather_market_selections` | **Supprimé** — remplacé par `WeatherAutoTrackRule` (city-first) |
 | `WeatherAutoTrackRule` | `weather_auto_track_rules` | **Sélection active** : ville surveillée (`city`, `metric=highest_temp`, `lookAheadDays`, `mode=city_follow`) |
-| `WeatherConfig` | `weather_config` | Config weather-algo (globaux structurels : toggles, polling, sélection, recording/retention, capital sim ; **per-strategy** via `weatherAlgoStrategyParams` JSON) — API `GET/PUT /api/config/weather` |
+| `WeatherConfig` | `weather_config` | Config weather-algo (globaux structurels : toggles, polling, sélection, recording/retention, capital sim ; **per-strategy et per-env** via `simWeatherAlgoStrategies` / `realWeatherAlgoStrategies` + `simWeatherAlgoStrategyParams` / `realWeatherAlgoStrategyParams` ; colonnes `weatherAlgoStrategies` / `weatherAlgoStrategyParams` **legacy figées**) — API `GET/PUT /api/config/weather` |
 | `WeatherForecastCache` | `weather_forecast_cache` | Cache Open-Meteo upsert — **actif** |
 | `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast à l'ouverture — **actif** (index unique `copied_position_id`). Colonnes `entry_bucket_comparison` + `entry_bucket_bounds` pour bucket-exit ; `strategy_id` (per-strategy, migration `0106`) ; `unit` (celsius/fahrenheit, migration `0109`, nullable pour lignes legacy). |
 | `WeatherForecastHistory` | `weather_forecast_history` | Historique append-only des fetchs Open-Meteo (backtest) — `fetchedAt` |
 | `WeatherMarketSnapshot` | `weather_market_snapshots` | Snapshot marché par cycle × ville × date — `recordedAt` |
 | `WeatherBucketTick` | `weather_bucket_ticks` | Prix YES/NO d’un bucket actif ; FK `snapshot_id` **ON DELETE CASCADE**. Colonnes dénormalisées `city`, `city_normalized`, `target_date_iso`, `metric` (backfillées depuis le snapshot parent) + `fidelity_minutes` (dérivé de la cadence de snapshot `weatherAlgoPollMs`) ; index `(city_normalized, target_date_iso, recorded_at)`. La timeline peut être **filtrée par intervalle** (`fidelityMinutes`) et la suppression ciblée ville × intervalle est possible via `deleteBucketTickCityInterval(city, fidelityMinutes)`. |
-| `WeatherEvaluationLog` | `weather_evaluation_log` | Journal signal/abstain ; FK `snapshot_id` **ON DELETE SET NULL** |
+| `WeatherEvaluationLog` | `weather_evaluation_log` | Journal signal/abstain ; colonne `mode` (`sim`/`real`, défaut `'sim'`, index `(mode, evaluated_at)`) ; FK `snapshot_id` **ON DELETE SET NULL** |
 | `WeatherClobPriceHistory` | `weather_clob_price_history` | Historique prix CLOB Polymarket par bucket météo (ingestion manuelle) — index unique `(condition_id, side, recorded_at, fidelity_minutes, metric)` (plusieurs intervalles possibles par ville/date) ; colonnes `city`, `target_date`, `metric`, `bucket_*`, `token_id`, `price`, `fidelity_minutes`, `ingest_job_id`. Pour un marché résolu, un **point de settlement synthétique** (1.00 gagnant / 0.00 perdant) est ajouté en fin de série (voir `weather-algo.md` § Ingestion historique CLOB). Suppression ciblée par intervalle via `deleteCityInterval(city, fidelityMinutes)` ; le coverage expose `intervals: [{ fidelityMinutes, pointCount }]` |
 | `WeatherHistoryIngestJob` | `weather_history_ingest_jobs` | Job d'ingestion historique (statut, progression `markets_done/total`, `points_upserted`, `markets_empty`, `error_message`) |
 | `BacktestRun` | `backtest_runs` | Run de backtest (job) : cycle de vie, params, stats, warnings, fingerprint config, plage de données |
@@ -104,7 +104,7 @@ Trader surveille. `traderAddress`, `nickname`, `active`, `simEnabled`,
 | `GlobalConfig` | `global_config` | Slippage, `realTradingEnabled`, realism sim, auto-snapshots sim/real | `/api/config/global` |
 | `CopyConfig` | `copy_config` | Limites/sizing/sorties/filtres copy-trading (paires sim/real), polling MoveDetector | `/api/config/copy` |
 | `CryptoConfig` | `crypto_config` | Enable/stratégies, sizing, SL/TP/trailing/pre-close, re-entry, SL quota, curve/band, tunables | `/api/config/crypto` |
-| `WeatherConfig` | `weather_config` | Globaux structurels + per-strategy (`weatherAlgoStrategyParams`) | `/api/config/weather` |
+| `WeatherConfig` | `weather_config` | Globaux structurels + per-strategy **par env** (`sim*` / `real*` ; legacy `weatherAlgo*` figé) | `/api/config/weather` |
 
 Détail des champs et défauts : entités `packages/core/src/entities/*Config.ts`,
 seed `packages/core/src/seed/defaults.ts`, et [`configuration.md`](./configuration.md).

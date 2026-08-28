@@ -40,6 +40,12 @@ export function WeatherAlgoPage() {
         weatherAlgoRealEnabled={dashboard.weatherAlgoRealEnabled()}
         onToggleRealTrading={dashboard.toggleRealTrading}
         onResetSim={() => setResetDialogOpen(true)}
+        simStrategyCatalog={dashboard.strategyCatalog()}
+        realStrategyCatalog={dashboard.strategyCatalog()}
+        simActiveStrategyId={dashboard.simActiveStrategyId()}
+        realActiveStrategyId={dashboard.realActiveStrategyId()}
+        onSelectSimStrategy={(id) => void dashboard.setActiveStrategy('sim', id)}
+        onSelectRealStrategy={(id) => void dashboard.setActiveStrategy('real', id)}
       />
 
       <div class="weather-algo-tabs-row">
@@ -129,7 +135,11 @@ export function WeatherAlgoPage() {
       </Show>
 
       <Show when={tab() === 'strategies'}>
-        <WeatherAlgoStrategiesTab />
+        <WeatherAlgoStrategiesTab
+          weatherConfig={dashboard.weatherConfig()}
+          catalog={dashboard.strategyCatalog()}
+          onConfigSaved={dashboard.applyWeatherConfig}
+        />
       </Show>
 
       <Show when={tab() === 'settings'}>
@@ -143,7 +153,7 @@ export function WeatherAlgoPage() {
         algoKind="weather"
         onDone={() => {
           void dashboard.loadCapital();
-          void dashboard.loadRiskFlags();
+          void dashboard.loadConfigState();
           void positions.refresh();
         }}
       />

@@ -24,7 +24,15 @@ const params = JSON.parse(run.params_json);
 const stats = JSON.parse(run.stats_json);
 const warnings = JSON.parse(run.fidelity_warnings_json);
 const config = JSON.parse(run.config_snapshot_json);
-const strategyParams = JSON.parse(config.weatherAlgoStrategyParams || '{}');
+// §9 du plan per-env : le bag affiché provient de la map de l'environnement
+// sélectionné par `strategyEnv` (fallback legacy si les 4 colonnes sont absentes
+// du snapshot, ex. anciens runs).
+const strategyEnv = params.strategyEnv === 'real' ? 'real' : 'sim';
+const envParamsKey =
+  strategyEnv === 'real' ? 'realWeatherAlgoStrategyParams' : 'simWeatherAlgoStrategyParams';
+const strategyParams = JSON.parse(
+  config[envParamsKey] || config.weatherAlgoStrategyParams || '{}',
+);
 
 const fmt = (n: number, d = 2) => (n == null ? '—' : n.toFixed(d));
 const msToH = (ms: number) => (ms / 3_600_000).toFixed(1);

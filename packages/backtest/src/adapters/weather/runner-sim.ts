@@ -1,8 +1,9 @@
 import {
   type MarketListItemDto,
   type WeatherConfig,
+  type TradingMode,
   isMarketActiveForWeather,
-  resolveEnabledWeatherStrategies,
+  resolveEnabledWeatherStrategiesForMode,
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
 } from '@polywatch/core';
@@ -77,10 +78,11 @@ export function buildActiveMarketsForGroup(
 export function createRunnerSimStrategies(
   config: WeatherConfig,
   overrideStrategyId?: WeatherStrategyId,
+  strategyEnv: TradingMode = 'sim',
 ): ClockedWeatherStrategy[] {
   const enabled = overrideStrategyId
     ? [overrideStrategyId]
-    : resolveEnabledWeatherStrategies(config);
+    : resolveEnabledWeatherStrategiesForMode(config, strategyEnv);
   return enabled.map((id) => createWeatherStrategy(id));
 }
 
@@ -91,7 +93,7 @@ export function createRunnerSimStrategies(
 export async function evaluateRunnerSimGroup(
   strategies: ClockedWeatherStrategy[],
   activeMarkets: MarketListItemDto[],
-  ctx: { forecastMean: number; forecastStdDev: number },
+  ctx: { forecastMean: number; forecastStdDev: number; mode: TradingMode },
   now: Date,
 ): Promise<WeatherSignal | null> {
   if (activeMarkets.length === 0) return null;

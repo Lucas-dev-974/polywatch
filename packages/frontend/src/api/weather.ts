@@ -82,6 +82,7 @@ export interface WeatherAlgoEvaluationLogRow {
   snapshotId: number | null;
   conditionId: string;
   strategyId: string;
+  mode: 'sim' | 'real';
   yesPrice: number | null;
   forecastProb: number | null;
   edge: number | null;
@@ -339,6 +340,7 @@ export async function fetchWeatherAlgoEvaluationLog(params: {
   to?: string;
   strategyId?: string;
   decision?: string;
+  mode?: 'sim' | 'real';
   limit?: number;
   offset?: number;
 }): Promise<WeatherAlgoDataListResponse<WeatherAlgoEvaluationLogRow>> {

@@ -1,7 +1,7 @@
 import type { WeatherConfig } from '../entities/WeatherConfig.js';
 import { isExitLegEnabled } from './policy.js';
 import {
-  getStrategyParams,
+  getStrategyParamsForMode,
   DEFAULT_WEATHER_STRATEGY_PARAMS,
 } from '../weather/strategy-catalog.js';
 
@@ -52,19 +52,20 @@ function pickAlgoPercentThreshold(
  * Each leg is gated by its own enable flag on `WeatherConfig`; when enabled:
  * override (including 0 = disabled) → fixed default → null.
  *
- * The `mode` parameter is accepted for interface compatibility but has no
- * effect — weather exits are identical in sim and real.
+ * The `mode` parameter selects the per-environment strategy params bag: SL/TP/
+ * trailing come from the strategy bag of the given env (sim or real), so a
+ * divergence between environments is reflected here.
  *
  * The `_interval` parameter is ignored (weather markets have no interval).
  */
 export function resolveWeatherEntryExitParams(
   weatherConfig: WeatherConfig,
-  _mode: 'sim' | 'real',
+  mode: 'sim' | 'real',
   _interval?: string | null,
   strategyId?: string | null,
 ): WeatherEntryExitParams {
   const bag = strategyId
-    ? getStrategyParams(weatherConfig, strategyId)
+    ? getStrategyParamsForMode(weatherConfig, strategyId, mode)
     : DEFAULT_WEATHER_STRATEGY_PARAMS;
   const slPercent = isExitLegEnabled(bag.slEnabled)
     ? pickAlgoPercentThreshold(bag.slPercent, WEATHER_EXIT_DEFAULTS.slPercent)

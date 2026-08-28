@@ -83,7 +83,7 @@ core/src/
 | `AlgoMarketSelection` | `algo_market_selections` | Marché sélectionné pour crypto-algo (`conditionId`, `cryptoSymbol`, `interval`, `slug`, `enabled`) |
 | `WeatherMarketSelection` | `weather_market_selections` | **Supprimé** — remplacé par `WeatherAutoTrackRule` (city-first) |
 | `WeatherAutoTrackRule` | `weather_auto_track_rules` | **Sélection active** : ville (`city`, `highest_temp`, `lookAheadDays`, `mode=city_follow`) |
-| `WeatherConfig` | `weather_config` | Config weather-algo (edge, switch mode, hysteresis, throttle…) |
+| `WeatherConfig` | `weather_config` | Config weather-algo (globaux + 4 colonnes per-env `sim*`/`real*` stratégies/params ; legacy `weatherAlgoStrategies` figé) |
 | `WeatherForecastCache` | `weather_forecast_cache` | Cache prévisions Open-Meteo (city, date, metric, mean, stdDev) |
 | `WeatherPositionForecast` | `weather_position_forecasts` | Snapshot forecast + bounds de bucket à l'ouverture |
 | `AlgoSurveillanceSnapshot` | `algo_surveillance_snapshots` | Snapshot OHLC surveillance (open/close up/down, `marketStartAt`/`EndAt`, `unresolvedAt`) — `UNIQUE(conditionId)` |
@@ -116,7 +116,7 @@ core/src/
 | `WeatherForecastHistory` | `weather_forecast_history` | Historique append-only des fetchs Open-Meteo (backtest) |
 | `WeatherMarketSnapshot` | `weather_market_snapshots` | Snapshot marché par cycle × ville × date |
 | `WeatherBucketTick` | `weather_bucket_ticks` | Prix YES/NO d'un bucket actif (timeline / ridge / backtest) |
-| `WeatherEvaluationLog` | `weather_evaluation_log` | Journal signal/abstain weather |
+| `WeatherEvaluationLog` | `weather_evaluation_log` | Journal signal/abstain weather (colonne `mode` sim/real) |
 | `WeatherClobPriceHistory` | `weather_clob_price_history` | Historique prix CLOB par bucket météo (ingestion) |
 | `WeatherHistoryIngestJob` | `weather_history_ingest_jobs` | Job d'ingestion historique CLOB |
 | `BacktestRun` | `backtest_runs` | Run de backtest (params, stats, fingerprint, `engineVersion`) |

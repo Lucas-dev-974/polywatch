@@ -19,7 +19,7 @@ export function dedupSignalsByCityDate(signals: WeatherSignal[]): WeatherSignal[
   for (const signal of signals) {
     const cityKey = normalizeWeatherCity(signal.city);
     const dateIso = signal.targetDate.toISOString().slice(0, 10);
-    const laneKey = `${cityKey}|${dateIso}::${signal.strategyId}`;
+    const laneKey = `${cityKey}|${dateIso}|${signal.mode}::${signal.strategyId}`;
     const prev = bestPerLane.get(laneKey);
     if (!prev || signal.edge > prev.edge) {
       bestPerLane.set(laneKey, signal);

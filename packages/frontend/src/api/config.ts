@@ -231,6 +231,13 @@ export interface WeatherConfig {
   weatherAlgoEvaluationLogRetentionDays: number;
   weatherAlgoStrategies: string[];
   weatherAlgoStrategyParams: Record<string, Record<string, number | boolean | string | null>>;
+  // Stratégies + params par environnement (sim/réel). L'UI live lit uniquement
+  // ces champs (cf. plan per-env §10) ; les champs legacy ci-dessus restent
+  // exposés par le GET (snapshot figé) mais ne sont plus écrits.
+  simWeatherAlgoStrategies: string[];
+  realWeatherAlgoStrategies: string[];
+  simWeatherAlgoStrategyParams: Record<string, Record<string, number | boolean | string | null>>;
+  realWeatherAlgoStrategyParams: Record<string, Record<string, number | boolean | string | null>>;
 }
 
 export interface WeatherStrategyMeta {

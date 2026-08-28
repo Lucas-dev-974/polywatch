@@ -5,7 +5,7 @@ import type { CopiedPosition } from '../entities/CopiedPosition.js';
 import { WeatherPositionForecast } from '../entities/WeatherPositionForecast.js';
 import {
   WEATHER_FORECAST_STRATEGY_ID,
-  getStrategyParams,
+  getStrategyParamsForMode,
 } from './strategy-catalog.js';
 import { setWeatherReentryThrottle } from '../redis/weather-reentry-throttle.js';
 
@@ -28,7 +28,11 @@ export async function applyWeatherReentryThrottleAfterSl(opts: {
 
   const strategyId =
     snapshot.strategyId ?? opts.position.strategyId ?? WEATHER_FORECAST_STRATEGY_ID;
-  const bag = getStrategyParams(opts.weatherConfig, strategyId);
+  const bag = getStrategyParamsForMode(
+    opts.weatherConfig,
+    strategyId,
+    opts.position.mode === 'real' ? 'real' : 'sim',
+  );
   if (bag.reentryThrottleAfterSlMs <= 0) return;
 
   const targetDateIso = snapshot.targetDate.toISOString().slice(0, 10);

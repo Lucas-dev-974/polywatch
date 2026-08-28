@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   getStrategyParams,
+  getStrategyParamsForMode,
+  resolveEnabledWeatherStrategiesForMode,
   sanitizeWeatherStrategyParams,
   validateWeatherStrategyParamsUpdate,
   parseWeatherAlgoStrategies,
   WEATHER_FORECAST_STRATEGY_ID,
+  WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   WEATHER_STRATEGY_IDS,
   isKnownWeatherStrategyId,
@@ -183,5 +186,60 @@ describe('strategy-catalog', () => {
       { 'weather-forecast': { minEdge: null } },
     );
     expect(errors.some((e) => e.key === 'minEdge' && e.message === 'expected number')).toBe(true);
+  });
+});
+
+describe('resolveEnabledWeatherStrategiesForMode / getStrategyParamsForMode', () => {
+  it('falls back to legacy when the per-env raw value is undefined / null / empty', () => {
+    const config = {
+      weatherAlgoStrategies: JSON.stringify([WEATHER_HIGHEST_YES_STRATEGY_ID]),
+      weatherAlgoStrategyParams: JSON.stringify({
+        [WEATHER_HIGHEST_YES_STRATEGY_ID]: { minYesPrice: 0.7 },
+      }),
+      simWeatherAlgoStrategies: undefined,
+      realWeatherAlgoStrategies: '',
+      simWeatherAlgoStrategyParams: undefined,
+      realWeatherAlgoStrategyParams: null,
+    } as never;
+
+    expect(resolveEnabledWeatherStrategiesForMode(config, 'sim')).toEqual([
+      WEATHER_HIGHEST_YES_STRATEGY_ID,
+    ]);
+    expect(resolveEnabledWeatherStrategiesForMode(config, 'real')).toEqual([
+      WEATHER_HIGHEST_YES_STRATEGY_ID,
+    ]);
+    expect(getStrategyParamsForMode(config, WEATHER_HIGHEST_YES_STRATEGY_ID, 'sim').minYesPrice).toBe(
+      0.7,
+    );
+    expect(getStrategyParamsForMode(config, WEATHER_HIGHEST_YES_STRATEGY_ID, 'real').minYesPrice).toBe(
+      0.7,
+    );
+  });
+
+  it('does not fall back to legacy when the per-env column is populated (including [])', () => {
+    const config = {
+      weatherAlgoStrategies: JSON.stringify([WEATHER_HIGHEST_YES_STRATEGY_ID]),
+      weatherAlgoStrategyParams: JSON.stringify({
+        [WEATHER_FORECAST_STRATEGY_ID]: { minEdge: 0.3 },
+      }),
+      simWeatherAlgoStrategies: JSON.stringify([WEATHER_FORECAST_ALIGNED_STRATEGY_ID]),
+      realWeatherAlgoStrategies: '[]',
+      simWeatherAlgoStrategyParams: JSON.stringify({
+        [WEATHER_FORECAST_STRATEGY_ID]: { minEdge: 0.15 },
+      }),
+      realWeatherAlgoStrategyParams: '{}',
+    } as never;
+
+    expect(resolveEnabledWeatherStrategiesForMode(config, 'sim')).toEqual([
+      WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+    ]);
+    // '[]' is populated — parseWeatherAlgoStrategies collapses it to the catalogue
+    // default, it must NOT fall back to the legacy highest-yes list.
+    expect(resolveEnabledWeatherStrategiesForMode(config, 'real')).toEqual([
+      WEATHER_FORECAST_STRATEGY_ID,
+    ]);
+    expect(getStrategyParamsForMode(config, WEATHER_FORECAST_STRATEGY_ID, 'sim').minEdge).toBe(0.15);
+    // '{}' is populated — no fallback to the legacy 0.3.
+    expect(getStrategyParamsForMode(config, WEATHER_FORECAST_STRATEGY_ID, 'real').minEdge).toBe(0.1);
   });
 });

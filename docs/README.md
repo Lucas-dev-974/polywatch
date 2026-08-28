@@ -82,6 +82,11 @@ kill switch, limites d'exposition).
 > [`code/09-backtest.md`](./code/09-backtest.md) ·
 > [`plans/2026-08-05_PLAN-backtest-engine-universel.md`](./plans/2026-08-05_PLAN-backtest-engine-universel.md)
 >
+> Stratégies weather par environnement sim/réel (2026-08-27) — **implémenté** (2026-08-28) :
+> [`weather/plans/2026-08-27_PLAN-weather-per-env-strategies.md`](./weather/plans/2026-08-27_PLAN-weather-per-env-strategies.md) ·
+> [`reference/weather-algo.md`](./reference/weather-algo.md) ·
+> [`reference/configuration.md`](./reference/configuration.md)
+>
 > Zero-holding / fill stale runner-sim (`engineVersion` 0.8.0, 2026-08-25) :
 > [`audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md`](./audits/2026-08-25_audit-weather-backtest-zero-holding-et-prix-stale.md)
 >

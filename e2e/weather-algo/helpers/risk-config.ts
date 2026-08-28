@@ -25,6 +25,24 @@ export async function configureWeatherAlgoRisk(
       entryUsdc: 10,
     },
   });
+  // Stratégies + params par environnement (sim/réel). Les colonnes legacy
+  // ci-dessus restent peuplées pour la rétrocompat des vieux snapshots backtest.
+  existing.simWeatherAlgoStrategies = JSON.stringify(['weather-forecast']);
+  existing.realWeatherAlgoStrategies = JSON.stringify(['weather-forecast']);
+  existing.simWeatherAlgoStrategyParams = serializeWeatherAlgoStrategyParams({
+    'weather-forecast': {
+      ...DEFAULT_WEATHER_STRATEGY_PARAMS,
+      minEdge: 0.05,
+      entryUsdc: 10,
+    },
+  });
+  existing.realWeatherAlgoStrategyParams = serializeWeatherAlgoStrategyParams({
+    'weather-forecast': {
+      ...DEFAULT_WEATHER_STRATEGY_PARAMS,
+      minEdge: 0.05,
+      entryUsdc: 10,
+    },
+  });
   Object.assign(existing, overrides ?? {});
   return repo.save(existing);
 }

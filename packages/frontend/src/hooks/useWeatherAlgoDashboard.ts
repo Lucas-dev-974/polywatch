@@ -4,7 +4,11 @@ import {
   apiText,
   fetchGlobalConfig,
   fetchWeatherConfig,
+  fetchWeatherStrategyCatalog,
   updateGlobalConfig,
+  updateWeatherConfig,
+  type WeatherConfig,
+  type WeatherStrategyMeta,
 } from '../api';
 import { onGlobalRefresh } from '../socket';
 import { fetchWeatherAlgoCapital, type WeatherAlgoCapital } from '../lib/weather-algo-capital';
@@ -74,6 +78,8 @@ export function useWeatherAlgoDashboard() {
   const [realTradingEnabled, setRealTradingEnabled] = createSignal(false);
   const [weatherAlgoSimEnabled, setWeatherAlgoSimEnabled] = createSignal(true);
   const [weatherAlgoRealEnabled, setWeatherAlgoRealEnabled] = createSignal(false);
+  const [weatherConfig, setWeatherConfig] = createSignal<WeatherConfig | null>(null);
+  const [strategyCatalog, setStrategyCatalog] = createSignal<WeatherStrategyMeta[]>([]);
 
   async function refreshStatus() {
     try {
@@ -95,16 +101,50 @@ export function useWeatherAlgoDashboard() {
     }
   }
 
-  async function loadRiskFlags() {
+  async function loadConfigState() {
     try {
-      const [global, weather] = await Promise.all([fetchGlobalConfig(), fetchWeatherConfig()]);
+      const [global, weather, cat] = await Promise.all([
+        fetchGlobalConfig(),
+        fetchWeatherConfig(),
+        fetchWeatherStrategyCatalog().catch(() => null),
+      ]);
       setRealTradingEnabled(global.realTradingEnabled);
       setWeatherAlgoSimEnabled(weather.weatherAlgoSimEnabled);
       setWeatherAlgoRealEnabled(weather.weatherAlgoRealEnabled);
+      setWeatherConfig(weather);
+      if (cat) setStrategyCatalog(cat.strategies);
     } catch {
       setRealTradingEnabled(false);
       setWeatherAlgoSimEnabled(true);
       setWeatherAlgoRealEnabled(false);
+    }
+  }
+
+  const simActiveStrategyId = () => (weatherConfig()?.simWeatherAlgoStrategies ?? [])[0];
+  const realActiveStrategyId = () => (weatherConfig()?.realWeatherAlgoStrategies ?? [])[0];
+
+  function applyWeatherConfig(cfg: WeatherConfig) {
+    const { sessionRotation: _ignored, ...rest } = cfg as WeatherConfig & {
+      sessionRotation?: unknown;
+    };
+    setWeatherConfig(rest);
+  }
+
+  async function setActiveStrategy(mode: 'sim' | 'real', id: string) {
+    if (!id) return;
+    try {
+      const key =
+        mode === 'sim' ? 'simWeatherAlgoStrategies' : 'realWeatherAlgoStrategies';
+      // Non-optimiste : on re-synchronise la config depuis la réponse du PUT
+      // pour refléter les valeurs réellement persistées (validation serveur).
+      const updated = await updateWeatherConfig({ [key]: [id] } as Partial<WeatherConfig>);
+      applyWeatherConfig(updated);
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? `Échec de la sélection de stratégie : ${err.message}`
+          : 'Impossible de changer la stratégie.',
+      );
     }
   }
 
@@ -197,7 +237,7 @@ export function useWeatherAlgoDashboard() {
     void discoverMarkets();
     void refreshAutoTrackRules();
     void loadCapital();
-    void loadRiskFlags();
+    void loadConfigState();
 
     const poll = setInterval(() => {
       void refreshStatus();
@@ -207,7 +247,7 @@ export function useWeatherAlgoDashboard() {
     const unsub = onGlobalRefresh(() => {
       void refreshStatus();
       void loadCapital();
-      void loadRiskFlags();
+      void loadConfigState();
     });
 
     onCleanup(() => {
@@ -223,6 +263,8 @@ export function useWeatherAlgoDashboard() {
     updateAutoTrackLookAhead, updateAllAutoTrackLookAhead,
     refreshStatus, refreshAutoTrackRules,
     capital, realTradingEnabled, weatherAlgoSimEnabled, weatherAlgoRealEnabled,
-    loadCapital, loadRiskFlags, toggleRealTrading,
+    loadCapital, loadConfigState, toggleRealTrading,
+    weatherConfig, strategyCatalog, setActiveStrategy, applyWeatherConfig,
+    simActiveStrategyId, realActiveStrategyId,
   };
 }

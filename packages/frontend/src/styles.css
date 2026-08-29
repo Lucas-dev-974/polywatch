@@ -9082,6 +9082,69 @@ body.is-resizing-columns .position-market-split-handle::after {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* Blocs fusionnés SL/TP/trailing : toggle en titre, champs percent en dessous. */
+.weather-sl-tp-block {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .625rem .75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+
+.weather-sl-tp-block .form-field {
+  display: block;
+}
+
+.weather-sl-tp-block__toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.weather-sl-tp-block__toggle .toggle-switch {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.625rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.weather-sl-tp-block__toggle-inner {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.625rem;
+}
+
+.weather-sl-tp-block__toggle .toggle-label {
+  white-space: nowrap;
+}
+
+.weather-sl-tp-block__fields {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.weather-sl-tp-block__fields .form-field {
+  gap: .25rem;
+}
+
+.weather-sl-tp-block__fields .form-field > label {
+  font-size: .75rem;
+  color: var(--text-muted);
+}
+
+.weather-sl-tp-block .form-hint {
+  font-size: .6875rem;
+}
+
 .weather-autotrack-form {
   display: flex;
   flex-wrap: wrap;

@@ -92,6 +92,25 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
   },
 ];
 
+/**
+ * Blocs fusionnés du groupe SL/TP/trailing : chaque bloc associe son toggle
+ * (interrupteur maître) à son/ses champ(s) pourcentage (seuil). Le toggle sert
+ * de titre, le champ percent est rendu en dessous.
+ */
+const SL_TP_BLOCKS: Array<{
+  title: string;
+  toggleKey: string;
+  percentKeys: string[];
+}> = [
+  { title: 'Stop-loss', toggleKey: 'slEnabled', percentKeys: ['slPercent'] },
+  { title: 'Take-profit', toggleKey: 'tpEnabled', percentKeys: ['tpPercent'] },
+  {
+    title: 'Trailing',
+    toggleKey: 'trailingEnabled',
+    percentKeys: ['trailingPercent', 'trailingActivationPercent'],
+  },
+];
+
 export interface StrategyParamsEditorProps {
   strategy: WeatherStrategyMeta;
   /** Valeurs effectives affichées (pré-remplissage live). */
@@ -145,52 +164,133 @@ export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
               <div class="weather-strategy-group">
                 <h4 class="weather-strategy-group__title">{group.title}</h4>
                 <div class="weather-strategy-group__fields">
-                  <For each={params()}>
-                    {(param) => (
-                      <Show
-                        when={param.key === 'entryPusd' && props.entryPusdField}
-                        fallback={
+                  <Show
+                    when={group.id === 'sl-tp'}
+                    fallback={
+                      <For each={params()}>
+                        {(param) => (
                           <Show
-                            when={param.kind === 'boolean'}
+                            when={param.key === 'entryPusd' && props.entryPusdField}
                             fallback={
                               <Show
-                                when={param.kind === 'select'}
+                                when={param.kind === 'boolean'}
                                 fallback={
                                   <Show
-                                    when={NULLABLE_PARAM_KEYS.has(param.key)}
+                                    when={param.kind === 'select'}
                                     fallback={
-                                      <NumberField
-                                        label={durationLabel(param.label)}
-                                        value={
-                                          isDurationMsParam(param.key)
-                                            ? msToMin(Number(valueOf(param.key) ?? param.default))
-                                            : Number(valueOf(param.key) ?? param.default)
+                                      <Show
+                                        when={NULLABLE_PARAM_KEYS.has(param.key)}
+                                        fallback={
+                                          <NumberField
+                                            label={durationLabel(param.label)}
+                                            value={
+                                              isDurationMsParam(param.key)
+                                                ? msToMin(Number(valueOf(param.key) ?? param.default))
+                                                : Number(valueOf(param.key) ?? param.default)
+                                            }
+                                            min={
+                                              isDurationMsParam(param.key) && param.min != null
+                                                ? msToMin(param.min)
+                                                : param.min
+                                            }
+                                            max={
+                                              isDurationMsParam(param.key) && param.max != null
+                                                ? msToMin(param.max)
+                                                : param.max
+                                            }
+                                            step={
+                                              isDurationMsParam(param.key) && param.step != null
+                                                ? msToMin(param.step)
+                                                : (param.step ?? 0.01)
+                                            }
+                                            hint={param.hint}
+                                            onChange={(value) =>
+                                              props.onChange(
+                                                param.key,
+                                                isDurationMsParam(param.key) ? minToMs(value) : value,
+                                              )
+                                            }
+                                          />
                                         }
-                                        min={
-                                          isDurationMsParam(param.key) && param.min != null
-                                            ? msToMin(param.min)
-                                            : param.min
-                                        }
-                                        max={
-                                          isDurationMsParam(param.key) && param.max != null
-                                            ? msToMin(param.max)
-                                            : param.max
-                                        }
-                                        step={
-                                          isDurationMsParam(param.key) && param.step != null
-                                            ? msToMin(param.step)
-                                            : (param.step ?? 0.01)
-                                        }
-                                        hint={param.hint}
-                                        onChange={(value) =>
-                                          props.onChange(
-                                            param.key,
-                                            isDurationMsParam(param.key) ? minToMs(value) : value,
-                                          )
-                                        }
-                                      />
+                                      >
+                                        <NullableNumberField
+                                          label={param.label}
+                                          value={valueOf(param.key) as number | null | undefined ?? null}
+                                          min={param.min}
+                                          max={param.max}
+                                          step={param.step ?? 0.01}
+                                          hint={param.hint}
+                                          onChange={(value) => props.onChange(param.key, value)}
+                                        />
+                                      </Show>
                                     }
                                   >
+                                    <SelectField
+                                      label={param.label}
+                                      value={String(valueOf(param.key) ?? param.default)}
+                                      options={param.options ?? []}
+                                      hint={param.hint}
+                                      onChange={(value) => props.onChange(param.key, value)}
+                                    />
+                                  </Show>
+                                }
+                              >
+                                <ToggleField
+                                  label={param.label}
+                                  checked={Boolean(valueOf(param.key) ?? param.default)}
+                                  hint={param.hint}
+                                  onChange={(checked) => props.onChange(param.key, checked)}
+                                />
+                              </Show>
+                            }
+                          >
+                            <div class="form-field">
+                              <label>{param.label}</label>
+                              <input
+                                class="input"
+                                type="number"
+                                min={param.min}
+                                max={param.max}
+                                step={param.step ?? 0.01}
+                                value={props.entryPusdField!.value}
+                                onInput={(e) => props.entryPusdField!.onChange(e.currentTarget.value)}
+                              />
+                              <Show when={param.hint}>
+                                <p class="form-hint">{param.hint}</p>
+                              </Show>
+                            </div>
+                          </Show>
+                        )}
+                      </For>
+                    }
+                  >
+                    <For each={SL_TP_BLOCKS}>
+                      {(block) => {
+                        const toggleParam = () =>
+                          props.strategy.params.find((p) => p.key === block.toggleKey);
+                        const percentParams = () =>
+                          block.percentKeys
+                            .map((key) => props.strategy.params.find((p) => p.key === key))
+                            .filter((p): p is NonNullable<typeof p> => !!p && visible(p.key));
+                        return (
+                          <Show when={toggleParam() && percentParams().length > 0}>
+                            <div class="weather-sl-tp-block">
+                              <div class="weather-sl-tp-block__toggle">
+                                <label class="toggle-switch">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(valueOf(block.toggleKey) ?? toggleParam()!.default)}
+                                    onChange={(e) => props.onChange(block.toggleKey, e.currentTarget.checked)}
+                                  />
+                                  <span class="weather-sl-tp-block__toggle-inner">
+                                    <span class="toggle-track" />
+                                    <span class="toggle-label">{block.title}</span>
+                                  </span>
+                                </label>
+                              </div>
+                              <div class="weather-sl-tp-block__fields">
+                                <For each={percentParams()}>
+                                  {(param) => (
                                     <NullableNumberField
                                       label={param.label}
                                       value={valueOf(param.key) as number | null | undefined ?? null}
@@ -200,46 +300,15 @@ export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
                                       hint={param.hint}
                                       onChange={(value) => props.onChange(param.key, value)}
                                     />
-                                  </Show>
-                                }
-                              >
-                                <SelectField
-                                  label={param.label}
-                                  value={String(valueOf(param.key) ?? param.default)}
-                                  options={param.options ?? []}
-                                  hint={param.hint}
-                                  onChange={(value) => props.onChange(param.key, value)}
-                                />
-                              </Show>
-                            }
-                          >
-                            <ToggleField
-                              label={param.label}
-                              checked={Boolean(valueOf(param.key) ?? param.default)}
-                              hint={param.hint}
-                              onChange={(checked) => props.onChange(param.key, checked)}
-                            />
+                                  )}
+                                </For>
+                              </div>
+                            </div>
                           </Show>
-                        }
-                      >
-                        <div class="form-field">
-                          <label>{param.label}</label>
-                          <input
-                            class="input"
-                            type="number"
-                            min={param.min}
-                            max={param.max}
-                            step={param.step ?? 0.01}
-                            value={props.entryPusdField!.value}
-                            onInput={(e) => props.entryPusdField!.onChange(e.currentTarget.value)}
-                          />
-                          <Show when={param.hint}>
-                            <p class="form-hint">{param.hint}</p>
-                          </Show>
-                        </div>
-                      </Show>
-                    )}
-                  </For>
+                        );
+                      }}
+                    </For>
+                  </Show>
                 </div>
               </div>
             </Show>

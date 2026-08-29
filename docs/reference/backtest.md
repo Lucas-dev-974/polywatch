@@ -67,10 +67,10 @@ AsyncIterable<BacktestEvent>  ──►  mergeEventStreams (k-way, heap borné)
   live) a été retiré du moteur. Le champ `backtestExecutionMode` reste accepté par
   le schéma pour rétro-compat API mais est **ignoré** au runtime.
 - **Sizing par stratégie** : le fill d'entrée honore le `sizingMode` du bag de la
-  stratégie émettrice — `fixed_usdc` (défaut, `qty = entryUsdc / price`) ou
+  stratégie émettrice — `fixed_pusd` (défaut, `qty = entryPusd / price`) ou
   `fixed_shares` (`qty = min(fixedShareCount, budget/price)`, miroir du live
   `computeFixedSharesQuantity`). Un `sizingMode` non supporté émet le warning
-  `risk_sizing_mode_ignored` et retombe en USDC fixe.
+  `risk_sizing_mode_ignored` et retombe en pUSD fixe.
 - **Fidélité explicite** : chaque approximation est consignée dans
   `fidelity_warnings` et affichée dans l'UI du run.
 - **Mémoire bornée** : pagination keyset `(timestamp, id)` par source + **merge k-way**
@@ -101,8 +101,8 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 |------|---------------|
 | `fill_no_book_depth` | Pas de profondeur L2 — fills non plafonnés par liquidité |
 | `risk_sl_confirmation_ignored` | SL déclenché au 1er tick (pas de confirmation ticks live) |
-| `risk_sizing_simplified_fixed_usdc` | Taille fixe (`entryUsdc` ou `fixedShareCount` selon le mode) — pas de signal-score sizing |
-| `risk_sizing_mode_ignored` | `sizingMode` non supporté par le backtest → taille en USDC fixe (fidélité réduite) |
+| `risk_sizing_simplified_fixed_usdc` | Taille fixe (`entryPusd` ou `fixedShareCount` selon le mode) — pas de signal-score sizing |
+| `risk_sizing_mode_ignored` | `sizingMode` non supporté par le backtest → taille en pUSD fixe (fidélité réduite) |
 | `risk_min_time_to_close_ignored` | `minTimeToClose` non appliqué (le backtest n'implémente pas ce gate runtime) |
 | `market_lifecycle_filtered` | Ticks exclus (`closed` / `acceptingOrders` / token / minHours) — compteur |
 | `kill_switch_force_close` | `force_close_all` a clôturé les positions ouvertes |
@@ -131,7 +131,7 @@ de résolution / metric sont émis quand le cas survient (`warnOnce`).
 
 Garde-fous **implémentés** en backtest (mode `reevaluate`) :
 `maxExposure`, `maxDailyLoss` (+ `force_close_all` → `KILL_SWITCH`), cash insuffisant,
-one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, throttle re-entry **ville+date** **uniquement** après
+one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizePusd`, throttle re-entry **ville+date** **uniquement** après
 `WEATHER_BUCKET_EXIT` / `WEATHER_FORECAST_CHANGE`, filtre cycle de vie marché
 (`isMarketActiveForWeather`), hystérésis bucket calée sur `weatherAlgoPollMs`.
 
@@ -168,7 +168,7 @@ one-thesis-per-city-date (`maxPositionsPerCityDate`), `maxPositionSizeUsdc`, thr
   immédiat (entrée réellement ouverte).
 
 > **Résolution per-strategy (depuis 0.5.0) et per-env (plan 2026-08-27)** :
-> `maxExposureUsdc`, `maxDailyLossUsdc`, `maxPositionSizeUsdc`,
+> `maxExposurePusd`, `maxDailyLossPusd`, `maxPositionSizePusd`,
 > `killSwitchAction` et `maxPositionsPerCityDate` sont résolus
 > via `getStrategyParamsForMode(cfgSnapshot, strategyId, strategyEnv)` pour
 > **chaque position** — pas via un bag global. Le bag de `signal.strategyId` +
@@ -305,7 +305,7 @@ de l'exit est résolu pour l'environnement de la position (`pos.mode`).
 | `WEATHER_BUCKET_EXIT` | Forecast hors palier + `bag.cityFollowSwitchMode = close_and_reenter` après `bag.bucketHysteresisPolls` avancées espacées de `weatherAlgoPollMs` — **pose** le throttle — **non applicable à `weather-highest-yes` en live ni en backtest** |
 | `SL` | Seuil résolu à l'entrée via `resolveWeatherEntryExitParams(risk, mode, interval, strategyId)` (défauts `WEATHER_EXIT_DEFAULTS` si bidPoints null) — **pas** de confirmation ticks — **throttle `reentryThrottleAfterSlMs`** posé (ville+date+stratégie) |
 | `TP` / `TRAILING` | Seuils résolus à l'entrée (défauts `WEATHER_EXIT_DEFAULTS`) — **pas** de confirmation ticks, **pas** de throttle |
-| `KILL_SWITCH` | `dailyRealizedPnl(strategyId) <= -bag.maxDailyLossUsdc` et `bag.killSwitchAction === 'force_close_all'` — ferme **uniquement** les positions de la stratégie déclenchée (pas toutes les positions du ledger) |
+| `KILL_SWITCH` | `dailyRealizedPnl(strategyId) <= -bag.maxDailyLossPusd` et `bag.killSwitchAction === 'force_close_all'` — ferme **uniquement** les positions de la stratégie déclenchée (pas toutes les positions du ledger) |
 | `RESOLUTION` | Marché résolu par prix YES (`>= 0.99` → YES / `<= 0.01` → NO) — 1 tick suffit |
 | `BACKTEST_INCOMPLETE_DATA` | Position encore ouverte en fin de run (aucun tick de résolution reçu) — résolution forcée au dernier `markPrice` (ou `entryPrice` si aucun) |
 
@@ -363,15 +363,15 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   - **Champs run-level** : `maxConcurrentPositions` (Max positions concurrentes),
     envoyé directement dans le body du run.
   - **Sizing dans la section « Entrée »** (visible quand une stratégie précise est
-    sélectionnée) : `sizingMode` (Fixed USDC / Fixed Shares) et `entryUsdc`
+    sélectionnée) : `sizingMode` (Fixed pUSD / Fixed Shares) et `entryPusd`
     (Entry / position) sont rendus dans le groupe « Entrée » de l'éditeur de
     params, avec un **affichage conditionnel** selon le mode :
-    - `fixed_usdc` → `entryUsdc` visible, `fixedShareCount` masqué.
-    - `fixed_shares` → `fixedShareCount` visible, `entryUsdc` masqué.
+    - `fixed_pusd` → `entryPusd` visible, `fixedShareCount` masqué.
+    - `fixed_shares` → `fixedShareCount` visible, `entryPusd` masqué.
     `sizingMode` et `fixedShareCount` sont envoyés via
-    `configOverrides.weatherAlgoStrategyParams` ; `entryUsdc` reste un param
+    `configOverrides.weatherAlgoStrategyParams` ; `entryPusd` reste un param
     run-level envoyé dans le body du run. Quand aucune stratégie précise n'est
-    sélectionnée, `entryUsdc` reste toujours visible.
+    sélectionnée, `entryPusd` reste toujours visible.
   - **Surcharge des paramètres de stratégie** (visible quand une stratégie
     précise est sélectionnée) : via `configOverrides.weatherAlgoStrategyParams`
     (string JSON). Pré-remplie avec les valeurs effectives de la config live
@@ -423,7 +423,7 @@ Onglet **Backtest** de la page Weather Algo (`WeatherAlgoBacktestTab` +
   tests F4 throttle + F5 pairing).
 - `src/adapters/weather/question-builder.test.ts` (nouveau) : cibles fractionnaires
   préservées et re-parsées, bornes between négatives fractionnaires, entiers sans `.0`.
-- `src/engine/fill-engine.test.ts` (nouveau) : slippage entrée/sortie, plafond `maxPositionSizeUsdc`,
+- `src/engine/fill-engine.test.ts` (nouveau) : slippage entrée/sortie, plafond `maxPositionSizePusd`,
   clamping prix [0,1] avec fees=0 aux extrêmes, courbe de fees exponentielle.
 - `src/engine/runner.test.ts` (nouveau) : abort coopératif — `cancelled` et `timeout` mid-stream
   (statut persisté + equity conservée), run vide, progression 100% à completion.

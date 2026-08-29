@@ -14,23 +14,23 @@ export class CopyConfig {
   @Column({ type: 'integer', name: 'real_max_open_positions', default: 10 })
   realMaxOpenPositions!: number;
 
-  @Column({ type: 'real', name: 'sim_max_exposure_usdc', default: 1000 })
-  simMaxExposureUsdc!: number;
+  @Column({ type: 'real', name: 'sim_max_exposure_pusd', default: 1000 })
+  simMaxExposurePusd!: number;
 
-  @Column({ type: 'real', name: 'real_max_exposure_usdc', default: 1000 })
-  realMaxExposureUsdc!: number;
+  @Column({ type: 'real', name: 'real_max_exposure_pusd', default: 1000 })
+  realMaxExposurePusd!: number;
 
-  @Column({ type: 'real', name: 'sim_max_daily_loss_usdc', default: 100 })
-  simMaxDailyLossUsdc!: number;
+  @Column({ type: 'real', name: 'sim_max_daily_loss_pusd', default: 100 })
+  simMaxDailyLossPusd!: number;
 
-  @Column({ type: 'real', name: 'real_max_daily_loss_usdc', default: 100 })
-  realMaxDailyLossUsdc!: number;
+  @Column({ type: 'real', name: 'real_max_daily_loss_pusd', default: 100 })
+  realMaxDailyLossPusd!: number;
 
-  @Column({ type: 'real', name: 'sim_max_position_size_usdc', default: 200 })
-  simMaxPositionSizeUsdc!: number;
+  @Column({ type: 'real', name: 'sim_max_position_size_pusd', default: 200 })
+  simMaxPositionSizePusd!: number;
 
-  @Column({ type: 'real', name: 'real_max_position_size_usdc', default: 200 })
-  realMaxPositionSizeUsdc!: number;
+  @Column({ type: 'real', name: 'real_max_position_size_pusd', default: 200 })
+  realMaxPositionSizePusd!: number;
 
   // ── Bid/ask ratio gates ───────────────────────────────────────────
 
@@ -58,14 +58,14 @@ export class CopyConfig {
 
   // ── Sizing (sim) ──────────────────────────────────────────────────
 
-  @Column({ type: 'text', name: 'sim_sizing_mode', default: 'fixed_usdc' })
+  @Column({ type: 'text', name: 'sim_sizing_mode', default: 'fixed_pusd' })
   simSizingMode!: string;
 
   @Column({ type: 'real', name: 'sim_copy_ratio', default: 1.0 })
   simCopyRatio!: number;
 
-  @Column({ type: 'real', name: 'sim_entry_usdc_amount', default: 10 })
-  simEntryUsdcAmount!: number;
+  @Column({ type: 'real', name: 'sim_entry_pusd_amount', default: 10 })
+  simEntryPusdAmount!: number;
 
   @Column({ type: 'integer', name: 'sim_entry_share_count', default: 5 })
   simEntryShareCount!: number;
@@ -73,22 +73,22 @@ export class CopyConfig {
   @Column({ type: 'real', name: 'sim_kelly_fraction', default: 0.25 })
   simKellyFraction!: number;
 
-  @Column({ type: 'real', name: 'sim_risk_budget_usdc', default: 10 })
-  simRiskBudgetUsdc!: number;
+  @Column({ type: 'real', name: 'sim_risk_budget_pusd', default: 10 })
+  simRiskBudgetPusd!: number;
 
   @Column({ type: 'real', name: 'sim_default_win_probability', default: 0.55 })
   simDefaultWinProbability!: number;
 
   // ── Sizing (real) ─────────────────────────────────────────────────
 
-  @Column({ type: 'text', name: 'real_sizing_mode', default: 'fixed_usdc' })
+  @Column({ type: 'text', name: 'real_sizing_mode', default: 'fixed_pusd' })
   realSizingMode!: string;
 
   @Column({ type: 'real', name: 'real_copy_ratio', default: 1.0 })
   realCopyRatio!: number;
 
-  @Column({ type: 'real', name: 'real_entry_usdc_amount', default: 10 })
-  realEntryUsdcAmount!: number;
+  @Column({ type: 'real', name: 'real_entry_pusd_amount', default: 10 })
+  realEntryPusdAmount!: number;
 
   @Column({ type: 'integer', name: 'real_entry_share_count', default: 5 })
   realEntryShareCount!: number;
@@ -96,8 +96,8 @@ export class CopyConfig {
   @Column({ type: 'real', name: 'real_kelly_fraction', default: 0.25 })
   realKellyFraction!: number;
 
-  @Column({ type: 'real', name: 'real_risk_budget_usdc', default: 10 })
-  realRiskBudgetUsdc!: number;
+  @Column({ type: 'real', name: 'real_risk_budget_pusd', default: 10 })
+  realRiskBudgetPusd!: number;
 
   @Column({ type: 'real', name: 'real_default_win_probability', default: 0.55 })
   realDefaultWinProbability!: number;

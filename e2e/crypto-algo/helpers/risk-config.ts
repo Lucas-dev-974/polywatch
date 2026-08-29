@@ -84,12 +84,12 @@ export async function configureCryptoAlgoRisk(
     cryptoAlgoPreCloseSeconds: 60,
     cryptoAlgoPreCloseKeepEnabled: false,
     simInitialCapitalCrypto: 10_000,
-    cryptoAlgoMaxPositionSizeUsdc: 200,
-    cryptoAlgoMaxExposureUsdc: 1_000,
+    cryptoAlgoMaxPositionSizePusd: 200,
+    cryptoAlgoMaxExposurePusd: 1_000,
     cryptoAlgoMaxOpenPositions: 10,
-    cryptoAlgoEntryUsdcAmount: 50,
+    cryptoAlgoEntryPusdAmount: 50,
     cryptoAlgoEntryShareCount: 5,
-    cryptoAlgoSizingMode: 'fixed_usdc',
+    cryptoAlgoSizingMode: 'fixed_pusd',
   };
 
   const copyPatch: Partial<CopyConfig> = {
@@ -103,12 +103,12 @@ export async function configureCryptoAlgoRisk(
     simPreCloseEnabled: true,
     simPreCloseSeconds: 60,
     simPreCloseKeepEnabled: false,
-    simMaxPositionSizeUsdc: 200,
-    simMaxExposureUsdc: 1_000,
+    simMaxPositionSizePusd: 200,
+    simMaxExposurePusd: 1_000,
     simMaxOpenPositions: 10,
-    simEntryUsdcAmount: 50,
+    simEntryPusdAmount: 50,
     simEntryShareCount: 5,
-    simSizingMode: 'fixed_usdc',
+    simSizingMode: 'fixed_pusd',
   };
 
   const legacy = splitLegacyOverrides(overrides);

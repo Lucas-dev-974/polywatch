@@ -25,8 +25,8 @@ export class PositionReservation {
   @Column({ type: 'text' })
   mode!: string;
 
-  @Column({ type: 'real', name: 'reserved_notional_usdc' })
-  reservedNotionalUsdc!: number;
+  @Column({ type: 'real', name: 'reserved_notional_pusd' })
+  reservedNotionalPusd!: number;
 
   @Column({ type: 'text' })
   reason!: string;

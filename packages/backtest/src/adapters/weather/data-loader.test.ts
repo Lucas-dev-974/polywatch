@@ -18,7 +18,7 @@ function params(overrides: Partial<BacktestRunParams> = {}): BacktestRunParams {
     to: '2026-01-02T00:00:00.000Z',
     strategyId: 'weather-forecast',
     capital: 1000,
-    entryUsdc: 10,
+    entryPusd: 10,
     slippageBps: 50,
     maxConcurrentPositions: 10,
     ...overrides,

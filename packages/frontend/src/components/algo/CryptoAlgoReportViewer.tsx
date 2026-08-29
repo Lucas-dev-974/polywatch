@@ -6,7 +6,7 @@ function formatCryptoAlgoSizingLine(config: CryptoAlgoOptimizeReport['config']):
   if (config.cryptoAlgoSizingMode === 'fixed_shares') {
     return `fixed_shares · ${config.cryptoAlgoEntryShareCount ?? '—'} shares`;
   }
-  return `fixed_usdc · ${config.cryptoAlgoEntryUsdcAmount ?? '—'} USDC`;
+  return `fixed_pusd · ${config.cryptoAlgoEntryPusdAmount ?? '—'} pUSD`;
 }
 
 function entryBucketLabel(bucket: string): string {

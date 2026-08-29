@@ -51,7 +51,7 @@ export function WeatherAlgoBacktestTab() {
   const [to, setTo] = createSignal('');
   const [cities, setCities] = createSignal('');
   const [capital, setCapital] = createSignal('1000');
-  const [entryUsdc, setEntryUsdc] = createSignal('10');
+  const [entryPusd, setEntryPusd] = createSignal('10');
   const [slippageBps, setSlippageBps] = createSignal('50');
   const [maxPos, setMaxPos] = createSignal('10');
   const [fidelityMinutes, setFidelityMinutes] = usePersistedSignal(
@@ -384,7 +384,7 @@ export function WeatherAlgoBacktestTab() {
       setLaunchError('Slippage invalide (nombre ≥ 0 requis)');
       return;
     }
-    const entry = Number(entryUsdc());
+    const entry = Number(entryPusd());
     if (!Number.isFinite(entry) || entry <= 0) {
       setLaunchError('Entry / position invalide (nombre > 0 requis)');
       return;
@@ -417,7 +417,7 @@ export function WeatherAlgoBacktestTab() {
               // stratégies + map de params (cf. §9 du plan per-env).
               strategyEnv: strategyEnv(),
               capital: cap,
-              entryUsdc: entry,
+              entryPusd: entry,
               slippageBps: slip,
               maxConcurrentPositions: maxp,
               fidelityMinutes: fidelityMinutes() ? Number(fidelityMinutes()) : undefined,
@@ -539,8 +539,8 @@ export function WeatherAlgoBacktestTab() {
                   setCities={setCities}
                   capital={capital}
                   setCapital={setCapital}
-                  entryUsdc={entryUsdc}
-                  setEntryUsdc={setEntryUsdc}
+                  entryPusd={entryPusd}
+                  setEntryPusd={setEntryPusd}
                   slippageBps={slippageBps}
                   setSlippageBps={setSlippageBps}
                   maxPos={maxPos}

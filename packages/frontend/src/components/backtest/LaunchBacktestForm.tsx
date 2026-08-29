@@ -18,7 +18,7 @@ const FALLBACK_STRATEGIES = [
  * knobs d'exécution live (entryDepthRetry*, slCloseMaxRetries,
  * slConfirmationTicks, minBidToAskRatio, minTimeToClose,
  * signalScoreSizingEnabled, allowedMarketTags) et ceux écrasés par les champs
- * run-level (entryUsdc, maxOpenPositions) sont exclus pour éviter des réglages
+ * run-level (entryPusd, maxOpenPositions) sont exclus pour éviter des réglages
  * sans effet.
  */
 const BACKTEST_EFFECTIVE_PARAM_KEYS = [
@@ -31,9 +31,9 @@ const BACKTEST_EFFECTIVE_PARAM_KEYS = [
   'allowedComparisons',
   // Sizing
   'sizingMode',
-  'entryUsdc',
+  'entryPusd',
   'fixedShareCount',
-  'maxPositionSizeUsdc',
+  'maxPositionSizePusd',
   // Exit
   'forecastChangeThreshold',
   'bucketHysteresisPolls',
@@ -50,8 +50,8 @@ const BACKTEST_EFFECTIVE_PARAM_KEYS = [
   'trailingPercent',
   'trailingActivationPercent',
   // Risk limits
-  'maxExposureUsdc',
-  'maxDailyLossUsdc',
+  'maxExposurePusd',
+  'maxDailyLossPusd',
   // Kill switch
   'killSwitchAction',
 ];
@@ -68,8 +68,8 @@ interface LaunchBacktestFormProps {
   setCities: Setter<string>;
   capital: Accessor<string>;
   setCapital: Setter<string>;
-  entryUsdc: Accessor<string>;
-  setEntryUsdc: Setter<string>;
+  entryPusd: Accessor<string>;
+  setEntryPusd: Setter<string>;
   slippageBps: Accessor<string>;
   setSlippageBps: Setter<string>;
   maxPos: Accessor<string>;
@@ -142,7 +142,7 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
             />
           </label>
           <label class="backtest-field-row">
-            <span>Capital initial (USDC)</span>
+            <span>Capital initial (pUSD)</span>
             <input type="number" min="1" value={props.capital()} onInput={(e) => props.setCapital(e.currentTarget.value)} />
           </label>
           <label class="backtest-field-row">
@@ -237,9 +237,9 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
             values={props.liveStrategyParams()[selectedStrategy()!.id] ?? {}}
             overrides={props.strategyConfigOverrides()[selectedStrategy()!.id] ?? {}}
             visibleKeys={BACKTEST_EFFECTIVE_PARAM_KEYS}
-            entryUsdcField={{
-              value: props.entryUsdc(),
-              onChange: props.setEntryUsdc,
+            entryPusdField={{
+              value: props.entryPusd(),
+              onChange: props.setEntryPusd,
             }}
             onChange={(key, value) => {
               const sid = selectedStrategy()!.id;
@@ -254,8 +254,8 @@ export function LaunchBacktestForm(props: LaunchBacktestFormProps) {
         <Show when={!props.strategyId() || !selectedStrategy()}>
           <div class="backtest-fields-2col">
             <label class="backtest-field-row">
-              <span>Entry / position (USDC)</span>
-              <input type="number" min="0" value={props.entryUsdc()} onInput={(e) => props.setEntryUsdc(e.currentTarget.value)} />
+              <span>Entry / position (pUSD)</span>
+              <input type="number" min="0" value={props.entryPusd()} onInput={(e) => props.setEntryPusd(e.currentTarget.value)} />
             </label>
           </div>
         </Show>

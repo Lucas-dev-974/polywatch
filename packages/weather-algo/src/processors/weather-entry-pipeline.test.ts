@@ -21,41 +21,20 @@ const mocks = vi.hoisted(() => {
     hashAlgoLogicalKey: vi.fn((p: unknown) => `logical:${JSON.stringify(p)}`),
     hashAlgoOrderSignalId: vi.fn((p: unknown) => `orderSignal:${JSON.stringify(p)}`),
     computeEntryTargetQuantity: vi.fn(() => 100),
-    getWeatherMaxPositionSizeUsdc: vi.fn(() => 1000),
     resolveEntryBalances: vi.fn(async () => ({ cash: 1000, capitalForRatio: 1000 })),
     applyEntryMosGate: vi.fn<any>(async () => ({ ok: true, quantity: 100, askVwap: 0.5, bumped: false })),
     fetchEntryAskLiquidityWithRetries: vi.fn<any>(async () => ({ ok: true, attempts: 1 })),
-    getWeatherEntryDepthRetryMax: vi.fn(() => 3),
-    getWeatherEntryDepthRetryDelayMs: vi.fn(() => 100),
-    getStrategyParams: vi.fn(() => ({
+    getStrategyParamsForMode: vi.fn<any>(() => ({
       minEdge: null,
       maxForecastStd: null,
       minForecastProbability: null,
-      entryUsdc: null,
-      maxPositionSizeUsdc: null,
+      entryPusd: null,
+      maxPositionSizePusd: null,
       entryDepthRetryMax: null,
       entryDepthRetryDelayMs: null,
       maxOpenPositions: null,
-      maxExposureUsdc: null,
-      maxDailyLossUsdc: null,
-      killSwitchAction: null,
-      forecastChangeThreshold: null,
-      cityFollowSwitchMode: null,
-      bucketHysteresisPolls: null,
-      reentryThrottleMs: null,
-      maxReentriesPerCityDate: 0,
-    })),
-    getStrategyParamsForMode: vi.fn(() => ({
-      minEdge: null,
-      maxForecastStd: null,
-      minForecastProbability: null,
-      entryUsdc: null,
-      maxPositionSizeUsdc: null,
-      entryDepthRetryMax: null,
-      entryDepthRetryDelayMs: null,
-      maxOpenPositions: null,
-      maxExposureUsdc: null,
-      maxDailyLossUsdc: null,
+      maxExposurePusd: null,
+      maxDailyLossPusd: null,
       killSwitchAction: null,
       forecastChangeThreshold: null,
       cityFollowSwitchMode: null,
@@ -95,13 +74,9 @@ vi.mock('@polywatch/core', () => ({
   hashAlgoLogicalKey: mocks.hashAlgoLogicalKey,
   hashAlgoOrderSignalId: mocks.hashAlgoOrderSignalId,
   computeEntryTargetQuantity: mocks.computeEntryTargetQuantity,
-  getWeatherMaxPositionSizeUsdc: mocks.getWeatherMaxPositionSizeUsdc,
   resolveEntryBalances: mocks.resolveEntryBalances,
   applyEntryMosGate: mocks.applyEntryMosGate,
   fetchEntryAskLiquidityWithRetries: mocks.fetchEntryAskLiquidityWithRetries,
-  getWeatherEntryDepthRetryMax: mocks.getWeatherEntryDepthRetryMax,
-  getWeatherEntryDepthRetryDelayMs: mocks.getWeatherEntryDepthRetryDelayMs,
-  getStrategyParams: mocks.getStrategyParams,
   getStrategyParamsForMode: mocks.getStrategyParamsForMode,
   enqueueEntrySignal: mocks.enqueueEntrySignal,
   resolveEntryEnqueueBlocked: mocks.resolveEntryEnqueueBlocked,
@@ -109,16 +84,11 @@ vi.mock('@polywatch/core', () => ({
   resolveEntryMinOrderSharesDetailed: mocks.resolveEntryMinOrderSharesDetailed,
   effectiveEntryMos: mocks.effectiveEntryMos,
   MIN_ORDER_SHARES: 1,
-  MIN_ORDER_USDC: 1,
+  MIN_ORDER_PUSD: 1,
   ExecutionService: mocks.ExecutionService,
   RiskService: mocks.RiskService,
-  // Stub forecast services used by persistEntryForecastSnapshot fallback.
-  WeatherForecastService: vi.fn().mockImplementation(() => ({
-    getCached: async () => null,
-  })),
-  WeatherPositionForecastService: vi.fn().mockImplementation(() => ({
-    saveIfAbsent: async () => {},
-  })),
+  WeatherForecastService: vi.fn(),
+  WeatherPositionForecastService: vi.fn(),
 }));
 
 vi.mock('../real-cash.js', () => ({
@@ -165,7 +135,7 @@ function baseRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
     weatherAlgoRealEnabled: false,
     weatherAlgoMinEdge: 0.1,
     weatherAlgoMaxForecastStd: null,
-    weatherAlgoEntryUsdc: 10,
+    weatherAlgoEntryPusd: 10,
     weatherAlgoSelectionMode: 'single',
     weatherAlgoMaxSignalsPerEvent: 3,
     weatherAlgoPollMs: 60_000,
@@ -181,7 +151,43 @@ function baseGlobalConfig(overrides: Partial<GlobalConfig> = {}): GlobalConfig {
   return { realTradingEnabled: false, ...overrides } as unknown as GlobalConfig;
 }
 
-function buildParams(overrides: Partial<Parameters<typeof runWeatherEntryPipeline>[0]> = {}) {
+function executablePrices(ask: number, bid: number) {
+  return {
+    executableAskVwap: ask,
+    executableBidVwap: bid,
+    liquidityStatus: 'ok' as const,
+  };
+}
+
+type PipelineParams = Parameters<typeof runWeatherEntryPipeline>[0];
+type ServiceOverrideKeys =
+  | 'connectionManager'
+  | 'marketService'
+  | 'reservationService'
+  | 'simulationService'
+  | 'orderQueue'
+  | 'ds';
+
+function buildParams(
+  overrides: Omit<Partial<PipelineParams>, ServiceOverrideKeys> & {
+    connectionManager?: Partial<PipelineParams['connectionManager']>;
+    marketService?: Partial<PipelineParams['marketService']>;
+    reservationService?: Partial<PipelineParams['reservationService']>;
+    simulationService?: Partial<PipelineParams['simulationService']>;
+    orderQueue?: Partial<PipelineParams['orderQueue']>;
+    ds?: Partial<PipelineParams['ds']>;
+  } = {},
+) {
+  const {
+    connectionManager: connectionManagerOverride,
+    marketService: marketServiceOverride,
+    reservationService: reservationServiceOverride,
+    simulationService: simulationServiceOverride,
+    orderQueue: orderQueueOverride,
+    ds: dsOverride,
+    ...rest
+  } = overrides;
+
   const marketService = {
     ensureTradableMarket: vi.fn(async () => ({
       conditionId: 'cond-1',
@@ -189,15 +195,12 @@ function buildParams(overrides: Partial<Parameters<typeof runWeatherEntryPipelin
       tokenIdYes: 'yes-token',
     })),
     loadByConditionIds: vi.fn(async () => new Map()),
-    ...overrides.marketService,
+    ...marketServiceOverride,
   };
 
   const connectionManager = {
-    fetchExecutablePrices: vi.fn(async () => ({
-      executableAskVwap: 0.5,
-      executableBidVwap: 0.4,
-    })),
-    ...overrides.connectionManager,
+    fetchExecutablePrices: vi.fn(async () => executablePrices(0.5, 0.4)),
+    ...connectionManagerOverride,
   };
 
   const reservationService = {
@@ -205,21 +208,21 @@ function buildParams(overrides: Partial<Parameters<typeof runWeatherEntryPipelin
     reserve: vi.fn(async () => ({ reservationId: 1, copiedPositionId: 1 })),
     updateOrderSignalId: vi.fn(async () => {}),
     release: vi.fn(async () => {}),
-    ...overrides.reservationService,
+    ...reservationServiceOverride,
   };
 
   const simulationService = {
     getSimBalance: vi.fn(async () => ({ cash: 1000 })),
-    ...overrides.simulationService,
+    ...simulationServiceOverride,
   };
 
   const orderQueue = {
     hasDedupeMarker: vi.fn(async () => false),
     enqueueUnique: vi.fn(async () => true),
-    ...overrides.orderQueue,
+    ...orderQueueOverride,
   };
 
-  const redisCmd = { exists: vi.fn(async () => 0) };
+  const redisCmd = { exists: vi.fn(async () => 0), get: vi.fn(), incr: vi.fn(), set: vi.fn() };
 
   const ds = {
     getRepository: vi.fn(() => ({
@@ -227,7 +230,7 @@ function buildParams(overrides: Partial<Parameters<typeof runWeatherEntryPipelin
       save: async (e: unknown) => e,
       create: (e: unknown) => e,
     })),
-    ...overrides.ds,
+    ...dsOverride,
   };
 
   return {
@@ -244,7 +247,9 @@ function buildParams(overrides: Partial<Parameters<typeof runWeatherEntryPipelin
     ds: ds as never,
     backendUrl: 'http://backend',
     serviceToken: 'token',
-    ...overrides,
+    forecastService: { getCached: vi.fn(async () => null) } as never,
+    positionForecastService: { saveIfAbsent: vi.fn(async () => {}) } as never,
+    ...rest,
   } as Parameters<typeof runWeatherEntryPipeline>[0];
 }
 
@@ -265,12 +270,9 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     mocks.hashAlgoLogicalKey.mockImplementation((p: unknown) => `logical:${JSON.stringify(p)}`);
     mocks.hashAlgoOrderSignalId.mockImplementation((p: unknown) => `orderSignal:${JSON.stringify(p)}`);
     mocks.computeEntryTargetQuantity.mockReturnValue(100);
-    mocks.getWeatherMaxPositionSizeUsdc.mockReturnValue(1000);
     mocks.resolveEntryBalances.mockResolvedValue({ cash: 1000, capitalForRatio: 1000 });
     mocks.applyEntryMosGate.mockResolvedValue({ ok: true, quantity: 100, askVwap: 0.5, bumped: false });
     mocks.fetchEntryAskLiquidityWithRetries.mockResolvedValue({ ok: true, attempts: 1 });
-    mocks.getWeatherEntryDepthRetryMax.mockReturnValue(3);
-    mocks.getWeatherEntryDepthRetryDelayMs.mockReturnValue(100);
     mocks.enqueueEntrySignal.mockResolvedValue({ enqueued: true });
     mocks.resolveEntryEnqueueBlocked.mockResolvedValue(null);
     mocks.resumeEntryFromReservation.mockResolvedValue(null);
@@ -301,7 +303,7 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
       marketService: {
         ensureTradableMarket: vi.fn(async () => null),
         loadByConditionIds: vi.fn(async () => new Map()),
-      } as never,
+      },
     });
     const result = await runWeatherEntryPipeline(params);
     expect(result).toBe('Marché introuvable');
@@ -310,11 +312,8 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
   it('returns "Pas de liquidité" when rough VWAP is 0', async () => {
     const params = buildParams({
       connectionManager: {
-        fetchExecutablePrices: vi.fn(async () => ({
-          executableAskVwap: 0,
-          executableBidVwap: 0,
-        })),
-      } as never,
+        fetchExecutablePrices: vi.fn(async () => executablePrices(0, 0)),
+      },
     });
     const result = await runWeatherEntryPipeline(params);
     expect(result).toBe('Pas de liquidité');
@@ -429,7 +428,7 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     );
   });
 
-  it('bumps real qty so notional meets MIN_ORDER_USDC (5 × 0.14 → 8 shares)', async () => {
+  it('bumps real qty so notional meets MIN_ORDER_PUSD (5 × 0.14 → 8 shares)', async () => {
     mocks.computeEntryTargetQuantity.mockReturnValue(5);
     mocks.applyEntryMosGate.mockResolvedValue({
       ok: true,
@@ -441,13 +440,13 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
       minEdge: null,
       maxForecastStd: null,
       minForecastProbability: null,
-      entryUsdc: null,
-      maxPositionSizeUsdc: 2,
+      entryPusd: null,
+      maxPositionSizePusd: 2,
       entryDepthRetryMax: null,
       entryDepthRetryDelayMs: null,
       maxOpenPositions: null,
-      maxExposureUsdc: null,
-      maxDailyLossUsdc: null,
+      maxExposurePusd: null,
+      maxDailyLossPusd: null,
       killSwitchAction: null,
       forecastChangeThreshold: null,
       cityFollowSwitchMode: null,
@@ -455,10 +454,7 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
       reentryThrottleMs: null,
       maxReentriesPerCityDate: 0,
     });
-    const fetchExecutablePrices = vi.fn(async () => ({
-      executableAskVwap: 0.14,
-      executableBidVwap: 0.1,
-    }));
+    const fetchExecutablePrices = vi.fn(async () => executablePrices(0.14, 0.1));
     const params = buildParams({
       signal: baseSignal({ mode: 'real' }),
       risk: baseRisk({ weatherAlgoSimEnabled: false, weatherAlgoRealEnabled: true }),
@@ -475,7 +471,7 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
       expect.objectContaining({
         job: expect.objectContaining({
           quantity: 8,
-          usdcAmount: 8 * 0.14,
+          pusdAmount: 8 * 0.14,
           orderType: 'FAK',
           reason: 'WEATHER_OPEN',
         }),
@@ -483,7 +479,7 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     );
   });
 
-  it('skips real entry when bumping to MIN_ORDER_USDC would exceed maxPositionSizeUsdc', async () => {
+  it('skips real entry when bumping to MIN_ORDER_PUSD would exceed maxPositionSizePusd', async () => {
     mocks.computeEntryTargetQuantity.mockReturnValue(5);
     mocks.applyEntryMosGate.mockResolvedValue({
       ok: true,
@@ -495,13 +491,13 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
       minEdge: null,
       maxForecastStd: null,
       minForecastProbability: null,
-      entryUsdc: null,
-      maxPositionSizeUsdc: 1,
+      entryPusd: null,
+      maxPositionSizePusd: 1,
       entryDepthRetryMax: null,
       entryDepthRetryDelayMs: null,
       maxOpenPositions: null,
-      maxExposureUsdc: null,
-      maxDailyLossUsdc: null,
+      maxExposurePusd: null,
+      maxDailyLossPusd: null,
       killSwitchAction: null,
       forecastChangeThreshold: null,
       cityFollowSwitchMode: null,

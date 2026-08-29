@@ -187,11 +187,11 @@ export async function loadCryptoAlgoOptimizeReport(
     slConfirmationTicks: config.cryptoAlgoSlConfirmationTicks ?? null,
     cryptoAlgoBaseThreshold: config.cryptoAlgoBaseThreshold ?? null,
     cryptoAlgoSizingMode: config.cryptoAlgoSizingMode,
-    cryptoAlgoEntryUsdcAmount: config.cryptoAlgoEntryUsdcAmount,
+    cryptoAlgoEntryPusdAmount: config.cryptoAlgoEntryPusdAmount,
     cryptoAlgoEntryShareCount: config.cryptoAlgoEntryShareCount ?? null,
-    simEntryUsdcAmount: 0,
+    simEntryPusdAmount: 0,
     simEntryShareCount: 0,
-    simSizingMode: 'fixed_usdc',
+    simSizingMode: 'fixed_pusd',
   };
 
   const report = buildCryptoAlgoOptimizeReport({

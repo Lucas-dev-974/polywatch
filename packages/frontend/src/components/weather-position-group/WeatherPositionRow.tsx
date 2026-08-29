@@ -77,7 +77,7 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
         <WeatherPositionMetric
           label="Mise investie"
           className="text-mono"
-          value={`${invested.toFixed(2)} USDC`}
+          value={`${invested.toFixed(2)} pUSD`}
         />
         <WeatherPositionMetric
           label="Prix entrée"

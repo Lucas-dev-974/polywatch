@@ -20,12 +20,12 @@ const KNOWN_WARNINGS: Record<string, FidelityWarning> = {
   risk_sizing_simplified_fixed_usdc: {
     icon: '📏',
     title: 'Sizing simplifié',
-    hint: 'La taille des positions est fixe (entryUsdc ou fixedShareCount selon le mode) au lieu du sizing par score de signal.',
+    hint: 'La taille des positions est fixe (entryPusd ou fixedShareCount selon le mode) au lieu du sizing par score de signal.',
   },
   risk_sizing_mode_ignored: {
     icon: '📐',
     title: 'Mode de sizing non honoré',
-    hint: 'Le sizingMode configuré pour la stratégie n’est pas pris en charge par le backtest ; la taille est calculée en USDC fixe (fidélité réduite).',
+    hint: 'Le sizingMode configuré pour la stratégie n’est pas pris en charge par le backtest ; la taille est calculée en pUSD fixe (fidélité réduite).',
   },
   risk_min_time_to_close_ignored: {
     icon: '⏱️',

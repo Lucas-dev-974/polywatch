@@ -11,14 +11,14 @@ export class CryptoConfig {
   @Column({ type: 'integer', name: 'crypto_algo_max_open_positions', default: 10 })
   cryptoAlgoMaxOpenPositions!: number;
 
-  @Column({ type: 'real', name: 'crypto_algo_max_exposure_usdc', default: 1000 })
-  cryptoAlgoMaxExposureUsdc!: number;
+  @Column({ type: 'real', name: 'crypto_algo_max_exposure_pusd', default: 1000 })
+  cryptoAlgoMaxExposurePusd!: number;
 
-  @Column({ type: 'real', name: 'crypto_algo_max_daily_loss_usdc', default: 100 })
-  cryptoAlgoMaxDailyLossUsdc!: number;
+  @Column({ type: 'real', name: 'crypto_algo_max_daily_loss_pusd', default: 100 })
+  cryptoAlgoMaxDailyLossPusd!: number;
 
-  @Column({ type: 'real', name: 'crypto_algo_max_position_size_usdc', default: 200 })
-  cryptoAlgoMaxPositionSizeUsdc!: number;
+  @Column({ type: 'real', name: 'crypto_algo_max_position_size_pusd', default: 200 })
+  cryptoAlgoMaxPositionSizePusd!: number;
 
   // ── SL confirmation ticks ─────────────────────────────────────────
 
@@ -251,11 +251,11 @@ export class CryptoConfig {
 
   // ── Sizing ────────────────────────────────────────────────────────
 
-  @Column({ type: 'text', name: 'crypto_algo_sizing_mode', default: 'fixed_usdc' })
+  @Column({ type: 'text', name: 'crypto_algo_sizing_mode', default: 'fixed_pusd' })
   cryptoAlgoSizingMode!: string;
 
-  @Column({ type: 'real', name: 'crypto_algo_entry_usdc_amount', default: 10 })
-  cryptoAlgoEntryUsdcAmount!: number;
+  @Column({ type: 'real', name: 'crypto_algo_entry_pusd_amount', default: 10 })
+  cryptoAlgoEntryPusdAmount!: number;
 
   @Column({ type: 'real', name: 'crypto_algo_entry_share_count', nullable: true })
   cryptoAlgoEntryShareCount!: number | null;

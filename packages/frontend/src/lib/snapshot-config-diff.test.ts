@@ -8,7 +8,7 @@ import {
 describe('buildSnapshotConfigDiff', () => {
   it('returns empty when fewer than 2 snapshots', () => {
     expect(
-      buildSnapshotConfigDiff('sim', [{ snapshotId: 1, config: { simSizingMode: 'fixed_usdc' } }]),
+      buildSnapshotConfigDiff('sim', [{ snapshotId: 1, config: { simSizingMode: 'fixed_pusd' } }]),
     ).toEqual([]);
   });
 
@@ -16,11 +16,11 @@ describe('buildSnapshotConfigDiff', () => {
     const rows = buildSnapshotConfigDiff('sim', [
       {
         snapshotId: 1,
-        config: { simSlPercent: 10, simTpPercent: 12, simSizingMode: 'fixed_usdc' },
+        config: { simSlPercent: 10, simTpPercent: 12, simSizingMode: 'fixed_pusd' },
       },
       {
         snapshotId: 2,
-        config: { simSlPercent: 20, simTpPercent: 12, simSizingMode: 'fixed_usdc' },
+        config: { simSlPercent: 20, simTpPercent: 12, simSizingMode: 'fixed_pusd' },
       },
     ]);
     expect(rows.some((r) => r.key === 'simSlPercent')).toBe(true);

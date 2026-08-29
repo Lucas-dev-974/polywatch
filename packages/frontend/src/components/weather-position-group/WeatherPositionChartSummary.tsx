@@ -28,17 +28,17 @@ export function WeatherPositionChartSummary(props: WeatherPositionChartSummaryPr
         Outcome : <strong>{p().outcome}</strong>
       </span>
       <span>
-        Entrée : <strong>{p().entryPrice.toFixed(3)}</strong> USDC
+        Entrée : <strong>{p().entryPrice.toFixed(3)}</strong> pUSD
         {p().openedAt ? ` · ${formatShortDateTime(p().openedAt)}` : ''}
       </span>
       <Show when={bid() != null}>
         <span>
-          Bid actuel : <strong>{bid()}</strong> USDC
+          Bid actuel : <strong>{bid()}</strong> pUSD
         </span>
       </Show>
       <Show when={p().status === 'closed'}>
         <span>
-          Sortie : <strong>{exitPrice()}</strong> USDC
+          Sortie : <strong>{exitPrice()}</strong> pUSD
           {p().closedAt ? ` · ${formatShortDateTime(p().closedAt)}` : ''}
         </span>
         <span>

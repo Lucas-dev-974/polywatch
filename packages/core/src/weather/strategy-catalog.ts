@@ -73,10 +73,10 @@ export type WeatherStrategyParamsBag = {
   /** Max simultaneous open positions for a single (city, target date) pair. */
   maxPositionsPerCityDate: number;
   // ── Sizing ─────────────────────────────────────────────────────────
-  /** Fixed entry notional (USDC). */
-  entryUsdc: number;
-  /** Sizing mode. Currently only fixed_usdc is wired to the runtime. */
-  sizingMode: 'fixed_usdc' | 'fixed_shares';
+  /** Fixed entry notional (pUSD). */
+  entryPusd: number;
+  /** Sizing mode. Currently only fixed_pusd is wired to the runtime. */
+  sizingMode: 'fixed_pusd' | 'fixed_shares';
   /** Fixed share count for 'fixed_shares' sizing mode. */
   fixedShareCount: number;
   // ── Exit ───────────────────────────────────────────────────────────
@@ -109,9 +109,9 @@ export type WeatherStrategyParamsBag = {
   trailingActivationPercent: number | null;
   // ── Risk limits ────────────────────────────────────────────────────
   maxOpenPositions: number;
-  maxExposureUsdc: number;
-  maxDailyLossUsdc: number;
-  maxPositionSizeUsdc: number;
+  maxExposurePusd: number;
+  maxDailyLossPusd: number;
+  maxPositionSizePusd: number;
   // ── Depth retry / confirmation ─────────────────────────────────────
   entryDepthRetryMax: number;
   entryDepthRetryDelayMs: number;
@@ -139,8 +139,8 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   maxYesPrice: null,
   allowedComparisons: null,
   maxPositionsPerCityDate: 1,
-  entryUsdc: 10,
-  sizingMode: 'fixed_usdc',
+  entryPusd: 10,
+  sizingMode: 'fixed_pusd',
   fixedShareCount: 100,
   forecastChangeThreshold: 2,
   bucketHysteresisPolls: 2,
@@ -156,9 +156,9 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   trailingPercent: null,
   trailingActivationPercent: null,
   maxOpenPositions: 10,
-  maxExposureUsdc: 1000,
-  maxDailyLossUsdc: 100,
-  maxPositionSizeUsdc: 200,
+  maxExposurePusd: 1000,
+  maxDailyLossPusd: 100,
+  maxPositionSizePusd: 200,
   entryDepthRetryMax: 3,
   entryDepthRetryDelayMs: 1000,
   slCloseMaxRetries: 5,
@@ -171,7 +171,7 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
 };
 
 const SIZING_MODE_OPTIONS = [
-  { value: 'fixed_usdc', label: 'Fixed USDC' },
+  { value: 'fixed_pusd', label: 'Fixed pUSD' },
   { value: 'fixed_shares', label: 'Fixed Shares' },
 ];
 
@@ -197,9 +197,9 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'maxForecastStd', label: 'Écart-type forecast max', kind: 'number', min: 0, max: 20, step: 0.5, default: 0, hint: '0 = désactivé. Filtre les forecasts trop incertains.' },
     { key: 'minForecastProbability', label: 'Probabilité YES min', kind: 'number', min: 0, max: 1, step: 0.05, default: 0, hint: '0 = désactivé. Filtre les buckets très peu probables.' },
     // Sizing
-    { key: 'entryUsdc', label: 'Taille d’entrée (USDC)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
-    { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_usdc' },
-    { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_usdc.' },
+    { key: 'entryPusd', label: 'Taille d’entrée (pUSD)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
+    { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_pusd' },
+    { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_pusd.' },
     // Exit
     { key: 'forecastChangeThreshold', label: 'Seuil de dérive forecast (°C)', kind: 'number', min: 0.5, max: 20, step: 0.5, default: 2, hint: 'Déclenche WEATHER_FORECAST_CHANGE.' },
     { key: 'bucketHysteresisPolls', label: 'Hystérésis bucket (polls)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
@@ -218,9 +218,9 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
     { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
-    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 1000 },
-    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 100 },
-    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 200 },
+    { key: 'maxExposurePusd', label: 'Exposition max (pUSD)', kind: 'number', min: 1, max: 100_000, step: 1, default: 1000 },
+    { key: 'maxDailyLossPusd', label: 'Perte journalière max (pUSD)', kind: 'number', min: 1, max: 100_000, step: 1, default: 100 },
+    { key: 'maxPositionSizePusd', label: 'Taille de position max (pUSD)', kind: 'number', min: 1, max: 100_000, step: 1, default: 200 },
     // Depth retry / confirmation
     { key: 'entryDepthRetryMax', label: 'Retries profondeur', kind: 'number', min: 0, max: 10, step: 1, default: 3 },
     { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },
@@ -260,9 +260,9 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
       hint: 'Restreint les types de paliers. Les paliers « or above / or below » ont un prix YES cumulatif mécaniquement gonflé — les exclure évite le biais de sur-achat.',
     },
     // Sizing
-    { key: 'entryUsdc', label: 'Taille d’entrée (USDC)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
-    { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_usdc' },
-    { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_usdc.' },
+    { key: 'entryPusd', label: 'Taille d’entrée (pUSD)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
+    { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_pusd' },
+    { key: 'fixedShareCount', label: 'Nombre de parts (fixed_shares)', kind: 'number', min: 1, max: 10_000_000, step: 1, default: 100, hint: 'Nombre fixe de parts à acheter quand le mode de sizing est fixed_shares. Ignoré en mode fixed_pusd.' },
     // Exit
     // SL / TP / Trailing
     { key: 'slEnabled', label: 'Stop-loss actif', kind: 'boolean', default: true },
@@ -279,9 +279,9 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     // Risk limits
     { key: 'maxOpenPositions', label: 'Max positions ouvertes', kind: 'number', min: 1, max: 50, step: 1, default: 10 },
     { key: 'maxPositionsPerCityDate', label: 'Max positions par ville+date', kind: 'number', min: 1, max: 10, step: 1, default: 1, hint: 'Nombre max de positions ouvertes simultanément pour un même couple (ville, date cible).' },
-    { key: 'maxExposureUsdc', label: 'Exposition max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 1000 },
-    { key: 'maxDailyLossUsdc', label: 'Perte journalière max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 100 },
-    { key: 'maxPositionSizeUsdc', label: 'Taille de position max (USDC)', kind: 'number', min: 1, max: 100_000, step: 1, default: 200 },
+    { key: 'maxExposurePusd', label: 'Exposition max (pUSD)', kind: 'number', min: 1, max: 100_000, step: 1, default: 1000 },
+    { key: 'maxDailyLossPusd', label: 'Perte journalière max (pUSD)', kind: 'number', min: 1, max: 100_000, step: 1, default: 100 },
+    { key: 'maxPositionSizePusd', label: 'Taille de position max (pUSD)', kind: 'number', min: 1, max: 100_000, step: 1, default: 200 },
     // Depth retry / confirmation
     { key: 'entryDepthRetryMax', label: 'Retries profondeur', kind: 'number', min: 0, max: 10, step: 1, default: 3 },
     { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },
@@ -350,6 +350,39 @@ export function serializeWeatherAlgoStrategies(ids: string[]): string {
 /** Stored per-strategy params: partial bags keyed by strategy id. */
 export type WeatherStrategyParamsMap = Record<string, Partial<WeatherStrategyParamsBag>>;
 
+/**
+ * Pre-rename bag keys / values still present in DB rows that have not yet
+ * run `RenameUsdcToPusdSizing1700000000122`, or in a fresh migrate where
+ * 0107/0108 wrote `entryPusd` but copied `sizingMode` from a still-`fixed_usdc`
+ * column. Read + sanitize must heal these or weather sizing silently no-ops
+ * (`SPEND_STRATEGIES['fixed_usdc']` is undefined) and a settings save would
+ * drop `entryUsdc` as an unknown key.
+ */
+const LEGACY_WEATHER_BAG_KEYS: Record<string, keyof WeatherStrategyParamsBag> = {
+  entryUsdc: 'entryPusd',
+  maxExposureUsdc: 'maxExposurePusd',
+  maxDailyLossUsdc: 'maxDailyLossPusd',
+  maxPositionSizeUsdc: 'maxPositionSizePusd',
+};
+
+function migrateLegacyWeatherBag(
+  bag: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...bag };
+  for (const [legacy, current] of Object.entries(LEGACY_WEATHER_BAG_KEYS)) {
+    if (!(current in out) || out[current] == null) {
+      if (legacy in out && out[legacy] != null) {
+        out[current] = out[legacy];
+      }
+    }
+    delete out[legacy];
+  }
+  if (out.sizingMode === 'fixed_usdc') {
+    out.sizingMode = 'fixed_pusd';
+  }
+  return out;
+}
+
 export function parseWeatherAlgoStrategyParams(
   raw: string | null | undefined,
 ): WeatherStrategyParamsMap {
@@ -357,7 +390,12 @@ export function parseWeatherAlgoStrategyParams(
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    return parsed as WeatherStrategyParamsMap;
+    const out: WeatherStrategyParamsMap = {};
+    for (const [strategyId, bag] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!bag || typeof bag !== 'object' || Array.isArray(bag)) continue;
+      out[strategyId] = migrateLegacyWeatherBag(bag as Record<string, unknown>) as Partial<WeatherStrategyParamsBag>;
+    }
+    return out;
   } catch {
     return {};
   }
@@ -498,7 +536,8 @@ export function sanitizeWeatherStrategyParams(
   for (const [strategyId, bag] of Object.entries(params ?? {})) {
     if (!isKnownWeatherStrategyId(strategyId)) continue;
     const cleaned: Partial<WeatherStrategyParamsBag> = {};
-    for (const [key, value] of Object.entries(bag ?? {})) {
+    const migrated = migrateLegacyWeatherBag((bag ?? {}) as Record<string, unknown>);
+    for (const [key, value] of Object.entries(migrated)) {
       if (allowedKeys.has(key)) (cleaned as Record<string, unknown>)[key] = value;
     }
     if (Object.keys(cleaned).length > 0) out[strategyId] = cleaned;

@@ -34,7 +34,7 @@ export interface RunContext {
   params: {
     slippageBps: number;
       maxConcurrentPositions: number;
-      entryUsdc: number;
+      entryPusd: number;
       capital: number;
       strategyId?: string;
       strategyEnv: 'sim' | 'real';
@@ -65,7 +65,7 @@ export interface RunSpec {
   configSnapshot: WeatherConfig;
   slippageBps: number;
   maxConcurrentPositions: number;
-  entryUsdc: number;
+  entryPusd: number;
   strategyId?: string;
   strategyEnv: 'sim' | 'real';
   fidelityMinutes?: number;
@@ -141,7 +141,7 @@ export class BacktestRunner {
       params: {
         slippageBps: spec.slippageBps,
         maxConcurrentPositions: spec.maxConcurrentPositions,
-        entryUsdc: spec.entryUsdc,
+        entryPusd: spec.entryPusd,
         capital: spec.initialCapital,
         strategyId: spec.strategyId,
         strategyEnv: spec.strategyEnv,

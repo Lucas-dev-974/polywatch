@@ -5,10 +5,10 @@ function deriveBuyMatchQuantity(
   signalQuantity: number,
   limitPrice: number,
 ): number {
-  const marketAmountUsdc = Number(
+  const marketAmountPusd = Number(
     (signalQuantity * limitPrice).toFixed(6),
   );
-  return marketAmountUsdc / limitPrice;
+  return marketAmountPusd / limitPrice;
 }
 
 describe('BUY collateral rounding (simulateFill)', () => {

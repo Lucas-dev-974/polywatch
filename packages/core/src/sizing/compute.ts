@@ -5,13 +5,13 @@ import { MIN_ORDER_SHARES } from './constants.js';
 export interface SizingInput {
   sizingMode: SizingMode;
   copyRatio: number;
-  fixedUsdcAmount: number | null;
+  fixedPusdAmount: number | null;
   /** Fixed share count for `fixed_shares` sizing. */
   fixedShareCount?: number;
   /** Kelly fractional sizing: fraction of full Kelly to use (0..1). */
   kellyFraction?: number;
-  /** Risk-based sizing: fixed risk budget per trade in USDC. */
-  riskBudgetUsdc?: number;
+  /** Risk-based sizing: fixed risk budget per trade in pUSD. */
+  riskBudgetPusd?: number;
   /** Estimated probability of winning (for Kelly). Defaults to 0.55. */
   winProbability?: number;
   /** Stop-loss distance in price terms (entry - stop), for risk-based sizing. */
@@ -27,13 +27,13 @@ export interface SizingInput {
   /** Total capital for proportional sizing (defaults to userBalance). */
   userCapital?: number;
   traderBalance?: number;
-  maxPositionSizeUsdc: number;
+  maxPositionSizePusd: number;
 }
 
 const DEFAULT_WIN_PROBABILITY = 0.55;
 
-function maxSpendUsdc(input: SizingInput): number {
-  return Math.min(input.maxPositionSizeUsdc, input.userBalance);
+function maxSpendPusd(input: SizingInput): number {
+  return Math.min(input.maxPositionSizePusd, input.userBalance);
 }
 
 /**
@@ -60,7 +60,7 @@ function computeKellySpend(input: SizingInput): number | null {
 
   if (fractionalKelly <= 0) return null;
 
-  return Math.min(fractionalKelly * userBalance, maxSpendUsdc(input));
+  return Math.min(fractionalKelly * userBalance, maxSpendPusd(input));
 }
 
 /**
@@ -69,21 +69,21 @@ function computeKellySpend(input: SizingInput): number | null {
  * quantity = riskBudget / (entryPrice - stopPrice)
  */
 function computeRiskBasedSpend(input: SizingInput): number | null {
-  const { executableAskVwap, riskBudgetUsdc, stopDistance } = input;
-  const budget = riskBudgetUsdc ?? 0;
+  const { executableAskVwap, riskBudgetPusd, stopDistance } = input;
+  const budget = riskBudgetPusd ?? 0;
   if (budget <= 0 || executableAskVwap <= 0) return null;
 
   const distance = stopDistance ?? executableAskVwap;
   const riskFraction = distance / executableAskVwap;
   if (riskFraction <= 0) return null;
 
-  return Math.min(budget / riskFraction, maxSpendUsdc(input));
+  return Math.min(budget / riskFraction, maxSpendPusd(input));
 }
 
 type SpendStrategy = (input: SizingInput) => number | null;
 
-function fixedUsdcStrategy(input: SizingInput): number | null {
-  const amount = input.fixedUsdcAmount;
+function fixedPusdStrategy(input: SizingInput): number | null {
+  const amount = input.fixedPusdAmount;
   if (!amount || amount <= 0) return null;
   return amount;
 }
@@ -103,7 +103,7 @@ function fixedRatioStrategy(input: SizingInput): number | null {
 type SpendSizingMode = Exclude<SizingMode, 'fixed_shares'>;
 
 const SPEND_STRATEGIES: Record<SpendSizingMode, SpendStrategy> = {
-  fixed_usdc: fixedUsdcStrategy,
+  fixed_pusd: fixedPusdStrategy,
   fixed_ratio: fixedRatioStrategy,
   proportional_capital: proportionalCapitalStrategy,
   kelly_fractional: computeKellySpend,
@@ -127,27 +127,39 @@ function computeFixedSharesQuantity(input: SizingInput): number | null {
   if (base <= 0 || input.executableAskVwap <= 0) return null;
 
   let targetShares = applySignalMultiplier(base, input.signalMultiplier);
-  const maxSharesByBudget = maxSpendUsdc(input) / input.executableAskVwap;
+  const maxSharesByBudget = maxSpendPusd(input) / input.executableAskVwap;
   targetShares = Math.min(targetShares, maxSharesByBudget);
   targetShares = Math.floor(targetShares);
 
   return targetShares >= MIN_ORDER_SHARES ? targetShares : null;
 }
 
+/** Pre-0122 stored value. Used by PATCH Zod and unread-migrated rows. */
+export function coerceLegacySizingMode(value: unknown): unknown {
+  return value === 'fixed_usdc' ? 'fixed_pusd' : value;
+}
+
+function canonicalSizingMode(mode: SizingMode): SizingMode {
+  return coerceLegacySizingMode(mode) as SizingMode;
+}
+
 export function computeTargetQuantity(input: SizingInput): number | null {
   if (input.executableAskVwap <= 0) return null;
 
-  if (input.sizingMode === 'fixed_shares') {
-    return computeFixedSharesQuantity(input);
+  const sizingMode = canonicalSizingMode(input.sizingMode);
+  const canonical = sizingMode === input.sizingMode ? input : { ...input, sizingMode };
+
+  if (canonical.sizingMode === 'fixed_shares') {
+    return computeFixedSharesQuantity(canonical);
   }
 
-  let targetSpendUsdc = computeBaseSpend(input);
-  if (targetSpendUsdc === null || targetSpendUsdc <= 0) return null;
+  let targetSpendPusd = computeBaseSpend(canonical);
+  if (targetSpendPusd === null || targetSpendPusd <= 0) return null;
 
-  targetSpendUsdc = applySignalMultiplier(targetSpendUsdc, input.signalMultiplier);
-  targetSpendUsdc = Math.min(targetSpendUsdc, maxSpendUsdc(input));
+  targetSpendPusd = applySignalMultiplier(targetSpendPusd, canonical.signalMultiplier);
+  targetSpendPusd = Math.min(targetSpendPusd, maxSpendPusd(canonical));
 
-  const targetQuantity = targetSpendUsdc / input.executableAskVwap;
+  const targetQuantity = targetSpendPusd / canonical.executableAskVwap;
   return targetQuantity >= MIN_ORDER_SHARES ? targetQuantity : null;
 }
 

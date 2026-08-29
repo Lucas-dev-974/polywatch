@@ -251,7 +251,7 @@ export class PositionExitEvaluator {
     trigger: number,
     closure: number,
     peakClosure: number,
-    projectedRealizedPnlUsdc: number,
+    projectedRealizedPnlPusd: number,
     executableBidVwap: number,
     liquidityStatus: LiquidityStatus,
     liveBestBid?: number,

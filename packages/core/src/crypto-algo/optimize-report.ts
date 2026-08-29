@@ -37,9 +37,9 @@ export interface OptimizeReportConfigInput {
   slConfirmationTicks: number | null;
   cryptoAlgoBaseThreshold: number | null;
   cryptoAlgoSizingMode: string;
-  cryptoAlgoEntryUsdcAmount: number;
+  cryptoAlgoEntryPusdAmount: number;
   cryptoAlgoEntryShareCount: number | null;
-  simEntryUsdcAmount: number;
+  simEntryPusdAmount: number;
   simEntryShareCount: number;
   simSizingMode: string;
 }

@@ -120,9 +120,9 @@ que `-?\d+`. Retourne `null` si la métrique n'est pas `highest_temp`/`lowest_te
   capacité `maxPositionsPerCityDate` par ville+date (`targetDateIso` sur le ledger ;
   un run a un seul `strategyEnv`, donc la clé n'inclut pas `mode` — contrairement
   au live `city|date|strategyId|mode`),
-  `maxPositionSizeUsdc`, throttle re-entry ville+date (bucket/drift seulement).
+  `maxPositionSizePusd`, throttle re-entry ville+date (bucket/drift seulement).
   **Depuis 0.5.0**, ces garde-fous sont résolus **par stratégie** :
-  `canEnter(ctx, entryUsdc, yesPrice, strategyId)` utilise
+  `canEnter(ctx, entryPusd, yesPrice, strategyId)` utilise
   `getStrategyParamsForMode(cfgSnapshot, strategyId, strategyEnv)` pour le bag
   (pas `this.bag` global) ;
   `isDailyLossBreached(ctx, strategyId)` filtre `dailyRealizedPnl` par stratégie ;
@@ -219,7 +219,7 @@ Le live ne dépend jamais du backtest.
   positions, résolution fallback, metric non supporté, hors plage,
   carry-forward markPrice, garde highest-yes drift/bucket,
   **garde-fous per-strategy** (filtrage `openExposure`/`dailyRealizedPnl` par `strategyId`,
-  `maxExposureUsdc` par stratégie bloque 2e entrée, `maxExposureUsdc` généreux autorise
+  `maxExposurePusd` par stratégie bloque 2e entrée, `maxExposurePusd` généreux autorise
   multiple entrées), **entrée runner-sim 0.8.0** (`entryAt` = décision, coalesce, skip marché résolu /
   prix stale / SL immédiat, `maybeFlushRunnerSimBatch` avant gardes — drop pas de file,
   `pairDecidedAtBySignal`, tests F4 throttle + F5 pairing).

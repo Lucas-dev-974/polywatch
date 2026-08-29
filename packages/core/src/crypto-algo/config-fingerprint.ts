@@ -26,7 +26,7 @@ const CRYPTO_ALGO_FINGERPRINT_KEYS = [
   'cryptoAlgoCurveLookbackMs',
   'cryptoAlgoCurveMinDelta',
   'cryptoAlgoSizingMode',
-  'cryptoAlgoEntryUsdcAmount',
+  'cryptoAlgoEntryPusdAmount',
   'cryptoAlgoEntryShareCount',
 ] as const;
 

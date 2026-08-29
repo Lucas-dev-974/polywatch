@@ -11,7 +11,7 @@ describe('simulateWeatherEntryFill', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.5,
-      entryUsdc: 100,
+      entryPusd: 100,
       slippageBps: 50,
     });
     expect(r.entryPrice).toBeCloseTo(0.5 * 1.005, 5);
@@ -22,28 +22,28 @@ describe('simulateWeatherEntryFill', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.5,
-      entryUsdc: 100,
+      entryPusd: 100,
       slippageBps: 0,
     });
     expect(r.entryPrice).toBeCloseTo(0.5, 5);
   });
 
-  it('caps qty when maxPositionSizeUsdc is below entryUsdc', () => {
+  it('caps qty when maxPositionSizePusd is below entryPusd', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.5,
-      entryUsdc: 1000,
-      maxPositionSizeUsdc: 100,
+      entryPusd: 1000,
+      maxPositionSizePusd: 100,
       slippageBps: 0,
     });
     expect(r.qty).toBeCloseTo(100 / 0.5, 5);
   });
 
-  it('uses full entryUsdc when no cap is provided', () => {
+  it('uses full entryPusd when no cap is provided', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.5,
-      entryUsdc: 1000,
+      entryPusd: 1000,
       slippageBps: 0,
     });
     expect(r.qty).toBeCloseTo(1000 / 0.5, 5);
@@ -53,7 +53,7 @@ describe('simulateWeatherEntryFill', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.999,
-      entryUsdc: 100,
+      entryPusd: 100,
       slippageBps: 200,
     });
     expect(r.entryPrice).toBe(1);
@@ -63,7 +63,7 @@ describe('simulateWeatherEntryFill', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.999,
-      entryUsdc: 100,
+      entryPusd: 100,
       slippageBps: 200,
     });
     expect(r.entryPrice).toBe(1);
@@ -86,7 +86,7 @@ describe('simulateWeatherEntryFill', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.0005,
-      entryUsdc: 10,
+      entryPusd: 10,
       slippageBps: 0,
       sizingMode: 'fixed_shares',
       fixedShareCount: 5,
@@ -95,15 +95,15 @@ describe('simulateWeatherEntryFill', () => {
     expect(r.entryPrice).toBeCloseTo(0.0005, 6);
   });
 
-  it('fixed_shares caps qty by budget when maxPositionSizeUsdc is tight', () => {
+  it('fixed_shares caps qty by budget when maxPositionSizePusd is tight', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.5,
-      entryUsdc: 10,
+      entryPusd: 10,
       slippageBps: 0,
       sizingMode: 'fixed_shares',
       fixedShareCount: 100,
-      maxPositionSizeUsdc: 1,
+      maxPositionSizePusd: 1,
     });
     // budget = min(1, 10) = 1 → maxShares = 1/0.5 = 2 → qty = min(100, 2) = 2
     expect(r.qty).toBe(2);
@@ -113,7 +113,7 @@ describe('simulateWeatherEntryFill', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.5,
-      entryUsdc: 10,
+      entryPusd: 10,
       slippageBps: 0,
       sizingMode: 'fixed_shares',
       fixedShareCount: 0,
@@ -121,11 +121,11 @@ describe('simulateWeatherEntryFill', () => {
     expect(r.qty).toBe(0);
   });
 
-  it('defaults to fixed_usdc when sizingMode is absent', () => {
+  it('defaults to fixed_pusd when sizingMode is absent', () => {
     const r = simulateWeatherEntryFill({
       conditionId: 'c1',
       yesPrice: 0.5,
-      entryUsdc: 100,
+      entryPusd: 100,
       slippageBps: 0,
     });
     expect(r.qty).toBeCloseTo(100 / 0.5, 5);

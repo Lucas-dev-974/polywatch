@@ -17,6 +17,7 @@ import {
   WEATHER_STRATEGY_IDS,
   sanitizeWeatherStrategyParams,
   validateWeatherStrategyParamsUpdate,
+  coerceLegacySizingMode,
 } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
 import { publishConfigChanged } from '../redis.js';
@@ -26,10 +27,13 @@ import { publishConfigChanged } from '../redis.js';
 const nonNegNumber = z.number().finite().nonnegative();
 const nonNegInt = z.number().int().nonnegative();
 const bidToAskRatio = z.number().finite().min(0).max(1);
-const sizingMode = z.enum([
-  'fixed_ratio', 'fixed_usdc', 'fixed_shares',
-  'proportional_capital', 'kelly_fractional', 'risk_based',
-]);
+const sizingMode = z.preprocess(
+  coerceLegacySizingMode,
+  z.enum([
+    'fixed_ratio', 'fixed_pusd', 'fixed_shares',
+    'proportional_capital', 'kelly_fractional', 'risk_based',
+  ]),
+);
 const killSwitchAction = z.enum(['block_entries', 'force_close_all', 'block_and_notify']);
 
 // ─── Global config schema ────────────────────────────────────────────
@@ -64,12 +68,12 @@ const globalConfigUpdateSchema = z.object({
 const copyConfigUpdateSchema = z.object({
   simMaxOpenPositions: nonNegInt,
   realMaxOpenPositions: nonNegInt,
-  simMaxExposureUsdc: nonNegNumber,
-  realMaxExposureUsdc: nonNegNumber,
-  simMaxDailyLossUsdc: nonNegNumber,
-  realMaxDailyLossUsdc: nonNegNumber,
-  simMaxPositionSizeUsdc: nonNegNumber,
-  realMaxPositionSizeUsdc: nonNegNumber,
+  simMaxExposurePusd: nonNegNumber,
+  realMaxExposurePusd: nonNegNumber,
+  simMaxDailyLossPusd: nonNegNumber,
+  realMaxDailyLossPusd: nonNegNumber,
+  simMaxPositionSizePusd: nonNegNumber,
+  realMaxPositionSizePusd: nonNegNumber,
   simMinBidToAskRatio: bidToAskRatio,
   realMinBidToAskRatio: bidToAskRatio,
   simMomentumFilterEnabled: z.boolean(),
@@ -78,17 +82,17 @@ const copyConfigUpdateSchema = z.object({
   realCopyTradingEnabled: z.boolean(),
   simSizingMode: sizingMode,
   simCopyRatio: nonNegNumber,
-  simEntryUsdcAmount: nonNegNumber,
+  simEntryPusdAmount: nonNegNumber,
   simEntryShareCount: z.number().int().min(1),
   simKellyFraction: nonNegNumber,
-  simRiskBudgetUsdc: nonNegNumber,
+  simRiskBudgetPusd: nonNegNumber,
   simDefaultWinProbability: z.number().finite().min(0).max(1),
   realSizingMode: sizingMode,
   realCopyRatio: nonNegNumber,
-  realEntryUsdcAmount: nonNegNumber,
+  realEntryPusdAmount: nonNegNumber,
   realEntryShareCount: z.number().int().min(1),
   realKellyFraction: nonNegNumber,
-  realRiskBudgetUsdc: nonNegNumber,
+  realRiskBudgetPusd: nonNegNumber,
   realDefaultWinProbability: z.number().finite().min(0).max(1),
   simTrailingEnabled: z.boolean(),
   simTrailingPercent: z.number().finite().min(0).max(100),
@@ -163,9 +167,9 @@ const cryptoConfigUpdateSchema = z.object({
   cryptoAlgoEnabled: z.boolean(),
   cryptoAlgoRecordingEnabled: z.boolean(),
   cryptoAlgoMaxOpenPositions: nonNegInt,
-  cryptoAlgoMaxExposureUsdc: nonNegNumber,
-  cryptoAlgoMaxDailyLossUsdc: nonNegNumber,
-  cryptoAlgoMaxPositionSizeUsdc: nonNegNumber,
+  cryptoAlgoMaxExposurePusd: nonNegNumber,
+  cryptoAlgoMaxDailyLossPusd: nonNegNumber,
+  cryptoAlgoMaxPositionSizePusd: nonNegNumber,
   cryptoAlgoSlConfirmationTicks: z.number().int().min(1).max(10),
   cryptoAlgoKillSwitchAction: killSwitchAction,
   cryptoAlgoMinBidToAskRatio: bidToAskRatio,
@@ -214,8 +218,11 @@ const cryptoConfigUpdateSchema = z.object({
   cryptoAlgoPriceTickRefQty: z.number().finite().min(1).max(10_000).nullable(),
   cryptoAlgoMinTimeToCloseBufferSeconds: z.number().int().min(0).max(600).nullable(),
   cryptoAlgoLastCloseableBidMaxAgeMs: z.number().int().min(1000).max(600_000).nullable(),
-  cryptoAlgoSizingMode: z.enum(['fixed_usdc', 'fixed_shares']).optional(),
-  cryptoAlgoEntryUsdcAmount: z.number().finite().min(1).max(100000).optional(),
+  cryptoAlgoSizingMode: z.preprocess(
+    coerceLegacySizingMode,
+    z.enum(['fixed_pusd', 'fixed_shares']),
+  ).optional(),
+  cryptoAlgoEntryPusdAmount: z.number().finite().min(1).max(100000).optional(),
   cryptoAlgoEntryShareCount: z.number().finite().min(1).max(1000000).optional(),
   cryptoAlgoSlQuotaEnabled: z.boolean(),
   cryptoAlgoSlQuotaPerMarket: z.number().int().min(1).max(20),
@@ -232,7 +239,10 @@ const weatherSelectionMode = z.enum(['single', 'multi']);
 
 const weatherStrategyId = z.enum(WEATHER_STRATEGY_IDS);
 
-const weatherSizingMode = z.enum(['fixed_usdc', 'fixed_shares']);
+const weatherSizingMode = z.preprocess(
+  coerceLegacySizingMode,
+  z.enum(['fixed_pusd', 'fixed_shares']),
+);
 const weatherCityFollowSwitchMode = z.enum(['close_and_reenter', 'hold']);
 const weatherKillSwitchAction = z.enum(['block_entries', 'force_close_all', 'block_and_notify']);
 
@@ -252,7 +262,7 @@ const weatherStrategyParamsBagSchema = z
     minYesPrice: z.number().finite().min(0).max(1),
     maxYesPrice: nullableNumber,
     // Sizing
-    entryUsdc: z.number().finite().min(1).max(10000),
+    entryPusd: z.number().finite().min(1).max(10000),
     sizingMode: weatherSizingMode,
     fixedShareCount: z.number().int().min(1).max(10_000_000).optional(),
     // Exit
@@ -272,9 +282,9 @@ const weatherStrategyParamsBagSchema = z
     trailingActivationPercent: nullableNumber,
     // Risk limits
     maxOpenPositions: z.number().int().min(1).max(50),
-    maxExposureUsdc: z.number().finite().min(1),
-    maxDailyLossUsdc: z.number().finite().min(1),
-    maxPositionSizeUsdc: z.number().finite().min(1),
+    maxExposurePusd: z.number().finite().min(1),
+    maxDailyLossPusd: z.number().finite().min(1),
+    maxPositionSizePusd: z.number().finite().min(1),
     // Depth retry / confirmation
     entryDepthRetryMax: z.number().int().min(0).max(10),
     entryDepthRetryDelayMs: z.number().int().min(0).max(60_000),

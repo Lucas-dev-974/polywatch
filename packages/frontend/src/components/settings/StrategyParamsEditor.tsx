@@ -42,7 +42,7 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
   {
     id: 'entry',
     title: 'Entrée',
-    keys: ['minEdge', 'maxForecastStd', 'minForecastProbability', 'minYesPrice', 'maxYesPrice', 'sizingMode', 'entryUsdc', 'fixedShareCount'],
+    keys: ['minEdge', 'maxForecastStd', 'minForecastProbability', 'minYesPrice', 'maxYesPrice', 'sizingMode', 'entryPusd', 'fixedShareCount'],
   },
   {
     id: 'exit',
@@ -72,7 +72,7 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
   {
     id: 'risk',
     title: 'Limites de risque',
-    keys: ['maxOpenPositions', 'maxExposureUsdc', 'maxDailyLossUsdc', 'maxPositionSizeUsdc'],
+    keys: ['maxOpenPositions', 'maxExposurePusd', 'maxDailyLossPusd', 'maxPositionSizePusd'],
   },
   {
     id: 'execution',
@@ -100,10 +100,10 @@ export interface StrategyParamsEditorProps {
   overrides: Record<string, number | boolean | string | null>;
   /** Clés à exposer (défaut = toutes). Le backtest passe BACKTEST_EFFECTIVE_PARAM_KEYS. */
   visibleKeys?: string[];
-  /** Quand fourni, le param `entryUsdc` est rendu comme un champ run-level
+  /** Quand fourni, le param `entryPusd` est rendu comme un champ run-level
    * (câblé à cette valeur/onChange) au lieu d'un param du bag de stratégie.
-   * Utilisé par le formulaire de backtest où `entryUsdc` est un param run-level. */
-  entryUsdcField?: {
+   * Utilisé par le formulaire de backtest où `entryPusd` est un param run-level. */
+  entryPusdField?: {
     value: string;
     onChange: (value: string) => void;
   };
@@ -118,14 +118,14 @@ export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
   const valueOf = (key: string): number | boolean | string | null =>
     key in props.overrides ? props.overrides[key] : props.values[key];
 
-  // Mode de sizing effectif (défaut fixed_usdc).
-  const sizingMode = () => String(valueOf('sizingMode') ?? 'fixed_usdc');
+  // Mode de sizing effectif (défaut fixed_pusd).
+  const sizingMode = () => String(valueOf('sizingMode') ?? 'fixed_pusd');
 
   // Affichage conditionnel selon le mode de sizing :
-  // - entryUsdc n'a de sens qu'en fixed_usdc (sizing par montant USDC).
+  // - entryPusd n'a de sens qu'en fixed_pusd (sizing par montant pUSD).
   // - fixedShareCount n'a de sens qu'en fixed_shares (sizing par parts).
   const sizingVisible = (key: string): boolean => {
-    if (key === 'entryUsdc') return sizingMode() === 'fixed_usdc';
+    if (key === 'entryPusd') return sizingMode() === 'fixed_pusd';
     if (key === 'fixedShareCount') return sizingMode() === 'fixed_shares';
     return true;
   };
@@ -148,7 +148,7 @@ export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
                   <For each={params()}>
                     {(param) => (
                       <Show
-                        when={param.key === 'entryUsdc' && props.entryUsdcField}
+                        when={param.key === 'entryPusd' && props.entryPusdField}
                         fallback={
                           <Show
                             when={param.kind === 'boolean'}
@@ -230,8 +230,8 @@ export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
                             min={param.min}
                             max={param.max}
                             step={param.step ?? 0.01}
-                            value={props.entryUsdcField!.value}
-                            onInput={(e) => props.entryUsdcField!.onChange(e.currentTarget.value)}
+                            value={props.entryPusdField!.value}
+                            onInput={(e) => props.entryPusdField!.onChange(e.currentTarget.value)}
                           />
                           <Show when={param.hint}>
                             <p class="form-hint">{param.hint}</p>

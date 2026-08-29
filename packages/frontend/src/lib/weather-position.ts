@@ -39,7 +39,7 @@ export function formatWeatherDate(iso: string): string {
 
 export function formatPnL(value: number): string {
   const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)} USDC`;
+  return `${sign}${value.toFixed(2)} pUSD`;
 }
 
 export function pnlClass(value: number): string {

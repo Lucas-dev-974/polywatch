@@ -116,8 +116,8 @@ export function resolveBacktestRunStrategy(
     };
     // Overrides du formulaire de lancement — ce sont les valeurs réellement
     // consommées par le runner (pas celles du bag snapshot seul).
-    if (typeof runParams.entryUsdc === 'number' && Number.isFinite(runParams.entryUsdc)) {
-      bag.entryUsdc = runParams.entryUsdc;
+    if (typeof runParams.entryPusd === 'number' && Number.isFinite(runParams.entryPusd)) {
+      bag.entryPusd = runParams.entryPusd;
     }
     if (
       typeof runParams.maxConcurrentPositions === 'number' &&

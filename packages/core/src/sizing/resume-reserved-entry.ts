@@ -2,7 +2,7 @@ import type { IPolymarketConnectionManager } from '../worker-shared/connection-m
 import type { RedisQueue } from '../worker-shared/redis-queue.js';
 import type { ReservationService, ReserveResult } from '../services/reservation.service.js';
 import type { OrderReason, OrderSignal, TradingMode } from '../types/index.js';
-import { MIN_ORDER_SHARES, MIN_ORDER_USDC } from './constants.js';
+import { MIN_ORDER_SHARES, MIN_ORDER_PUSD } from './constants.js';
 import { ENTRY_MOS_SKIP_CANNOT_BUMP } from './entry-mos.js';
 import { enqueueEntrySignal } from './enqueue-entry-signal.js';
 import { resolveEntryEnqueueBlocked } from './entry-enqueue-result.js';
@@ -61,7 +61,7 @@ export async function resumeEntryFromReservation(
     hasBuyExecution,
     hasInFlightBuy,
   } = params;
-  const { reservedNotionalUsdc, reservationId, copiedPositionId } = reservation;
+  const { reservedNotionalPusd, reservationId, copiedPositionId } = reservation;
 
   const deferToWorker = async (): Promise<null> => {
     return null;
@@ -82,7 +82,7 @@ export async function resumeEntryFromReservation(
     return abandon('Pas de liquidit� (reprise r�servation)');
   }
 
-  const estimatedQty = reservedNotionalUsdc / roughPrices.executableAskVwap;
+  const estimatedQty = reservedNotionalPusd / roughPrices.executableAskVwap;
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId,
     targetQty: estimatedQty,
@@ -95,13 +95,13 @@ export async function resumeEntryFromReservation(
   }
   const entryAskVwap = depthResult.prices.executableAskVwap;
 
-  const targetQty = reservedNotionalUsdc / entryAskVwap;
+  const targetQty = reservedNotionalPusd / entryAskVwap;
   if (targetQty < MIN_ORDER_SHARES) {
     return abandon('Quantit� r�serv�e inf�rieure au minimum');
   }
-  if (mode === 'real' && reservedNotionalUsdc < MIN_ORDER_USDC) {
+  if (mode === 'real' && reservedNotionalPusd < MIN_ORDER_PUSD) {
     return abandon(
-      `Montant r�serv� inf�rieur au minimum live (${MIN_ORDER_USDC} USDC)`,
+      `Montant r�serv� inf�rieur au minimum live (${MIN_ORDER_PUSD} pUSD)`,
     );
   }
 
@@ -130,7 +130,7 @@ export async function resumeEntryFromReservation(
       assetId,
       side: 'BUY',
       quantity: targetQty,
-      usdcAmount: reservedNotionalUsdc,
+      pusdAmount: reservedNotionalPusd,
       orderType: reason === 'ALGO_OPEN' ? 'FOK' : 'FAK',
       referenceVwap: entryAskVwap,
       reason,

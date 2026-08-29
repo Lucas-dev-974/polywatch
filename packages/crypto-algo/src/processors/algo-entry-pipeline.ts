@@ -1,6 +1,6 @@
 import {
   computeEntryTargetQuantity,
-  getCryptoMaxPositionSizeUsdc,
+  getCryptoMaxPositionSizePusd,
   getCryptoAlgoSizingParams,
   hashAlgoLogicalKey,
   hashAlgoOrderSignalId,
@@ -8,7 +8,7 @@ import {
   resolveEntryEnqueueBlocked,
   hasAlgoEntryCooldown,
   MIN_ORDER_SHARES,
-  MIN_ORDER_USDC,
+  MIN_ORDER_PUSD,
   MarketService,
   ReservationService,
   SimulationService,
@@ -421,7 +421,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizePusd: getCryptoMaxPositionSizePusd(risk, mode),
     signalScore: undefined,
     stopDistance: undefined,
   });
@@ -456,7 +456,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizePusd: getCryptoMaxPositionSizePusd(risk, mode),
     signalScore: undefined,
     stopDistance: undefined,
   });
@@ -473,7 +473,7 @@ async function runMode(args: {
     targetQty,
     askVwap,
     cash: balances.cash,
-    maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(risk, mode),
+    maxPositionSizePusd: getCryptoMaxPositionSizePusd(risk, mode),
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     clobApi,
@@ -529,13 +529,13 @@ async function runMode(args: {
   }
 
   const entryAskVwap = depthResult.prices.executableAskVwap;
-  const targetNotionalUsdc = finalQty * entryAskVwap;
-  if (mode === 'real' && targetNotionalUsdc < MIN_ORDER_USDC) {
+  const targetNotionalPusd = finalQty * entryAskVwap;
+  if (mode === 'real' && targetNotionalPusd < MIN_ORDER_PUSD) {
     log.warn(
-      { conditionId: signal.conditionId, mode, targetQty, targetNotionalUsdc },
+      { conditionId: signal.conditionId, mode, targetQty, targetNotionalPusd },
       'algo entry skipped — real target notional below minimum',
     );
-    return `Montant cible réel insuffisant (${MIN_ORDER_USDC} USDC)`;
+    return `Montant cible réel insuffisant (${MIN_ORDER_PUSD} pUSD)`;
   }
 
   // --- Reserve + enqueue ---------------------------------------------------
@@ -548,7 +548,7 @@ async function runMode(args: {
       conditionId: signal.conditionId,
       assetId: signal.assetId,
       mode,
-      notionalUsdc: targetNotionalUsdc,
+      notionalPusd: targetNotionalPusd,
       reason: 'ALGO_OPEN',
       outcome: signal.outcome,
       trailingPercent: exit.trailingPercent ?? undefined,
@@ -589,7 +589,7 @@ async function runMode(args: {
         assetId: signal.assetId,
         side: 'BUY',
         quantity: finalQty,
-        usdcAmount: targetNotionalUsdc,
+        pusdAmount: targetNotionalPusd,
         orderType: 'FOK',
         referenceVwap: entryAskVwap,
         reason: 'ALGO_OPEN',

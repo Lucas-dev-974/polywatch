@@ -197,28 +197,28 @@ export function buildRecommendedCryptoAlgoConfig(
     }
   }
 
-  // Sizing recommendations: suggest fixed_usdc with appropriate amount based on balance
-  if (cfg.cryptoAlgoSizingMode !== 'fixed_usdc') {
+  // Sizing recommendations: suggest fixed_pusd with appropriate amount based on balance
+  if (cfg.cryptoAlgoSizingMode !== 'fixed_pusd') {
     proposeChange(
       changes,
       patch,
       'cryptoAlgoSizingMode',
       'Mode de sizing algo',
       cfg.cryptoAlgoSizingMode,
-      'fixed_usdc',
-      'Le mode fixed_usdc est recommandé pour le sizing algo',
+      'fixed_pusd',
+      'Le mode fixed_pusd est recommandé pour le sizing algo',
     );
   }
-  if (cfg.cryptoAlgoEntryUsdcAmount < 5 || cfg.cryptoAlgoEntryUsdcAmount > 50) {
-    const target = Math.min(Math.max(cfg.cryptoAlgoEntryUsdcAmount, 10), 25);
+  if (cfg.cryptoAlgoEntryPusdAmount < 5 || cfg.cryptoAlgoEntryPusdAmount > 50) {
+    const target = Math.min(Math.max(cfg.cryptoAlgoEntryPusdAmount, 10), 25);
     proposeChange(
       changes,
       patch,
-      'cryptoAlgoEntryUsdcAmount',
-      'Montant USDC par entrée algo',
-      cfg.cryptoAlgoEntryUsdcAmount,
+      'cryptoAlgoEntryPusdAmount',
+      'Montant pUSD par entrée algo',
+      cfg.cryptoAlgoEntryPusdAmount,
       target,
-      'Ajuster le montant USDC par entrée pour le sizing algo',
+      'Ajuster le montant pUSD par entrée pour le sizing algo',
     );
   }
 

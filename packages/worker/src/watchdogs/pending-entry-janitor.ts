@@ -17,7 +17,7 @@ type OrphanRow = {
   position_id: number;
   order_signal_id: string;
   reservation_id: number;
-  reserved_notional_usdc: number;
+  reserved_notional_pusd: number;
   expires_at: Date;
   condition_id: string;
   asset_id: string;
@@ -58,7 +58,7 @@ export class PendingEntryJanitor {
           reservation: {
             reservationId: row.reservation_id,
             copiedPositionId: row.position_id,
-            reservedNotionalUsdc: Number(row.reserved_notional_usdc),
+            reservedNotionalPusd: Number(row.reserved_notional_pusd),
             expiresAt,
             orderSignalId: row.order_signal_id,
           },
@@ -92,7 +92,7 @@ export class PendingEntryJanitor {
       SELECT p.id AS position_id,
              r.order_signal_id,
              r.id AS reservation_id,
-             r.reserved_notional_usdc,
+             r.reserved_notional_pusd,
              r.expires_at,
              p.condition_id,
              p.asset_id,

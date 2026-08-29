@@ -109,7 +109,7 @@ enqueue. Configurable dans Settings → Crypto algo → Re-entrée.
 
 - `'sim'` s'exécute toujours ; `'real'` uniquement si `realTradingEnabled`.
 - Sizing via `computeEntryTargetQuantity`, garde-fous `MIN_ORDER_SHARES` /
-  `MIN_ORDER_USDC`, plafond `getModeMaxPositionSizeUsdc`, réservation
+  `MIN_ORDER_PUSD`, plafond `getModeMaxPositionSizePusd`, réservation
   transactionnelle (`ReservationService`), idempotence `hashAlgoOrderSignalId`
   (clé inclut le **mode** `sim`/`real`).
 - **Reprise réservation** : même mécanisme que le copy-trading via
@@ -267,7 +267,7 @@ uniquement. Voir [`08-weather-algo.md`](./08-weather-algo.md) § Miroir et
 | `cryptoAlgoPreCloseKeepBidThreshold` | `null` | Seuil bid keep (ex. 0,80). |
 | `cryptoAlgoMinTimeToClose` | `null` | Secondes minimales avant `endDate` pour autoriser une entrée. `null` = `preCloseSeconds(interval) + 30s`. |
 
-Plafond taille position : `getCryptoMaxPositionSizeUsdc(risk, mode)` — fonction dédiée crypto (paramètres sim/real sur `CryptoConfig`), distincte du copy-trading.
+Plafond taille position : `getCryptoMaxPositionSizePusd(risk, mode)` — fonction dédiée crypto (paramètres sim/real sur `CryptoConfig`), distincte du copy-trading.
 
 ## Statut runtime
 

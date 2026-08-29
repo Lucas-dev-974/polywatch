@@ -6,7 +6,7 @@ import {
 export type EnvMode = 'sim' | 'real';
 
 export type SizingMode =
-  | 'fixed_usdc'
+  | 'fixed_pusd'
   | 'fixed_shares'
   | 'fixed_ratio'
   | 'proportional_capital'
@@ -16,10 +16,10 @@ export type SizingMode =
 export interface EnvSettings {
   simSizingMode: SizingMode;
   simCopyRatio: number;
-  simEntryUsdcAmount: number;
+  simEntryPusdAmount: number;
   simEntryShareCount: number;
   simKellyFraction: number;
-  simRiskBudgetUsdc: number;
+  simRiskBudgetPusd: number;
   simDefaultWinProbability: number;
   /** @deprecated Alias crypto — use simInitialCapitalCrypto */
   simInitialCapital: number;
@@ -28,19 +28,19 @@ export interface EnvSettings {
   simInitialCapitalCopy: number;
   realSizingMode: SizingMode;
   realCopyRatio: number;
-  realEntryUsdcAmount: number;
+  realEntryPusdAmount: number;
   realEntryShareCount: number;
   realKellyFraction: number;
-  realRiskBudgetUsdc: number;
+  realRiskBudgetPusd: number;
   realDefaultWinProbability: number;
-  simMaxPositionSizeUsdc: number;
-  realMaxPositionSizeUsdc: number;
+  simMaxPositionSizePusd: number;
+  realMaxPositionSizePusd: number;
   simMaxOpenPositions: number;
   realMaxOpenPositions: number;
-  simMaxExposureUsdc: number;
-  realMaxExposureUsdc: number;
-  simMaxDailyLossUsdc: number;
-  realMaxDailyLossUsdc: number;
+  simMaxExposurePusd: number;
+  realMaxExposurePusd: number;
+  simMaxDailyLossPusd: number;
+  realMaxDailyLossPusd: number;
   simKillSwitchAction: string;
   realKillSwitchAction: string;
   simCopyIncreaseEnabled: boolean;
@@ -127,7 +127,7 @@ export interface EnvSettings {
   cryptoAlgoSlQuotaCacheTtlSeconds: number | null;
   slConfirmationTicks: number;
   cryptoAlgoSizingMode: string;
-  cryptoAlgoEntryUsdcAmount: number;
+  cryptoAlgoEntryPusdAmount: number;
   cryptoAlgoEntryShareCount: number | null;
   simExecLatencyMode: string | null;
   simExecLatencyMs: number | null;

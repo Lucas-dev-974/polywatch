@@ -27,7 +27,7 @@ async function main() {
       id,
       crypto_algo_enabled,
       crypto_algo_min_spread_abs_for_adjustment,
-      crypto_algo_max_daily_loss_usdc,
+      crypto_algo_max_daily_loss_pusd,
       crypto_algo_trailing_bid_points,
       crypto_algo_trailing_activation_bid_points,
       sim_initial_capital_crypto,
@@ -43,7 +43,7 @@ async function main() {
   console.log('before:', JSON.stringify(before, null, 2));
 
   const capital = Number(before.sim_initial_capital_crypto);
-  const currentDailyLoss = Number(before.crypto_algo_max_daily_loss_usdc);
+  const currentDailyLoss = Number(before.crypto_algo_max_daily_loss_pusd);
   const updates = {
     crypto_algo_min_spread_abs_for_adjustment: 0.01,
     crypto_algo_trailing_bid_points: 0.05,
@@ -57,7 +57,7 @@ async function main() {
     Number.isFinite(currentDailyLoss) &&
     currentDailyLoss > capital
   ) {
-    updates.crypto_algo_max_daily_loss_usdc = capital;
+    updates.crypto_algo_max_daily_loss_pusd = capital;
   }
 
   console.log('planned updates:', JSON.stringify(updates, null, 2));
@@ -79,7 +79,7 @@ async function main() {
     SELECT
       crypto_algo_enabled,
       crypto_algo_min_spread_abs_for_adjustment,
-      crypto_algo_max_daily_loss_usdc,
+      crypto_algo_max_daily_loss_pusd,
       crypto_algo_trailing_bid_points,
       crypto_algo_trailing_activation_bid_points,
       sim_initial_capital_crypto

@@ -282,7 +282,7 @@ describe('Executor entry reservation guard', () => {
     mockReservationService.findByOrderSignalId.mockResolvedValue({
       reservationId: 1,
       copiedPositionId: 42,
-      reservedNotionalUsdc: 5,
+      reservedNotionalPusd: 5,
       expiresAt: new Date(Date.now() - 60_000),
     });
 
@@ -313,7 +313,7 @@ describe('Executor entry reservation guard', () => {
     mockReservationService.findByOrderSignalId.mockResolvedValue({
       reservationId: 2,
       copiedPositionId: 43,
-      reservedNotionalUsdc: 10,
+      reservedNotionalPusd: 10,
       expiresAt: new Date(Date.now() + 120_000),
     });
     mockExecutionService.claim.mockResolvedValue({
@@ -339,7 +339,7 @@ describe('Executor entry reservation guard', () => {
     mockReservationService.findByOrderSignalId.mockResolvedValue({
       reservationId: 3,
       copiedPositionId: 44,
-      reservedNotionalUsdc: 10,
+      reservedNotionalPusd: 10,
       expiresAt: new Date(Date.now() + 120_000),
       orderSignalId: 'collision-signal',
     });
@@ -413,7 +413,7 @@ describe('Executor abort after claim', () => {
     mockReservationService.findByOrderSignalId.mockResolvedValue({
       reservationId: 1,
       copiedPositionId: 50,
-      reservedNotionalUsdc: 10,
+      reservedNotionalPusd: 10,
       expiresAt: new Date(Date.now() + 120_000),
     });
     mockExecutionService.claim.mockImplementation(async () => {
@@ -451,7 +451,7 @@ describe('Executor abort after claim', () => {
     mockReservationService.findByOrderSignalId.mockResolvedValue({
       reservationId: 2,
       copiedPositionId: 51,
-      reservedNotionalUsdc: 10,
+      reservedNotionalPusd: 10,
       expiresAt: new Date(Date.now() + 120_000),
     });
     mockExecutionService.claim.mockResolvedValue({
@@ -510,7 +510,7 @@ describe('Executor abort after claim', () => {
     mockReservationService.findByOrderSignalId.mockResolvedValue({
       reservationId: 4,
       copiedPositionId: 52,
-      reservedNotionalUsdc: 10,
+      reservedNotionalPusd: 10,
       expiresAt: new Date(Date.now() + 120_000),
     });
     mockExecutionService.claim.mockResolvedValue({
@@ -542,7 +542,7 @@ describe('Executor abort after claim', () => {
     mockReservationService.findByOrderSignalId.mockResolvedValue({
       reservationId: 5,
       copiedPositionId: 53,
-      reservedNotionalUsdc: 10,
+      reservedNotionalPusd: 10,
       expiresAt: new Date(Date.now() + 120_000),
     });
     mockExecutionService.claim.mockResolvedValue({

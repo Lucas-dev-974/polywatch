@@ -75,7 +75,7 @@ core/src/
 | `MoveEventEntity` | `move_events` | id = hash SHA-256, type OPENED/INCREASED/DECREASED/CLOSED, flag `processed` |
 | `CopiedPosition` | `copied_positions` | Statuts : `pending → open → closing → closed` (+ `failed`, `pending_resolution`, `cancelled`) ; `entryPrice`, `entryBidVwap`, `entryQuantityRemaining`, `entryFeesRemaining`, PnL réalisé/latent, `peakClosurePnlPercent` (pic de closure PnL pour trailing), `peakBidVwap` (pic du bid, rétention historique), `slPercent` / `tpPercent` / `trailingPercent` / `trailingActivationPercent` (% de la mise), `closingAttemptSeq`, `closingReason`, `closeReason` |
 | `Execution` | `executions` | Statuts `placing → filled/failed` ; fillPrice (VWAP pondéré sur partiels), fillQuantity, fees, realizedPnl, clobOrderId |
-| `PositionReservation` | `position_reservations` | Notionnel USDC réservé, TTL 180 s |
+| `PositionReservation` | `position_reservations` | Notionnel pUSD réservé, TTL 180 s |
 | `SimulationBalance` | `simulation_balances` | Cash pUSD sim **par `algoKind`** (`crypto` / `weather` / `copy`, unique) |
 | `SimulationStateSnapshot` | `simulation_state_snapshots` | Archives d'état sim (JSON config/traders/positions/exécutions) — [`../reference/snapshots-simulation.md`](../reference/snapshots-simulation.md) |
 | `Market` | `markets` | tokenIdYes/No, endDate, negRisk, `feeRate`/`feeExponent` (frais CLOB dynamiques), lifecycle (active/resolved/closed/acceptingOrders/winningTokenId), `category`, `tagSlugs` (cache filtre copie), `marketType` |
@@ -173,7 +173,7 @@ Source de vérité config = 4 tables isolées (`GlobalConfig` / `CopyConfig` /
 
 ## Sizing (`sizing/`)
 
-- `compute.ts` : quantité copiée proportionnelle, plafonnée par `maxPositionSizeUsdc` et le solde disponible.
+- `compute.ts` : quantité copiée proportionnelle, plafonnée par `maxPositionSizePusd` et le solde disponible.
 - `entry-sizing.ts` : orchestration triple-pass VWAP (estimation qty, ask exact, bid/ask final).
 - `entry-mos.ts` / `resolve-entry-mos.ts` / `apply-entry-mos-gate.ts` : Minimum Order Size gate.
 - `entry-depth-retry.ts` / `gate-algo-entry-liquidity.ts` : profondeur ask + retries (book frais).

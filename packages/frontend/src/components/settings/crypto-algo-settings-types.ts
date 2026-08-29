@@ -58,7 +58,7 @@ export type CryptoAlgoSettings = Pick<
   | 'cryptoAlgoSlQuotaPerMarket'
   | 'cryptoAlgoSlQuotaCacheTtlSeconds'
   | 'cryptoAlgoSizingMode'
-  | 'cryptoAlgoEntryUsdcAmount'
+  | 'cryptoAlgoEntryPusdAmount'
   | 'cryptoAlgoEntryShareCount'
   | 'maxSlippagePercent'
 >;
@@ -114,7 +114,7 @@ export function pickCryptoAlgoFields(config: EnvSettings): CryptoAlgoSettings {
     cryptoAlgoSlQuotaPerMarket: config.cryptoAlgoSlQuotaPerMarket,
     cryptoAlgoSlQuotaCacheTtlSeconds: config.cryptoAlgoSlQuotaCacheTtlSeconds,
     cryptoAlgoSizingMode: config.cryptoAlgoSizingMode,
-    cryptoAlgoEntryUsdcAmount: config.cryptoAlgoEntryUsdcAmount,
+    cryptoAlgoEntryPusdAmount: config.cryptoAlgoEntryPusdAmount,
     cryptoAlgoEntryShareCount: config.cryptoAlgoEntryShareCount,
     maxSlippagePercent: config.maxSlippagePercent,
   };

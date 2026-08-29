@@ -147,7 +147,7 @@ Les défauts (`WEATHER_EXIT_DEFAULTS`) sont `slPercent: 20`, `tpPercent: 25`,
 les colonnes `sl_percent`/`tp_percent`/`trailing_percent`/
 `trailing_activation_percent` stockent les seuils résolus à l'entrée.
 
-**Sizing** : deux modes via `bag.sizingMode` — `fixed_usdc` (défaut, `bag.entryUsdc` USDC) ou `fixed_shares` (`bag.fixedShareCount` parts).
+**Sizing** : deux modes via `bag.sizingMode` — `fixed_pusd` (défaut, `bag.entryPusd` pUSD) ou `fixed_shares` (`bag.fixedShareCount` parts).
 
 **Sorties** (paramètres lus depuis le bag de la stratégie d'origine **pour
 l'environnement de la position** — `signal.mode` / `pos.mode`, via
@@ -175,8 +175,8 @@ sim+real). L'entry pipeline
 reserve ; si `blockEntries` → skip avec raison `'Kill-switch actif
 (block_entries)'`. `force_close_all` reste géré par le `KillSwitchMonitor` du
 worker (ferme uniquement les positions de la stratégie concernée pour ce mode). Les
-limites `maxDailyLossUsdc` / `maxExposureUsdc` / `maxOpenPositions` /
-`maxPositionSizeUsdc` sont aussi **par stratégie** — la réservation
+limites `maxDailyLossPusd` / `maxExposurePusd` / `maxOpenPositions` /
+`maxPositionSizePusd` sont aussi **par stratégie** — la réservation
 (`ReservationService`) filtre positions et réservations par `strategyId`.
 
 **Autres knobs per-strategy** (défauts `DEFAULT_WEATHER_STRATEGY_PARAMS`) :
@@ -211,7 +211,7 @@ limites `maxDailyLossUsdc` / `maxExposureUsdc` / `maxOpenPositions` /
 | Onglet UI Données (cards, drill-down, purge) | Actif |
 | Onglet UI **Backtest** (lancer runs, métriques, equity, positions) | Actif (domaine weather) |
 | Onglet UI **Stratégies** (catalogue, activation, params) | Actif |
-| Placement réel CLOB (FAK, book REST avant POST, +1 tick WEATHER_OPEN, slippage tick-aware, bump `MIN_ORDER_USDC`) | Actif |
+| Placement réel CLOB (FAK, book REST avant POST, +1 tick WEATHER_OPEN, slippage tick-aware, bump `MIN_ORDER_PUSD`) | Actif |
 
 ---
 

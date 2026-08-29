@@ -430,10 +430,10 @@ export function getCryptoAlgoSizingParams(risk: CryptoConfig): ModeSizingParams 
   return {
     sizingMode: risk.cryptoAlgoSizingMode as import('../types/index.js').SizingMode,
     copyRatio: 0,
-    fixedUsdcAmount: risk.cryptoAlgoEntryUsdcAmount,
+    fixedPusdAmount: risk.cryptoAlgoEntryPusdAmount,
     fixedShareCount: risk.cryptoAlgoEntryShareCount ?? 0,
     kellyFraction: undefined,
-    riskBudgetUsdc: undefined,
+    riskBudgetPusd: undefined,
     defaultWinProbability: undefined,
     signalScoreSizingEnabled: false,
   };

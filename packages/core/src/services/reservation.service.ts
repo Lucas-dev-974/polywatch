@@ -15,15 +15,15 @@ import {
 } from '../positions/reservation-close-reasons.js';
 import { resolveOutcomeLabel } from '../positions/outcome.js';
 import {
-  getCopyMaxExposureUsdc,
+  getCopyMaxExposurePusd,
   getCopyMaxOpenPositions,
-  getCopyMaxPositionSizeUsdc,
-  getCryptoMaxExposureUsdc,
+  getCopyMaxPositionSizePusd,
+  getCryptoMaxExposurePusd,
   getCryptoMaxOpenPositions,
-  getCryptoMaxPositionSizeUsdc,
-  getWeatherMaxExposureUsdc,
+  getCryptoMaxPositionSizePusd,
+  getWeatherMaxExposurePusd,
   getWeatherMaxOpenPositions,
-  getWeatherMaxPositionSizeUsdc,
+  getWeatherMaxPositionSizePusd,
 } from '../risk/policy.js';
 import { RESERVATION_TTL_MS } from '../types/index.js';
 import {
@@ -54,7 +54,7 @@ export interface ReserveInput {
   conditionId: string;
   assetId: string;
   mode: 'sim' | 'real';
-  notionalUsdc: number;
+  notionalPusd: number;
   reason: 'COPY_OPEN' | 'COPY_INCREASE' | 'ALGO_OPEN' | 'ALGO_INCREASE' | 'WEATHER_OPEN';
   moveEventId?: string;
   outcome?: string;
@@ -73,15 +73,15 @@ export interface ReserveInput {
 export interface ReserveResult {
   reservationId: number;
   copiedPositionId: number;
-  reservedNotionalUsdc: number;
+  reservedNotionalPusd: number;
   expiresAt: Date;
   orderSignalId: string;
 }
 
 type ReserveLimits = {
   maxOpenPositions: number;
-  maxPositionSizeUsdc: number;
-  maxExposureUsdc: number;
+  maxPositionSizePusd: number;
+  maxExposurePusd: number;
 };
 
 type AlgoKindConfig = CopyConfig | CryptoConfig | WeatherConfig;
@@ -97,20 +97,20 @@ function resolveReserveLimits(
     case 'copy':
       return {
         maxOpenPositions: getCopyMaxOpenPositions(config as CopyConfig, mode),
-        maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(config as CopyConfig, mode),
-        maxExposureUsdc: getCopyMaxExposureUsdc(config as CopyConfig, mode),
+        maxPositionSizePusd: getCopyMaxPositionSizePusd(config as CopyConfig, mode),
+        maxExposurePusd: getCopyMaxExposurePusd(config as CopyConfig, mode),
       };
     case 'weather':
       return {
         maxOpenPositions: getWeatherMaxOpenPositions(config as WeatherConfig, mode, strategyId),
-        maxPositionSizeUsdc: getWeatherMaxPositionSizeUsdc(config as WeatherConfig, mode, strategyId),
-        maxExposureUsdc: getWeatherMaxExposureUsdc(config as WeatherConfig, mode, strategyId),
+        maxPositionSizePusd: getWeatherMaxPositionSizePusd(config as WeatherConfig, mode, strategyId),
+        maxExposurePusd: getWeatherMaxExposurePusd(config as WeatherConfig, mode, strategyId),
       };
     default:
       return {
         maxOpenPositions: getCryptoMaxOpenPositions(config as CryptoConfig, mode),
-        maxPositionSizeUsdc: getCryptoMaxPositionSizeUsdc(config as CryptoConfig, mode),
-        maxExposureUsdc: getCryptoMaxExposureUsdc(config as CryptoConfig, mode),
+        maxPositionSizePusd: getCryptoMaxPositionSizePusd(config as CryptoConfig, mode),
+        maxExposurePusd: getCryptoMaxExposurePusd(config as CryptoConfig, mode),
       };
   }
 }
@@ -200,7 +200,7 @@ export class ReservationService {
         throw new Error('max_open_positions');
       }
 
-      if (input.notionalUsdc > limits.maxPositionSizeUsdc) {
+      if (input.notionalPusd > limits.maxPositionSizePusd) {
         throw new Error('max_position_size');
       }
 
@@ -210,7 +210,7 @@ export class ReservationService {
         algoKind,
         input.strategyId,
       );
-      if (exposure + input.notionalUsdc > limits.maxExposureUsdc) {
+      if (exposure + input.notionalPusd > limits.maxExposurePusd) {
         throw new Error('max_exposure');
       }
 
@@ -232,7 +232,7 @@ export class ReservationService {
           algoKind,
         );
         const availableCash = cash - activeReserved;
-        if (input.notionalUsdc > availableCash) {
+        if (input.notionalPusd > availableCash) {
           throw new Error('insufficient_cash');
         }
       }
@@ -302,7 +302,7 @@ export class ReservationService {
           conditionId: input.conditionId,
           assetId: input.assetId,
           mode: input.mode,
-          reservedNotionalUsdc: input.notionalUsdc,
+          reservedNotionalPusd: input.notionalPusd,
           reason: input.reason,
           createdAt: now,
           expiresAt,
@@ -312,7 +312,7 @@ export class ReservationService {
       return {
         reservationId: reservation.id,
         copiedPositionId,
-        reservedNotionalUsdc: input.notionalUsdc,
+        reservedNotionalPusd: input.notionalPusd,
         expiresAt,
         orderSignalId: input.orderSignalId,
       };
@@ -323,7 +323,7 @@ export class ReservationService {
     return {
       reservationId: reservation.id,
       copiedPositionId: reservation.copiedPositionId,
-      reservedNotionalUsdc: reservation.reservedNotionalUsdc,
+      reservedNotionalPusd: reservation.reservedNotionalPusd,
       expiresAt: reservation.expiresAt,
       orderSignalId: reservation.orderSignalId,
     };
@@ -404,7 +404,7 @@ export class ReservationService {
         r.expiresAt >= now &&
         (algoKind == null || algoKindFromReason(r.reason) === algoKind),
     );
-    return active.reduce((sum, r) => sum + (r.reservedNotionalUsdc ?? 0), 0);
+    return active.reduce((sum, r) => sum + (r.reservedNotionalPusd ?? 0), 0);
   }
 
   async release(orderSignalId: string, releaseReason?: string): Promise<void> {
@@ -441,7 +441,7 @@ export class ReservationService {
               copiedPositionId: pos.id,
               reason: reservation.reason,
               releaseReason: releaseReason ?? 'unspecified',
-              reservedNotionalUsdc: reservation.reservedNotionalUsdc,
+              reservedNotionalPusd: reservation.reservedNotionalPusd,
             },
             'reservation released — pending position cancelled',
           );
@@ -542,7 +542,7 @@ export class ReservationService {
         const pos = positions.find((p) => p.id === r.copiedPositionId);
         if (!pos || pos.strategyId !== strategyId) continue;
       }
-      exposure += r.reservedNotionalUsdc;
+      exposure += r.reservedNotionalPusd;
     }
     return exposure;
   }

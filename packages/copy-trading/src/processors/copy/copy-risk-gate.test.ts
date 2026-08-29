@@ -21,9 +21,9 @@ function makeCopyConfig(overrides: Partial<CopyConfig> = {}): CopyConfig {
     realCopyTradingEnabled: true,
     simCopyIncreaseEnabled: true,
     simCopyDecreaseEnabled: true,
-    simMaxDailyLossUsdc: 100,
+    simMaxDailyLossPusd: 100,
     simKillSwitchAction: 'block_entries',
-    realMaxDailyLossUsdc: 100,
+    realMaxDailyLossPusd: 100,
     realKillSwitchAction: 'block_entries',
     ...overrides,
   } as CopyConfig;
@@ -184,7 +184,7 @@ describe('evaluateCopyMoveGate', () => {
       makeMove('OPENED'),
       makeEntry(),
       'sim',
-      makeCopyConfig({ simMaxDailyLossUsdc: 100, simKillSwitchAction: 'block_entries' }),
+      makeCopyConfig({ simMaxDailyLossPusd: 100, simKillSwitchAction: 'block_entries' }),
       makeGlobalConfig(),
     );
     const reasonsClause = lastAndWhere.find((c) => c.clause.includes('p.reason IN'));
@@ -199,7 +199,7 @@ describe('evaluateCopyMoveGate', () => {
       makeEntry(),
       'sim',
       makeCopyConfig({
-        simMaxDailyLossUsdc: 100,
+        simMaxDailyLossPusd: 100,
         simKillSwitchAction: 'force_close_all',
       }),
       makeGlobalConfig(),
@@ -218,7 +218,7 @@ describe('evaluateCopyMoveGate', () => {
       makeEntry(),
       'sim',
       makeCopyConfig({
-        simMaxDailyLossUsdc: 100,
+        simMaxDailyLossPusd: 100,
         simKillSwitchAction: 'force_close_all',
       }),
       makeGlobalConfig(),
@@ -234,7 +234,7 @@ describe('evaluateCopyMoveGate', () => {
       makeEntry(),
       'sim',
       makeCopyConfig({
-        simMaxDailyLossUsdc: 100,
+        simMaxDailyLossPusd: 100,
         simKillSwitchAction: 'force_close_all',
         simCopyDecreaseEnabled: true,
       }),

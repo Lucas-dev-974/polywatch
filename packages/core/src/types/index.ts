@@ -22,7 +22,7 @@ export type ExecutionStatus =
   | 'no_payout';
 export type SizingMode =
   | 'fixed_ratio'
-  | 'fixed_usdc'
+  | 'fixed_pusd'
   | 'fixed_shares'
   | 'proportional_capital'
   | 'kelly_fractional'
@@ -105,7 +105,7 @@ export interface OrderSignal {
   assetId: string;
   side: OrderSide;
   quantity: number;
-  usdcAmount?: number;
+  pusdAmount?: number;
   orderType: OrderType;
   limitPrice?: number;
   referenceVwap?: number;

@@ -8,8 +8,8 @@ import {
   WeatherConfigService,
   getCopyKillSwitchAction,
   getCryptoKillSwitchAction,
-  getCopyMaxDailyLossUsdc,
-  getCryptoMaxDailyLossUsdc,
+  getCopyMaxDailyLossPusd,
+  getCryptoMaxDailyLossPusd,
   getStrategyParamsForMode,
   resolveEnabledWeatherStrategiesForMode,
   openingReasonsForAlgoKind,
@@ -70,8 +70,8 @@ export class KillSwitchMonitor {
           this.getDailyNetForAlgo(mode, 'crypto', startOfDay),
         ]);
 
-        const copyMaxLoss = getCopyMaxDailyLossUsdc(copyCfg, mode);
-        const cryptoMaxLoss = getCryptoMaxDailyLossUsdc(cryptoCfg, mode);
+        const copyMaxLoss = getCopyMaxDailyLossPusd(copyCfg, mode);
+        const cryptoMaxLoss = getCryptoMaxDailyLossPusd(cryptoCfg, mode);
         const copyAction = getCopyKillSwitchAction(copyCfg, mode) as KillSwitchAction;
         const cryptoAction = getCryptoKillSwitchAction(cryptoCfg, mode) as KillSwitchAction;
 
@@ -90,7 +90,7 @@ export class KillSwitchMonitor {
         for (const strategyId of weatherStrategies) {
           const bag = getStrategyParamsForMode(weatherCfg, strategyId, mode);
           const dailyNet = await this.getDailyNetForAlgo(mode, 'weather', startOfDay, strategyId);
-          const triggered = dailyNet < 0 && Math.abs(dailyNet) >= bag.maxDailyLossUsdc;
+          const triggered = dailyNet < 0 && Math.abs(dailyNet) >= bag.maxDailyLossPusd;
           results.push({
             algoKind: 'weather',
             strategyId,

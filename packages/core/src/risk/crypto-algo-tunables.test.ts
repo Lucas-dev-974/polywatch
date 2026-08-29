@@ -279,20 +279,20 @@ describe('validateCryptoAlgoTunablesUpdate', () => {
 });
 
 describe('getCryptoAlgoSizingParams', () => {
-  it('returns fixed_usdc params with defaults', () => {
+  it('returns fixed_pusd params with defaults', () => {
     const params = getCryptoAlgoSizingParams(
       makeRisk({
-        cryptoAlgoSizingMode: 'fixed_usdc',
-        cryptoAlgoEntryUsdcAmount: 10,
+        cryptoAlgoSizingMode: 'fixed_pusd',
+        cryptoAlgoEntryPusdAmount: 10,
         cryptoAlgoEntryShareCount: null,
       }),
     );
-    expect(params.sizingMode).toBe('fixed_usdc');
+    expect(params.sizingMode).toBe('fixed_pusd');
     expect(params.copyRatio).toBe(0);
-    expect(params.fixedUsdcAmount).toBe(10);
+    expect(params.fixedPusdAmount).toBe(10);
     expect(params.fixedShareCount).toBe(0);
     expect(params.kellyFraction).toBeUndefined();
-    expect(params.riskBudgetUsdc).toBeUndefined();
+    expect(params.riskBudgetPusd).toBeUndefined();
     expect(params.defaultWinProbability).toBeUndefined();
     expect(params.signalScoreSizingEnabled).toBe(false);
   });
@@ -301,13 +301,13 @@ describe('getCryptoAlgoSizingParams', () => {
     const params = getCryptoAlgoSizingParams(
       makeRisk({
         cryptoAlgoSizingMode: 'fixed_shares',
-        cryptoAlgoEntryUsdcAmount: 10,
+        cryptoAlgoEntryPusdAmount: 10,
         cryptoAlgoEntryShareCount: 3,
       }),
     );
     expect(params.sizingMode).toBe('fixed_shares');
     expect(params.fixedShareCount).toBe(3);
-    expect(params.fixedUsdcAmount).toBe(10);
+    expect(params.fixedPusdAmount).toBe(10);
   });
 });
 

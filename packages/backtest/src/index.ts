@@ -116,7 +116,7 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     params.strategyEnv,
   );
 
-  const entryUsdc = params.entryUsdc ?? DEFAULT_WEATHER_STRATEGY_PARAMS.entryUsdc;
+  const entryPusd = params.entryPusd ?? DEFAULT_WEATHER_STRATEGY_PARAMS.entryPusd;
   const maxConcurrentPositions =
     params.maxConcurrentPositions ?? DEFAULT_WEATHER_STRATEGY_PARAMS.maxOpenPositions;
 
@@ -133,7 +133,7 @@ export async function runBacktest(input: RunBacktestInput): Promise<RunResult> {
     configSnapshot,
     slippageBps: params.slippageBps,
     maxConcurrentPositions,
-    entryUsdc,
+    entryPusd,
     strategyId: params.strategyId,
     strategyEnv: params.strategyEnv,
     fidelityMinutes: params.fidelityMinutes,

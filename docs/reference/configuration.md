@@ -66,9 +66,9 @@ Répartie en `global_config`, `copy_config`, `crypto_config`, `weather_config`, 
 | `realTradingEnabled` | Active globalement le mode reel (sinon `real` ignore) |
 | `simCopyTradingEnabled` | Active globalement le copy-trading en mode sim (sinon les entrees sim ignorees) |
 | `maxOpenPositions` / `simMaxOpenPositions` / `realMaxOpenPositions` | Limites de positions ouvertes (globale et par mode) |
-| `maxExposureUsdc` / `simMaxExposureUsdc` / `realMaxExposureUsdc` | Plafond d'exposition total (globale et par mode) |
-| `maxDailyLossUsdc` / `simMaxDailyLossUsdc` / `realMaxDailyLossUsdc` | Perte maximale journaliere (globale et par mode) |
-| `maxPositionSizeUsdc` / `simMaxPositionSizeUsdc` / `realMaxPositionSizeUsdc` | Taille maximale par position (globale et par mode) |
+| `maxExposurePusd` / `simMaxExposurePusd` / `realMaxExposurePusd` | Plafond d'exposition total (globale et par mode) |
+| `maxDailyLossPusd` / `simMaxDailyLossPusd` / `realMaxDailyLossPusd` | Perte maximale journaliere (globale et par mode) |
+| `maxPositionSizePusd` / `simMaxPositionSizePusd` / `realMaxPositionSizePusd` | Taille maximale par position (globale et par mode) |
 | `maxSlippagePercent` | Garde-fou de slippage a l'execution (ecart fill vs `referenceVwap` ask) ; sim et reel ; **modifiable UI** dans Parametres env (onglet Risk) et Configuration Crypto Algo (onglet General). Seul le slippage **defavorable** bloque (BUY plus cher / SELL plus bas que la reference) : un fill plus avantageux passe toujours. **Plancher tick-aware** : le cap effectif est `max(maxSlippagePercent, 2 × tickSize / referenceVwap × 100)` (`MIN_SLIPPAGE_TICKS` dans `worker/src/constants.ts`) — un mouvement d'1–2 ticks sur un YES a 4 ¢ n'est plus rejete comme 25 % de slippage. **Les sorties forcees (`SL`, `TRAILING`, `PRE_CLOSE_LOSS`, `KILL_SWITCH`) ne sont pas bloquees par le slippage guard** : en marche illiquide elles peuvent donc s'executer sous le `lastTradePrice` connu, au prix d'un fill plus eloigne du bid affiche. |
 | `exitSlippageGuardPercent` | Garde-fou de slippage specifique aux sorties (defaut 50%). Applique aux sorties forcees. |
 | `slConfirmationTicks` | Nombre d'evaluations consecutives ou la condition SL doit etre vraie avant d'emettre le signal (defaut 2). Evite les faux positifs sur micro-pics de liquidite. |
@@ -76,15 +76,15 @@ Répartie en `global_config`, `copy_config`, `crypto_config`, `weather_config`, 
 | `simEntryDepthRetryMax` / `realEntryDepthRetryMax` | Retries si profondeur ask insuffisante pour la taille cible (defaut 3) |
 | `simEntryDepthRetryDelayMs` / `realEntryDepthRetryDelayMs` | Delai entre retries profondeur en ms (defaut 1000) |
 | `sim*` / `real*` SizingMode + montants | Calcul de la taille des copies |
-| `simSizingMode` / `realSizingMode` | Mode de sizing copy trading : `fixed_ratio`, `fixed_usdc`, `fixed_shares`, `proportional_capital`, `kelly_fractional`, `risk_based` |
-| `cryptoAlgoSizingMode` | Mode de sizing crypto-algo : `fixed_usdc`, `fixed_shares` (defaut `fixed_usdc`) |
-| `cryptoAlgoEntryUsdcAmount` | Montant fixe d'entree crypto-algo en USDC (defaut 10) |
+| `simSizingMode` / `realSizingMode` | Mode de sizing copy trading : `fixed_ratio`, `fixed_pusd`, `fixed_shares`, `proportional_capital`, `kelly_fractional`, `risk_based` |
+| `cryptoAlgoSizingMode` | Mode de sizing crypto-algo : `fixed_pusd`, `fixed_shares` (defaut `fixed_pusd`) |
+| `cryptoAlgoEntryPusdAmount` | Montant fixe d'entree crypto-algo en pUSD (defaut 10) |
 | `cryptoAlgoEntryShareCount` | Nombre fixe de shares par entree crypto-algo (nullable, pour mode `fixed_shares`) |
 | `simCopyRatio` / `realCopyRatio` | Ratio de copie (multiplicateur de la taille du trader) |
-| `simEntryUsdcAmount` / `realEntryUsdcAmount` | Montant fixe d'entree en USDC (mode `fixed_usdc`) |
+| `simEntryPusdAmount` / `realEntryPusdAmount` | Montant fixe d'entree en pUSD (mode `fixed_pusd`) |
 | `simEntryShareCount` / `realEntryShareCount` | Nombre fixe de shares par entree (mode `fixed_shares`, defaut 5) |
 | `simKellyFraction` / `realKellyFraction` | Fraction de Kelly pour le sizing (defaut 0.25) |
-| `simRiskBudgetUsdc` / `realRiskBudgetUsdc` | Budget de risque en USDC (mode `risk_based`) |
+| `simRiskBudgetPusd` / `realRiskBudgetPusd` | Budget de risque en pUSD (mode `risk_based`) |
 | `simDefaultWinProbability` / `realDefaultWinProbability` | Probabilite de gain par defaut (mode Kelly, defaut 0.55) |
 | `simInitialCapitalCrypto` | Capital initial sim **crypto** (pUSD). Préremplit le dialog de reset crypto ; mis à jour au reset de ce kind. |
 | `simInitialCapitalWeather` | Capital initial sim **weather** (pUSD). Idem pour le périmètre weather. |
@@ -153,11 +153,18 @@ répartis en deux catégories :
    résolu au runtime par `getStrategyParamsForMode(cfg, strategyId, mode)`.
    Catalogue des params déclaratifs servi par `GET /api/weather-algo/strategy-catalog`.
 
-Les colonnes `weatherAlgo*` legacy (minEdge, entryUsdc, forecastChangeThreshold,
+Les colonnes `weatherAlgo*` legacy (minEdge, entryPusd, forecastChangeThreshold,
 …) ne sont plus lues au runtime — elles servent uniquement de **source au
 backfill** (migrations `AddWeatherStrategyId1700000000106` /
 `BackfillWeatherStrategyParams1700000000107` /
-`BackfillWeatherStrategyRepair1700000000108`). Les colonnes legacy
+`BackfillWeatherStrategyRepair1700000000108`). La migration
+`RenameUsdcToPusdSizing1700000000122` renomme les colonnes `*_usdc*` →
+`*_pusd*`, réécrit les clés JSON du bag (`entryUsdc` → `entryPusd`, …) de
+façon idempotente, et convertit `sizingMode: 'fixed_usdc'` → `'fixed_pusd'`
+dans le bag. Au runtime, `migrateLegacyWeatherBag` (parse/sanitize) et
+`coerceLegacySizingMode` (PATCH Zod + `computeTargetQuantity`) acceptent
+encore les clés `*Usdc` et la valeur `fixed_usdc` si la migrate n'a pas
+encore tourné. Les colonnes legacy
 `weatherAlgoStrategies` / `weatherAlgoStrategyParams` sont **figées** (lecture
 seule) : `weatherConfigUpdateSchema` (`.partial().strict()`) accepte les 4
 champs per-env **et** ces 2 champs legacy (dépréciés : pas de 400, **retirés
@@ -217,15 +224,15 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `minForecastProbability` | `null` | Probabilité forecast min (null = illimité) |
 | `minYesPrice` | `0.5` | Prix YES minimal pour entrer — **stratégie `weather-highest-yes` uniquement** (seuil de consensus) |
 | `maxYesPrice` | `null` | Prix YES maximal pour entrer — **stratégie `weather-highest-yes` uniquement** (plafond anti-fade ; `null`/`0` = désactivé) |
-| `sizingMode` | `fixed_usdc` | Mode de sizing (`fixed_usdc` uniquement) |
-| `entryUsdc` | `10` | Montant fixe d'entree USDC |
+| `sizingMode` | `fixed_pusd` | Mode de sizing (`fixed_pusd` uniquement) |
+| `entryPusd` | `10` | Montant fixe d'entree pUSD |
 | `entryDepthRetryMax` | `3` | Retries profondeur ask insuffisante |
 | `entryDepthRetryDelayMs` | `1000` | Délai entre retries (ms) |
 | `maxOpenPositions` | `10` | Max positions ouvertes (par stratégie) |
 | `maxPositionsPerCityDate` | `1` | Max positions ouvertes simultanément pour un même couple (ville, date cible) |
-| `maxPositionSizeUsdc` | `200` | Taille max par position (par stratégie) |
-| `maxExposureUsdc` | `1000` | Plafond exposition stratégie |
-| `maxDailyLossUsdc` | `100` | Perte journalière max (par stratégie) |
+| `maxPositionSizePusd` | `200` | Taille max par position (par stratégie) |
+| `maxExposurePusd` | `1000` | Plafond exposition stratégie |
+| `maxDailyLossPusd` | `100` | Perte journalière max (par stratégie) |
 | `killSwitchAction` | `block_entries` | `block_entries` \| `force_close_all` \| `block_and_notify` (par stratégie) |
 | `slEnabled` | `true` | Jambe SL (par stratégie) |
 | `tpEnabled` | `true` | Jambe TP (par stratégie) |

@@ -24,44 +24,44 @@ export function CryptoAlgoSettingsEntryTab(props: CryptoAlgoSettingsEntryTabProp
 
       <h3 class="settings-subheading">Sizing</h3>
       <p class="form-hint settings-intro">
-        Dimensionnement des entrées. Plan stop-bleed : ≥ 2× MOS CLOB (shares ou USDC selon le
+        Dimensionnement des entrées. Plan stop-bleed : ≥ 2× MOS CLOB (shares ou pUSD selon le
         mode).
       </p>
       <div class="form-field">
         <label for="crypto-algo-sizing-mode">Mode de sizing</label>
         <select
           id="crypto-algo-sizing-mode"
-          value={props.config.cryptoAlgoSizingMode ?? 'fixed_usdc'}
+          value={props.config.cryptoAlgoSizingMode ?? 'fixed_pusd'}
           onChange={(e) =>
             props.onChange({
-              cryptoAlgoSizingMode: e.currentTarget.value as 'fixed_usdc' | 'fixed_shares',
+              cryptoAlgoSizingMode: e.currentTarget.value as 'fixed_pusd' | 'fixed_shares',
             })
           }
         >
-          <option value="fixed_usdc">Montant fixe (USDC)</option>
+          <option value="fixed_pusd">Montant fixe (pUSD)</option>
           <option value="fixed_shares">Nombre de parts fixe</option>
         </select>
       </div>
-      <Show when={(props.config.cryptoAlgoSizingMode ?? 'fixed_usdc') === 'fixed_usdc'}>
+      <Show when={(props.config.cryptoAlgoSizingMode ?? 'fixed_pusd') === 'fixed_pusd'}>
         <div class="form-field">
-          <label for="crypto-algo-entry-usdc">Montant entrée (USDC)</label>
+          <label for="crypto-algo-entry-pusd">Montant entrée (pUSD)</label>
           <input
-            id="crypto-algo-entry-usdc"
+            id="crypto-algo-entry-pusd"
             type="number"
             min={2}
             max={100000}
-            value={props.config.cryptoAlgoEntryUsdcAmount ?? ''}
+            value={props.config.cryptoAlgoEntryPusdAmount ?? ''}
             onInput={(e) => {
               const v = e.currentTarget.value;
               props.onChange({
-                cryptoAlgoEntryUsdcAmount: v === '' ? undefined : Number(v),
+                cryptoAlgoEntryPusdAmount: v === '' ? undefined : Number(v),
               });
             }}
           />
-          <p class="form-hint">Montant USDC par entrée (≥ 2 = 2× MIN_ORDER_USDC).</p>
+          <p class="form-hint">Montant pUSD par entrée (≥ 2 = 2× MIN_ORDER_PUSD).</p>
         </div>
       </Show>
-      <Show when={(props.config.cryptoAlgoSizingMode ?? 'fixed_usdc') === 'fixed_shares'}>
+      <Show when={(props.config.cryptoAlgoSizingMode ?? 'fixed_pusd') === 'fixed_shares'}>
         <div class="form-field">
           <label for="crypto-algo-entry-shares">Nombre de parts à l&apos;entrée</label>
           <input

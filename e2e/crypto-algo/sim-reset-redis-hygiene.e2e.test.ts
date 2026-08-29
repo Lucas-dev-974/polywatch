@@ -126,7 +126,7 @@ describe('sim reset redis hygiene e2e', () => {
         conditionId: fixture.conditionId,
         assetId: fixture.tokenIdYes,
         mode: 'sim',
-        reservedNotionalUsdc: 3,
+        reservedNotionalPusd: 3,
         reason: 'ALGO_OPEN',
         createdAt: new Date(),
         expiresAt: new Date(Date.now() + 180_000),

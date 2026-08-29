@@ -1,11 +1,11 @@
 -- Migration: Optimiser la configuration de simulation
 -- Exécuter avec: psql "$DATABASE_URL" < tools/optimize-config.sql
 
--- 1. Sizing mode: fixed_usdc avec montant suffisant
+-- 1. Sizing mode: fixed_pusd avec montant suffisant
 UPDATE risk_config SET 
-  sim_sizing_mode = 'fixed_usdc',
-  sim_entry_usdc_amount = 10,
-  sim_max_position_size_usdc = 50;
+  sim_sizing_mode = 'fixed_pusd',
+  sim_entry_pusd_amount = 10,
+  sim_max_position_size_pusd = 50;
 
 -- 2. Activer SL/TP avec valeurs raisonnables
 UPDATE risk_config SET 
@@ -40,7 +40,7 @@ UPDATE risk_config SET
 SELECT 
   'sim_sizing_mode' as key, sim_sizing_mode as value FROM risk_config
 UNION ALL
-SELECT 'sim_entry_usdc_amount', CAST(sim_entry_usdc_amount AS TEXT) FROM risk_config
+SELECT 'sim_entry_pusd_amount', CAST(sim_entry_pusd_amount AS TEXT) FROM risk_config
 UNION ALL
 SELECT 'sim_sl_tp_enabled', CAST(sim_sl_tp_enabled AS TEXT) FROM risk_config
 UNION ALL

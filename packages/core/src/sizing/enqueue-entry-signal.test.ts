@@ -10,7 +10,7 @@ const job: OrderSignal = {
   assetId: 'asset',
   side: 'BUY',
   quantity: 5,
-  usdcAmount: 3,
+  pusdAmount: 3,
   orderType: 'FAK',
   referenceVwap: 0.6,
   reason: 'ALGO_OPEN',

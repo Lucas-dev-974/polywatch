@@ -3,13 +3,13 @@
  * 
  * AVANT (config actuelle):
  * - sizing_mode: proportional_capital
- * - entry_usdc_amount: 1
+ * - entry_pusd_amount: 1
  * - sl_tp_enabled: 0
  * - Résultat: 405/435 positions annulées (93%)
  * 
  * APRÈS (config optimisée):
- * - sizing_mode: fixed_usdc
- * - entry_usdc_amount: 10
+ * - sizing_mode: fixed_pusd
+ * - entry_pusd_amount: 10
  * - sl_tp_enabled: 1, sl_percent: 5, tp_percent: 15
  * - Résultat attendu: taux de succès amélioré
  */
@@ -56,7 +56,7 @@ console.log('└─────────────────────�
 
 // Impact estimé
 const estimatedImprovement = {
-  successRate: 95, // fixed_usdc garantit >1 share
+  successRate: 95, // fixed_pusd garantit >1 share
   entriesSaved: Math.floor(405 * 0.95), // ~385 entrées sauvées
   slTpBenefit: 15, // % de gain via SL/TP
   momentumBenefit: 10, // % de pertes évitées
@@ -76,8 +76,8 @@ console.log('┌─────────────────────�
 console.log('│ RECOMMANDATIONS D\'OPTIMISATION                                  │');
 console.log('├─────────────────────────────────────────────────────────────────┤');
 console.log('│ 1. CHANGER SIZING MODE                                          │');
-console.log('│    sim_sizing_mode = "fixed_usdc"                                │');
-console.log('│    sim_entry_usdc_amount = 10                                    │');
+console.log('│    sim_sizing_mode = "fixed_pusd"                                │');
+console.log('│    sim_entry_pusd_amount = 10                                    │');
 console.log('│    → Garantit ordres >= 1 share (minimum CLOB)                   │');
 console.log('│                                                                 │');
 console.log('│ 2. ACTIVER SL/TP                                                │');
@@ -112,7 +112,7 @@ console.log('┌─────────────────────�
 console.log('│ PROJECTION PnL                                                  │');
 console.log('├─────────────────────────────────────────────────────────────────┤');
 console.log(`│ PnL actuel (27 positions):      +$${projectedPnl.current.toFixed(2)}                        │`);
-console.log(`│ PnL projeté (fixed_usdc):       +$${projectedPnl.withFixedSizing.toFixed(2)}                    │`);
+console.log(`│ PnL projeté (fixed_pusd):       +$${projectedPnl.withFixedSizing.toFixed(2)}                    │`);
 console.log(`│ PnL projeté (avec SL/TP):       +$${projectedPnl.withSlTp.toFixed(2)}                    │`);
 console.log('│                                                                 │');
 console.log('│ Note: Ces projections sont indicatives et dépendent des        │');
@@ -127,8 +127,8 @@ console.log('psql "$DATABASE_URL" < tools/optimize-config.sql\n');
 console.log('Ou exécuter manuellement:');
 console.log('```sql');
 console.log('UPDATE risk_config SET');
-console.log('  sim_sizing_mode = \'fixed_usdc\',');
-console.log('  sim_entry_usdc_amount = 10,');
+console.log('  sim_sizing_mode = \'fixed_pusd\',');
+console.log('  sim_entry_pusd_amount = 10,');
 console.log('  sim_sl_tp_enabled = 1,');
 console.log('  sim_sl_percent = 5,');
 console.log('  sim_tp_percent = 15,');

@@ -23,7 +23,7 @@ describe('ensureEntryQuantityMeetsMos', () => {
     effectiveMos: 5,
     askVwap: 0.6,
     cash: 100,
-    maxPositionSizeUsdc: 50,
+    maxPositionSizePusd: 50,
   };
 
   it('passes through when targetQty already meets MOS', () => {
@@ -59,7 +59,7 @@ describe('ensureEntryQuantityMeetsMos', () => {
     const result = ensureEntryQuantityMeetsMos({
       ...base,
       targetQty: 3,
-      maxPositionSizeUsdc: 2,
+      maxPositionSizePusd: 2,
     });
     expect(result).toEqual({ ok: false, reason: 'below_mos_cannot_bump' });
   });

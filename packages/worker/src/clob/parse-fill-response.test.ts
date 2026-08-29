@@ -19,7 +19,7 @@ describe('parseRawAmount', () => {
 describe('parseFillResponse', () => {
   const orderId = '0xabcdef1234567890abcdef1234567890abcdef12';
 
-  it('parses BUY matched order (doc example: 100 USDC → 200 shares @ 0.5)', () => {
+  it('parses BUY matched order (doc example: 100 pUSD → 200 shares @ 0.5)', () => {
     const result = parseFillResponse(
       {
         success: true,

@@ -9,7 +9,7 @@ import {
   isIncreaseAllowed,
   isMarketTagAllowed,
   getCopyKillSwitchAction,
-  getCopyMaxDailyLossUsdc,
+  getCopyMaxDailyLossPusd,
   openingReasonsForAlgoKind,
   WatchlistService,
   type MarketService,
@@ -180,7 +180,7 @@ async function checkCopyKillSwitch(
     .getRawOne<{ total: number }>();
 
   const dailyNet = result?.total ?? 0;
-  const maxDailyLoss = getCopyMaxDailyLossUsdc(copyConfig, mode);
+  const maxDailyLoss = getCopyMaxDailyLossPusd(copyConfig, mode);
   const triggered = dailyNet < 0 && Math.abs(dailyNet) >= maxDailyLoss;
   const action = getCopyKillSwitchAction(copyConfig, mode) as KillSwitchAction;
 

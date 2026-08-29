@@ -25,7 +25,7 @@ export function buildEntrySizingInput(params: {
   previousTraderSize: number;
   balances: EntrySizingBalances;
   traderPortfolioValue?: number;
-  maxPositionSizeUsdc: number;
+  maxPositionSizePusd: number;
   signalScore?: SignalScore;
   stopDistance?: number;
 }): SizingInput {
@@ -33,10 +33,10 @@ export function buildEntrySizingInput(params: {
   return {
     sizingMode: sizing.sizingMode,
     copyRatio: sizing.copyRatio,
-    fixedUsdcAmount: sizing.fixedUsdcAmount,
+    fixedPusdAmount: sizing.fixedPusdAmount,
     fixedShareCount: sizing.fixedShareCount,
     kellyFraction: sizing.kellyFraction,
-    riskBudgetUsdc: sizing.riskBudgetUsdc,
+    riskBudgetPusd: sizing.riskBudgetPusd,
     winProbability: sizing.defaultWinProbability,
     stopDistance: params.stopDistance,
     signalMultiplier: sizing.signalScoreSizingEnabled
@@ -49,7 +49,7 @@ export function buildEntrySizingInput(params: {
     userBalance: balances.cash,
     userCapital: resolveCapitalForRatio(sizing.sizingMode, balances),
     traderBalance: params.traderPortfolioValue,
-    maxPositionSizeUsdc: params.maxPositionSizeUsdc,
+    maxPositionSizePusd: params.maxPositionSizePusd,
   };
 }
 
@@ -60,7 +60,7 @@ export function computeEntryTargetQuantity(params: {
   previousTraderSize: number;
   balances: EntrySizingBalances;
   traderPortfolioValue?: number;
-  maxPositionSizeUsdc: number;
+  maxPositionSizePusd: number;
   signalScore?: SignalScore;
   stopDistance?: number;
 }): number | null {

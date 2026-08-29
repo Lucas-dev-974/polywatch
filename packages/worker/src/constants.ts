@@ -181,7 +181,7 @@ function resolveSimExecutionLatencyMs(): number {
 }
 export const SIM_EXECUTION_LATENCY_MS = resolveSimExecutionLatencyMs();
 
-/** CLOB order response amounts use 6 decimal places (USDC / shares raw units). */
+/** CLOB order response amounts use 6 decimal places (pUSD / shares raw units). */
 export let CLOB_AMOUNT_DECIMALS: number =
   WORKER_CONFIG_DEFAULTS.CLOB_AMOUNT_DECIMALS;
 

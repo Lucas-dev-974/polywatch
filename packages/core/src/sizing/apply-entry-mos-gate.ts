@@ -14,7 +14,7 @@ export interface ApplyEntryMosGateParams {
   targetQty: number;
   askVwap: number;
   cash: number;
-  maxPositionSizeUsdc: number;
+  maxPositionSizePusd: number;
   conditionId: string;
   assetId: string;
   clobApi: string;
@@ -46,7 +46,7 @@ export async function applyEntryMosGate(
     effectiveMos,
     askVwap: params.askVwap,
     cash: params.cash,
-    maxPositionSizeUsdc: params.maxPositionSizeUsdc,
+    maxPositionSizePusd: params.maxPositionSizePusd,
   });
 
   if (!gate.ok) {
@@ -69,7 +69,7 @@ export async function applyEntryMosGate(
     const bumpedNotional = finalQty * finalAskVwap;
     if (
       bumpedNotional > params.cash + 1e-9 ||
-      bumpedNotional > params.maxPositionSizeUsdc + 1e-9
+      bumpedNotional > params.maxPositionSizePusd + 1e-9
     ) {
       return { ok: false, skipReason: ENTRY_MOS_SKIP_CANNOT_BUMP };
     }

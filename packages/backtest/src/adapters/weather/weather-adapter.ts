@@ -223,7 +223,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
     const bag = strategyId
       ? getStrategyParamsForMode(ctx.configSnapshot, strategyId, this.strategyEnv)
       : this.bag;
-    const maxDailyLoss = bag.maxDailyLossUsdc;
+    const maxDailyLoss = bag.maxDailyLossPusd;
     if (maxDailyLoss == null) return false;
     return ctx.ledger.dailyRealizedPnl(ctx.clock.now(), strategyId) <= -maxDailyLoss;
   }
@@ -234,7 +234,7 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
    */
   private canEnter(
     ctx: RunContext,
-    entryUsdc: number,
+    entryPusd: number,
     yesPrice: number,
     strategyId: string | null,
   ): boolean {
@@ -243,8 +243,8 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
       ? getStrategyParamsForMode(ctx.configSnapshot, strategyId, this.strategyEnv)
       : this.bag;
     // Garde-fou : un sizingMode non supporté par le backtest est signalé
-    // (filet pour les modes futurs) — fixed_usdc / fixed_shares sont honorés.
-    if (bag.sizingMode !== 'fixed_usdc' && bag.sizingMode !== 'fixed_shares') {
+    // (filet pour les modes futurs) — fixed_pusd / fixed_shares sont honorés.
+    if (bag.sizingMode !== 'fixed_pusd' && bag.sizingMode !== 'fixed_shares') {
       this.warnings.warnSizingModeIgnored(ctx, strategyId ?? 'default', bag.sizingMode);
     }
     const slippage = ctx.params.slippageBps;
@@ -253,27 +253,27 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
 
     // Sizing selon le mode du bag (parité avec simulateWeatherEntryFill).
     let qty: number;
-    let costBasisUsdc: number;
+    let costBasisPusd: number;
     if (bag.sizingMode === 'fixed_shares') {
       const maxSharesByBudget =
-        Math.min(bag.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY, entryUsdc) / entryPrice;
+        Math.min(bag.maxPositionSizePusd ?? Number.POSITIVE_INFINITY, entryPusd) / entryPrice;
       qty = Math.floor(Math.min(bag.fixedShareCount ?? 0, maxSharesByBudget));
       if (qty <= 0) return false; // pas assez de budget pour 1 token → skip
-      costBasisUsdc = qty * entryPrice;
+      costBasisPusd = qty * entryPrice;
     } else {
-      const cappedUsdc = Math.min(entryUsdc, bag.maxPositionSizeUsdc ?? Number.POSITIVE_INFINITY);
-      qty = cappedUsdc / entryPrice;
-      costBasisUsdc = cappedUsdc;
+      const cappedPusd = Math.min(entryPusd, bag.maxPositionSizePusd ?? Number.POSITIVE_INFINITY);
+      qty = cappedPusd / entryPrice;
+      costBasisPusd = cappedPusd;
     }
     const estFees = computeTakerFee(qty, entryPrice, BACKTEST_PLATFORM_FEE);
-    const cost = costBasisUsdc + estFees;
+    const cost = costBasisPusd + estFees;
 
     if (ctx.ledger.cash < cost) {
       return false;
     }
 
-    const maxExposure = bag.maxExposureUsdc;
-    if (maxExposure != null && ctx.ledger.openExposure(strategyId) + costBasisUsdc > maxExposure) {
+    const maxExposure = bag.maxExposurePusd;
+    if (maxExposure != null && ctx.ledger.openExposure(strategyId) + costBasisPusd > maxExposure) {
       return false;
     }
 
@@ -475,14 +475,14 @@ export class WeatherBacktestAdapter implements BacktestDomainAdapter {
         );
         continue;
       }
-      if (!this.canEnter(ctx, ctx.params.entryUsdc, decisionPrice, signal.strategyId)) continue;
+      if (!this.canEnter(ctx, ctx.params.entryPusd, decisionPrice, signal.strategyId)) continue;
 
       const fill = simulateWeatherEntryFill({
         conditionId: signal.conditionId,
         yesPrice: decisionPrice,
-        entryUsdc: ctx.params.entryUsdc,
+        entryPusd: ctx.params.entryPusd,
         slippageBps: ctx.params.slippageBps,
-        maxPositionSizeUsdc: signalBag.maxPositionSizeUsdc,
+        maxPositionSizePusd: signalBag.maxPositionSizePusd,
         sizingMode: signalBag.sizingMode,
         fixedShareCount: signalBag.fixedShareCount,
       });

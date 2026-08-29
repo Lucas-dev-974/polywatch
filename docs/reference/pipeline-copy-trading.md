@@ -244,8 +244,8 @@ atomique, rejette l'entrée si :
 | Limite | Erreur levée |
 |--------|--------------|
 | Positions actives ≥ `maxOpenPositions` | `max_open_positions` |
-| Notionnel > `maxPositionSizeUsdc` | `max_position_size` |
-| Exposition + notionnel > `maxExposureUsdc` | `max_exposure` |
+| Notionnel > `maxPositionSizePusd` | `max_position_size` |
+| Exposition + notionnel > `maxExposurePusd` | `max_exposure` |
 
 Une `PositionReservation` est créée avec un TTL (`RESERVATION_TTL_MS = 180 s`).
 `ReservationJanitor` nettoie les réservations expirées et annule les positions

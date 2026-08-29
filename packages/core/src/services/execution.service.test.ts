@@ -690,7 +690,7 @@ describe('ExecutionService.loadOrphanPlacingSim', () => {
           conditionId: 'c-orphan',
           assetId: 'a-orphan',
           mode: 'sim',
-          reservedNotionalUsdc: 5,
+          reservedNotionalPusd: 5,
           reason: 'ALGO_OPEN',
           createdAt,
           expiresAt,

@@ -42,7 +42,7 @@ export class AdapterWarnings {
     this.warnOnce(
       ctx,
       'risk_sizing_mode_ignored',
-      `SizingMode '${sizingMode}' non honoré pour la stratégie '${strategyId}' — taille en USDC fixe (fidélité réduite)`,
+      `SizingMode '${sizingMode}' non honoré pour la stratégie '${strategyId}' — taille en pUSD fixe (fidélité réduite)`,
     );
   }
 
@@ -57,7 +57,7 @@ export class AdapterWarnings {
     this.warnOnce(
       ctx,
       'risk_sizing_simplified_fixed_usdc',
-      'Sizing fixe (entryUsdc ou fixedShareCount selon le mode) — pas de modulation par signal-score',
+      'Sizing fixe (entryPusd ou fixedShareCount selon le mode) — pas de modulation par signal-score',
     );
     this.warnOnce(
       ctx,

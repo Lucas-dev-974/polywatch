@@ -57,7 +57,7 @@ RedisQueue('move-events').enqueue()  +  notification backend (move_detected)
 2. **Filtre type de marché** (`passesMarketTagFilter`) : si `simAllowedMarketTags` / `realAllowedMarketTags` est non vide, `MarketService.resolveTagSlugs(conditionId)` puis `isMarketTagAllowed` + `getCopyAllowedMarketTags` (`CopyConfig`). Skip si aucun slug en commun. Les sorties ne passent pas par ce filtre.
 3. **Filtre minTimeToClose** (`copy-entry-pipeline.ts` — `getCopyMinTimeToClose(copyConfig, mode)`) : si le temps restant avant la clôture du marché (`timeToEndMs`) est inférieur ou égal à `minTimeToClose * 1000`, l'entrée est refusée. Empêche les copies trop proches de la résolution du marché.
 4. **Filtre proximité SL** (augmentations uniquement, `copy-risk-gate.ts` — `evaluateCopyIncreaseSlProximity()`) : si `copyIncreaseSlProximityEnabled`, l'augmentation est refusée quand le PnL de clôture a déjà atteint `copyIncreaseSlProximityPercent` de la distance SL. Configurable par mode via `getModeCopyIncreaseSlProximityPercent(risk, mode)`.
-5. Sizing (`core/src/sizing/` + `copy-trading/src/sizing/`) : proportionnel au portefeuille du trader (`resolve-trader-portfolio.ts`), plafonné par `maxPositionSizeUsdc` ; solde réel via `fetchAvailableRealCash()` (backend `/api/internal/balances?mode=real` ou `realCashOverride`, **moins** réservations actives et BUY in-flight sans réservation). Cash indisponible → skip `'Cash réel indisponible'` (pas de retry DLQ).
+5. Sizing (`core/src/sizing/` + `copy-trading/src/sizing/`) : proportionnel au portefeuille du trader (`resolve-trader-portfolio.ts`), plafonné par `maxPositionSizePusd` ; solde réel via `fetchAvailableRealCash()` (backend `/api/internal/balances?mode=real` ou `realCashOverride`, **moins** réservations actives et BUY in-flight sans réservation). Cash indisponible → skip `'Cash réel indisponible'` (pas de retry DLQ).
 6. **Triple-pass VWAP** (`pricing/vwap.ts`) : passe 1 sur qty=1 pour estimer le prix ; passe 2 avec la quantité estimée ; passe 3 avec la **quantité finale** pour obtenir bid+ask exécutables et appliquer le filtre de liquidité.
 7. **Filtre bid/ask** : `isEntryBidAskRatioAcceptable(bidVwap, askVwap, getCopyMinBidToAskRatio(copyConfig, mode))` — skip si le bid exécutable est trop bas par rapport à l'ask (spread extrême). Seuil par mode dans `copy_config` (`*MinBidToAskRatio`, défaut `0.9`, `0` = off). Avant ce filtre : gate MOS (`applyEntryMosGate`) + depth retry ask (`fetchEntryAskLiquidityWithRetries`).
 8. **Filtre momentum** (`copy-entry-pipeline.ts` — `applyMomentumGate()`) : si `momentumFilterEnabled` est activé pour le mode, l'entrée est refusée lorsque le `entryAskVwap` est inférieur au prix moyen du trader (`traderAvgPrice`). Bloque les copies de positions déjà sous l'eau. Fail-open si le prix moyen est indisponible.
@@ -182,7 +182,7 @@ pour chaque CopiedPosition 'open' :
     → close-signals
 ```
 
-**Kill switch** (réévalué ≥ toutes les 10 s) : si `|PnL réalisé du jour| ≥ maxDailyLossUsdc` → blocage des nouvelles copies + selon config `force_close_all` (`closingAttemptSeq + 1` sur chaque signal).
+**Kill switch** (réévalué ≥ toutes les 10 s) : si `|PnL réalisé du jour| ≥ maxDailyLossPusd` → blocage des nouvelles copies + selon config `force_close_all` (`closingAttemptSeq + 1` sur chaque signal).
 
 ## 6. Résolution de marché & rédemption
 

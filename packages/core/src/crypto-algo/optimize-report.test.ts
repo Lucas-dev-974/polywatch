@@ -22,12 +22,12 @@ const defaultConfig: OptimizeReportConfigInput = {
   cryptoAlgoPreCloseKeepBidThreshold: null,
   slConfirmationTicks: 2,
   cryptoAlgoBaseThreshold: null,
-  cryptoAlgoSizingMode: 'fixed_usdc',
-  cryptoAlgoEntryUsdcAmount: 10,
+  cryptoAlgoSizingMode: 'fixed_pusd',
+  cryptoAlgoEntryPusdAmount: 10,
   cryptoAlgoEntryShareCount: null,
-  simEntryUsdcAmount: 5,
+  simEntryPusdAmount: 5,
   simEntryShareCount: 5,
-  simSizingMode: 'fixed_usdc',
+  simSizingMode: 'fixed_pusd',
 };
 
 function pos(

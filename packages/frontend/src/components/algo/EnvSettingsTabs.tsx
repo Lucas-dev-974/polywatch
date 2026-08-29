@@ -25,7 +25,7 @@ export function EnvSettingsEntryTab(props: {
   config: EnvSettings;
   onChange: (patch: Partial<EnvSettings>) => void;
 }) {
-  const maxPositionKey = modeSettingKey(props.mode, 'MaxPositionSizeUsdc');
+  const maxPositionKey = modeSettingKey(props.mode, 'MaxPositionSizePusd');
   const allowedMarketTagsKey = modeSettingKey(props.mode, 'AllowedMarketTags');
 
   return (

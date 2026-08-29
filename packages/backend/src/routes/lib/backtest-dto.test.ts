@@ -29,12 +29,12 @@ describe('formatStrategyParamValue', () => {
           key: 'mode',
           label: 'Mode',
           kind: 'select',
-          default: 'fixed_usdc',
-          options: [{ value: 'fixed_usdc', label: 'Fixed USDC' }],
+          default: 'fixed_pusd',
+          options: [{ value: 'fixed_pusd', label: 'Fixed pUSD' }],
         },
-        'fixed_usdc',
+        'fixed_pusd',
       ),
-    ).toBe('Fixed USDC');
+    ).toBe('Fixed pUSD');
   });
 
   it('converts millisecond durations to minutes', () => {
@@ -58,7 +58,7 @@ describe('resolveBacktestRunStrategy', () => {
     const dto = resolveBacktestRunStrategy(
       {
         configSnapshotJson: snapshotJson({
-          'weather-highest-yes': { minYesPrice: 0.62, entryUsdc: 25 },
+          'weather-highest-yes': { minYesPrice: 0.62, entryPusd: 25 },
         }),
       },
       { strategyId: 'weather-highest-yes' },
@@ -67,20 +67,20 @@ describe('resolveBacktestRunStrategy', () => {
     expect(dto?.label).toContain('Highest YES');
     const minYes = dto?.params.find((p) => p.key === 'minYesPrice');
     expect(minYes?.display).toBe('0.62');
-    const entry = dto?.params.find((p) => p.key === 'entryUsdc');
+    const entry = dto?.params.find((p) => p.key === 'entryPusd');
     expect(entry?.display).toBe('25');
   });
 
-  it('overlays launch-form entryUsdc and maxConcurrentPositions', () => {
+  it('overlays launch-form entryPusd and maxConcurrentPositions', () => {
     const dto = resolveBacktestRunStrategy(
       {
         configSnapshotJson: snapshotJson({
-          'weather-forecast': { entryUsdc: 10, maxOpenPositions: 10 },
+          'weather-forecast': { entryPusd: 10, maxOpenPositions: 10 },
         }),
       },
-      { strategyId: 'weather-forecast', entryUsdc: 42, maxConcurrentPositions: 3 },
+      { strategyId: 'weather-forecast', entryPusd: 42, maxConcurrentPositions: 3 },
     );
-    expect(dto?.params.find((p) => p.key === 'entryUsdc')?.display).toBe('42');
+    expect(dto?.params.find((p) => p.key === 'entryPusd')?.display).toBe('42');
     expect(dto?.params.find((p) => p.key === 'maxOpenPositions')?.display).toBe('3');
   });
 

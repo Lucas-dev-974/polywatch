@@ -152,6 +152,8 @@ import { DropWeatherAlgoBidPointsColumns1700000000118 } from '../migrations/Drop
 import { AddBacktestRunUserIdAndActiveUnique1700000000119 } from '../migrations/AddBacktestRunUserIdAndActiveUnique1700000000119.js';
 import { CopyCryptoExitToPercent1700000000120 } from '../migrations/CopyCryptoExitPercentMigration1700000000120.js';
 import { AddWeatherAlgoStrategiesPerEnv1700000000121 } from '../migrations/AddWeatherAlgoStrategiesPerEnv1700000000121.js';
+import { RenameUsdcToPusdSizing1700000000122 } from '../migrations/RenameUsdcToPusdSizing1700000000122.js';
+import { RenameNotionalUsdcToPusd1700000000123 } from '../migrations/RenameNotionalUsdcToPusd1700000000123.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -269,6 +271,8 @@ export const migrations = [
   AddBacktestRunUserIdAndActiveUnique1700000000119,
   CopyCryptoExitToPercent1700000000120,
   AddWeatherAlgoStrategiesPerEnv1700000000121,
+  RenameUsdcToPusdSizing1700000000122,
+  RenameNotionalUsdcToPusd1700000000123,
 ];
 
 export const entities = [

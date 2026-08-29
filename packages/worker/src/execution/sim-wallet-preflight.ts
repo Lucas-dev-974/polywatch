@@ -15,9 +15,9 @@ export type WalletPreflightResult =
  */
 export async function runSimWalletPreflight(
   signal: OrderSignal,
-  marketAmountUsdc: number,
+  marketAmountPusd: number,
 ): Promise<WalletPreflightResult | null> {
-  if (signal.side !== 'BUY' || marketAmountUsdc <= 0) return null;
+  if (signal.side !== 'BUY' || marketAmountPusd <= 0) return null;
 
   const trading = await loadTradingContextResult();
   if (!trading.ok) {
@@ -30,7 +30,7 @@ export async function runSimWalletPreflight(
 
   try {
     const balance = await fetchRealPusdBalance();
-    if (balance < marketAmountUsdc) {
+    if (balance < marketAmountPusd) {
       return { ok: false, error: 'insufficient_balance' };
     }
   } catch (err) {

@@ -2,7 +2,7 @@ import {
   computeSignalScore,
   hashCopyOrderSignalId,
   resolveCopyEntryExitParams,
-  getCopyMaxPositionSizeUsdc,
+  getCopyMaxPositionSizePusd,
   getCopySizingParams,
   getCopyMinBidToAskRatio,
   getCopyMinTimeToClose,
@@ -26,7 +26,7 @@ import {
   enqueueEntrySignal,
   resolveEntryEnqueueBlocked,
   MIN_ORDER_SHARES,
-  MIN_ORDER_USDC,
+  MIN_ORDER_PUSD,
   type IPolymarketConnectionManager,
   type MoveEventDto,
   type OrderSignal,
@@ -220,7 +220,7 @@ export async function runCopyEntryPipeline(params: {
     previousTraderSize: move.previousTraderSize,
     balances,
     traderPortfolioValue: portfolio.ok ? portfolio.value : undefined,
-    maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(copyConfig, mode),
+    maxPositionSizePusd: getCopyMaxPositionSizePusd(copyConfig, mode),
     signalScore: entrySignalScore,
     stopDistance,
   };
@@ -275,7 +275,7 @@ export async function runCopyEntryPipeline(params: {
     targetQty,
     askVwap,
     cash: balances.cash,
-    maxPositionSizeUsdc: getCopyMaxPositionSizeUsdc(copyConfig, mode),
+    maxPositionSizePusd: getCopyMaxPositionSizePusd(copyConfig, mode),
     conditionId: move.conditionId,
     assetId: move.assetId,
     clobApi: config.clobApi,
@@ -327,19 +327,19 @@ export async function runCopyEntryPipeline(params: {
   const entryAskVwap = depthResult.prices.executableAskVwap;
   const entryBidVwap = depthResult.prices.executableBidVwap;
 
-  const targetNotionalUsdc = finalQty * entryAskVwap;
-  if (mode === 'real' && targetNotionalUsdc < MIN_ORDER_USDC) {
+  const targetNotionalPusd = finalQty * entryAskVwap;
+  if (mode === 'real' && targetNotionalPusd < MIN_ORDER_PUSD) {
     log.warn(
       {
         moveId: move.id,
         mode,
         targetQty: finalQty,
-        targetNotionalUsdc,
-        minOrderUsdc: MIN_ORDER_USDC,
+        targetNotionalPusd,
+        minOrderPusd: MIN_ORDER_PUSD,
       },
       'entry skipped — real target notional below minimum',
     );
-    return `Montant cible inférieur au minimum live (${MIN_ORDER_USDC} USDC)`;
+    return `Montant cible inférieur au minimum live (${MIN_ORDER_PUSD} pUSD)`;
   }
 
   const minBidToAskRatio = getCopyMinBidToAskRatio(copyConfig, mode);
@@ -377,7 +377,7 @@ export async function runCopyEntryPipeline(params: {
       conditionId: move.conditionId,
       assetId: move.assetId,
       mode,
-      notionalUsdc: targetNotionalUsdc,
+      notionalPusd: targetNotionalPusd,
       reason,
       moveEventId: move.id,
       outcome: move.outcome,
@@ -404,7 +404,7 @@ export async function runCopyEntryPipeline(params: {
         assetId: move.assetId,
         side: 'BUY',
         quantity: finalQty,
-        usdcAmount: targetNotionalUsdc,
+        pusdAmount: targetNotionalPusd,
         orderType: 'FAK',
         referenceVwap: entryAskVwap,
         reason,

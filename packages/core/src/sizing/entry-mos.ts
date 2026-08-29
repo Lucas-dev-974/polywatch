@@ -31,16 +31,16 @@ export function ensureEntryQuantityMeetsMos(params: {
   effectiveMos: number;
   askVwap: number;
   cash: number;
-  maxPositionSizeUsdc: number;
+  maxPositionSizePusd: number;
 }): EnsureEntryQuantityMeetsMosResult {
-  const { targetQty, effectiveMos, askVwap, cash, maxPositionSizeUsdc } = params;
+  const { targetQty, effectiveMos, askVwap, cash, maxPositionSizePusd } = params;
 
   if (targetQty >= effectiveMos) {
     return { ok: true, quantity: targetQty, bumped: false, effectiveMos };
   }
 
   const bumpedNotional = effectiveMos * askVwap;
-  if (bumpedNotional > cash + 1e-9 || bumpedNotional > maxPositionSizeUsdc + 1e-9) {
+  if (bumpedNotional > cash + 1e-9 || bumpedNotional > maxPositionSizePusd + 1e-9) {
     return { ok: false, reason: 'below_mos_cannot_bump' };
   }
 

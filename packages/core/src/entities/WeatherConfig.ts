@@ -11,14 +11,14 @@ export class WeatherConfig {
   @Column({ type: 'integer', name: 'weather_algo_max_open_positions', default: 10 })
   weatherAlgoMaxOpenPositions!: number;
 
-  @Column({ type: 'real', name: 'weather_algo_max_exposure_usdc', default: 1000 })
-  weatherAlgoMaxExposureUsdc!: number;
+  @Column({ type: 'real', name: 'weather_algo_max_exposure_pusd', default: 1000 })
+  weatherAlgoMaxExposurePusd!: number;
 
-  @Column({ type: 'real', name: 'weather_algo_max_daily_loss_usdc', default: 100 })
-  weatherAlgoMaxDailyLossUsdc!: number;
+  @Column({ type: 'real', name: 'weather_algo_max_daily_loss_pusd', default: 100 })
+  weatherAlgoMaxDailyLossPusd!: number;
 
-  @Column({ type: 'real', name: 'weather_algo_max_position_size_usdc', default: 200 })
-  weatherAlgoMaxPositionSizeUsdc!: number;
+  @Column({ type: 'real', name: 'weather_algo_max_position_size_pusd', default: 200 })
+  weatherAlgoMaxPositionSizePusd!: number;
 
   // ── SL confirmation ticks ─────────────────────────────────────────
 
@@ -106,11 +106,11 @@ export class WeatherConfig {
 
   // ── Sizing ────────────────────────────────────────────────────────
 
-  @Column({ type: 'text', name: 'weather_algo_sizing_mode', default: 'fixed_usdc' })
+  @Column({ type: 'text', name: 'weather_algo_sizing_mode', default: 'fixed_pusd' })
   weatherAlgoSizingMode!: string;
 
-  @Column({ type: 'real', name: 'weather_algo_entry_usdc', default: 10 })
-  weatherAlgoEntryUsdc!: number;
+  @Column({ type: 'real', name: 'weather_algo_entry_pusd', default: 10 })
+  weatherAlgoEntryPusd!: number;
 
   @Column({ type: 'integer', name: 'weather_algo_entry_share_count', default: 100 })
   weatherAlgoEntryShareCount!: number;

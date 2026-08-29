@@ -16,7 +16,7 @@ export const backtestRunParamsSchema = z
     backtestExecutionMode: z.enum(['strategy', 'runner-sim']).default('runner-sim'),
     configOverrides: z.record(z.unknown()).optional(),
     capital: z.number().positive().default(1000),
-    entryUsdc: z.number().positive().optional(),
+    entryPusd: z.number().positive().optional(),
     slippageBps: z.number().min(0).default(50),
     maxConcurrentPositions: z.number().int().positive().optional(),
     fidelityMinutes: z.number().int().positive().optional(),

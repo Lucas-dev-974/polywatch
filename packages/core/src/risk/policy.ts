@@ -29,13 +29,13 @@ export function isExitLegEnabled(flag: boolean | null | undefined): boolean {
 export interface ModeSizingParams {
   sizingMode: SizingMode;
   copyRatio: number;
-  fixedUsdcAmount: number;
+  fixedPusdAmount: number;
   /** Share count for `fixed_shares` sizing. */
   fixedShareCount: number;
   /** Kelly fraction for `kelly_fractional` sizing (0..1). */
   kellyFraction?: number;
-  /** Fixed risk budget per trade for `risk_based` sizing (USDC). */
-  riskBudgetUsdc?: number;
+  /** Fixed risk budget per trade for `risk_based` sizing (pUSD). */
+  riskBudgetPusd?: number;
   /** Default win probability estimate for Kelly sizing. */
   defaultWinProbability?: number;
   /** Scale/gate entry size from spread, expiry, trader stats. */
@@ -257,25 +257,25 @@ export function getCopyMaxOpenPositions(
   return mode === 'sim' ? cfg.simMaxOpenPositions : cfg.realMaxOpenPositions;
 }
 
-export function getCopyMaxPositionSizeUsdc(
+export function getCopyMaxPositionSizePusd(
   cfg: CopyConfig,
   mode: TradingMode,
 ): number {
-  return mode === 'sim' ? cfg.simMaxPositionSizeUsdc : cfg.realMaxPositionSizeUsdc;
+  return mode === 'sim' ? cfg.simMaxPositionSizePusd : cfg.realMaxPositionSizePusd;
 }
 
-export function getCopyMaxExposureUsdc(
+export function getCopyMaxExposurePusd(
   cfg: CopyConfig,
   mode: TradingMode,
 ): number {
-  return mode === 'sim' ? cfg.simMaxExposureUsdc : cfg.realMaxExposureUsdc;
+  return mode === 'sim' ? cfg.simMaxExposurePusd : cfg.realMaxExposurePusd;
 }
 
-export function getCopyMaxDailyLossUsdc(
+export function getCopyMaxDailyLossPusd(
   cfg: CopyConfig,
   mode: TradingMode,
 ): number {
-  return mode === 'sim' ? cfg.simMaxDailyLossUsdc : cfg.realMaxDailyLossUsdc;
+  return mode === 'sim' ? cfg.simMaxDailyLossPusd : cfg.realMaxDailyLossPusd;
 }
 
 export function getCopyEntryDepthRetryMax(
@@ -326,10 +326,10 @@ export function getCopySizingParams(
     return {
       sizingMode: cfg.simSizingMode as SizingMode,
       copyRatio: cfg.simCopyRatio,
-      fixedUsdcAmount: cfg.simEntryUsdcAmount,
+      fixedPusdAmount: cfg.simEntryPusdAmount,
       fixedShareCount: cfg.simEntryShareCount,
       kellyFraction: cfg.simKellyFraction,
-      riskBudgetUsdc: cfg.simRiskBudgetUsdc,
+      riskBudgetPusd: cfg.simRiskBudgetPusd,
       defaultWinProbability: cfg.simDefaultWinProbability,
       signalScoreSizingEnabled: cfg.simSignalScoreSizingEnabled,
     };
@@ -337,10 +337,10 @@ export function getCopySizingParams(
   return {
     sizingMode: cfg.realSizingMode as SizingMode,
     copyRatio: cfg.realCopyRatio,
-    fixedUsdcAmount: cfg.realEntryUsdcAmount,
+    fixedPusdAmount: cfg.realEntryPusdAmount,
     fixedShareCount: cfg.realEntryShareCount,
     kellyFraction: cfg.realKellyFraction,
-    riskBudgetUsdc: cfg.realRiskBudgetUsdc,
+    riskBudgetPusd: cfg.realRiskBudgetPusd,
     defaultWinProbability: cfg.realDefaultWinProbability,
     signalScoreSizingEnabled: cfg.realSignalScoreSizingEnabled,
   };
@@ -431,25 +431,25 @@ export function getCryptoMaxOpenPositions(
   return mode === 'sim' ? cfg.cryptoAlgoMaxOpenPositions : cfg.cryptoAlgoMaxOpenPositions;
 }
 
-export function getCryptoMaxPositionSizeUsdc(
+export function getCryptoMaxPositionSizePusd(
   cfg: CryptoConfig,
   mode: TradingMode,
 ): number {
-  return mode === 'sim' ? cfg.cryptoAlgoMaxPositionSizeUsdc : cfg.cryptoAlgoMaxPositionSizeUsdc;
+  return mode === 'sim' ? cfg.cryptoAlgoMaxPositionSizePusd : cfg.cryptoAlgoMaxPositionSizePusd;
 }
 
-export function getCryptoMaxExposureUsdc(
+export function getCryptoMaxExposurePusd(
   cfg: CryptoConfig,
   mode: TradingMode,
 ): number {
-  return mode === 'sim' ? cfg.cryptoAlgoMaxExposureUsdc : cfg.cryptoAlgoMaxExposureUsdc;
+  return mode === 'sim' ? cfg.cryptoAlgoMaxExposurePusd : cfg.cryptoAlgoMaxExposurePusd;
 }
 
-export function getCryptoMaxDailyLossUsdc(
+export function getCryptoMaxDailyLossPusd(
   cfg: CryptoConfig,
   mode: TradingMode,
 ): number {
-  return mode === 'sim' ? cfg.cryptoAlgoMaxDailyLossUsdc : cfg.cryptoAlgoMaxDailyLossUsdc;
+  return mode === 'sim' ? cfg.cryptoAlgoMaxDailyLossPusd : cfg.cryptoAlgoMaxDailyLossPusd;
 }
 
 export function getCryptoEntryDepthRetryMax(
@@ -517,28 +517,28 @@ export function getWeatherMaxOpenPositions(
   return weatherBag(cfg, mode, strategyId).maxOpenPositions;
 }
 
-export function getWeatherMaxPositionSizeUsdc(
+export function getWeatherMaxPositionSizePusd(
   cfg: WeatherConfig,
   mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, mode, strategyId).maxPositionSizeUsdc;
+  return weatherBag(cfg, mode, strategyId).maxPositionSizePusd;
 }
 
-export function getWeatherMaxExposureUsdc(
+export function getWeatherMaxExposurePusd(
   cfg: WeatherConfig,
   mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, mode, strategyId).maxExposureUsdc;
+  return weatherBag(cfg, mode, strategyId).maxExposurePusd;
 }
 
-export function getWeatherMaxDailyLossUsdc(
+export function getWeatherMaxDailyLossPusd(
   cfg: WeatherConfig,
   mode: TradingMode,
   strategyId?: string | null,
 ): number {
-  return weatherBag(cfg, mode, strategyId).maxDailyLossUsdc;
+  return weatherBag(cfg, mode, strategyId).maxDailyLossPusd;
 }
 
 export function getWeatherEntryDepthRetryMax(

@@ -10,7 +10,7 @@ import {
 describe('requiresTraderPortfolioValue', () => {
   it('is true only for proportional_capital', () => {
     expect(requiresTraderPortfolioValue('proportional_capital')).toBe(true);
-    expect(requiresTraderPortfolioValue('fixed_usdc')).toBe(false);
+    expect(requiresTraderPortfolioValue('fixed_pusd')).toBe(false);
     expect(requiresTraderPortfolioValue('fixed_shares')).toBe(false);
     expect(requiresTraderPortfolioValue('fixed_ratio')).toBe(false);
   });
@@ -48,7 +48,7 @@ describe('resolveRealEntryBalances', () => {
   });
 
   it('uses provided cash for fixed modes', () => {
-    expect(resolveRealEntryBalances('fixed_usdc', 2000)).toEqual({
+    expect(resolveRealEntryBalances('fixed_pusd', 2000)).toEqual({
       cash: 2000,
     });
   });
@@ -60,10 +60,10 @@ describe('computeEntryTargetQuantity', () => {
       sizing: {
         sizingMode: 'fixed_ratio',
         copyRatio: 0.5,
-        fixedUsdcAmount: 10,
+        fixedPusdAmount: 10,
         fixedShareCount: 5,
         kellyFraction: 0.25,
-        riskBudgetUsdc: 10,
+        riskBudgetPusd: 10,
         defaultWinProbability: 0.55,
         signalScoreSizingEnabled: true,
       },
@@ -71,7 +71,7 @@ describe('computeEntryTargetQuantity', () => {
       traderDelta: 100,
       previousTraderSize: 0,
       balances: { cash: 10_000 },
-      maxPositionSizeUsdc: 500,
+      maxPositionSizePusd: 500,
     });
     expect(qty).toBeCloseTo(50, 2);
   });
@@ -81,10 +81,10 @@ describe('computeEntryTargetQuantity', () => {
       sizing: {
         sizingMode: 'proportional_capital',
         copyRatio: 1,
-        fixedUsdcAmount: 10,
+        fixedPusdAmount: 10,
         fixedShareCount: 5,
         kellyFraction: 0.25,
-        riskBudgetUsdc: 10,
+        riskBudgetPusd: 10,
         defaultWinProbability: 0.55,
         signalScoreSizingEnabled: true,
       },
@@ -93,7 +93,7 @@ describe('computeEntryTargetQuantity', () => {
       previousTraderSize: 0,
       balances: { cash: 5000, capitalForRatio: 10_000 },
       traderPortfolioValue: 20_000,
-      maxPositionSizeUsdc: 10_000,
+      maxPositionSizePusd: 10_000,
     });
     expect(input.userBalance).toBe(5000);
     expect(input.userCapital).toBe(10_000);
@@ -103,9 +103,9 @@ describe('computeEntryTargetQuantity', () => {
   it('ignores signal score multiplier when disabled in sizing params', () => {
     const input = buildEntrySizingInput({
       sizing: {
-        sizingMode: 'fixed_usdc',
+        sizingMode: 'fixed_pusd',
         copyRatio: 1,
-        fixedUsdcAmount: 1.5,
+        fixedPusdAmount: 1.5,
         fixedShareCount: 5,
         signalScoreSizingEnabled: false,
       },
@@ -113,16 +113,16 @@ describe('computeEntryTargetQuantity', () => {
       traderDelta: 100,
       previousTraderSize: 0,
       balances: { cash: 10_000 },
-      maxPositionSizeUsdc: 500,
+      maxPositionSizePusd: 500,
       signalScore: { score: 0.2, multiplier: 0.2, reasons: ['Wide spread'] },
     });
     expect(input.signalMultiplier).toBeUndefined();
 
     const qty = computeEntryTargetQuantity({
       sizing: {
-        sizingMode: 'fixed_usdc',
+        sizingMode: 'fixed_pusd',
         copyRatio: 1,
-        fixedUsdcAmount: 1.5,
+        fixedPusdAmount: 1.5,
         fixedShareCount: 5,
         signalScoreSizingEnabled: false,
       },
@@ -130,7 +130,7 @@ describe('computeEntryTargetQuantity', () => {
       traderDelta: 100,
       previousTraderSize: 0,
       balances: { cash: 10_000 },
-      maxPositionSizeUsdc: 500,
+      maxPositionSizePusd: 500,
       signalScore: { score: 0.2, multiplier: 0.2, reasons: ['Wide spread'] },
     });
     expect(qty).toBeCloseTo(3, 2);
@@ -141,7 +141,7 @@ describe('computeEntryTargetQuantity', () => {
       sizing: {
         sizingMode: 'fixed_shares',
         copyRatio: 1,
-        fixedUsdcAmount: 10,
+        fixedPusdAmount: 10,
         fixedShareCount: 7,
         signalScoreSizingEnabled: false,
       },
@@ -149,7 +149,7 @@ describe('computeEntryTargetQuantity', () => {
       traderDelta: 0,
       previousTraderSize: 0,
       balances: { cash: 10_000 },
-      maxPositionSizeUsdc: 500,
+      maxPositionSizePusd: 500,
     });
     expect(input.fixedShareCount).toBe(7);
   });

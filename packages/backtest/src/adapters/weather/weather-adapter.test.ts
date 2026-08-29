@@ -15,10 +15,10 @@ function baseRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
     weatherAlgoMinEdge: 0.1,
     weatherAlgoMaxForecastStd: null,
     weatherAlgoMinForecastProbability: null,
-    weatherAlgoEntryUsdc: 10,
-    weatherAlgoMaxPositionSizeUsdc: 200,
+    weatherAlgoEntryPusd: 10,
+    weatherAlgoMaxPositionSizePusd: 200,
     weatherAlgoMaxOpenPositions: 10,
-    weatherAlgoSizingMode: 'fixed_usdc',
+    weatherAlgoSizingMode: 'fixed_pusd',
     weatherAlgoSelectionMode: 'single',
     weatherAlgoMaxSignalsPerEvent: 3,
     weatherAlgoForecastChangeThreshold: 2,
@@ -38,8 +38,8 @@ function baseRisk(overrides: Partial<WeatherConfig> = {}): WeatherConfig {
     weatherAlgoMinTimeToClose: 0,
     weatherAlgoAllowedMarketTags: '[]',
     weatherAlgoSignalScoreSizingEnabled: true,
-    weatherAlgoMaxExposureUsdc: 1000,
-    weatherAlgoMaxDailyLossUsdc: 100,
+    weatherAlgoMaxExposurePusd: 1000,
+    weatherAlgoMaxDailyLossPusd: 100,
     weatherAlgoForecastHistoryRecordingEnabled: true,
     weatherAlgoMarketSnapshotRecordingEnabled: true,
     weatherAlgoEvaluationLogRecordingEnabled: true,
@@ -90,7 +90,7 @@ describe('runBacktest (weather reevaluate)', () => {
       params: {
         domain: 'weather', mode: 'reevaluate',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
-        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        capital: 1000, entryPusd: 10, slippageBps: 0,
         maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
@@ -209,7 +209,7 @@ describe('runBacktest (weather reevaluate)', () => {
       params: {
         domain: 'weather', mode: 'reevaluate',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
-        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        capital: 1000, entryPusd: 10, slippageBps: 0,
         maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
@@ -318,7 +318,7 @@ describe('runBacktest (weather reevaluate)', () => {
       params: {
         domain: 'weather', mode: 'reevaluate',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
-        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        capital: 1000, entryPusd: 10, slippageBps: 0,
         maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
@@ -469,7 +469,7 @@ describe('runBacktest (weather reevaluate)', () => {
       params: {
         domain: 'weather', mode: 'reevaluate',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
-        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        capital: 1000, entryPusd: 10, slippageBps: 0,
         maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
@@ -571,7 +571,7 @@ describe('runBacktest (weather reevaluate)', () => {
       params: {
         domain: 'weather', mode: 'reevaluate',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
-        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        capital: 1000, entryPusd: 10, slippageBps: 0,
         maxConcurrentPositions: 10,
       },
       configSnapshot: baseRisk(),
@@ -584,12 +584,12 @@ describe('runBacktest (weather reevaluate)', () => {
 
   // ── Multi-strategy risk guards (P2 / F1 fix) ───────────────────────────
   //
-  // The per-strategy risk resolution (maxExposureUsdc, maxDailyLossUsdc,
-  // maxPositionSizeUsdc, killSwitchAction) is verified at two levels:
+  // The per-strategy risk resolution (maxExposurePusd, maxDailyLossPusd,
+  // maxPositionSizePusd, killSwitchAction) is verified at two levels:
   //   1. Ledger unit tests — openExposure/dailyRealizedPnl filter by strategyId.
   //   2. Adapter integration — canEnter uses the signal's strategy bag, not the
   //      adapter's default bag. In reevaluate mode all signals share params.strategyId,
-  //      so we verify that a tight per-strategy maxExposureUsdc blocks a second
+  //      so we verify that a tight per-strategy maxExposurePusd blocks a second
   //      entry while a generous one does not.
 
   it('ledger.openExposure filters by strategyId', async () => {
@@ -744,7 +744,7 @@ describe('runBacktest (weather reevaluate)', () => {
       params: {
         domain: 'weather', mode: 'reevaluate',
         from: '2026-01-01T00:00:00.000Z', to: '2026-01-04T00:00:00.000Z',
-        capital: 1000, entryUsdc: 10, slippageBps: 0,
+        capital: 1000, entryPusd: 10, slippageBps: 0,
         maxConcurrentPositions: 2,
       },
       configSnapshot: baseRisk({

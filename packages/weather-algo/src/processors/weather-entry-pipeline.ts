@@ -27,7 +27,7 @@ import {
   isWeatherReentryCountBlocked,
   hasWeatherReentryThrottle,
   MIN_ORDER_SHARES,
-  MIN_ORDER_USDC,
+  MIN_ORDER_PUSD,
   resumeEntryFromReservation,
   ExecutionService,
   resolveWeatherEntryExitParams,
@@ -44,6 +44,9 @@ import { resolvedClobApi } from '../config.js';
 
 const CLOB_API = resolvedClobApi;
 
+/** Redis surface used by the entry pipeline (throttle + re-entry counter). */
+type WeatherEntryRedis = Pick<Redis, 'exists' | 'get' | 'incr' | 'set'>;
+
 /** Error message thrown by resolveEntryBalances when real cash is unavailable. */
 const REAL_CASH_UNAVAILABLE = 'real_cash_unavailable';
 
@@ -59,7 +62,7 @@ export interface WeatherEntryPipelineParams {
   simulationService: SimulationService;
   marketService: MarketService;
   orderQueue: RedisQueue<OrderSignal>;
-  redisCmd: Pick<Redis, 'exists' | 'get' | 'incr'>;
+  redisCmd: WeatherEntryRedis;
   ds: DataSource;
   backendUrl: string;
   serviceToken: string;
@@ -175,7 +178,7 @@ async function runMode(args: {
   reservationService: ReservationService;
   simulationService: SimulationService;
   orderQueue: RedisQueue<OrderSignal>;
-  redisCmd: Pick<Redis, 'exists' | 'get' | 'incr'>;
+  redisCmd: WeatherEntryRedis;
   ds: DataSource;
   backendUrl: string;
   serviceToken: string;
@@ -312,7 +315,7 @@ async function runMode(args: {
   const sizing: import('@polywatch/core').ModeSizingParams = {
     sizingMode: bag.sizingMode,
     copyRatio: 1,
-    fixedUsdcAmount: bag.entryUsdc,
+    fixedPusdAmount: bag.entryPusd,
     fixedShareCount: bag.fixedShareCount ?? 0,
     signalScoreSizingEnabled: bag.signalScoreSizingEnabled,
   };
@@ -353,7 +356,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: bag.maxPositionSizeUsdc,
+    maxPositionSizePusd: bag.maxPositionSizePusd,
     signalScore,
     stopDistance: undefined,
   });
@@ -381,7 +384,7 @@ async function runMode(args: {
     previousTraderSize: 0,
     balances,
     traderPortfolioValue: undefined,
-    maxPositionSizeUsdc: bag.maxPositionSizeUsdc,
+    maxPositionSizePusd: bag.maxPositionSizePusd,
     signalScore,
     stopDistance: undefined,
   });
@@ -396,7 +399,7 @@ async function runMode(args: {
     targetQty,
     askVwap,
     cash: balances.cash,
-    maxPositionSizeUsdc: bag.maxPositionSizeUsdc,
+    maxPositionSizePusd: bag.maxPositionSizePusd,
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     clobApi: CLOB_API,
@@ -422,20 +425,20 @@ async function runMode(args: {
   let orderQty = finalQty;
   if (mode === 'real') {
     const notional = orderQty * finalAskVwap;
-    if (notional + 1e-9 < MIN_ORDER_USDC) {
-      const maxUsdc =
-        typeof bag.maxPositionSizeUsdc === 'number' && bag.maxPositionSizeUsdc > 0
-          ? bag.maxPositionSizeUsdc
+    if (notional + 1e-9 < MIN_ORDER_PUSD) {
+      const maxPusd =
+        typeof bag.maxPositionSizePusd === 'number' && bag.maxPositionSizePusd > 0
+          ? bag.maxPositionSizePusd
           : Number.POSITIVE_INFINITY;
       // Always add at least 1 share so float ceil(1/ask) cannot stall at the same qty.
       const needQty = Math.max(
         orderQty + 1,
-        Math.ceil(MIN_ORDER_USDC / finalAskVwap - 1e-12),
+        Math.ceil(MIN_ORDER_PUSD / finalAskVwap - 1e-12),
       );
       const bumpedNotional = needQty * finalAskVwap;
       if (
         bumpedNotional > balances.cash + 1e-9 ||
-        bumpedNotional > maxUsdc + 1e-9
+        bumpedNotional > maxPusd + 1e-9
       ) {
         log.warn(
           {
@@ -444,25 +447,25 @@ async function runMode(args: {
             orderQty,
             finalAskVwap,
             notional,
-            minOrderUsdc: MIN_ORDER_USDC,
+            minOrderPusd: MIN_ORDER_PUSD,
           },
-          'weather real entry skipped — notional below live USDC minimum',
+          'weather real entry skipped — notional below live pUSD minimum',
         );
-        return `Montant cible réel insuffisant (${MIN_ORDER_USDC} USDC)`;
+        return `Montant cible réel insuffisant (${MIN_ORDER_PUSD} pUSD)`;
       }
       const bumpedPrices = await connectionManager.fetchExecutablePrices(
         signal.assetId,
         needQty,
       );
       if (bumpedPrices.executableAskVwap <= 0) {
-        return 'Pas de liquidité à la quantité min USDC';
+        return 'Pas de liquidité à la quantité min pUSD';
       }
       const bumpedAsk = bumpedPrices.executableAskVwap;
       const liveNotional = needQty * bumpedAsk;
       if (
-        liveNotional + 1e-9 < MIN_ORDER_USDC ||
+        liveNotional + 1e-9 < MIN_ORDER_PUSD ||
         liveNotional > balances.cash + 1e-9 ||
-        liveNotional > maxUsdc + 1e-9
+        liveNotional > maxPusd + 1e-9
       ) {
         log.warn(
           {
@@ -471,11 +474,11 @@ async function runMode(args: {
             needQty,
             bumpedAsk,
             liveNotional,
-            minOrderUsdc: MIN_ORDER_USDC,
+            minOrderPusd: MIN_ORDER_PUSD,
           },
-          'weather real entry skipped — bumped notional still below live USDC minimum or over cap',
+          'weather real entry skipped — bumped notional still below live pUSD minimum or over cap',
         );
-        return `Montant cible réel insuffisant (${MIN_ORDER_USDC} USDC)`;
+        return `Montant cible réel insuffisant (${MIN_ORDER_PUSD} pUSD)`;
       }
       log.info(
         {
@@ -485,7 +488,7 @@ async function runMode(args: {
           bumpedQty: needQty,
           askVwap: bumpedAsk,
         },
-        'weather real entry quantity bumped to meet MIN_ORDER_USDC',
+        'weather real entry quantity bumped to meet MIN_ORDER_PUSD',
       );
       orderQty = needQty;
       finalAskVwap = bumpedAsk;
@@ -515,7 +518,7 @@ async function runMode(args: {
     conditionId: signal.conditionId,
     assetId: signal.assetId,
     mode,
-    notionalUsdc: orderQty * finalAskVwap,
+    notionalPusd: orderQty * finalAskVwap,
     reason: 'WEATHER_OPEN',
     outcome: signal.outcome,
     slPercent: exit.slPercent ?? undefined,
@@ -554,7 +557,7 @@ async function runMode(args: {
     assetId: signal.assetId,
     side: 'BUY',
     quantity: orderQty,
-    usdcAmount: orderQty * finalAskVwap,
+    pusdAmount: orderQty * finalAskVwap,
     orderType: 'FAK',
     limitPrice: finalAskVwap,
     referenceVwap: finalAskVwap,

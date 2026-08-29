@@ -10,11 +10,11 @@ import { CopyConfigService } from './copy-config.service.js';
 import { CryptoConfigService } from './crypto-config.service.js';
 import { WeatherConfigService } from './weather-config.service.js';
 import {
-  getCopyMaxDailyLossUsdc,
+  getCopyMaxDailyLossPusd,
   getCopyKillSwitchAction,
-  getCryptoMaxDailyLossUsdc,
+  getCryptoMaxDailyLossPusd,
   getCryptoKillSwitchAction,
-  getWeatherMaxDailyLossUsdc,
+  getWeatherMaxDailyLossPusd,
   getWeatherKillSwitchAction,
 } from '../risk/policy.js';
 import type { KillSwitchAction, TradingMode } from '../types/index.js';
@@ -133,13 +133,13 @@ export class RiskService {
     let triggered: boolean;
     let action: KillSwitchAction;
     if (algoKind === 'copy') {
-      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getCopyMaxDailyLossUsdc(config as CopyConfig, mode);
+      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getCopyMaxDailyLossPusd(config as CopyConfig, mode);
       action = getCopyKillSwitchAction(config as CopyConfig, mode) as KillSwitchAction;
     } else if (algoKind === 'crypto') {
-      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getCryptoMaxDailyLossUsdc(config as CryptoConfig, mode);
+      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getCryptoMaxDailyLossPusd(config as CryptoConfig, mode);
       action = getCryptoKillSwitchAction(config as CryptoConfig, mode) as KillSwitchAction;
     } else {
-      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getWeatherMaxDailyLossUsdc(config as WeatherConfig, mode, strategyId);
+      triggered = dailyNet < 0 && Math.abs(dailyNet) >= getWeatherMaxDailyLossPusd(config as WeatherConfig, mode, strategyId);
       action = getWeatherKillSwitchAction(config as WeatherConfig, mode, strategyId) as KillSwitchAction;
     }
 

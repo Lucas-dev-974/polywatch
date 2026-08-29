@@ -95,7 +95,7 @@ Pour chaque signal genere, le pipeline d'entree execute les etapes suivantes :
 1. Determination du mode (`sim` ou `real` selon l'etat du systeme).
 2. Verification du **quota SL** (configurable via `cryptoAlgoSlQuotaEnabled` / `cryptoAlgoSlQuotaPerMarket`, defaut : desactive) : compte les sorties SL **des le declenchement** (`closing_reason = 'SL'` via `beginClose`), pas seulement a la cloture finale. Bloque aussi toute nouvelle entree tant qu'une position algo est deja `open` ou `closing` sur le marche (regle cross-outcome : pas de YES+NO simultanes). Si le quota est atteint ou une position est exposee, abstention `sl_quota_reached` avec detail `open_position_on_market` ou `sl_slots_consumed`. Cache TTL configurable (`cryptoAlgoSlQuotaCacheTtlSeconds`, defaut 30s).
 3. Verification du verrou de **re-entree** (configurable via `cryptoAlgoReentryWindowMs` / `cryptoAlgoMaxEntriesPerWindow`, defaut : duree de l'intervalle marche, max 1 enqueue reussi par `conditionId:outcome`) — cle Redis `crypto-reentry:{conditionId}:{YES|NO}` via `packages/core/src/redis/crypto-reentry-throttle.ts`.
-4. Calcul de la taille de la position via `getCryptoAlgoSizingParams` (sizing dedie crypto-algo : `fixed_usdc` ou `fixed_shares`), plafonnee par `getCryptoMaxPositionSizeUsdc`.
+4. Calcul de la taille de la position via `getCryptoAlgoSizingParams` (sizing dedie crypto-algo : `fixed_pusd` ou `fixed_shares`), plafonnee par `getCryptoMaxPositionSizePusd`.
 5. Reservation transactionnelle du capital (`ReservationService`).
 6. Emission d'un `OrderSignal` FAK dans la file Redis **`algo-order-signals`** (file dediee, isolee du copy-trading `order-signals`).
 
@@ -105,8 +105,8 @@ Le crypto-algo dispose de son propre mode de sizing, independant du copy trading
 
 | Parametre | Defaut | Description |
 |-----------|--------|-------------|
-| `cryptoAlgoSizingMode` | `fixed_usdc` | Mode de sizing : `fixed_usdc` ou `fixed_shares` |
-| `cryptoAlgoEntryUsdcAmount` | 10 | Montant fixe en USDC par entree (mode `fixed_usdc`) |
+| `cryptoAlgoSizingMode` | `fixed_pusd` | Mode de sizing : `fixed_pusd` ou `fixed_shares` |
+| `cryptoAlgoEntryPusdAmount` | 10 | Montant fixe en pUSD par entree (mode `fixed_pusd`) |
 | `cryptoAlgoEntryShareCount` | null | Nombre fixe de shares par entree (mode `fixed_shares`) |
 
 Resolution via `getCryptoAlgoSizingParams()` dans `packages/core/src/risk/crypto-algo-tunables.ts`.
@@ -170,10 +170,10 @@ Les variables suivantes sont configurees au niveau du monorepo ou dans le fichie
 - `cryptoAlgoSlQuotaEnabled` : Active le quota SL par marche. Quand active, les sorties SL consomment un slot des le declenchement ; une seule position algo ouverte par marche ; blocage cross-outcome une fois le quota atteint. Defaut : `false`.
 - `cryptoAlgoSlQuotaPerMarket` : Nombre maximum de sorties SL declenchees sur un meme marche avant blocage des nouvelles entrees. Defaut : `1`.
 - `cryptoAlgoSlQuotaCacheTtlSeconds` : TTL du cache du compteur SL (secondes). Evite de frapper la DB a chaque cycle d'evaluation. Defaut : `30`.
-- `cryptoAlgoSizingMode` : Mode de sizing dedie crypto-algo (`fixed_usdc` ou `fixed_shares`, defaut `fixed_usdc`).
-- `cryptoAlgoEntryUsdcAmount` : Montant fixe en USDC par entree crypto-algo (defaut 10).
+- `cryptoAlgoSizingMode` : Mode de sizing dedie crypto-algo (`fixed_pusd` ou `fixed_shares`, defaut `fixed_pusd`).
+- `cryptoAlgoEntryPusdAmount` : Montant fixe en pUSD par entree crypto-algo (defaut 10).
 - `cryptoAlgoEntryShareCount` : Nombre fixe de shares par entree crypto-algo (nullable, pour mode `fixed_shares`).
-- Plafond de taille : `getCryptoMaxPositionSizeUsdc(crypto, mode)` (parametres sim/real sur `CryptoConfig`).
+- Plafond de taille : `getCryptoMaxPositionSizePusd(crypto, mode)` (parametres sim/real sur `CryptoConfig`).
 
 ### Tunables strategie & pipeline (UI CryptoAlgo, migrations `0040` + `0056`)
 

@@ -16,7 +16,7 @@ function ctx(): RunContext {
     params: {
       slippageBps: 0,
       maxConcurrentPositions: 10,
-      entryUsdc: 10,
+      entryPusd: 10,
       capital: 1000,
       strategyEnv: 'sim',
     },

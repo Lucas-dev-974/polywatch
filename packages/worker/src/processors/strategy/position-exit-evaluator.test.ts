@@ -56,7 +56,7 @@ function closeLogic(
   trigger: number,
   closure: number,
   peakClosure: number,
-  projectedRealizedPnlUsdc: number,
+  projectedRealizedPnlPusd: number,
   executableBidVwap: number,
   liquidityStatus: 'ok' | 'partial' | 'illiquid',
   ...rest: unknown[]
@@ -69,7 +69,7 @@ function closeLogic(
     trigger,
     closure,
     peakClosure,
-    projectedRealizedPnlUsdc,
+    projectedRealizedPnlPusd,
     executableBidVwap,
     liquidityStatus,
     ...(rest as []),

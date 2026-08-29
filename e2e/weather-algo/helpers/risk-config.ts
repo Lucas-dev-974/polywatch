@@ -22,7 +22,7 @@ export async function configureWeatherAlgoRisk(
     'weather-forecast': {
       ...DEFAULT_WEATHER_STRATEGY_PARAMS,
       minEdge: 0.05,
-      entryUsdc: 10,
+      entryPusd: 10,
     },
   });
   // Stratégies + params par environnement (sim/réel). Les colonnes legacy
@@ -33,14 +33,14 @@ export async function configureWeatherAlgoRisk(
     'weather-forecast': {
       ...DEFAULT_WEATHER_STRATEGY_PARAMS,
       minEdge: 0.05,
-      entryUsdc: 10,
+      entryPusd: 10,
     },
   });
   existing.realWeatherAlgoStrategyParams = serializeWeatherAlgoStrategyParams({
     'weather-forecast': {
       ...DEFAULT_WEATHER_STRATEGY_PARAMS,
       minEdge: 0.05,
-      entryUsdc: 10,
+      entryPusd: 10,
     },
   });
   Object.assign(existing, overrides ?? {});

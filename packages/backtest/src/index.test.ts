@@ -6,8 +6,8 @@ function baseConfig(): WeatherConfig {
   return {
     weatherAlgoEnabled: true,
     weatherAlgoMinEdge: 0.1,
-    weatherAlgoSizingMode: 'fixed_usdc',
-    weatherAlgoEntryUsdc: 10,
+    weatherAlgoSizingMode: 'fixed_pusd',
+    weatherAlgoEntryPusd: 10,
     weatherAlgoStrategyParams: '{}',
   } as unknown as WeatherConfig;
 }
@@ -35,7 +35,7 @@ describe('applyConfigOverrides', () => {
 
   it('throws on non-primitive override values', () => {
     expect(() =>
-      applyConfigOverrides(baseConfig(), { weatherAlgoSizingMode: ['fixed_usdc'] }),
+      applyConfigOverrides(baseConfig(), { weatherAlgoSizingMode: ['fixed_pusd'] }),
     ).toThrow(/primitive/);
   });
 

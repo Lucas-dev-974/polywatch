@@ -3,6 +3,7 @@ import {
   getStrategyParams,
   getStrategyParamsForMode,
   resolveEnabledWeatherStrategiesForMode,
+  parseWeatherAlgoStrategyParams,
   sanitizeWeatherStrategyParams,
   validateWeatherStrategyParamsUpdate,
   parseWeatherAlgoStrategies,
@@ -11,6 +12,7 @@ import {
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   WEATHER_STRATEGY_IDS,
   isKnownWeatherStrategyId,
+  type WeatherStrategyParamsMap,
 } from './strategy-catalog.js';
 
 describe('strategy-catalog', () => {
@@ -73,16 +75,16 @@ describe('strategy-catalog', () => {
     expect(params.minYesPrice).toBe(0.5);
   });
 
-  it('getStrategyParams falls back to default when stored entryUsdc is null', () => {
+  it('getStrategyParams falls back to default when stored entryPusd is null', () => {
     const params = getStrategyParams(
       {
         weatherAlgoStrategyParams: JSON.stringify({
-          'weather-forecast': { entryUsdc: null },
+          'weather-forecast': { entryPusd: null },
         }),
       },
       'weather-forecast',
     );
-    expect(params.entryUsdc).toBe(10);
+    expect(params.entryPusd).toBe(10);
   });
   it('parseWeatherAlgoStrategies falls back to default on invalid JSON', () => {
     expect(parseWeatherAlgoStrategies('not-json')).toEqual([WEATHER_FORECAST_STRATEGY_ID]);
@@ -99,7 +101,7 @@ describe('strategy-catalog', () => {
     );
     expect(params.minEdge).toBe(0.2);
     expect(params.maxForecastStd).toBeNull();
-    expect(params.entryUsdc).toBe(10);
+    expect(params.entryPusd).toBe(10);
     expect(params.maxOpenPositions).toBe(10);
   });
 
@@ -154,6 +156,52 @@ describe('strategy-catalog', () => {
         'unknown-strategy': { x: 1 },
       }),
     ).toEqual({});
+  });
+
+  it('parseWeatherAlgoStrategyParams migrates legacy *Usdc keys and fixed_usdc', () => {
+    const parsed = parseWeatherAlgoStrategyParams(
+      JSON.stringify({
+        'weather-forecast': {
+          entryUsdc: 25,
+          maxExposureUsdc: 400,
+          maxDailyLossUsdc: 50,
+          maxPositionSizeUsdc: 80,
+          sizingMode: 'fixed_usdc',
+          minEdge: 0.12,
+        },
+      }),
+    );
+    expect(parsed['weather-forecast']).toMatchObject({
+      entryPusd: 25,
+      maxExposurePusd: 400,
+      maxDailyLossPusd: 50,
+      maxPositionSizePusd: 80,
+      sizingMode: 'fixed_pusd',
+      minEdge: 0.12,
+    });
+    expect(parsed['weather-forecast']).not.toHaveProperty('entryUsdc');
+  });
+
+  it('getStrategyParams prefers already-renamed *Pusd keys over legacy *Usdc', () => {
+    const params = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          'weather-forecast': { entryPusd: 15, entryUsdc: 99, sizingMode: 'fixed_usdc' },
+        }),
+      },
+      'weather-forecast',
+    );
+    expect(params.entryPusd).toBe(15);
+    expect(params.sizingMode).toBe('fixed_pusd');
+  });
+
+  it('sanitizeWeatherStrategyParams heals legacy keys instead of dropping them', () => {
+    const out = sanitizeWeatherStrategyParams({
+      'weather-forecast': { entryUsdc: 30, sizingMode: 'fixed_usdc' },
+    } as unknown as WeatherStrategyParamsMap);
+    expect(out['weather-forecast']?.entryPusd).toBe(30);
+    expect(out['weather-forecast']?.sizingMode).toBe('fixed_pusd');
+    expect(out['weather-forecast']).not.toHaveProperty('entryUsdc');
   });
 
   it('validateWeatherStrategyParamsUpdate rejects unknown strategy id in list', () => {

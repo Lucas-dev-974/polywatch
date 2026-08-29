@@ -23,7 +23,7 @@ describe('resumeEntryFromReservation', () => {
       signalId: 'sig-1',
       reason: 'ALGO_OPEN',
       reservation: {
-        reservedNotionalUsdc: 2,
+        reservedNotionalPusd: 2,
         reservationId: 10,
         copiedPositionId: 1,
         expiresAt: new Date(Date.now() + 120_000),
@@ -54,7 +54,7 @@ describe('resumeEntryFromReservation', () => {
       signalId: 'sig-1',
       reason: 'ALGO_OPEN',
       reservation: {
-        reservedNotionalUsdc: 2,
+        reservedNotionalPusd: 2,
         reservationId: 10,
         copiedPositionId: 1,
         expiresAt: new Date(Date.now() + 120_000),
@@ -84,7 +84,7 @@ describe('resumeEntryFromReservation', () => {
       signalId: 'sig-1',
       reason: 'ALGO_OPEN',
       reservation: {
-        reservedNotionalUsdc: 6,
+        reservedNotionalPusd: 6,
         reservationId: 10,
         copiedPositionId: 1,
         expiresAt: new Date(Date.now() + 120_000),
@@ -123,7 +123,7 @@ describe('resumeEntryFromReservation', () => {
       signalId: 'sig-copy',
       reason: 'COPY_OPEN',
       reservation: {
-        reservedNotionalUsdc: 6,
+        reservedNotionalPusd: 6,
         reservationId: 10,
         copiedPositionId: 1,
         expiresAt: new Date(Date.now() + 120_000),

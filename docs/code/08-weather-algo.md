@@ -175,7 +175,7 @@ cooldown post-exec → throttle re-entry
 ville+date → **kill-switch gate** (`RiskService.checkKillSwitch('weather', mode,
 signal.strategyId)` ; si `blockEntries` → skip `'Kill-switch actif
 (block_entries)'`) → resume réservation → cash réel → sizing (`bag.sizingMode` :
-`fixed_usdc` via `bag.entryUsdc` ou `fixed_shares` via `bag.fixedShareCount`) + MOS / depth retry (`bag.entryDepthRetryMax` /
+`fixed_pusd` via `bag.entryPusd` ou `fixed_shares` via `bag.fixedShareCount`) + MOS / depth retry (`bag.entryDepthRetryMax` /
 `bag.entryDepthRetryDelayMs`) → reserve (`strategyId` + `mode` persistés sur
 `CopiedPosition`) + enqueue → snapshot
 forecast ASAP (`maxPositionsPerCityDate` par ville+date+stratégie+**mode**, `strategyId` persisté sur
@@ -189,9 +189,9 @@ copy-trading). Le `RealExecutor` n'envoie **jamais** de GTC resting — FOK si
 BUY arrondie **au tick supérieur**, garde-fou slippage **tick-aware** (plancher
 `MIN_SLIPPAGE_TICKS = 2` ticks, pour que 1 tick à 4 ¢ ne soit pas rejeté comme
 25 % de slippage). En **real**, le pipeline bump la quantité pour que le
-notionnel atteigne `MIN_ORDER_USDC` (1 USDC) — 5 parts × 0.14 $ = 0.70 $ est
+notionnel atteigne `MIN_ORDER_PUSD` (1 pUSD) — 5 parts × 0.14 $ = 0.70 $ est
 sous le minimum CLOB live, d'où des FAK unmatched ; skip si le bump dépasse
-cash ou `maxPositionSizeUsdc`. Le `RealExecutor` fait un `forceRefreshBook`
+cash ou `maxPositionSizePusd`. Le `RealExecutor` fait un `forceRefreshBook`
 REST **avant** le prepare. Les BUY `WEATHER_OPEN` paient **+1 tick** après le
 guard slippage pour rendre l'ordre marketable sur un carnet YES fin.
 

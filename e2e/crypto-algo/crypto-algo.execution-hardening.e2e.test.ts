@@ -45,7 +45,7 @@ function sampleJob(overrides?: Partial<OrderSignal>): OrderSignal {
     assetId: '0xasset',
     side: 'BUY',
     quantity: 5,
-    usdcAmount: 3,
+    pusdAmount: 3,
     orderType: 'FOK',
     referenceVwap: 0.6,
     reason: 'ALGO_OPEN',

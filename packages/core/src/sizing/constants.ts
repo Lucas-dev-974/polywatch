@@ -7,5 +7,5 @@
  */
 export const MIN_ORDER_SHARES = 1;
 
-/** Minimum collateral (USDC) for a reliable live FAK entry on Polymarket. */
-export const MIN_ORDER_USDC = 1;
+/** Minimum collateral (pUSD) for a reliable live FAK entry on Polymarket. */
+export const MIN_ORDER_PUSD = 1;

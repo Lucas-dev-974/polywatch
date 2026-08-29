@@ -195,7 +195,7 @@ Statuts reconciliables (real) : `placing`, `partial`, `failed` recent avec
 
 ### `PositionReservation` (`position_reservations`)
 Reservation transitoire de capital creee pour `COPY_OPEN`/`COPY_INCREASE`.
-`reservedNotionalUsdc`, `expiresAt` (TTL 180 s). Nettoyee par le
+`reservedNotionalPusd`, `expiresAt` (TTL 180 s). Nettoyee par le
 `ReservationJanitor`.
 
 ### `Market` (`markets`)

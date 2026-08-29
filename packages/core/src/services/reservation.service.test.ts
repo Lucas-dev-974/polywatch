@@ -55,7 +55,7 @@ describe('ReservationService', () => {
       conditionId: 'c1',
       assetId: 'a1',
       mode: 'sim',
-      notionalUsdc: 50,
+      notionalPusd: 50,
       reason: 'COPY_OPEN',
       outcome: 'Yes',
     });
@@ -90,14 +90,14 @@ describe('ReservationService', () => {
       conditionId: 'c3',
       assetId: 'a3',
       mode: 'sim',
-      notionalUsdc: 50,
+      notionalPusd: 50,
       reason: 'COPY_OPEN',
       outcome: 'Yes',
     });
 
     // If per-position prices were used: 80 + 10 + 50 = 140
     // If a single shared price (e.g. 2.00 via old markBidVwap) was used: (100+200)*2 + 50 = 650
-    // Both are under maxExposureUsdc (1000), so reserve succeeds either way.
+    // Both are under maxExposurePusd (1000), so reserve succeeds either way.
     // Verify both original entry prices are preserved.
     const posA = await posRepo.findOne({ where: { conditionId: 'c1' } });
     const posB = await posRepo.findOne({ where: { conditionId: 'c2' } });
@@ -124,7 +124,7 @@ describe('ReservationService', () => {
         conditionId: 'c-cash',
         assetId: 'a-cash',
         mode: 'sim',
-        notionalUsdc: 50,
+        notionalPusd: 50,
         reason: 'COPY_OPEN',
         outcome: 'Yes',
       }),
@@ -145,7 +145,7 @@ describe('ReservationService', () => {
         conditionId: 'c-off',
         assetId: 'a-off',
         mode: 'sim',
-        notionalUsdc: 10,
+        notionalPusd: 10,
         reason: 'COPY_OPEN',
         outcome: 'Yes',
       }),
@@ -165,7 +165,7 @@ describe('ReservationService', () => {
       conditionId: 'c-algo',
       assetId: 'a-algo',
       mode: 'sim',
-      notionalUsdc: 10,
+      notionalPusd: 10,
       reason: 'ALGO_OPEN',
       outcome: 'Yes',
     });
@@ -185,7 +185,7 @@ describe('ReservationService', () => {
       conditionId: 'c-weather',
       assetId: 'a-weather',
       mode: 'sim',
-      notionalUsdc: 10,
+      notionalPusd: 10,
       reason: 'WEATHER_OPEN',
       outcome: 'Yes',
     });
@@ -224,7 +224,7 @@ describe('ReservationService', () => {
     );
 
     // Reserve a position for strategy A. Its exposure must only include
-    // strategy A positions (80), not strategy B (100). maxExposureUsdc
+    // strategy A positions (80), not strategy B (100). maxExposurePusd
     // default is 1000, so this succeeds either way; the assertion is that the
     // reservation is created and the strategyId is persisted.
     const result = await service.reserve({
@@ -233,7 +233,7 @@ describe('ReservationService', () => {
       conditionId: 'c-a-res',
       assetId: 'a-a-res',
       mode: 'sim',
-      notionalUsdc: 10,
+      notionalPusd: 10,
       reason: 'WEATHER_OPEN',
       outcome: 'Yes',
       strategyId: 'weather-forecast',
@@ -248,13 +248,13 @@ describe('ReservationService', () => {
   it('allows sim ALGO_OPEN above copy max position size when under crypto max', async () => {
     const copyRepo = ds.getRepository(CopyConfig);
     const copy = (await copyRepo.findOne({ where: {} }))!;
-    copy.simMaxPositionSizeUsdc = 25;
+    copy.simMaxPositionSizePusd = 25;
     await copyRepo.save(copy);
 
     const cryptoRepo = ds.getRepository(CryptoConfig);
     const crypto = (await cryptoRepo.findOne({ where: {} }))!;
     crypto.cryptoAlgoEnabled = true;
-    crypto.cryptoAlgoMaxPositionSizeUsdc = 200;
+    crypto.cryptoAlgoMaxPositionSizePusd = 200;
     await cryptoRepo.save(crypto);
     invalidateConfigCaches();
 
@@ -264,7 +264,7 @@ describe('ReservationService', () => {
       conditionId: 'c-crypto-limit',
       assetId: 'a-crypto-limit',
       mode: 'sim',
-      notionalUsdc: 80,
+      notionalPusd: 80,
       reason: 'ALGO_OPEN',
       outcome: 'Yes',
     });
@@ -290,7 +290,7 @@ describe('ReservationService', () => {
         conditionId: 'c-real-off',
         assetId: 'a-real-off',
         mode: 'real',
-        notionalUsdc: 10,
+        notionalPusd: 10,
         reason: 'COPY_OPEN',
         outcome: 'Yes',
       }),
@@ -316,7 +316,7 @@ describe('ReservationService', () => {
       conditionId: 'c-real-algo',
       assetId: 'a-real-algo',
       mode: 'real',
-      notionalUsdc: 10,
+      notionalPusd: 10,
       reason: 'ALGO_OPEN',
       outcome: 'Yes',
     });
@@ -335,7 +335,7 @@ describe('ReservationService', () => {
       conditionId: 'c-first',
       assetId: 'a-first',
       mode: 'sim',
-      notionalUsdc: 60,
+      notionalPusd: 60,
       reason: 'COPY_OPEN',
       outcome: 'Yes',
     });
@@ -347,7 +347,7 @@ describe('ReservationService', () => {
         conditionId: 'c-second',
         assetId: 'a-second',
         mode: 'sim',
-        notionalUsdc: 50,
+        notionalPusd: 50,
         reason: 'COPY_OPEN',
         outcome: 'Yes',
       }),
@@ -363,7 +363,7 @@ describe('ReservationService', () => {
       conditionId: 'c-expired',
       assetId: 'a-expired',
       mode: 'sim',
-      notionalUsdc: 10,
+      notionalPusd: 10,
       reason: 'ALGO_OPEN',
       outcome: 'Yes',
     });
@@ -393,7 +393,7 @@ describe('ReservationService', () => {
       conditionId: 'c-release',
       assetId: 'a-release',
       mode: 'sim',
-      notionalUsdc: 10,
+      notionalPusd: 10,
       reason: 'ALGO_OPEN',
       outcome: 'Yes',
     });
@@ -416,7 +416,7 @@ describe('ReservationService', () => {
       conditionId: 'c-inflight',
       assetId: 'a-inflight',
       mode: 'sim',
-      notionalUsdc: 10,
+      notionalPusd: 10,
       reason: 'ALGO_OPEN',
       outcome: 'Yes',
     });

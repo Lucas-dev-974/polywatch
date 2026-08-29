@@ -40,15 +40,15 @@ function baseGlobal(): GlobalConfig {
 function baseCopy(): CopyConfig {
   return {
     id: 1,
-    simSizingMode: 'fixed_usdc',
+    simSizingMode: 'fixed_pusd',
     simCopyRatio: 1,
-    simEntryUsdcAmount: 10,
+    simEntryPusdAmount: 10,
     simEntryShareCount: 5,
     simKellyFraction: 0.25,
-    simRiskBudgetUsdc: 10,
+    simRiskBudgetPusd: 10,
     simDefaultWinProbability: 0.55,
     simInitialCapitalCopy: 10000,
-    simMaxPositionSizeUsdc: 200,
+    simMaxPositionSizePusd: 200,
     simCopyIncreaseEnabled: true,
     simCopyDecreaseEnabled: true,
     simMaxIncreasesPerPosition: 0,
@@ -68,8 +68,8 @@ function baseCopy(): CopyConfig {
     simPreCloseKeepBidThreshold: 0.80,
     simMinTimeToClose: 0,
     simMaxOpenPositions: 10,
-    simMaxExposureUsdc: 1000,
-    simMaxDailyLossUsdc: 100,
+    simMaxExposurePusd: 1000,
+    simMaxDailyLossPusd: 100,
     simKillSwitchAction: 'block_entries',
     simAllowedMarketTags: '["politics"]',
     simSignalScoreSizingEnabled: true,
@@ -129,7 +129,7 @@ describe('extractRealConfigSnapshotFromIsolated', () => {
   it('includes all real keys, realCashOverride, and parses market tags', () => {
     const copy = {
       ...baseCopy(),
-      realSizingMode: 'fixed_usdc',
+      realSizingMode: 'fixed_pusd',
       realCopyRatio: 0.5,
       realAllowedMarketTags: '["crypto"]',
     } as CopyConfig;

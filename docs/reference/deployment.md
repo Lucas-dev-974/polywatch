@@ -187,7 +187,7 @@ Pour le premier ordre, utiliser un montant minimal :
 UPDATE copy_config SET real_entry_usdc_amount = 5;  -- $5 USD
 ```
 
-Ou `PUT /api/config/copy` avec `{ "realEntryUsdcAmount": 5 }`.
+Ou `PUT /api/config/copy` avec `{ "realEntryPusdAmount": 5 }`.
 
 ---
 

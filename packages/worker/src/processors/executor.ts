@@ -479,13 +479,13 @@ export class Executor {
     }
 
     const { prepared } = preparedResult;
-    const marketAmountUsdc =
+    const marketAmountPusd =
       signal.side === 'BUY'
         ? Number((signal.quantity * prepared.limitPrice).toFixed(6))
         : 0;
 
     if (tunables.walletPreflightEnabled && signal.side === 'BUY') {
-      const preflight = await runSimWalletPreflight(signal, marketAmountUsdc);
+      const preflight = await runSimWalletPreflight(signal, marketAmountPusd);
       if (preflight && !preflight.ok) {
         return failedExecution(signal, preflight.error);
       }
@@ -517,7 +517,7 @@ export class Executor {
 
     const matchQuantity =
       signal.side === 'BUY' && prepared.limitPrice > 0
-        ? marketAmountUsdc / prepared.limitPrice
+        ? marketAmountPusd / prepared.limitPrice
         : signal.quantity;
 
     const fak = simulateFakFill(

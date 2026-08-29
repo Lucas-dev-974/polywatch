@@ -8,7 +8,7 @@ import {
 } from './settings-fields';
 
 const SIZING_MODE_LABELS: Record<SizingMode, string> = {
-  fixed_usdc: 'Montant fixe (pUSD)',
+  fixed_pusd: 'Montant fixe (pUSD)',
   fixed_shares: 'Nombre fixe de shares',
   fixed_ratio: 'Ratio du trader',
   proportional_capital: 'Proportionnel au capital',
@@ -47,10 +47,10 @@ export function SizingSection(props: {
 }) {
   const modeKey = modeSettingKey(props.prefix, 'SizingMode');
   const ratioKey = modeSettingKey(props.prefix, 'CopyRatio');
-  const amountKey = modeSettingKey(props.prefix, 'EntryUsdcAmount');
+  const amountKey = modeSettingKey(props.prefix, 'EntryPusdAmount');
   const shareCountKey = modeSettingKey(props.prefix, 'EntryShareCount');
   const kellyFractionKey = modeSettingKey(props.prefix, 'KellyFraction');
-  const riskBudgetKey = modeSettingKey(props.prefix, 'RiskBudgetUsdc');
+  const riskBudgetKey = modeSettingKey(props.prefix, 'RiskBudgetPusd');
   const winProbKey = modeSettingKey(props.prefix, 'DefaultWinProbability');
   const signalScoreKey = modeSettingKey(props.prefix, 'SignalScoreSizingEnabled');
   const mode = () => props.config[modeKey];
@@ -71,7 +71,7 @@ export function SizingSection(props: {
           onChange={(e) => {
             const nextMode = e.currentTarget.value as SizingMode;
             const patch: Partial<EnvSettings> = { [modeKey]: nextMode };
-            if (nextMode === 'fixed_usdc' && props.config[amountKey] <= 0) {
+            if (nextMode === 'fixed_pusd' && props.config[amountKey] <= 0) {
               patch[amountKey] = 10;
             }
             if (nextMode === 'fixed_shares' && props.config[shareCountKey] <= 0) {
@@ -91,7 +91,7 @@ export function SizingSection(props: {
         hint="Si activé, la mise est multipliée par un score qualité (spread, échéance…). Désactivez pour appliquer le montant sizing brut (ex. montant fixe exact)."
         onChange={(checked) => props.onChange({ [signalScoreKey]: checked })}
       />
-      <Show when={mode() === 'fixed_usdc'}>
+      <Show when={mode() === 'fixed_pusd'}>
         <SizingField
           label="Montant par entrée (pUSD)"
           value={props.config[amountKey]}
@@ -275,8 +275,8 @@ export function RiskSection(props: {
   onChange: (patch: Partial<EnvSettings>) => void;
 }) {
   const maxOpenKey = modeSettingKey(props.prefix, 'MaxOpenPositions');
-  const maxExposureKey = modeSettingKey(props.prefix, 'MaxExposureUsdc');
-  const maxDailyLossKey = modeSettingKey(props.prefix, 'MaxDailyLossUsdc');
+  const maxExposureKey = modeSettingKey(props.prefix, 'MaxExposurePusd');
+  const maxDailyLossKey = modeSettingKey(props.prefix, 'MaxDailyLossPusd');
   const killSwitchKey = modeSettingKey(props.prefix, 'KillSwitchAction');
 
   return (

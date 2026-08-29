@@ -70,7 +70,7 @@ export interface BacktestRunParamsInput {
   strategyEnv?: 'sim' | 'real';
   configOverrides?: Record<string, unknown>;
   capital?: number;
-  entryUsdc?: number;
+  entryPusd?: number;
   slippageBps?: number;
   maxConcurrentPositions?: number;
   fidelityMinutes?: number;

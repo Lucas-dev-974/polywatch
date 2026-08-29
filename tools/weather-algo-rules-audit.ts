@@ -142,7 +142,7 @@ async function main() {
           reentryMs,
           closeBeforeH,
           driftThreshold,
-          entryUsdc: cfg?.weather_algo_entry_usdc,
+          entryPusd: cfg?.weather_algo_entry_pusd,
           maxOpen: cfg?.weather_algo_max_open_positions,
           slBid: cfg?.weather_algo_sl_bid_points,
           tpBid: cfg?.weather_algo_tp_bid_points,

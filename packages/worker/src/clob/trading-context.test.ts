@@ -78,10 +78,14 @@ describe('ensureOrderClobApprovals', () => {
     expect(syncDepositWalletCollateralCache).toHaveBeenCalledWith(clobClient);
   });
 
-  it('maps HTTP failure to clob_approvals_failed', async () => {
+  it('maps HTTP failure to clob_approvals_failed with 502 body detail', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 502 }),
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => ({ error: 'approval_failed', detail: 'relayer timeout' }),
+      }),
     );
 
     const result = await ensureOrderClobApprovals({
@@ -89,11 +93,37 @@ describe('ensureOrderClobApprovals', () => {
       side: 'BUY',
     });
 
-    expect(result).toEqual({ ok: false, error: 'clob_approvals_failed' });
+    expect(result).toEqual({
+      ok: false,
+      error: 'clob_approvals_failed: approval_failed: relayer timeout',
+    });
     expect(syncDepositWalletCollateralCache).not.toHaveBeenCalled();
   });
 
-  it('maps network failure to clob_approvals_failed', async () => {
+  it('maps HTTP failure without JSON body to http status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => {
+          throw new Error('no json');
+        },
+      }),
+    );
+
+    const result = await ensureOrderClobApprovals({
+      negRisk: true,
+      side: 'BUY',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'clob_approvals_failed: http 502',
+    });
+  });
+
+  it('maps network failure to clob_approvals_failed with message', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('timeout')));
 
     const result = await ensureOrderClobApprovals({
@@ -101,6 +131,9 @@ describe('ensureOrderClobApprovals', () => {
       side: 'SELL',
     });
 
-    expect(result).toEqual({ ok: false, error: 'clob_approvals_failed' });
+    expect(result).toEqual({
+      ok: false,
+      error: 'clob_approvals_failed: timeout',
+    });
   });
 });

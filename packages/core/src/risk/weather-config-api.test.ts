@@ -65,4 +65,24 @@ describe('weather-config-api', () => {
     expect(update.simWeatherAlgoStrategies).toBe('["weather-forecast"]');
     expect(update.realWeatherAlgoStrategies).toBe('["weather-highest-yes"]');
   });
+
+  it('presents a legacy multi-id bag clamped to one (catalogue order)', () => {
+    const presented = presentWeatherConfigForApi(
+      baseConfig({
+        simWeatherAlgoStrategies: '["weather-highest-yes","weather-forecast"]',
+        realWeatherAlgoStrategies: '["weather-forecast-aligned","weather-highest-yes"]',
+      }),
+    );
+    expect(presented.simWeatherAlgoStrategies).toEqual(['weather-forecast']);
+    expect(presented.realWeatherAlgoStrategies).toEqual(['weather-forecast-aligned']);
+  });
+
+  it('clamps a multi-id array to one on persist', () => {
+    const update = toWeatherConfigEntityUpdate({
+      simWeatherAlgoStrategies: ['weather-highest-yes', 'weather-forecast'],
+      realWeatherAlgoStrategies: ['weather-forecast-aligned', 'weather-highest-yes'],
+    });
+    expect(update.simWeatherAlgoStrategies).toBe('["weather-forecast"]');
+    expect(update.realWeatherAlgoStrategies).toBe('["weather-forecast-aligned"]');
+  });
 });

@@ -9,6 +9,8 @@ import {
 } from '../../lib/position';
 import {
   formatBucketLabel,
+  isNeverOpenedCancelled,
+  weatherHistoryCloseReasonLabel,
   weatherStrategyLabel,
   type WeatherBucketBounds,
 } from '../../lib/weather-position';
@@ -24,25 +26,45 @@ interface WeatherPositionRowProps {
 export function WeatherPositionRow(props: WeatherPositionRowProps) {
   const pos = props.pos;
   const isOpen = pos.status === 'open';
+  const isCancelled = pos.status === 'cancelled';
+  const isFailedOpen = isNeverOpenedCancelled(pos);
   const wf = pos.weatherForecast;
-  const invested = isOpen
-    ? pos.quantity * pos.entryPrice
-    : pos.entryInvestedAmount != null && pos.entryInvestedAmount > 0
-      ? pos.entryInvestedAmount
-      : pos.quantity * pos.entryPrice;
+  const invested = isFailedOpen
+    ? 0
+    : isOpen
+      ? pos.quantity * pos.entryPrice
+      : pos.entryInvestedAmount != null && pos.entryInvestedAmount > 0
+        ? pos.entryInvestedAmount
+        : pos.quantity * pos.entryPrice;
   const pnl = isOpen ? pos.unrealizedPnl : pos.realizedPnl;
-  const pct = pnlPercent(pnl, invested);
-  const qty = isOpen
-    ? pos.quantity
-    : pos.quantity <= 0 && pos.entryQuantityFilled != null && pos.entryQuantityFilled > 0
-      ? pos.entryQuantityFilled
-      : pos.quantity;
-  const dateLabel = isOpen ? 'Ouvert le' : 'Clôturé le';
+  const pct = isFailedOpen ? undefined : pnlPercent(pnl, invested);
+  const qty = isFailedOpen
+    ? 0
+    : isOpen
+      ? pos.quantity
+      : pos.quantity <= 0 && pos.entryQuantityFilled != null && pos.entryQuantityFilled > 0
+        ? pos.entryQuantityFilled
+        : pos.quantity;
+  const qtyLabel = isFailedOpen ? '—' : qty.toFixed(4);
+  const investedLabel = isFailedOpen ? '—' : invested.toFixed(2) + ' pUSD';
+  const entryPriceLabel = isFailedOpen ? '—' : pos.entryPrice.toFixed(3);
+  const closeReasonLabel = weatherHistoryCloseReasonLabel(pos.closeReason);
+  const dateLabel = isFailedOpen
+    ? 'Échec le'
+    : isOpen
+      ? 'Ouvert le'
+      : isCancelled
+        ? 'Annulé le'
+        : 'Clôturé le';
   const dateValue = isOpen ? pos.openedAt : pos.closedAt;
   const bidValue =
     isOpen && pos.executableBidVwap != null && pos.executableBidVwap > 0
       ? pos.executableBidVwap.toFixed(3)
       : undefined;
+  const statusBadge = isFailedOpen ? 'Entrée échouée' : isCancelled ? 'Annulée' : null;
+  const cashPnl = isOpen ? (pos.executableCashPnl ?? null) : null;
+  const cashPnlLabel = cashPnl != null ? formatPnlAmount(cashPnl, true) : undefined;
+  const cashPnlClass = cashPnl != null ? genericPnlClass(cashPnl) : '';
   return (
     <div class="weather-history-pos-item">
       <div class="weather-history-pos-item__row">
@@ -50,15 +72,20 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
         <span class={`algo-mode-badge ${pos.mode}`}>
           {pos.mode === 'real' ? 'Réel' : pos.mode === 'sim' ? 'Sim' : pos.mode}
         </span>
+        <Show when={statusBadge}>
+          <span class="algo-badge">{statusBadge}</span>
+        </Show>
         <Show when={weatherStrategyLabel(pos.strategyId)}>
           {(label) => <span class="algo-strategy-badge">{label()}</span>}
         </Show>
-        <span class={`text-mono ${genericPnlClass(pnl)}`}>
-          {formatPnlAmount(pnl, true)}
-          <Show when={pct != null}>
-            <span class="algo-pnl-pct"> ({formatPnlPercent(pct)})</span>
-          </Show>
-        </span>
+        <Show when={!isFailedOpen}>
+          <span class={`text-mono ${genericPnlClass(pnl)}`}>
+            {formatPnlAmount(pnl, true)}
+            <Show when={pct != null}>
+              <span class="algo-pnl-pct"> ({formatPnlPercent(pct)})</span>
+            </Show>
+          </span>
+        </Show>
       </div>
       <div class="weather-history-pos-item__row">
         <WeatherPositionMetric
@@ -72,17 +99,22 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
         <WeatherPositionMetric
           label="Qté"
           className="text-mono"
-          value={qty.toFixed(4)}
+          value={qtyLabel}
         />
         <WeatherPositionMetric
           label="Mise investie"
           className="text-mono"
-          value={`${invested.toFixed(2)} pUSD`}
+          value={investedLabel}
         />
         <WeatherPositionMetric
           label="Prix entrée"
           className="text-mono"
-          value={pos.entryPrice.toFixed(3)}
+          value={entryPriceLabel}
+        />
+        <WeatherPositionMetric
+          label="PnL cash"
+          className={`text-mono ${cashPnlClass}`}
+          value={cashPnlLabel}
         />
         <WeatherPositionMetric
           label="Bid actuel"
@@ -102,7 +134,7 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
         <WeatherPositionMetric
           label="Raison"
           className="text-mono text-sm badge badge-close-reason"
-          value={pos.closeReason ?? undefined}
+          value={closeReasonLabel}
         />
       </div>
       <div class="weather-history-pos-item__row">

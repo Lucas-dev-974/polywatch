@@ -1,3 +1,5 @@
+import { closeExecutionErrorLabel } from './execution';
+
 /**
  * Formatting helpers for weather-algo position cards.
  */
@@ -26,10 +28,58 @@ export function weatherStrategyLabel(strategyId: string | null | undefined): str
   return WEATHER_STRATEGY_LABELS[strategyId] ?? strategyId;
 }
 
+/** Cancelled pending that never filled — a failed open, not a history position. */
+export function isNeverOpenedCancelled(input: {
+  status: string;
+  openedAt?: string | null;
+}): boolean {
+  return input.status === 'cancelled' && (input.openedAt == null || input.openedAt === '');
+}
+
+export function weatherHistoryCloseReasonLabel(
+  closeReason: string | null | undefined,
+): string | undefined {
+  if (!closeReason) return undefined;
+  return closeExecutionErrorLabel(closeReason) ?? closeReason;
+}
+
+/**
+ * Positions tab chips: Tous / Live / Sim.
+ * Stored CopiedPosition.mode is `real` | `sim`; the Live chip value is `live`.
+ */
+export function matchesWeatherPosMode(
+  posMode: string,
+  filter: 'all' | 'live' | 'sim',
+): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'sim') return posMode === 'sim';
+  return posMode === 'real' || posMode === 'live';
+}
+
 function unitSuffix(unit: WeatherUnit): string {
   if (unit === 'fahrenheit') return '°F';
   if (unit === 'celsius') return '°C';
   return '';
+}
+
+/** Inverse of the question parser's fToC (1 decimal). */
+function cToF(c: number): number {
+  return Math.round((((c * 9) / 5) + 32) * 10) / 10;
+}
+
+/**
+ * Bucket numbers are stored in Celsius (parser converts F questions to C
+ * for forecast math) while `unit` keeps the market's original scale.
+ *
+ * Trust `unit` first. Convert C->F only when the converted value is a
+ * plausible city daily high. 102 already in F becomes 215.6 F, which is
+ * not a city weather temp, so it is left untouched (do not treat 102 F as C).
+ */
+export function displayBucketTemp(value: number, unit: WeatherUnit): number {
+  if (unit !== 'fahrenheit') return value;
+  const asF = cToF(value);
+  if (asF > 140 || asF < -50) return value;
+  return asF;
 }
 
 export function formatWeatherDate(iso: string): string {
@@ -55,17 +105,18 @@ export function formatBucketLabel(
 ): string {
   if (!comparison || !bounds) return '—';
   const suffix = unitSuffix(unit);
+  const fmt = (v: number) => `${displayBucketTemp(v, unit)}${suffix}`;
   switch (comparison) {
     case 'exact':
-      return bounds.target != null ? `${bounds.target}${suffix}` : '—';
+      return bounds.target != null ? fmt(bounds.target) : '—';
     case 'between':
       return bounds.low != null && bounds.high != null
-        ? `${bounds.low}${suffix} – ${bounds.high}${suffix}`
+        ? `${fmt(bounds.low)} – ${fmt(bounds.high)}`
         : '—';
     case 'or_below':
-      return bounds.target != null ? `≤ ${bounds.target}${suffix}` : '—';
+      return bounds.target != null ? `≤ ${fmt(bounds.target)}` : '—';
     case 'or_above':
-      return bounds.target != null ? `≥ ${bounds.target}${suffix}` : '—';
+      return bounds.target != null ? `≥ ${fmt(bounds.target)}` : '—';
     default:
       return '—';
   }
@@ -103,7 +154,8 @@ export function formatBucketTargetLabel(
   unit: WeatherUnit = bucket.unit ?? null,
 ): string {
   const suffix = unitSuffix(unit);
-  const fmt = (v: number | null) => (v == null ? '?' : `${v}${suffix}`);
+  const fmt = (v: number | null) =>
+    v == null ? '?' : `${displayBucketTemp(v, unit)}${suffix}`;
   if (bucket.bucketComparison === 'between' && bucket.bucketLow != null && bucket.bucketHigh != null) {
     return `${fmt(bucket.bucketLow)}–${fmt(bucket.bucketHigh)}`;
   }

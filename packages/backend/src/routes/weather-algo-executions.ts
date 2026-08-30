@@ -53,13 +53,17 @@ export function createWeatherAlgoExecutionsRouter(ds: DataSource): Router {
     const from = parseDateQuery(req.query.from);
     const to = parseDateQuery(req.query.to);
     if (from) {
-      qb.andWhere('e.executedAt >= :from', { from });
+      qb.andWhere('COALESCE(e.executed_at, e.created_at) >= :from', { from });
     }
     if (to) {
-      qb.andWhere('e.executedAt <= :to', { to });
+      qb.andWhere('COALESCE(e.executed_at, e.created_at) <= :to', { to });
     }
 
-    qb.orderBy('e.executedAt', 'DESC').addOrderBy('e.id', 'DESC');
+    // Failed/cancelled rows never get executedAt (fill time only). Postgres
+    // ORDER BY executed_at DESC puts NULLs first, so page 1 is all failures
+    // and filled weather trades disappear. Sort by the UI event clock.
+    qb.orderBy('COALESCE(e.executed_at, e.created_at)', 'DESC').addOrderBy('e.id', 'DESC');
+
     qb.take(limit).skip(offset);
 
     const [executions, total] = await qb.getManyAndCount();

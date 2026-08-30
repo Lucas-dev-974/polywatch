@@ -478,6 +478,74 @@ describe('evaluateCityFollowDateGroup best-edge integration', () => {
     expect(result!.sim).toBeNull();
     expect(result!.real).toBeNull();
   });
+
+  it('does not first-wins-cascade to a later strategy when the active one abstains', async () => {
+    const abstain = {
+      id: 'weather-forecast',
+      evaluate: vi.fn(async () => ({ kind: 'abstain' as const, reason: 'insufficient_edge' })),
+    } as unknown as WeatherStrategy;
+    const fallback = {
+      id: 'weather-highest-yes',
+      evaluate: vi.fn(async () => ({
+        kind: 'signal' as const,
+        signal: {
+          conditionId: 'hy',
+          assetId: 'yes-1',
+          outcome: 'YES',
+          side: 'BUY',
+          confidence: 0.5,
+          reasons: [],
+          strategyId: 'weather-highest-yes',
+          mode: 'sim',
+          eventSlug: 'paris-aug-2',
+          city: 'Paris',
+          metric: 'highest_temp',
+          targetDate: new Date('2026-08-02T12:00:00Z'),
+          forecastMean: 0,
+          forecastStdDev: 0,
+          forecastProbability: 0,
+          marketPrice: 0.8,
+          edge: 0,
+          dynamicMinEdge: 0,
+          entryBucketComparison: 'exact',
+          entryBucketBounds: { target: 33 },
+        },
+      })),
+    } as unknown as WeatherStrategy;
+
+    const registrySim = { getAll: () => [abstain, fallback] } as unknown as WeatherStrategyRegistry;
+    const registryReal = { getAll: () => [] } as unknown as WeatherStrategyRegistry;
+    const runner = new WeatherStrategyRunner({
+      ds: { getRepository: () => ({ find: async () => [] }) } as never,
+      autoTrackService: { listEnabled: async () => [] } as never,
+      forecastService: {
+        getOrFetch: vi.fn(async () => ({ forecastMean: 33, forecastStdDev: 1.5 })),
+      } as never,
+      registrySim,
+      registryReal,
+      redisCmd: {} as never,
+      onSignal: async () => false,
+      pollMs: 60_000,
+      exitEvaluator: undefined,
+    });
+
+    const result = await (runner as unknown as { evaluateCityFollowDateGroup: (...args: unknown[]) => Promise<{ sim: WeatherSignal | null; real: WeatherSignal | null }> }).evaluateCityFollowDateGroup(
+      1,
+      'Paris',
+      'highest_temp',
+      '2026-08-02',
+      [market()],
+      [],
+      { sim: [abstain, fallback], real: [] },
+      new Map(),
+      true,
+      false,
+    );
+
+    expect(result!.sim).toBeNull();
+    expect(abstain.evaluate).toHaveBeenCalled();
+    expect(fallback.evaluate).not.toHaveBeenCalled();
+  });
 });
 
 describe('city+date gating', () => {
@@ -761,14 +829,15 @@ describe('WeatherStrategyRunner safe reload', () => {
     await Promise.resolve();
     expect(exitCalls).toBe(1);
 
-    // Mid-cycle: enable the aligned strategy too. The running cycle must NOT
-    // pick it up (safe reload) — it continues with the snapshot taken at start.
+    // Mid-cycle: switch the uniquely enabled strategy to aligned. The running
+    // cycle must NOT pick it up (safe reload) — it continues with the snapshot
+    // taken at start (forecast only).
     runner.setRiskConfig(
       minimalRisk({
         weatherAlgoEnabled: true,
         weatherAlgoSimEnabled: true,
         weatherAlgoRealEnabled: true,
-        weatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
+        weatherAlgoStrategies: JSON.stringify(['weather-forecast-aligned']),
       }),
     );
 
@@ -776,17 +845,13 @@ describe('WeatherStrategyRunner safe reload', () => {
     // Let cycle 1 finish. getOrdered was called with the snapshot taken at
     // cycle start (only weather-forecast) — the mid-cycle change did NOT apply.
     await vi.waitFor(() => expect(exitCalls).toBe(1));
-    // Both sim and real passes resolve from the same legacy fallback.
     await vi.waitFor(() => expect(getOrdered).toHaveBeenLastCalledWith(['weather-forecast']));
 
-    // Cycle 2 runs with the new config — both strategies are now enabled.
+    // Cycle 2 runs with the new config — only aligned is enabled (one-active).
     runner.requestEvaluationCycle();
     await vi.waitFor(() => expect(exitCalls).toBe(2));
     await vi.waitFor(() =>
-      expect(getOrdered).toHaveBeenLastCalledWith([
-        'weather-forecast',
-        'weather-forecast-aligned',
-      ]),
+      expect(getOrdered).toHaveBeenLastCalledWith(['weather-forecast-aligned']),
     );
 
     runner.stop();

@@ -12,6 +12,8 @@ export interface ResolveEntryEnqueueBlockedParams {
   hasInFlightBuy?: () => Promise<boolean>;
   /** Returned when the reservation is released after a hard enqueue block. */
   blockedReason: string;
+  /** When false, a blocked enqueue leaves the reservation (janitor). Default true. */
+  releaseOnBlock?: boolean;
 }
 
 /**
@@ -27,10 +29,15 @@ export async function resolveEntryEnqueueBlocked(
     return null;
   }
 
-  if (params.hasBuyExecution && (await params.hasBuyExecution())) {
+  const maybeRelease = async () => {
+    if (params.releaseOnBlock === false) return;
     await params.reservationService
-      .release(params.orderSignalId, `enqueue_blocked:${params.blockedReason}`)
+      .release(params.orderSignalId, 'enqueue_blocked:' + params.blockedReason)
       .catch(() => undefined);
+  };
+
+  if (params.hasBuyExecution && (await params.hasBuyExecution())) {
+    await maybeRelease();
     return params.blockedReason;
   }
 
@@ -38,8 +45,6 @@ export async function resolveEntryEnqueueBlocked(
     return null;
   }
 
-  await params.reservationService
-    .release(params.orderSignalId, `enqueue_blocked:${params.blockedReason}`)
-    .catch(() => undefined);
+  await maybeRelease();
   return params.blockedReason;
 }

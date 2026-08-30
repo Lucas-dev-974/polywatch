@@ -53,16 +53,47 @@ export function formatDurationMs(ms: number | null | undefined): string {
   return formatDurationParts(Math.floor(ms / 60_000));
 }
 
-/** Format a "time ago" label like «un instant» or «5min» from an ISO date. */
+/** Format a compact "time ago" label like «un instant», «12s», «5min» from an ISO date. */
 export function formatTimeAgo(iso: string | null | undefined, now?: number): string {
   if (!iso) return '—';
   const ms = (now ?? Date.now()) - new Date(iso).getTime();
   if (ms < 0) return 'à l’instant';
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 1) return 'un instant';
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 5) return 'un instant';
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}min`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
   return `${days}j`;
+}
+
+/** French relative-age phrase: «à l’instant», «il y a 12s», «il y a 5min», «il y a 3h». */
+export function formatTimeAgoPhrase(iso: string | null | undefined, now?: number): string {
+  const ago = formatTimeAgo(iso, now);
+  if (ago === '—' || ago === 'à l’instant') return ago;
+  if (ago === 'un instant') return 'à l’instant';
+  return `il y a ${ago}`;
+}
+
+export type ExecutionEventTimestamps = {
+  executedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+/**
+ * Display timestamp for an execution row.
+ * Prefers fill time (`executedAt`); falls back to recorded event time.
+ * Does not invent a fill.
+ */
+export function resolveExecutionEventIso(
+  ex: ExecutionEventTimestamps,
+): string | null {
+  return ex.executedAt || ex.createdAt || ex.updatedAt || null;
+}
+
+export function isExecutionFillTimestamp(ex: ExecutionEventTimestamps): boolean {
+  return Boolean(ex.executedAt);
 }

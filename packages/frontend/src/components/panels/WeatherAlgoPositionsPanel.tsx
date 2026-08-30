@@ -1,5 +1,6 @@
 import { createMemo, Show } from 'solid-js';
-import type { useWeatherAlgoPositions, WeatherPosition } from '../../hooks/useWeatherAlgoPositions';
+import type { useWeatherAlgoPositions } from '../../hooks/useWeatherAlgoPositions';
+import { matchesWeatherPosMode } from '../../lib/weather-position';
 import { CollapsibleSection } from '../CollapsibleSection';
 import { Icon } from '../Icon';
 import {
@@ -17,22 +18,15 @@ const MODE_LABELS: Record<'all' | 'live' | 'sim', string> = {
   sim: 'Sim',
 };
 
-function matchesMode(
-  pos: WeatherPosition,
-  mode: 'all' | 'live' | 'sim',
-): boolean {
-  return mode === 'all' || pos.mode === mode;
-}
-
 export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps) {
   const p = () => props.positions;
 
   const openPositions = createMemo(() =>
-    p().positions().filter((pos) => matchesMode(pos, p().posModeFilter())),
+    p().positions().filter((pos) => matchesWeatherPosMode(pos.mode, p().posModeFilter())),
   );
 
   const closedList = createMemo(() =>
-    p().closedPositions().filter((pos) => matchesMode(pos, p().posModeFilter())),
+    p().closedPositions().filter((pos) => matchesWeatherPosMode(pos.mode, p().posModeFilter())),
   );
 
   const openGroups = createMemo(() => buildWeatherPositionGroups(openPositions()));
@@ -110,7 +104,7 @@ export function WeatherAlgoPositionsPanel(props: WeatherAlgoPositionsPanelProps)
             when={closedList().length > 0}
             fallback={
               <div class="algo-empty">
-                Aucune position clôturée
+                Aucune position dans l'historique
                 {p().posModeFilter() !== 'all' ? ` en mode ${MODE_LABELS[p().posModeFilter()]}` : ''}.
               </div>
             }

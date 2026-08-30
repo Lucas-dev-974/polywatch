@@ -324,7 +324,7 @@ export const WEATHER_STRATEGY_CATALOG: WeatherStrategyMeta[] = [
     id: WEATHER_HIGHEST_YES_STRATEGY_ID,
     label: 'Highest YES (consensus)',
     description:
-      'Filet de sécurité sans forecast : sélectionne le palier au prix YES le plus élevé (consensus marché). edge=0 — ne gagne qu’en l’absence de signal forecast. Tient jusqu’à résolution. Utiliser allowedComparisons pour exclure les paliers cumulatifs (or_above/or_below).',
+      'Sans forecast : sélectionne le palier au prix YES le plus élevé (consensus marché). edge=0. Stratégie autonome (pas un fallback first-wins). Tient jusqu’à résolution. Utiliser allowedComparisons pour exclure les paliers cumulatifs (or_above/or_below).',
     supportsGroup: true,
     params: highestYesParamsSchemas(),
   },
@@ -354,6 +354,35 @@ export function parseWeatherAlgoStrategies(raw: string | null | undefined): Weat
 
 export function serializeWeatherAlgoStrategies(ids: string[]): string {
   return JSON.stringify(ids);
+}
+
+export type ClampEnabledWeatherStrategiesResult = {
+  enabled: WeatherStrategyId[];
+  dropped: WeatherStrategyId[];
+};
+
+/**
+ * Per env, at most one weather strategy may be active.
+ *
+ * - unique already-enabled id: keep it (even if it is not first in the catalogue)
+ * - several enabled (legacy bag): keep the first in catalogue order, treat the
+ *   rest as off
+ */
+export function clampEnabledWeatherStrategies(
+  ids: WeatherStrategyId[],
+): ClampEnabledWeatherStrategiesResult {
+  const unique: WeatherStrategyId[] = [];
+  for (const id of ids) {
+    if (!unique.includes(id)) unique.push(id);
+  }
+  if (unique.length <= 1) {
+    return { enabled: unique, dropped: [] };
+  }
+  const kept = WEATHER_STRATEGY_IDS.find((id) => unique.includes(id)) ?? unique[0]!;
+  return {
+    enabled: [kept],
+    dropped: unique.filter((id) => id !== kept),
+  };
 }
 
 /** Stored per-strategy params: partial bags keyed by strategy id. */
@@ -471,7 +500,7 @@ export function getStrategyParams(
 export function resolveEnabledWeatherStrategies(
   config: Pick<WeatherConfig, 'weatherAlgoStrategies'>,
 ): WeatherStrategyId[] {
-  return parseWeatherAlgoStrategies(config.weatherAlgoStrategies);
+  return clampEnabledWeatherStrategies(parseWeatherAlgoStrategies(config.weatherAlgoStrategies)).enabled;
 }
 
 /**
@@ -484,6 +513,10 @@ export function resolveEnabledWeatherStrategies(
  * to `['weather-forecast']` (otherwise the fallback would never fire). A
  * populated `'{}'` / `'[]'` does NOT fall back (`'[]'` already parses to the
  * forecast default).
+ *
+ * The resolved list is then clamped to at most one id (see
+ * `clampEnabledWeatherStrategies`) so a legacy multi-id bag cannot reintroduce
+ * a first-strategy-wins catalogue cascade.
  */
 export function resolveEnabledWeatherStrategiesForMode(
   config: Pick<
@@ -496,7 +529,7 @@ export function resolveEnabledWeatherStrategiesForMode(
     mode === 'sim' ? config.simWeatherAlgoStrategies : config.realWeatherAlgoStrategies;
   const effectiveRaw =
     raw === undefined || raw === null || raw === '' ? config.weatherAlgoStrategies : raw;
-  return parseWeatherAlgoStrategies(effectiveRaw);
+  return clampEnabledWeatherStrategies(parseWeatherAlgoStrategies(effectiveRaw)).enabled;
 }
 
 function rawStrategyParamsForMode(

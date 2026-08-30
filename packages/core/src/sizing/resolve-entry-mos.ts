@@ -4,7 +4,7 @@ import type { MinOrderSharesDetailed, MinOrderSharesSource } from './entry-mos.j
 
 export type ClobMarketInfoLookup = (
   conditionId: string,
-) => Promise<{ mos?: number } | null | undefined>;
+) => Promise<{ mos?: number; negRisk?: boolean; neg_risk?: boolean } | null | undefined>;
 
 export interface ResolveEntryMinOrderSharesInput {
   conditionId: string;

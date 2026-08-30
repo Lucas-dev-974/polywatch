@@ -83,12 +83,21 @@ export function createPositionsRouter(ds: DataSource): Router {
       } else if (req.query.reason) {
         qb.andWhere('p.reason = :reason', { reason: req.query.reason });
       }
-      if (req.query.status === 'closed') {
-        qb.orderBy('p.closed_at', 'DESC');
-      }
-      const isClosed = req.query.status === 'closed';
+      const statusCsv = typeof req.query.status === 'string' ? req.query.status : '';
+      const requestedStatuses = statusCsv.split(',').filter(Boolean);
+      const HISTORY_STATUSES = new Set(['closed', 'cancelled']);
+      const isHistory =
+        requestedStatuses.length > 0 &&
+        requestedStatuses.every((status) => HISTORY_STATUSES.has(status));
 
-      if (isClosed) {
+      if (isHistory) {
+        // Failed opens (pending cancelled, never filled) are not history
+        // positions — they belong in Exécutions with the exec error.
+        qb.andWhere("(p.status <> 'cancelled' OR p.opened_at IS NOT NULL)");
+        qb.orderBy('COALESCE(p.closed_at, p.opened_at)', 'DESC').addOrderBy('p.id', 'DESC');
+      }
+
+      if (isHistory) {
         const limit = Math.max(1, Math.min(Number(req.query.limit ?? 20), 200));
         const offset = Math.max(0, Number(req.query.offset ?? 0));
         qb.take(limit).skip(offset);
@@ -96,7 +105,7 @@ export function createPositionsRouter(ds: DataSource): Router {
 
       const [positions, total] = await qb.getManyAndCount();
 
-      if (isClosed) {
+      if (isHistory) {
         const withCloseReason = await Promise.all(
           positions.map(async (pos) => {
             if (pos.closeReason) return pos;

@@ -4,6 +4,7 @@ import {
   unrealizedPnl,
   closurePnlPercent,
   getPositionMarkPrice,
+  unrealizedPnlEntryBasis,
   isMarketSettled,
   isMarketTerminal,
   marketLifecycleFromEntity,
@@ -43,7 +44,7 @@ export function computePnlSnapshot(
   );
   const unrl = unrealizedPnl(
     markPrice,
-    pos.entryPrice,
+    unrealizedPnlEntryBasis(pos),
     pos.quantity,
     pos.entryFeesRemaining ?? 0,
   );

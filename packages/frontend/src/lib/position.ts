@@ -325,7 +325,7 @@ export function computeSlDistance(input: {
 }
 
 export interface OpenPnlMetrics {
-  /** Mark-to-bid vs entry ask, fees included — economic PNL if sold now. */
+  /** Mark-to-bid dollar uPnL from the tick/row: copy/crypto vs entry ask, weather vs entry bid; remaining entry fees deducted. */
   amount: number;
   /** Bid vs entry price, fees included — aligned with SL/TP closure basis. */
   closurePercent: number | undefined;

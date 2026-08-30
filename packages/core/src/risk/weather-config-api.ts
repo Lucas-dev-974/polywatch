@@ -8,6 +8,8 @@ import {
   parseWeatherAlgoStrategyParams,
   serializeWeatherAlgoStrategies,
   serializeWeatherAlgoStrategyParams,
+  clampEnabledWeatherStrategies,
+  isKnownWeatherStrategyId,
   type WeatherStrategyParamsMap,
   type WeatherStrategyId,
 } from '../weather/strategy-catalog.js';
@@ -44,14 +46,34 @@ type WeatherStrategiesUpdate = {
   realWeatherAlgoStrategyParams?: WeatherStrategyParamsMap | string;
 };
 
+
+function serializeClampedWeatherAlgoStrategies(
+  ids: WeatherStrategyId[] | string,
+): string {
+  const parsed =
+    typeof ids === 'string'
+      ? parseWeatherAlgoStrategies(ids)
+      : ids.filter((x): x is WeatherStrategyId => isKnownWeatherStrategyId(String(x)));
+  const clamped = clampEnabledWeatherStrategies(
+    parsed.length > 0 ? parsed : parseWeatherAlgoStrategies('[]'),
+  ).enabled;
+  return serializeWeatherAlgoStrategies(clamped);
+}
+
 export function presentWeatherConfigForApi(config: WeatherConfig): WeatherConfigApi {
   return {
     ...config,
     weatherAlgoAllowedMarketTags: parseAllowedMarketTags(config.weatherAlgoAllowedMarketTags),
-    weatherAlgoStrategies: parseWeatherAlgoStrategies(config.weatherAlgoStrategies),
+    weatherAlgoStrategies: clampEnabledWeatherStrategies(
+      parseWeatherAlgoStrategies(config.weatherAlgoStrategies),
+    ).enabled,
     weatherAlgoStrategyParams: parseWeatherAlgoStrategyParams(config.weatherAlgoStrategyParams),
-    simWeatherAlgoStrategies: parseWeatherAlgoStrategies(config.simWeatherAlgoStrategies),
-    realWeatherAlgoStrategies: parseWeatherAlgoStrategies(config.realWeatherAlgoStrategies),
+    simWeatherAlgoStrategies: clampEnabledWeatherStrategies(
+      parseWeatherAlgoStrategies(config.simWeatherAlgoStrategies),
+    ).enabled,
+    realWeatherAlgoStrategies: clampEnabledWeatherStrategies(
+      parseWeatherAlgoStrategies(config.realWeatherAlgoStrategies),
+    ).enabled,
     simWeatherAlgoStrategyParams: parseWeatherAlgoStrategyParams(
       config.simWeatherAlgoStrategyParams,
     ),
@@ -92,23 +114,15 @@ export function toWeatherConfigEntityUpdate<T extends WeatherTagsUpdate & Weathe
   void weatherAlgoStrategyParams;
 
   if (simWeatherAlgoStrategies !== undefined) {
-    if (typeof simWeatherAlgoStrategies === 'string') {
-      update.simWeatherAlgoStrategies = simWeatherAlgoStrategies;
-    } else {
-      update.simWeatherAlgoStrategies = serializeWeatherAlgoStrategies(
-        simWeatherAlgoStrategies,
-      );
-    }
+    update.simWeatherAlgoStrategies = serializeClampedWeatherAlgoStrategies(
+      simWeatherAlgoStrategies,
+    );
   }
 
   if (realWeatherAlgoStrategies !== undefined) {
-    if (typeof realWeatherAlgoStrategies === 'string') {
-      update.realWeatherAlgoStrategies = realWeatherAlgoStrategies;
-    } else {
-      update.realWeatherAlgoStrategies = serializeWeatherAlgoStrategies(
-        realWeatherAlgoStrategies,
-      );
-    }
+    update.realWeatherAlgoStrategies = serializeClampedWeatherAlgoStrategies(
+      realWeatherAlgoStrategies,
+    );
   }
 
   if (simWeatherAlgoStrategyParams !== undefined) {

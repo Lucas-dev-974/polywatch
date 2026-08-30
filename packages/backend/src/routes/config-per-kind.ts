@@ -17,6 +17,7 @@ import {
   WEATHER_STRATEGY_IDS,
   sanitizeWeatherStrategyParams,
   validateWeatherStrategyParamsUpdate,
+  clampEnabledWeatherStrategies,
   coerceLegacySizingMode,
 } from '@polywatch/core';
 import { requireJwt } from '../middleware/auth.js';
@@ -496,7 +497,7 @@ export function createConfigPerKindRouter(ds: DataSource): Router {
         params: Record<string, Partial<import('@polywatch/core').WeatherStrategyParamsBag>>;
       } => {
         const nextStrategies: import('@polywatch/core').WeatherStrategyId[] =
-          incomingStrategies ?? presentedStrategies;
+          clampEnabledWeatherStrategies(incomingStrategies ?? presentedStrategies).enabled;
         const nextParams = sanitizeWeatherStrategyParams(
           incoming ?? presentedParams,
         );

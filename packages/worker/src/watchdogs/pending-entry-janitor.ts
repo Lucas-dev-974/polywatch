@@ -5,6 +5,7 @@ import {
   resumeEntryFromReservation,
   WORKER_QUEUES,
   type OrderSignal,
+  type EntryOpenReason,
 } from '@polywatch/core';
 import pino from 'pino';
 import type { PolymarketConnectionManager } from '../polymarket/connection-manager.js';
@@ -12,6 +13,16 @@ import type { RedisQueue } from '../queue/redis-queue.js';
 import { safeInterval } from '../helpers.js';
 
 const log = pino({ name: 'pending-entry-janitor' });
+
+export const PENDING_ENTRY_JANITOR_REASONS = ['ALGO_OPEN', 'WEATHER_OPEN'] as const;
+
+export function queueForPendingEntryReason(
+  reason: string,
+): 'algo' | 'weather' | null {
+  if (reason === 'WEATHER_OPEN') return 'weather';
+  if (reason === 'ALGO_OPEN') return 'algo';
+  return null;
+}
 
 type OrphanRow = {
   position_id: number;
@@ -22,9 +33,10 @@ type OrphanRow = {
   condition_id: string;
   asset_id: string;
   mode: 'sim' | 'real';
+  reason: string;
 };
 
-/** Re-enqueue algo BUY signals when a pending position has a reservation but no execution. */
+/** Re-enqueue BUY signals when a pending position has a reservation but no execution. */
 export class PendingEntryJanitor {
   private reservationService: ReservationService;
   private executionService: ExecutionService;
@@ -32,7 +44,8 @@ export class PendingEntryJanitor {
   constructor(
     private readonly ds: DataSource,
     private readonly connectionManager: PolymarketConnectionManager,
-    private readonly orderQueue: RedisQueue<OrderSignal>,
+    private readonly algoOrderQueue: RedisQueue<OrderSignal>,
+    private readonly weatherOrderQueue: RedisQueue<OrderSignal>,
   ) {
     this.reservationService = new ReservationService(ds);
     this.executionService = new ExecutionService(ds);
@@ -47,6 +60,12 @@ export class PendingEntryJanitor {
           : new Date(row.expires_at);
       if (expiresAt.getTime() <= Date.now()) continue;
 
+      const queueKind = queueForPendingEntryReason(row.reason);
+      if (!queueKind) continue;
+      const reason = row.reason as EntryOpenReason;
+      const orderQueue =
+        queueKind === 'weather' ? this.weatherOrderQueue : this.algoOrderQueue;
+
       try {
         await resumeEntryFromReservation({
           conditionId: row.condition_id,
@@ -54,7 +73,7 @@ export class PendingEntryJanitor {
           mode: row.mode,
           signalId: row.order_signal_id,
           logicalKey: `janitor:${row.position_id}`,
-          reason: 'ALGO_OPEN',
+          reason,
           reservation: {
             reservationId: row.reservation_id,
             copiedPositionId: row.position_id,
@@ -64,23 +83,25 @@ export class PendingEntryJanitor {
           },
           connectionManager: this.connectionManager,
           reservationService: this.reservationService,
-          orderQueue: this.orderQueue,
+          orderQueue,
           hasBuyExecution: () =>
             this.executionService.hasBuyForPosition(row.position_id),
           hasInFlightBuy: () =>
             this.executionService.hasInFlightBuy(row.position_id),
+          releaseOnSkip: false,
         });
         log.warn(
           {
             positionId: row.position_id,
             orderSignalId: row.order_signal_id,
+            reason,
           },
-          're-enqueued orphan pending algo entry',
+          're-enqueued orphan pending entry',
         );
       } catch (err) {
         log.error(
-          { err, positionId: row.position_id },
-          'failed to re-enqueue orphan pending algo entry',
+          { err, positionId: row.position_id, reason },
+          'failed to re-enqueue orphan pending entry',
         );
       }
     }
@@ -96,11 +117,12 @@ export class PendingEntryJanitor {
              r.expires_at,
              p.condition_id,
              p.asset_id,
-             p.mode
+             p.mode,
+             p.reason
       FROM copied_positions p
       INNER JOIN position_reservations r ON r.copied_position_id = p.id
       WHERE p.status = 'pending'
-        AND p.reason = 'ALGO_OPEN'
+        AND p.reason IN ('ALGO_OPEN', 'WEATHER_OPEN')
         AND r.expires_at >= NOW()
         AND r.created_at < NOW() - INTERVAL '15 seconds'
         AND NOT EXISTS (
@@ -118,3 +140,4 @@ export class PendingEntryJanitor {
 }
 
 export const PENDING_ENTRY_JANITOR_QUEUE = WORKER_QUEUES.ALGO_ORDER_SIGNALS;
+export const PENDING_WEATHER_ENTRY_JANITOR_QUEUE = WORKER_QUEUES.WEATHER_ORDER_SIGNALS;

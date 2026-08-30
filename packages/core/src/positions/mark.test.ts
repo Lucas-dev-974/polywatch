@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  computeExecutableCashPnl,
   computePositionUnrealizedPnl,
   getPositionMarkPrice,
   sumOpenPositionsValue,
+  unrealizedPnlEntryBasis,
 } from './mark.js';
 import type { MarketLifecycleState } from '../market/lifecycle.js';
+import { computeSellSettlement } from '../simulation/accounting.js';
 
 const basePosition = {
   assetId: '111',
@@ -80,5 +83,116 @@ describe('computePositionUnrealizedPnl', () => {
       entryFeesRemaining: 0.2,
     });
     expect(pnl).toBeCloseTo(0.1, 4);
+  });
+
+  it('copy/crypto keep bid vs entry ask even with a wide book', () => {
+    const pnl = computePositionUnrealizedPnl({
+      assetId: '111',
+      reason: 'COPY_OPEN',
+      executableBidVwap: 0.32,
+      entryBidVwap: 0.32,
+      entryPrice: 0.41,
+      quantity: 10,
+      entryFeesRemaining: 0.05,
+    });
+    expect(pnl).toBeCloseTo((0.32 - 0.41) * 10 - 0.05, 4);
+  });
+
+  it('weather t0: bid == entryBid → uPnL is remaining fees only', () => {
+    const pnl = computePositionUnrealizedPnl({
+      assetId: '111',
+      reason: 'WEATHER_OPEN',
+      executableBidVwap: 0.32,
+      entryBidVwap: 0.32,
+      entryPrice: 0.41,
+      quantity: 10,
+      entryFeesRemaining: 0.05,
+    });
+    expect(pnl).toBeCloseTo(-0.05, 4);
+  });
+
+  it('weather bid up → green uPnL after fees', () => {
+    const pnl = computePositionUnrealizedPnl({
+      assetId: '111',
+      reason: 'WEATHER_OPEN',
+      executableBidVwap: 0.35,
+      entryBidVwap: 0.32,
+      entryPrice: 0.41,
+      quantity: 10,
+      entryFeesRemaining: 0.05,
+    });
+    expect(pnl).toBeCloseTo((0.35 - 0.32) * 10 - 0.05, 4);
+    expect(pnl).toBeGreaterThan(0);
+  });
+
+  it('weather missing entryBidVwap falls back to bid vs entryPrice', () => {
+    const pnl = computePositionUnrealizedPnl({
+      assetId: '111',
+      reason: 'WEATHER_OPEN',
+      executableBidVwap: 0.32,
+      entryBidVwap: 0,
+      entryPrice: 0.41,
+      quantity: 10,
+      entryFeesRemaining: 0.05,
+    });
+    expect(pnl).toBeCloseTo((0.32 - 0.41) * 10 - 0.05, 4);
+  });
+});
+
+describe('unrealizedPnlEntryBasis', () => {
+  it('uses entry bid only for weather when entryBidVwap is present', () => {
+    expect(
+      unrealizedPnlEntryBasis({
+        reason: 'WEATHER_OPEN',
+        entryBidVwap: 0.32,
+        entryPrice: 0.41,
+      }),
+    ).toBe(0.32);
+    expect(
+      unrealizedPnlEntryBasis({
+        reason: 'ALGO_OPEN',
+        entryBidVwap: 0.32,
+        entryPrice: 0.41,
+      }),
+    ).toBe(0.41);
+  });
+});
+
+describe('weather close realized PnL', () => {
+  it('still uses entry fill (ask) + fees, not entry bid', () => {
+    const s = computeSellSettlement({
+      isRedemption: false,
+      fillPrice: 0.32,
+      fillQuantity: 10,
+      inputFees: 0.02,
+      entryPrice: 0.41,
+      entryFeesRemaining: 0.05,
+      entryQuantityRemaining: 10,
+    });
+    expect(s.realizedPnl).toBeCloseTo(0.32 * 10 - 0.41 * 10 - 0.02 - 0.05, 4);
+    expect(s.realizedPnl).not.toBeCloseTo(-0.07, 4);
+  });
+});
+
+describe('computeExecutableCashPnl', () => {
+  it('is exit-at-bid vs entry ask minus fees', () => {
+    const pnl = computeExecutableCashPnl({
+      executableBidVwap: 0.32,
+      entryPrice: 0.41,
+      quantity: 10,
+      entryFeesRemaining: 0.05,
+    });
+    expect(pnl).toBeCloseTo((0.32 - 0.41) * 10 - 0.05, 4);
+  });
+
+  it('returns null without a usable bid', () => {
+    expect(
+      computeExecutableCashPnl({
+        executableBidVwap: 0,
+        entryPrice: 0.41,
+        quantity: 10,
+        entryFeesRemaining: 0,
+      }),
+    ).toBeNull();
   });
 });

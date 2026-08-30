@@ -7,6 +7,7 @@ import {
   type ExecutionResult,
   type OrderSignal,
   type PlatformFeeParams,
+  shouldSkipNoLiquidityAsk,
 } from '@polywatch/core';
 import type { PolymarketConnectionManager } from '../polymarket/connection-manager.js';
 import { ALGO_BOOK_FRESH_MS } from '../polymarket/book-freshness.js';
@@ -87,6 +88,24 @@ export async function prepareFakMarketOrder(
     return { ok: false, result: failedExecution(signal, 'no_liquidity') };
   }
 
+  if (signal.side === 'BUY') {
+    const notional =
+      signal.pusdAmount != null && signal.pusdAmount > 0
+        ? signal.pusdAmount
+        : fillPrice * signal.quantity;
+    if (
+      shouldSkipNoLiquidityAsk({
+        askVwap: fillPrice,
+        notionalPusd: notional,
+        impliedQty: signal.quantity,
+        askLiquidityStatus: prices.askLiquidityStatus,
+        liquidityStatus: prices.liquidityStatus,
+      })
+    ) {
+      return { ok: false, result: failedExecution(signal, 'no_liquidity') };
+    }
+  }
+
   let maxSlippage = 2;
   let negRisk = false;
   let globalConfig = null as Awaited<ReturnType<GlobalConfigService['getConfig']>> | null;
@@ -110,6 +129,21 @@ export async function prepareFakMarketOrder(
     maxSlippage = config.maxSlippagePercent ?? 2;
     negRisk = market?.negRisk === true;
     platformFeeParams = fees;
+  }
+
+  // Live CLOB market info is the matcher source of truth (weather BUY must
+  // grant pusdToAdapter, not Exchange V2). Gamma/DB bit is the fallback.
+  if (deps.getClobMarketInfo && signal.conditionId) {
+    try {
+      const info = await deps.getClobMarketInfo(signal.conditionId);
+      if (typeof info?.negRisk === 'boolean') {
+        negRisk = info.negRisk;
+      } else if (typeof info?.neg_risk === 'boolean') {
+        negRisk = info.neg_risk;
+      }
+    } catch {
+      // keep Gamma/DB bit
+    }
   }
 
   let tickSize: TickSize;

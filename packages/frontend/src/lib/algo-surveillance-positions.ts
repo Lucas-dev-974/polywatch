@@ -30,6 +30,9 @@ const STATUS_LABELS: Record<string, string> = {
 const ENTRY_CANCEL_REASONS = new Set([
   'reservation_expired',
   'reservation_released',
+  'no_liquidity',
+  'order_not_matched',
+  'slippage_exceeded',
 ]);
 
 const ENTRY_CANCEL_REASON_LABELS: Record<string, string> = {
@@ -57,7 +60,10 @@ export function surveillancePositionFailureHint(
   }
 
   if (pos.closeReason && ENTRY_CANCEL_REASONS.has(pos.closeReason)) {
-    const closeLabel = ENTRY_CANCEL_REASON_LABELS[pos.closeReason] ?? pos.closeReason;
+    const closeLabel =
+      closeExecutionErrorLabel(pos.closeReason) ??
+      ENTRY_CANCEL_REASON_LABELS[pos.closeReason] ??
+      pos.closeReason;
     return `Non exécutée : ${closeLabel}`;
   }
 

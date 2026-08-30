@@ -7,8 +7,10 @@ import { serializeWeatherForecast } from './weather-forecast-serializer.js';
 import { marketLifecycleFromEntity } from '../market/lifecycle.js';
 import { resolveClosedExitBidVwap } from '../positions/exit-bid.js';
 import {
+  computeExecutableCashPnl,
   computePositionUnrealizedPnl,
   isOpenLikePositionStatus,
+  isWeatherPositionReason,
 } from '../positions/mark.js';
 import {
   computeEntryInvestedFromBuyExecutions,
@@ -51,6 +53,8 @@ export type EnrichedCopiedPosition = CopiedPosition & {
   entryInvestedAmount: number | null;
   /** Fill price of the last successful SELL execution (exit price). */
   exitBidVwap: number | null;
+  /** Exit-at-bid vs entry ask minus fees. Weather open rows only. */
+  executableCashPnl: number | null;
   /** Weather-specific snapshot attached to the position (only for WEATHER_* reasons). */
   weatherForecast: {
     city: string;
@@ -111,13 +115,19 @@ export class CopiedPositionPresenter {
       const watchlist = watchlistById.get(pos.watchlistId);
       const market = marketsByCondition.get(pos.conditionId);
       const lifecycle = lifecycleByCondition.get(pos.conditionId);
-      const unrealizedPnl = isOpenLikePositionStatus(pos.status)
+      const isOpenLike = isOpenLikePositionStatus(pos.status);
+      const unrealizedPnl = isOpenLike
         ? computePositionUnrealizedPnl(pos, lifecycle ?? null)
-        : pos.unrealizedPnl;
+        : 0;
+      const executableCashPnl =
+        isOpenLike && isWeatherPositionReason(pos.reason)
+          ? computeExecutableCashPnl(pos)
+          : null;
       const entryInvested = closedEntryInvested.get(pos.id);
       return {
         ...pos,
         unrealizedPnl,
+        executableCashPnl,
         traderName: watchlistTraderDisplayName(watchlist),
         traderAddress: watchlist?.traderAddress ?? null,
         marketQuestion: market?.question ?? null,

@@ -68,6 +68,18 @@ export class Execution {
   @Column({ type: 'timestamp', name: 'executed_at', nullable: true })
   executedAt!: Date | null;
 
+  /**
+   * Row insert time. Failed/cancelled executions never get executedAt
+   * (that column is fill time only). UI DATE falls back to createdAt.
+   */
+  @Column({
+    type: 'timestamp',
+    name: 'created_at',
+    nullable: true,
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  createdAt!: Date | null;
+
   /** Optimistic lock version — prevents double-finalisation race conditions. */
   @VersionColumn({ default: 1 })
   version!: number;

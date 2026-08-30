@@ -63,6 +63,8 @@ export function computeExecutableAskVwap(
 export interface FakFillResult {
   fillQuantity: number;
   vwap: number;
+  /** pUSD spent. Set by collateral BUY walks; omitted for share-qty walks. */
+  spentPusd?: number;
 }
 
 /**
@@ -105,6 +107,42 @@ export function simulateFakFill(
   };
 }
 
+/**
+ * Simulate a live CLOB BUY FAK whose `amount` is collateral (pUSD), not
+ * shares. Resting asks at-or-below `limitPrice` are consumed until the
+ * budget is spent. When the fill price is below the (padded) limit, share
+ * quantity can exceed the requested size — the same overfill live parse
+ * reports as takingAmount / makingAmount.
+ */
+export function simulateFakBuyCollateralFill(
+  levels: OrderBookLevel[],
+  budgetPusd: number,
+  limitPrice: number,
+): FakFillResult {
+  const sorted = [...levels].sort((a, b) => a.price - b.price);
+  let remainingBudget = budgetPusd;
+  let fillQuantity = 0;
+  let totalSpent = 0;
+
+  for (const level of sorted) {
+    if (remainingBudget <= 1e-12) break;
+    if (level.price > limitPrice) break;
+    if (!(level.price > 0) || !(level.size > 0)) continue;
+    const take = Math.min(level.size, remainingBudget / level.price);
+    if (take <= 0) break;
+    const cost = take * level.price;
+    fillQuantity += take;
+    totalSpent += cost;
+    remainingBudget -= cost;
+  }
+
+  return {
+    fillQuantity,
+    vwap: fillQuantity > 0 ? totalSpent / fillQuantity : 0,
+    spentPusd: totalSpent,
+  };
+}
+
 export function triggerPnlPercent(
   executableBidVwap: number,
   entryBidVwap: number,
@@ -118,7 +156,7 @@ export function triggerPnlPercent(
   return ((executableBidVwap - entryBidVwap) / entryBidVwap) * 100;
 }
 
-/** Mark-to-market PnL including entry fees still allocated to the position. */
+/** Mark-to-market PnL: (bid - costBasis) * qty - remaining entry fees. Cost basis is entry ask (copy/crypto) or entry bid (weather, via unrealizedPnlEntryBasis). */
 export function unrealizedPnl(
   executableBidVwap: number,
   entryPrice: number,

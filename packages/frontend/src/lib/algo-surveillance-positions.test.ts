@@ -63,6 +63,14 @@ describe('surveillancePositionFailureHint', () => {
     ).toBe('Exécution échouée : exécution interrompue (worker)');
   });
 
+
+  it('maps no_liquidity close reason as a failed open', () => {
+    expect(
+      surveillancePositionFailureHint(
+        basePos({ closeReason: 'no_liquidity' }),
+      ),
+    ).toBe('Non exécutée : liquidité insuffisante');
+  });
   it('returns null when position filled', () => {
     expect(
       surveillancePositionFailureHint(

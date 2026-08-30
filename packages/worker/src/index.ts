@@ -159,6 +159,7 @@ async function main() {
     ds,
     connectionManager,
     new RedisQueue<OrderSignal>(redisCmd, WORKER_QUEUES.ALGO_ORDER_SIGNALS, async () => {}),
+    new RedisQueue<OrderSignal>(redisCmd, WORKER_QUEUES.WEATHER_ORDER_SIGNALS, async () => {}),
   );
   const simRealismJanitor = new SimRealismJanitor(ds);
 

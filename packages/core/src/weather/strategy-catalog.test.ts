@@ -3,6 +3,7 @@ import {
   getStrategyParams,
   getStrategyParamsForMode,
   resolveEnabledWeatherStrategiesForMode,
+  clampEnabledWeatherStrategies,
   parseWeatherAlgoStrategyParams,
   sanitizeWeatherStrategyParams,
   validateWeatherStrategyParamsUpdate,
@@ -324,5 +325,64 @@ describe('resolveEnabledWeatherStrategiesForMode / getStrategyParamsForMode', ()
     expect(getStrategyParamsForMode(config, WEATHER_FORECAST_STRATEGY_ID, 'sim').minEdge).toBe(0.15);
     // '{}' is populated — no fallback to the legacy 0.3.
     expect(getStrategyParamsForMode(config, WEATHER_FORECAST_STRATEGY_ID, 'real').minEdge).toBe(0.1);
+  });
+
+  it('clamps a legacy multi-id bag to the first catalogue strategy', () => {
+    const config = {
+      simWeatherAlgoStrategies: JSON.stringify([
+        WEATHER_HIGHEST_YES_STRATEGY_ID,
+        WEATHER_FORECAST_STRATEGY_ID,
+        WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+      ]),
+      realWeatherAlgoStrategies: JSON.stringify([
+        WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+        WEATHER_HIGHEST_YES_STRATEGY_ID,
+      ]),
+    } as never;
+
+    expect(resolveEnabledWeatherStrategiesForMode(config, 'sim')).toEqual([
+      WEATHER_FORECAST_STRATEGY_ID,
+    ]);
+    expect(resolveEnabledWeatherStrategiesForMode(config, 'real')).toEqual([
+      WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+    ]);
+  });
+});
+
+describe('clampEnabledWeatherStrategies', () => {
+  it('keeps a uniquely already-enabled strategy even if it is not catalogue-first', () => {
+    expect(clampEnabledWeatherStrategies([WEATHER_HIGHEST_YES_STRATEGY_ID])).toEqual({
+      enabled: [WEATHER_HIGHEST_YES_STRATEGY_ID],
+      dropped: [],
+    });
+  });
+
+  it('keeps an empty list empty', () => {
+    expect(clampEnabledWeatherStrategies([])).toEqual({ enabled: [], dropped: [] });
+  });
+
+  it('when several are enabled, keeps the first in catalogue order and drops the rest', () => {
+    expect(
+      clampEnabledWeatherStrategies([
+        WEATHER_HIGHEST_YES_STRATEGY_ID,
+        WEATHER_FORECAST_ALIGNED_STRATEGY_ID,
+        WEATHER_FORECAST_STRATEGY_ID,
+      ]),
+    ).toEqual({
+      enabled: [WEATHER_FORECAST_STRATEGY_ID],
+      dropped: [WEATHER_HIGHEST_YES_STRATEGY_ID, WEATHER_FORECAST_ALIGNED_STRATEGY_ID],
+    });
+  });
+
+  it('dedupes a repeated unique id without dropping it', () => {
+    expect(
+      clampEnabledWeatherStrategies([
+        WEATHER_HIGHEST_YES_STRATEGY_ID,
+        WEATHER_HIGHEST_YES_STRATEGY_ID,
+      ]),
+    ).toEqual({
+      enabled: [WEATHER_HIGHEST_YES_STRATEGY_ID],
+      dropped: [],
+    });
   });
 });

@@ -16,6 +16,9 @@ export interface Execution {
   mode: string;
   error?: string | null;
   executedAt: string | null;
+  /** Row insert / event time. Used when executedAt is null (never filled). */
+  createdAt?: string | null;
+  updatedAt?: string | null;
   marketQuestion?: string | null;
   outcome?: string | null;
   conditionId?: string | null;
@@ -71,6 +74,7 @@ const CLOSE_EXECUTION_ERROR_LABELS: Record<string, string> = {
   sim_copy_trading_disabled: 'copy trading sim désactivé',
   real_copy_trading_disabled: 'copy trading réel désactivé',
   reservation_expired: 'réservation expirée (ordre non traité à temps)',
+  reservation_released: 'entrée jamais remplie (réservation libérée)',
   signal_id_collision: 'signal déjà traité (collision idempotence)',
   below_min_order_size: 'quantité trop faible pour le CLOB',
   tick_size_fetch_failed: 'impossible de lire le tick size CLOB',
@@ -97,7 +101,9 @@ export function closeExecutionErrorLabel(
   const detail = detailParts.join(':').trim();
   const label = CLOSE_EXECUTION_ERROR_LABELS[code.trim()] ?? error;
   if (
-    (code.trim() === 'redemption_failed' || code.trim() === 'clob_rejected') &&
+    (code.trim() === 'redemption_failed' ||
+      code.trim() === 'clob_rejected' ||
+      code.trim() === 'clob_approvals_failed') &&
     detail
   ) {
     return `${label} (${detail})`;

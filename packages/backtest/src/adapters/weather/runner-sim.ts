@@ -87,8 +87,9 @@ export function createRunnerSimStrategies(
 }
 
 /**
- * Mirrors live runner evaluateCityFollowDateGroup: first enabled strategy that
- * emits a signal wins.
+ * Mirrors live runner evaluateCityFollowDateGroup: the single active strategy
+ * (strategies[0] after the one-active clamp) runs its own decision path.
+ * Later catalogue strategies are not used as a first-wins fallback.
  */
 export async function evaluateRunnerSimGroup(
   strategies: ClockedWeatherStrategy[],
@@ -100,29 +101,25 @@ export async function evaluateRunnerSimGroup(
 
   // forecast-dependent strategies must abstain when the forecast is a null
   // placeholder (0/0). stdDev=0 makes normalCDF a step function and would
-  // produce phantom signals with edge≈1 on low-target `or_below` buckets,
-  // shadowing highest-yes (edge=0).
+  // produce phantom signals with edge≈1 on low-target `or_below` buckets.
   const forecastAvailable = ctx.forecastMean !== 0 || ctx.forecastStdDev !== 0;
 
-  for (const strategy of strategies) {
-    if (!forecastAvailable && strategy.id !== WEATHER_HIGHEST_YES_STRATEGY_ID) {
-      continue;
-    }
-    let result;
-    if (strategy.evaluateGroup) {
-      result = await strategy.evaluateGroup(activeMarkets, ctx, now);
-    } else {
-      result = { kind: 'abstain' as const, reason: 'no_group_evaluator' };
-      for (const market of activeMarkets) {
-        result = await strategy.evaluate(market, ctx, now);
-        if (result.kind === 'signal') break;
-      }
-    }
-    if (result.kind === 'signal') {
-      return result.signal;
+  const strategy = strategies[0];
+  if (!strategy) return null;
+  if (!forecastAvailable && strategy.id !== WEATHER_HIGHEST_YES_STRATEGY_ID) {
+    return null;
+  }
+  let result;
+  if (strategy.evaluateGroup) {
+    result = await strategy.evaluateGroup(activeMarkets, ctx, now);
+  } else {
+    result = { kind: 'abstain' as const, reason: 'no_group_evaluator' };
+    for (const market of activeMarkets) {
+      result = await strategy.evaluate(market, ctx, now);
+      if (result.kind === 'signal') break;
     }
   }
-  return null;
+  return result.kind === 'signal' ? result.signal : null;
 }
 
 /** Apply the same post-processing as the live runner before entry. */

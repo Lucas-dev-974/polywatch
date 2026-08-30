@@ -13,7 +13,7 @@ const cache = new Map<string, { detailed: MinOrderSharesDetailed; expiresAt: num
 
 export type ClobMarketInfoLookup = (
   conditionId: string,
-) => Promise<{ mos?: number } | null | undefined>;
+) => Promise<{ mos?: number; negRisk?: boolean; neg_risk?: boolean } | null | undefined>;
 
 export interface ResolveMinOrderSharesInput {
   conditionId: string;

@@ -86,4 +86,19 @@ describe('resolveEntryEnqueueBlocked', () => {
     expect(result).toBe('blocked');
     expect(reservationService.release).toHaveBeenCalledWith('sig-1', 'enqueue_blocked:blocked');
   });
+
+  it('does not release when releaseOnBlock is false', async () => {
+    const reservationService = makeReservationService();
+    const result = await resolveEntryEnqueueBlocked({
+      enqueued: false,
+      orderQueue: makeQueue(false),
+      dedupeKey: 'key',
+      orderSignalId: 'sig-1',
+      reservationService,
+      blockedReason: 'blocked',
+      releaseOnBlock: false,
+    });
+    expect(result).toBe('blocked');
+    expect(reservationService.release).not.toHaveBeenCalled();
+  });
 });

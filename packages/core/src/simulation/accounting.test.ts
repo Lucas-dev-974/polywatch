@@ -81,6 +81,19 @@ describe('computeSellSettlement', () => {
     expect(s.cashCredit).toBe(50);
     expect(s.realizedPnl).toBeCloseTo(19.8, 4);
   });
+
+  it('weather close rPnL uses entry fill price (ask), not entry bid', () => {
+    const s = computeSellSettlement({
+      isRedemption: false,
+      fillPrice: 0.32,
+      fillQuantity: 10,
+      inputFees: 0.02,
+      entryPrice: 0.41,
+      entryFeesRemaining: 0.05,
+      entryQuantityRemaining: 10,
+    });
+    expect(s.realizedPnl).toBeCloseTo(0.32 * 10 - 0.41 * 10 - 0.02 - 0.05, 4);
+  });
 });
 
 describe('replaySimCashDelta', () => {

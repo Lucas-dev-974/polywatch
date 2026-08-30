@@ -215,6 +215,42 @@ describe('prepareFakMarketOrder', () => {
     );
   });
 
+  it('uses live CLOB negRisk at prepare so weather BUY grants adapter allowances', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.5,
+        lastTradePrice: undefined,
+      }),
+      mockConnection({ executableBidVwap: 0.4, executableAskVwap: 0.5 }),
+      {
+        getTickSize: async () => '0.01' as const,
+        getClobMarketInfo: async () => ({ mos: 5, negRisk: true }),
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.prepared.negRisk).toBe(true);
+  });
+
+  it('keeps Gamma/DB fallback when CLOB market info omits negRisk', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.5,
+        lastTradePrice: undefined,
+      }),
+      mockConnection({ executableBidVwap: 0.4, executableAskVwap: 0.5 }),
+      {
+        getTickSize: async () => '0.01' as const,
+        getClobMarketInfo: async () => ({ mos: 5 }),
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.prepared.negRisk).toBe(false);
+  });
+
   it('rejects below_min_order_size for tiny SELL qty', async () => {
     const result = await prepareFakMarketOrder(
       baseSignal({ quantity: 0.01, reason: 'SL' }),
@@ -227,7 +263,24 @@ describe('prepareFakMarketOrder', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.result.error).toBe('below_min_order_size');
   });
+  it('rejects no_liquidity for a $1 FAK on a 0.001 empty/floor book (qty 1000)', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        quantity: 1000,
+        pusdAmount: 1,
+        referenceVwap: 0.001,
+        lastTradePrice: undefined,
+      }),
+      mockConnection({ executableBidVwap: 0, executableAskVwap: 0.001 }),
+      { getTickSize: async () => '0.001' as const },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.result.error).toBe('no_liquidity');
+  });
 });
+
 
 describe('sim T1 FAK race (limit T0 vs book T1)', () => {
   it('returns zero fill when T1 book is empty → order_not_matched semantics', () => {

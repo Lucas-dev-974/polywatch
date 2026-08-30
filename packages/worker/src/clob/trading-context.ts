@@ -177,7 +177,7 @@ export async function refreshTradingContext(): Promise<TradingContext | null> {
 export async function ensureOrderClobApprovals(
   input: { negRisk: boolean; side: 'BUY' | 'SELL' },
   clobClient?: ClobClient,
-): Promise<{ ok: true } | { ok: false; error: 'clob_approvals_failed' }> {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const approvalsUrl = `${config.backendUrl}/api/internal/clob-approvals/ensure`;
     const approvalsRes = await fetch(approvalsUrl, {
@@ -190,11 +190,29 @@ export async function ensureOrderClobApprovals(
       signal: AbortSignal.timeout(CLOB_APPROVALS_ENSURE_TIMEOUT_MS),
     });
     if (!approvalsRes.ok) {
+      let detail = `http ${approvalsRes.status}`;
+      try {
+        const body = (await approvalsRes.json()) as {
+          error?: unknown;
+          detail?: unknown;
+        };
+        const error = typeof body.error === 'string' ? body.error : '';
+        const bodyDetail = typeof body.detail === 'string' ? body.detail : '';
+        const joined = [error, bodyDetail].filter(Boolean).join(': ');
+        if (joined) detail = joined;
+      } catch {
+        // keep http status
+      }
       log.warn(
-        { status: approvalsRes.status, negRisk: input.negRisk, side: input.side },
+        {
+          status: approvalsRes.status,
+          negRisk: input.negRisk,
+          side: input.side,
+          detail,
+        },
         'clob approvals check failed',
       );
-      return { ok: false, error: 'clob_approvals_failed' };
+      return { ok: false, error: `clob_approvals_failed: ${detail}` };
     }
     const result = (await approvalsRes.json()) as { txHash?: string | null };
     log.info(
@@ -207,7 +225,8 @@ export async function ensureOrderClobApprovals(
     }
     return { ok: true };
   } catch (err) {
-    log.warn({ err, negRisk: input.negRisk, side: input.side }, 'clob approvals request failed');
-    return { ok: false, error: 'clob_approvals_failed' };
+    const detail = err instanceof Error ? err.message : 'request_failed';
+    log.warn({ err, negRisk: input.negRisk, side: input.side, detail }, 'clob approvals request failed');
+    return { ok: false, error: `clob_approvals_failed: ${detail}` };
   }
 }

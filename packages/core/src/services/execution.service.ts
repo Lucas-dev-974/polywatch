@@ -15,7 +15,7 @@ import {
   isForcedExitCloseReason,
   isForcedExitRetryableError,
 } from '../orders/forced-exit.js';
-import { RESERVATION_CLOSE_REASON_RELEASED } from '../positions/reservation-close-reasons.js';
+import { closeReasonFromFailedBuy } from '../positions/reservation-close-reasons.js';
 import { SimulationService } from './simulation.service.js';
 import { ExitAttemptEventService } from './exit-attempt-event.service.js';
 
@@ -379,6 +379,7 @@ export class ExecutionService {
           status: 'placing',
           // REDEMPTION has no CLOB order — stamp attempt start for placing timeout.
           executedAt: input.reason === 'REDEMPTION' ? new Date() : null,
+          createdAt: new Date(),
         }),
       );
       return { execution: saved, alreadyInFlight: false };
@@ -446,14 +447,17 @@ export class ExecutionService {
         exec.error = input.error ?? null;
         if (input.referenceVwap != null) exec.referenceVwap = input.referenceVwap;
         if (input.slippagePercent != null) exec.slippagePercent = input.slippagePercent;
+        if (!exec.createdAt) exec.createdAt = eventAt;
         await execRepo.save(exec);
         if (isBuy && pos.status === 'pending') {
           pos.status = 'cancelled';
-          // A failed BUY execution cancels the pending position — record the
-          // close reason so audit queries can attribute cancellations instead
-          // of leaving close_reason NULL (which made 20 rows un-attributable).
+          pos.closedAt = pos.closedAt ?? eventAt;
+          // A failed BUY execution cancels the pending position. Stamp the
+          // actual exec error (no_liquidity / order_not_matched / …) rather
+          // than always reservation_released, which made failed opens look
+          // like taken-then-zeroed positions in Historique.
           if (!pos.closeReason) {
-            pos.closeReason = RESERVATION_CLOSE_REASON_RELEASED;
+            pos.closeReason = closeReasonFromFailedBuy(input.error);
           }
           await posRepo.save(pos);
           await resRepo.delete({ orderSignalId: input.orderSignalId });
@@ -648,6 +652,8 @@ export class ExecutionService {
           pos.closeReason = reason || null;
           pos.closingReason = null;
           pos.quantity = 0;
+          // Dust leftover after FAK overfill / share rounding — do not invent fills.
+          pos.entryQuantityRemaining = 0;
           pos.lastExitBlockReason = null;
           pos.lastExitBlockCloseReason = null;
           pos.firstExitBlockAt = null;

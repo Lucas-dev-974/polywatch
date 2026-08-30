@@ -4,6 +4,7 @@ import {
   computeExecutableAskVwap,
   computeExecutableBidVwap,
   simulateFakFill,
+  simulateFakBuyCollateralFill,
   triggerPnlPercent,
   unrealizedPnl,
 } from './vwap.js';
@@ -95,6 +96,43 @@ describe('simulateFakFill', () => {
     const fill = simulateFakFill([], 10, 0.5, 'BUY');
     expect(fill.fillQuantity).toBe(0);
     expect(fill.vwap).toBe(0);
+  });
+});
+
+describe('simulateFakBuyCollateralFill', () => {
+  it('overfills shares when asks are cheaper than the padded limit', () => {
+    const fill = simulateFakBuyCollateralFill(
+      [{ price: 0.47, size: 200 }],
+      50,
+      0.5,
+    );
+    expect(fill.spentPusd).toBeCloseTo(50, 6);
+    expect(fill.fillQuantity).toBeCloseTo(50 / 0.47, 6);
+    expect(fill.fillQuantity).toBeGreaterThan(100);
+    expect(fill.vwap).toBeCloseTo(0.47, 6);
+  });
+
+  it('does not walk through asks above the limit', () => {
+    const fill = simulateFakBuyCollateralFill(
+      [
+        { price: 0.4, size: 10 },
+        { price: 0.7, size: 100 },
+      ],
+      50,
+      0.5,
+    );
+    expect(fill.fillQuantity).toBeCloseTo(10, 6);
+    expect(fill.spentPusd).toBeCloseTo(4, 6);
+  });
+
+  it('share-qty BUY walk stays qty-honest (no overfill)', () => {
+    const fill = simulateFakFill(
+      [{ price: 0.47, size: 200 }],
+      100,
+      0.5,
+      'BUY',
+    );
+    expect(fill.fillQuantity).toBe(100);
   });
 });
 

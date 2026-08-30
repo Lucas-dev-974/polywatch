@@ -3,6 +3,7 @@ import type { RedisQueue } from '../worker-shared/redis-queue.js';
 import type { ReservationService, ReserveResult } from '../services/reservation.service.js';
 import type { OrderReason, OrderSignal, TradingMode } from '../types/index.js';
 import { MIN_ORDER_SHARES, MIN_ORDER_PUSD } from './constants.js';
+import { shouldSkipNoLiquidityAsk } from './entry-ask-sanity.js';
 import { ENTRY_MOS_SKIP_CANNOT_BUMP } from './entry-mos.js';
 import { enqueueEntrySignal } from './enqueue-entry-signal.js';
 import { resolveEntryEnqueueBlocked } from './entry-enqueue-result.js';
@@ -40,6 +41,12 @@ export interface ResumeReservedEntryParams {
   entryTickPad?: number;
   /** Min ask depth (shares) for the depth gate; order qty is unchanged. 0 = disabled. */
   minAskDepthShares?: number;
+  /**
+   * When false, skip reasons leave the reservation in place. The pending-entry
+   * janitor must not cancel an in-flight weather/algo entry that may still fill.
+   * Default true (pipeline resume may abandon a dead reservation).
+   */
+  releaseOnSkip?: boolean;
 }
 
 /**
@@ -66,6 +73,7 @@ export async function resumeEntryFromReservation(
     hasInFlightBuy,
     entryTickPad,
     minAskDepthShares,
+    releaseOnSkip = true,
   } = params;
   const { reservedNotionalPusd, reservationId, copiedPositionId } = reservation;
 
@@ -77,6 +85,9 @@ export async function resumeEntryFromReservation(
     if (hasInFlightBuy && (await hasInFlightBuy())) {
       return deferToWorker();
     }
+    if (!releaseOnSkip) {
+      return skipReason;
+    }
     await reservationService
       .release(signalId, `resume_abandoned:${skipReason}`)
       .catch(() => undefined);
@@ -84,8 +95,15 @@ export async function resumeEntryFromReservation(
   };
 
   const roughPrices = await connectionManager.fetchExecutablePrices(assetId, 1);
-  if (roughPrices.executableAskVwap <= 0) {
-    return abandon('Pas de liquidit� (reprise r�servation)');
+  if (
+    shouldSkipNoLiquidityAsk({
+      askVwap: roughPrices.executableAskVwap,
+      notionalPusd: reservedNotionalPusd,
+      askLiquidityStatus: roughPrices.askLiquidityStatus,
+      liquidityStatus: roughPrices.liquidityStatus,
+    })
+  ) {
+    return abandon('no_liquidity');
   }
 
   const estimatedQty = reservedNotionalPusd / roughPrices.executableAskVwap;
@@ -108,6 +126,17 @@ export async function resumeEntryFromReservation(
   const entryAskVwap = depthResult.prices.executableAskVwap;
 
   const targetQty = reservedNotionalPusd / entryAskVwap;
+  if (
+    shouldSkipNoLiquidityAsk({
+      askVwap: entryAskVwap,
+      notionalPusd: reservedNotionalPusd,
+      impliedQty: targetQty,
+      askLiquidityStatus: depthResult.prices.askLiquidityStatus,
+      liquidityStatus: depthResult.prices.liquidityStatus,
+    })
+  ) {
+    return abandon('no_liquidity');
+  }
   if (targetQty < MIN_ORDER_SHARES) {
     return abandon('Quantit� r�serv�e inf�rieure au minimum');
   }
@@ -160,6 +189,7 @@ export async function resumeEntryFromReservation(
     hasBuyExecution,
     hasInFlightBuy,
     blockedReason: 'Enqueue file bloqué (reprise)',
+    releaseOnBlock: releaseOnSkip,
   });
   if (blocked) return blocked;
 

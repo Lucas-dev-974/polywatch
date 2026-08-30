@@ -21,6 +21,60 @@ export function isOpenLikePositionStatus(status: string): boolean {
   return (OPEN_LIKE_POSITION_STATUSES as readonly string[]).includes(status);
 }
 
+/** Opening/increase/exit reasons that belong to the weather algo. */
+export function isWeatherPositionReason(
+  reason: string | null | undefined,
+): boolean {
+  return typeof reason === 'string' && reason.startsWith('WEATHER_');
+}
+
+/**
+ * Cost basis used for unrealized dollar PnL.
+ *
+ * Weather: executable bid vs entryBidVwap so t0 uPnL is fees-only (the
+ * taker spread is a realized-cash fact, not an immediate mark loss).
+ * Missing/zero entryBidVwap falls back to entryPrice so we never show a
+ * fake 0. Copy/crypto keep bid vs entry ask.
+ */
+export function unrealizedPnlEntryBasis(position: {
+  reason?: string | null;
+  entryBidVwap?: number | null;
+  entryPrice: number;
+}): number {
+  if (
+    isWeatherPositionReason(position.reason) &&
+    position.entryBidVwap != null &&
+    position.entryBidVwap > 0
+  ) {
+    return position.entryBidVwap;
+  }
+  return position.entryPrice;
+}
+
+
+/**
+ * Exit-now cash PnL: sell at bid vs entry ask minus remaining fees.
+ * Shown separately on weather open rows so close is not a surprise.
+ * Live uPnL stays bid vs entry bid (fees-only at t0).
+ */
+export function computeExecutableCashPnl(position: {
+  executableBidVwap?: number | null;
+  entryPrice: number;
+  quantity: number;
+  entryFeesRemaining?: number | null;
+}): number | null {
+  const bid = position.executableBidVwap;
+  if (bid == null || !(bid > 0) || !(position.quantity > 0) || !(position.entryPrice > 0)) {
+    return null;
+  }
+  return unrealizedPnl(
+    bid,
+    position.entryPrice,
+    position.quantity,
+    position.entryFeesRemaining ?? 0,
+  );
+}
+
 type UnrealizedPnlPosition = Pick<
   CopiedPosition,
   | 'assetId'
@@ -29,7 +83,9 @@ type UnrealizedPnlPosition = Pick<
   | 'entryPrice'
   | 'quantity'
   | 'entryFeesRemaining'
->;
+> & {
+  reason?: string | null;
+};
 
 type MarkablePosition = Pick<
   CopiedPosition,
@@ -97,7 +153,7 @@ export function computePositionUnrealizedPnl(
   const mark = getPositionMarkPrice(position, bookBid, market ?? null);
   return unrealizedPnl(
     mark,
-    position.entryPrice,
+    unrealizedPnlEntryBasis(position),
     position.quantity,
     position.entryFeesRemaining ?? 0,
   );

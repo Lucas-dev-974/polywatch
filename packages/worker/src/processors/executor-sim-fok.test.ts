@@ -221,4 +221,44 @@ describe('Executor simulateFill FOK', () => {
     expect(connectionManager.forceRefreshBook).toHaveBeenCalledTimes(2);
     expect(prepareFakMarketOrder).toHaveBeenCalled();
   });
+
+  it('overfills BUY shares when T1 asks are cheaper than the padded limit', async () => {
+    vi.mocked(prepareFakMarketOrder).mockResolvedValue({
+      ok: true,
+      prepared: { ...prepared, limitPrice: 0.5, fillPrice: 0.47 },
+    } as never);
+    connectionManager.forceRefreshBook.mockResolvedValue({
+      asks: [{ price: 0.47, size: 200 }],
+      bids: [{ price: 0.45, size: 10 }],
+    });
+
+    const result = await (executor as any).simulateFill(
+      baseSignal({ quantity: 100, orderType: 'FAK', reason: 'WEATHER_OPEN' }),
+      new AbortController().signal,
+    );
+
+    expect(result.status).toBe('filled');
+    expect(result.fillQuantity).toBeCloseTo(50 / 0.47, 6);
+    expect(result.fillQuantity).toBeGreaterThan(100);
+    expect(result.fillPrice).toBeCloseTo(0.47, 6);
+  });
+
+  it('keeps SELL qty-honest (no collateral overfill)', async () => {
+    vi.mocked(prepareFakMarketOrder).mockResolvedValue({
+      ok: true,
+      prepared: { ...prepared, limitPrice: 0.5 },
+    } as never);
+    connectionManager.forceRefreshBook.mockResolvedValue({
+      asks: [{ price: 0.52, size: 10 }],
+      bids: [{ price: 0.52, size: 200 }],
+    });
+
+    const result = await (executor as any).simulateFill(
+      baseSignal({ side: 'SELL', quantity: 100, orderType: 'FAK', reason: 'SL' }),
+      new AbortController().signal,
+    );
+
+    expect(result.status).toBe('filled');
+    expect(result.fillQuantity).toBe(100);
+  });
 });

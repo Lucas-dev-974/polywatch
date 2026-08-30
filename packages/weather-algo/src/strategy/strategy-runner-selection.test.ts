@@ -92,7 +92,7 @@ describe('strategy-runner-selection (lane-based)', () => {
       expect(out.some(s => s.conditionId === 'hy-j2')).toBe(false);
     });
 
-    it('applySelectionMode single returns all lanes for best city+date', () => {
+    it('applySelectionMode single stays on the winning strategy (no other-strategy lanes)', () => {
       const forecast = signal({
         conditionId: 'fc',
         strategyId: 'weather-forecast',
@@ -119,29 +119,35 @@ describe('strategy-runner-selection (lane-based)', () => {
       const out = applySelectionMode([forecast, highestYes, aligned], {
         weatherAlgoSelectionMode: 'single',
       } as never);
-      expect(out).toHaveLength(3); // All three lanes for best city+date
+      expect(out).toHaveLength(1);
+      expect(out[0].strategyId).toBe('weather-forecast');
+      expect(out[0].conditionId).toBe('fc');
     });
 
-    it('applySelectionMode multi guarantees at least one signal per emitting strategy', () => {
-    const bestEdge = signal({
-      conditionId: 'best-edge',
+    it('applySelectionMode multi takes top N by edge inside the active strategy', () => {
+    const paris = signal({
+      conditionId: 'paris',
       strategyId: 'weather-forecast',
       city: 'Paris',
       edge: 0.2,
     });
-    const highestYes = signal({
-      conditionId: 'highest-yes',
-      strategyId: 'weather-highest-yes',
-      city: 'Paris',
-      edge: 0,
+    const lyon = signal({
+      conditionId: 'lyon',
+      strategyId: 'weather-forecast',
+      city: 'Lyon',
+      edge: 0.15,
+    });
+    const marseille = signal({
+      conditionId: 'marseille',
+      strategyId: 'weather-forecast',
+      city: 'Marseille',
+      edge: 0.05,
     });
 
-    const out = applySelectionMode([bestEdge, highestYes], {
+    const out = applySelectionMode([paris, lyon, marseille], {
       weatherAlgoSelectionMode: 'multi',
       weatherAlgoMaxSignalsPerEvent: 2,
     } as never);
-    const strategies = new Set(out.map((s) => s.strategyId));
-    expect(strategies).toContain('weather-forecast');
-    expect(strategies).toContain('weather-highest-yes');
+    expect(out.map((s) => s.conditionId)).toEqual(['paris', 'lyon']);
   });
 });

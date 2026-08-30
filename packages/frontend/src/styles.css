@@ -11357,6 +11357,14 @@ body.is-resizing-columns .position-market-split-handle::after {
   white-space: nowrap;
 }
 
+.weather-exec-ago {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  white-space: nowrap;
+  margin-top: 0.125rem;
+}
+
 /* Weather positions — header right (tabs + mode filter) */
 .weather-position-header-right {
   display: flex;

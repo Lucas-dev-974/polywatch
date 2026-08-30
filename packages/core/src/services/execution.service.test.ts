@@ -122,6 +122,51 @@ describe('ExecutionService simulation cash guards', () => {
     expect(cashAfterFirst).toBeCloseTo(106, 4);
   });
 
+  it('clamps leftover entry_quantity_remaining dust when a close fills below MOS', async () => {
+    const posRepo = ds.getRepository(CopiedPosition);
+
+    const pos = await posRepo.save(
+      posRepo.create({
+        watchlistId: 1,
+        conditionId: 'c-dust',
+        assetId: 'a-dust',
+        outcome: 'Yes',
+        side: 'BUY',
+        quantity: 10.0003,
+        entryPrice: 0.5,
+        entryBidVwap: 0.5,
+        entryQuantityRemaining: 10.0003,
+        entryFees: 0,
+        entryFeesRemaining: 0,
+        status: 'closing',
+        mode: 'real',
+        realizedPnl: 0,
+      }),
+    );
+
+    await executionService.claim({
+      orderSignalId: 'sell-dust',
+      copiedPositionId: pos.id,
+      mode: 'real',
+      side: 'SELL',
+      reason: 'SL',
+      requestedQty: 10,
+    });
+
+    await executionService.finalize({
+      orderSignalId: 'sell-dust',
+      status: 'filled',
+      fillPrice: 0.4,
+      fillQuantity: 10,
+      fees: 0,
+    });
+
+    const updated = await posRepo.findOneByOrFail({ id: pos.id });
+    expect(updated.status).toBe('closed');
+    expect(updated.quantity).toBe(0);
+    expect(updated.entryQuantityRemaining).toBe(0);
+  });
+
   it('ensureCashIntegrity repairs drift from duplicate sells', async () => {
     const posRepo = ds.getRepository(CopiedPosition);
     const execRepo = ds.getRepository(Execution);
@@ -345,6 +390,12 @@ describe('ExecutionService simulation cash guards', () => {
     expect(afterFail.forcedExitFailedAttempts).toBe(1);
     expect(afterFail.lastForcedExitAttemptAt).not.toBeNull();
 
+    const failedExec = await ds.getRepository(Execution).findOneByOrFail({
+      orderSignalId: 'sell-fail',
+    });
+    expect(failedExec.executedAt).toBeNull();
+    expect(failedExec.createdAt).toBeInstanceOf(Date);
+
     const attemptRepo = ds.getRepository(ExitAttemptEvent);
     const attemptsAfterFail = await attemptRepo.find({
       where: { copiedPositionId: pos.id },
@@ -492,6 +543,94 @@ describe('ExecutionService simulation cash guards', () => {
     expect(updated.status).toBe('open');
     expect(updated.openedAt?.getTime()).toBe(matchAt.getTime());
     expect(exec.executedAt?.getTime()).toBe(matchAt.getTime());
+  });
+
+  it('stamps failed pending BUY with the execution error, not reservation_released', async () => {
+    const posRepo = ds.getRepository(CopiedPosition);
+
+    const pos = await posRepo.save(
+      posRepo.create({
+        watchlistId: 1,
+        conditionId: 'c-weather',
+        assetId: 'a-weather',
+        outcome: 'Yes',
+        side: 'BUY',
+        quantity: 0,
+        entryPrice: 0,
+        entryBidVwap: 0,
+        status: 'pending',
+        mode: 'sim',
+        reason: 'WEATHER_OPEN',
+        realizedPnl: 0,
+      }),
+    );
+
+    await executionService.claim({
+      orderSignalId: 'weather-open-nl',
+      copiedPositionId: pos.id,
+      mode: 'sim',
+      side: 'BUY',
+      reason: 'WEATHER_OPEN',
+      requestedQty: 1000,
+      referenceVwap: 0.001,
+    });
+
+    await executionService.finalize({
+      orderSignalId: 'weather-open-nl',
+      status: 'failed',
+      fillPrice: 0,
+      fillQuantity: 0,
+      fees: 0,
+      error: 'no_liquidity',
+    });
+
+    const updated = await posRepo.findOneByOrFail({ id: pos.id });
+    expect(updated.status).toBe('cancelled');
+    expect(updated.openedAt).toBeNull();
+    expect(updated.closeReason).toBe('no_liquidity');
+    expect(updated.quantity).toBe(0);
+  });
+
+  it('falls back to reservation_released when failed BUY has no error', async () => {
+    const posRepo = ds.getRepository(CopiedPosition);
+
+    const pos = await posRepo.save(
+      posRepo.create({
+        watchlistId: 1,
+        conditionId: 'c-weather-2',
+        assetId: 'a-weather-2',
+        outcome: 'Yes',
+        side: 'BUY',
+        quantity: 0,
+        entryPrice: 0,
+        entryBidVwap: 0,
+        status: 'pending',
+        mode: 'sim',
+        reason: 'WEATHER_OPEN',
+        realizedPnl: 0,
+      }),
+    );
+
+    await executionService.claim({
+      orderSignalId: 'weather-open-blank',
+      copiedPositionId: pos.id,
+      mode: 'sim',
+      side: 'BUY',
+      reason: 'WEATHER_OPEN',
+      requestedQty: 10,
+    });
+
+    await executionService.finalize({
+      orderSignalId: 'weather-open-blank',
+      status: 'failed',
+      fillPrice: 0,
+      fillQuantity: 0,
+      fees: 0,
+    });
+
+    const updated = await posRepo.findOneByOrFail({ id: pos.id });
+    expect(updated.status).toBe('cancelled');
+    expect(updated.closeReason).toBe('reservation_released');
   });
 });
 

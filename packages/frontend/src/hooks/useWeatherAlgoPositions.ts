@@ -47,6 +47,9 @@ export interface WeatherPosition {
   exitBidVwap?: number | null;
   /** Current executable bid (mark price used for unrealized PnL on open positions). */
   executableBidVwap?: number | null;
+  /** Exit-at-bid vs entry ask minus fees (weather open rows). */
+  executableCashPnl?: number | null;
+  entryFeesRemaining?: number | null;
   /** Owning weather strategy (e.g. weather-forecast, weather-forecast-aligned). */
   strategyId?: string | null;
   weatherForecast: WeatherForecastSnapshot | null;
@@ -101,14 +104,17 @@ export function useWeatherAlgoPositions() {
     setLoading(false);
   }
 
-  async function refreshHistory() {
+  async function refreshHistory(modeOverride?: WeatherAlgoPosModeFilter) {
     setLoadingHistory(true);
     try {
       const params = new URLSearchParams();
       params.set('limit', String(WEATHER_ALGO_POS_HISTORY_PAGE_SIZE));
       params.set('offset', String(historyPage() * WEATHER_ALGO_POS_HISTORY_PAGE_SIZE));
+      const mode = modeOverride ?? posModeFilter();
+      if (mode === 'sim') params.set('mode', 'sim');
+      else if (mode === 'live') params.set('mode', 'real');
       const data = await api<ClosedPositionsResponse>(
-        `/copied-positions?status=closed&reason=weather&${params.toString()}`,
+        `/copied-positions?status=closed,cancelled&reason=weather&${params.toString()}`,
       );
       setClosedPositions(data.items.filter((p) => isWeatherReason(p.reason)));
       setHistoryTotal(data.total);
@@ -147,9 +153,15 @@ export function useWeatherAlgoPositions() {
     if (tab === 'history') {
       // Reset pagination when entering history tab to avoid stale page from previous session
       if (historyPage() !== 0) setHistoryPage(0);
-      if (!historyLoaded() && !loadingHistory()) {
-        void refreshHistory();
-      }
+      void refreshHistory();
+    }
+  }
+
+  function applyPosModeFilter(next: WeatherAlgoPosModeFilter) {
+    setPosModeFilter(next);
+    if (posTab() === 'history') {
+      if (historyPage() !== 0) setHistoryPage(0);
+      void refreshHistory(next);
     }
   }
 
@@ -190,6 +202,6 @@ export function useWeatherAlgoPositions() {
     selectPosTab,
     setPosTab,
     posModeFilter,
-    setPosModeFilter,
+    setPosModeFilter: applyPosModeFilter,
   };
 }

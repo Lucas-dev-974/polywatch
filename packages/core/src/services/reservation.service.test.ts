@@ -382,6 +382,7 @@ describe('ReservationService', () => {
     });
     expect(pos?.status).toBe('cancelled');
     expect(pos?.closeReason).toBe('reservation_expired');
+    expect(pos?.closedAt).toBeTruthy();
   });
 
   it('sets closeReason when release cancels pending ALGO_OPEN', async () => {
@@ -405,6 +406,7 @@ describe('ReservationService', () => {
     });
     expect(pos?.status).toBe('cancelled');
     expect(pos?.closeReason).toBe('reservation_released');
+    expect(pos?.closedAt).toBeTruthy();
   });
 
   it('does not release when a BUY execution is still in flight', async () => {

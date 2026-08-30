@@ -11,6 +11,7 @@ import {
   computeTakerFee,
   resolveSimExecutionTunables,
   simulateFakFill,
+  simulateFakBuyCollateralFill,
   getAlgoKindForPosition,
 } from '@polywatch/core';
 import type { ExecutionResult, OrderSignal, GlobalConfig, CopyConfig, CryptoConfig, WeatherConfig } from '@polywatch/core';
@@ -519,24 +520,29 @@ export class Executor {
       levels = registry.applyImpact(signal.assetId, signal.side, levels);
     }
 
-    const matchQuantity =
-      signal.side === 'BUY' && prepared.limitPrice > 0
-        ? marketAmountPusd / prepared.limitPrice
-        : signal.quantity;
-
-    const fak = simulateFakFill(
-      levels,
-      matchQuantity,
-      prepared.limitPrice,
-      signal.side,
-    );
+    const fak =
+      signal.side === 'BUY'
+        ? simulateFakBuyCollateralFill(
+            levels,
+            marketAmountPusd,
+            prepared.limitPrice,
+          )
+        : simulateFakFill(
+            levels,
+            signal.quantity,
+            prepared.limitPrice,
+            'SELL',
+          );
 
     // CLOB FAK/FOK kill: empty book or insufficient resting size at the
     // limit -> order_not_matched (not a phantom partial fill). Real parse
     // maps "no orders found to match with fak" / "couldn't be fully filled"
     // to the same error. Allow ~1% residual for BUY collateral rounding.
-    const minFillQty = matchQuantity * 0.99;
-    if (fak.fillQuantity + 1e-9 < minFillQty) {
+    const fullFillTarget =
+      signal.side === 'BUY' ? marketAmountPusd : signal.quantity;
+    const filledAmount =
+      signal.side === 'BUY' ? (fak.spentPusd ?? 0) : fak.fillQuantity;
+    if (filledAmount + 1e-9 < fullFillTarget * 0.99) {
       return failedExecution(signal, 'order_not_matched');
     }
 
@@ -548,7 +554,7 @@ export class Executor {
         signal.assetId,
         signal.side,
         rawLevels,
-        matchQuantity,
+        fak.fillQuantity,
         prepared.limitPrice,
       );
     }

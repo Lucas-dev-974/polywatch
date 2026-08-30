@@ -307,4 +307,29 @@ describe('WeatherExitEvaluator', () => {
     expect(mocks.shouldCloseForForecastDrift).not.toHaveBeenCalled();
     expect(mocks.shouldCloseForBucketExit).not.toHaveBeenCalled();
   });
+
+  it('still runs forecast-drift exit for a position whose strategy is no longer enabled', async () => {
+    mocks.resolveEnabledWeatherStrategiesForMode.mockReturnValue(['weather-highest-yes']);
+    mocks.shouldCloseForForecastDrift.mockReturnValueOnce(true);
+    const { evaluator, closeQueue } = buildEvaluator({
+      positions: [basePos({ strategyId: 'weather-forecast' })],
+      snapshot: {
+        city: 'Paris',
+        targetDate: new Date('2026-08-02T12:00:00Z'),
+        metric: 'highest_temp',
+        entryForecastMean: 32,
+        entryBucketComparison: 'exact',
+        entryBucketBounds: JSON.stringify({ target: 33 }),
+        strategyId: 'weather-forecast',
+      },
+      forecastMean: 35,
+    });
+    await evaluator.evaluateOpenPositions();
+    expect(closeQueue.enqueueUnique).toHaveBeenCalledTimes(1);
+    expect(mocks.getStrategyParamsForMode).toHaveBeenCalledWith(
+      expect.anything(),
+      'weather-forecast',
+      'sim',
+    );
+  });
 });

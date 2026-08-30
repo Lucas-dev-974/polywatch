@@ -431,6 +431,7 @@ export class ReservationService {
         if (pos) {
           pos.status = 'cancelled';
           pos.closeReason = RESERVATION_CLOSE_REASON_RELEASED;
+          pos.closedAt = pos.closedAt ?? new Date();
           await posRepo.save(pos);
           // Attribute the release to its caller so audit queries can split
           // the "reservation_released" bucket by root cause (enqueue-failed,
@@ -475,6 +476,7 @@ export class ReservationService {
           if (pos) {
             pos.status = 'cancelled';
             pos.closeReason = RESERVATION_CLOSE_REASON_EXPIRED;
+            pos.closedAt = pos.closedAt ?? now;
             await posRepo.save(pos);
             cleaned++;
           }

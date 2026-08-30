@@ -36,7 +36,7 @@ function tick(overrides: Partial<BookTickEventData> = {}): BookTickEventData {
 }
 
 describe('runner-sim helpers', () => {
-  it('evaluateRunnerSimGroup returns signal from first winning strategy', async () => {
+  it('evaluateRunnerSimGroup returns signal from the active strategy', async () => {
     const forecast = createWeatherStrategy('weather-forecast');
     const aligned = createWeatherStrategy('weather-forecast-aligned');
     forecast.setRiskConfig({ weatherAlgoMinEdge: 0.05 } as never);
@@ -55,6 +55,30 @@ describe('runner-sim helpers', () => {
 
     expect(signal).not.toBeNull();
     expect(signal!.strategyId).toBe('weather-forecast');
+  });
+
+  it('evaluateRunnerSimGroup does not cascade to a later strategy when the first abstains', async () => {
+    const abstain = {
+      id: 'weather-forecast',
+      evaluateGroup: async () => ({ kind: 'abstain', reason: 'insufficient_edge' }),
+    };
+    const fallback = {
+      id: 'weather-highest-yes',
+      evaluateGroup: async () => ({
+        kind: 'signal',
+        signal: { strategyId: 'weather-highest-yes', conditionId: 'hy' },
+      }),
+    };
+    const t = tick();
+    const nowMs = Date.now();
+    const markets = buildActiveMarketsForGroup([t], nowMs);
+    const signal = await evaluateRunnerSimGroup(
+      [abstain, fallback] as never,
+      markets,
+      { forecastMean: 24, forecastStdDev: 0.5, mode: 'sim' },
+      new Date(nowMs),
+    );
+    expect(signal).toBeNull();
   });
 
   it('selectRunnerSimSignals dedups by city keeping highest edge', () => {
@@ -146,15 +170,20 @@ describe('runner-sim helpers', () => {
     expect(signal?.conditionId).toBe('between');
   });
 
-  it('createRunnerSimStrategies resolves all enabled strategies when no override', () => {
+  it('createRunnerSimStrategies clamps a legacy multi-id bag to one (catalogue order)', () => {
     const config = {
-      weatherAlgoStrategies: JSON.stringify(['weather-forecast', 'weather-forecast-aligned']),
+      weatherAlgoStrategies: JSON.stringify(['weather-highest-yes', 'weather-forecast', 'weather-forecast-aligned']),
     } as never;
     const strategies = createRunnerSimStrategies(config);
-    expect(strategies.map((s) => s.id).sort()).toEqual([
-      'weather-forecast',
-      'weather-forecast-aligned',
-    ]);
+    expect(strategies.map((s) => s.id)).toEqual(['weather-forecast']);
+  });
+
+  it('createRunnerSimStrategies keeps a uniquely already-enabled strategy', () => {
+    const config = {
+      weatherAlgoStrategies: JSON.stringify(['weather-highest-yes']),
+    } as never;
+    const strategies = createRunnerSimStrategies(config);
+    expect(strategies.map((s) => s.id)).toEqual(['weather-highest-yes']);
   });
 
   it('createRunnerSimStrategies forces a single strategy when override provided', () => {

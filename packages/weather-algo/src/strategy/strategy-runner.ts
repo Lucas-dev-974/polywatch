@@ -27,6 +27,8 @@ import {
   isMarketActiveForWeather,
   type BucketCandidate,
   resolveEnabledWeatherStrategiesForMode,
+  parseWeatherAlgoStrategies,
+  clampEnabledWeatherStrategies,
   getStrategyParamsForMode,
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   type WeatherStrategyId,
@@ -58,6 +60,26 @@ export interface StrategyRunnerParams {
   forecastHistoryRecorder?: WeatherForecastHistoryRecorder;
   marketSnapshotRecorder?: WeatherMarketSnapshotRecorder;
   evaluationRecorder?: WeatherEvaluationRecorder;
+}
+
+function resolveEnabledClamped(
+  risk: WeatherConfig,
+  mode: TradingMode,
+): WeatherStrategyId[] {
+  const enabled = resolveEnabledWeatherStrategiesForMode(risk, mode);
+  const raw = mode === 'sim' ? risk.simWeatherAlgoStrategies : risk.realWeatherAlgoStrategies;
+  const effectiveRaw =
+    raw === undefined || raw === null || raw === '' ? risk.weatherAlgoStrategies : raw;
+  const parsed = parseWeatherAlgoStrategies(effectiveRaw);
+  const unique = [...new Set(parsed)];
+  if (unique.length > 1) {
+    const { dropped } = clampEnabledWeatherStrategies(parsed);
+    log.warn(
+      { mode, bag: unique, kept: enabled[0], dropped },
+      'multiple weather strategies enabled — clamping to one (catalogue order)',
+    );
+  }
+  return enabled;
 }
 
 export class WeatherStrategyRunner {
@@ -244,10 +266,10 @@ export class WeatherStrategyRunner {
     // Snapshot config at cycle start — safe reload: mid-cycle config changes apply next cycle.
     const risk = this.risk;
     const enabledSim: WeatherStrategyId[] = risk
-      ? resolveEnabledWeatherStrategiesForMode(risk, 'sim')
+      ? resolveEnabledClamped(risk, 'sim')
       : [];
     const enabledReal: WeatherStrategyId[] = risk
-      ? resolveEnabledWeatherStrategiesForMode(risk, 'real')
+      ? resolveEnabledClamped(risk, 'real')
       : [];
     // Resolved at cycle start regardless of env toggles; publish [] for an env that is off.
     status.activeStrategiesSim = risk?.weatherAlgoSimEnabled ? [...enabledSim] : [];
@@ -792,8 +814,20 @@ export class WeatherStrategyRunner {
     } = params;
 
     if (strategies.length === 0) return null;
+    if (strategies.length > 1) {
+      log.warn(
+        {
+          mode,
+          city,
+          dateKey,
+          strategyIds: strategies.map((s) => s.id),
+          kept: strategies[0]!.id,
+        },
+        'multiple strategies passed to evaluateStrategyPass — using only the first (one active per env)',
+      );
+    }
 
-    const hasHighestYes = strategies.some((s) => s.id === WEATHER_HIGHEST_YES_STRATEGY_ID);
+    const hasHighestYes = strategies[0]?.id === WEATHER_HIGHEST_YES_STRATEGY_ID;
     if (!forecast && !hasHighestYes) {
       log.warn({ city, dateKey, mode }, 'city-follow: forecast unavailable — skipping evaluate');
       return null;
@@ -813,7 +847,7 @@ export class WeatherStrategyRunner {
     const evaluationInputs: EvaluationLogInput[] = [];
     const abstainReasons: string[] = [];
 
-    for (const strategy of strategies) {
+    for (const strategy of strategies.slice(0, 1)) {
       const risk = this.risk;
       if (risk) {
         const laneKey = `${normalizeWeatherCity(city)}|${dateKey}|${strategy.id}|${mode}`;

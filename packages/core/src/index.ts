@@ -65,6 +65,7 @@ export * from './orders/forced-exit.js';
 export * from './orders/exit-emit-block.js';
 export * from './orders/exit-attempt-mark.js';
 export * from './sizing/constants.js';
+export * from './sizing/entry-ask-sanity.js';
 export * from './sizing/compute.js';
 export * from './sizing/entry-mos.js';
 export * from './sizing/resolve-entry-mos.js';
@@ -95,6 +96,7 @@ export * from './market/tags.js';
 export * from './market/leaderboard-categories.js';
 export { createTtlCache } from './lib/ttl-cache.js';
 export * from './positions/mark.js';
+export * from './positions/reservation-close-reasons.js';
 export * from './positions/outcome.js';
 export * from './positions/redemption-wait.js';
 export * from './positions/size.js';
@@ -340,6 +342,7 @@ export {
   parseWeatherAlgoStrategyParams,
   serializeWeatherAlgoStrategies,
   serializeWeatherAlgoStrategyParams,
+  clampEnabledWeatherStrategies,
   getStrategyParams,
   getStrategyParamsForMode,
   DEFAULT_WEATHER_STRATEGY_PARAMS,
@@ -355,6 +358,7 @@ export {
   type WeatherStrategyParamsMap,
   type StrategyParamSchema,
   type WeatherComparison,
+  type ClampEnabledWeatherStrategiesResult,
 } from './weather/strategy-catalog.js';
 export { seedDefaults } from './seed/defaults.js';
 export { SYSTEM_CONFIG_DEFAULTS } from './seed/system-config-defaults.js';

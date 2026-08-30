@@ -170,4 +170,66 @@ describe('resumeEntryFromReservation', () => {
       expect.objectContaining({ maxAgeMs: expect.any(Number) }),
     );
   });
+
+  it('does not release the reservation when releaseOnSkip is false', async () => {
+    const release = vi.fn();
+    const result = await resumeEntryFromReservation({
+      conditionId: 'cond-1',
+      assetId: 'asset-1',
+      mode: 'sim',
+      signalId: 'sig-weather',
+      reason: 'WEATHER_OPEN',
+      reservation: {
+        reservedNotionalPusd: 6,
+        reservationId: 10,
+        copiedPositionId: 1,
+        expiresAt: new Date(Date.now() + 120_000),
+        orderSignalId: 'sig-weather',
+      },
+      connectionManager: {
+        fetchExecutablePrices: vi.fn().mockResolvedValue({
+          executableAskVwap: 0,
+          executableBidVwap: 0,
+          liquidityStatus: 'illiquid',
+        }),
+      },
+      reservationService: { release } as any,
+      orderQueue: { enqueueUnique: vi.fn(), enqueue: vi.fn() } as any,
+      releaseOnSkip: false,
+    });
+
+    expect(result).toBeTruthy();
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it('abandons no_liquidity on a $1 / 0.001 floor-tick book (qty would be 1000)', async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const enqueueUnique = vi.fn().mockResolvedValue(true);
+    const result = await resumeEntryFromReservation({
+      conditionId: 'cond-1',
+      assetId: 'asset-1',
+      mode: 'sim',
+      signalId: 'sig-floor',
+      reason: 'WEATHER_OPEN',
+      reservation: {
+        reservedNotionalPusd: 1,
+        reservationId: 10,
+        copiedPositionId: 1,
+        expiresAt: new Date(Date.now() + 120_000),
+        orderSignalId: 'sig-floor',
+      },
+      connectionManager: {
+        fetchExecutablePrices: vi.fn().mockResolvedValue({
+          executableAskVwap: 0.001,
+          executableBidVwap: 0,
+          askLiquidityStatus: 'ok',
+          liquidityStatus: 'ok',
+        }),
+      },
+      reservationService: { release } as any,
+      orderQueue: { enqueueUnique, enqueue: vi.fn() } as any,
+    });
+    expect(result).toBe('no_liquidity');
+    expect(enqueueUnique).not.toHaveBeenCalled();
+  });
 });

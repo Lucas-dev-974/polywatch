@@ -1,5 +1,5 @@
-import { For, Show } from 'solid-js';
-import { formatShortDateTime } from '../../lib/date';
+import { For, Show, createSignal, onCleanup, onMount } from 'solid-js';
+import { formatShortDateTime, formatTimeAgoPhrase, resolveExecutionEventIso } from '../../lib/date';
 import {
   closeExecutionErrorLabel,
   executionReasonLabel,
@@ -31,17 +31,34 @@ function formatFill(ex: WeatherExecution): string {
   return `${qty.toFixed(2)} @ ${price != null ? price.toFixed(4) : '—'}`;
 }
 
-function WeatherExecRow(props: { item: WeatherExecution }) {
+function WeatherExecRow(props: { item: WeatherExecution; now: number }) {
   const item = () => props.item;
   const wf = () => item().weatherForecast;
   const impact = () => formatExecutionCashImpact(item());
   const errorLabel = () =>
     item().status === 'failed' ? closeExecutionErrorLabel(item().error) : null;
+  const eventIso = () => resolveExecutionEventIso(item());
+  const eventTitle = () => {
+    const iso = eventIso();
+    if (!iso) return undefined;
+    const abs = new Date(iso).toLocaleString('fr-FR');
+    return item().executedAt ? abs : `Heure de l’événement : ${abs}`;
+  };
 
   return (
     <tr>
-      <td class="text-mono text-sm">
-        {item().executedAt ? formatShortDateTime(item().executedAt) : '—'}
+      <td
+        class="text-mono text-sm"
+        title={eventTitle()}
+      >
+        <Show when={eventIso()} fallback="—">
+          {(iso) => (
+            <>
+              <div>{formatShortDateTime(iso())}</div>
+              <div class="weather-exec-ago">{formatTimeAgoPhrase(iso(), props.now)}</div>
+            </>
+          )}
+        </Show>
       </td>
       <td class="weather-exec-city">{wf()?.city ?? '—'}</td>
       <td class="text-mono text-sm">
@@ -99,6 +116,12 @@ function WeatherExecRow(props: { item: WeatherExecution }) {
 
 export function WeatherAlgoExecutionsPanel(props: WeatherAlgoExecutionsPanelProps) {
   const ex = () => props.executions;
+  const [now, setNow] = createSignal(Date.now());
+
+  onMount(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    onCleanup(() => clearInterval(id));
+  });
 
   const hasActiveFilters = () =>
     ex().modeFilter() !== 'all' || ex().statusFilter() !== 'all';
@@ -237,7 +260,7 @@ export function WeatherAlgoExecutionsPanel(props: WeatherAlgoExecutionsPanelProp
                 </thead>
                 <tbody>
                   <For each={ex().executions()}>
-                    {(item) => <WeatherExecRow item={item} />}
+                    {(item) => <WeatherExecRow item={item} now={now()} />}
                   </For>
                 </tbody>
               </table>

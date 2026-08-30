@@ -39,16 +39,9 @@ export function applySelectionMode(
 
   if (mode === 'multi') {
     const maxN = risk.weatherAlgoMaxSignalsPerEvent ?? DEFAULT_MAX_SIGNALS_PER_EVENT;
-    const sorted = [...signals].sort((a, b) => b.edge - a.edge);
-    // Guarantee at least one signal per emitting strategy (lane), then fill the
-    // remaining slots by descending edge.
-    const bestPerStrategy = new Map<string, WeatherSignal>();
-    for (const s of sorted) {
-      if (!bestPerStrategy.has(s.strategyId)) bestPerStrategy.set(s.strategyId, s);
-    }
-    const guaranteed = [...bestPerStrategy.values()];
-    const rest = sorted.filter((s) => !guaranteed.includes(s));
-    return [...guaranteed, ...rest].slice(0, maxN);
+    // Selection is inside the one active strategy (cities/dates), not across
+    // strategies. Top N by edge.
+    return [...signals].sort((a, b) => b.edge - a.edge).slice(0, maxN);
   }
 
   if (mode !== 'single') {
@@ -57,17 +50,15 @@ export function applySelectionMode(
       'weather selection mode unknown — falling back to single',
     );
   }
-  // Single mode: pick the (city, targetDate) pair with the highest-edge signal,
-  // then return all lane winners for that pair (multiple strategies).
-  // This allows highest-yes (edge=0) to win as fallback on dates where
-  // forecast strategies have no signal, instead of being shadowed by a
-  // forecast signal on a different date of the same city.
+  // Single mode applies inside the one active strategy: pick the
+  // (city, targetDate) pair with the highest-edge signal of that strategy.
   const sorted = [...signals].sort((a, b) => b.edge - a.edge);
   const best = sorted[0]!;
   const bestCity = normalizeWeatherCity(best.city);
   const bestDateIso = best.targetDate.toISOString().slice(0, 10);
   return sorted.filter(
     (s) =>
+      s.strategyId === best.strategyId &&
       normalizeWeatherCity(s.city) === bestCity &&
       s.targetDate.toISOString().slice(0, 10) === bestDateIso,
   );

@@ -155,6 +155,8 @@ import { AddWeatherAlgoStrategiesPerEnv1700000000121 } from '../migrations/AddWe
 import { RenameUsdcToPusdSizing1700000000122 } from '../migrations/RenameUsdcToPusdSizing1700000000122.js';
 import { RenameNotionalUsdcToPusd1700000000123 } from '../migrations/RenameNotionalUsdcToPusd1700000000123.js';
 import { BackfillWeatherOpenPositionsExitParams1700000000124 } from '../migrations/BackfillWeatherOpenPositionsExitParams1700000000124.js';
+import { AddCreatedAtToExecutions1700000000125 } from '../migrations/AddCreatedAtToExecutions1700000000125.js';
+import { BackfillWeatherOpenPositionsExitParams1700000000126 } from '../migrations/BackfillWeatherOpenPositionsExitParams1700000000126.js';
 
 import { ClobLatencySample } from '../entities/ClobLatencySample.js';
 import { ShadowFill } from '../entities/ShadowFill.js';
@@ -275,6 +277,8 @@ export const migrations = [
   RenameUsdcToPusdSizing1700000000122,
   RenameNotionalUsdcToPusd1700000000123,
   BackfillWeatherOpenPositionsExitParams1700000000124,
+  AddCreatedAtToExecutions1700000000125,
+  BackfillWeatherOpenPositionsExitParams1700000000126,
 ];
 
 export const entities = [

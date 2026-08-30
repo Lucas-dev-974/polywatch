@@ -90,7 +90,7 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
   {
     id: 'misc',
     title: 'Divers',
-    keys: ['signalScoreSizingEnabled', 'minBidToAskRatio', 'minTimeToClose'],
+    keys: ['signalScoreSizingEnabled'],
   },
 ];
 

@@ -573,13 +573,6 @@ export function getWeatherKillSwitchAction(
   return weatherBag(cfg, mode, strategyId).killSwitchAction;
 }
 
-export function getWeatherMinBidToAskRatio(
-  cfg: WeatherConfig,
-  mode: TradingMode,
-  strategyId?: string | null,
-): number {
-  return weatherBag(cfg, mode, strategyId).minBidToAskRatio;
-}
 
 export function getWeatherSlConfirmationTicks(
   cfg: WeatherConfig,

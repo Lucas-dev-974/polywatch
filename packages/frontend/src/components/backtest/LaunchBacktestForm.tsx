@@ -16,8 +16,7 @@ const FALLBACK_STRATEGIES = [
 /**
  * Params du bag réellement consommés par le moteur de backtest (C1). Les
  * knobs d'exécution live (entryDepthRetry*, slCloseMaxRetries,
- * slConfirmationTicks, minBidToAskRatio, minTimeToClose,
- * signalScoreSizingEnabled, allowedMarketTags) et ceux écrasés par les champs
+ * slConfirmationTicks, signalScoreSizingEnabled) et ceux écrasés par les champs
  * run-level (entryPusd, maxOpenPositions) sont exclus pour éviter des réglages
  * sans effet.
  */

@@ -131,10 +131,7 @@ export type WeatherStrategyParamsBag = {
   // ── Kill switch ────────────────────────────────────────────────────
   killSwitchAction: 'block_entries' | 'force_close_all' | 'block_and_notify';
   // ── Misc ───────────────────────────────────────────────────────────
-  allowedMarketTags: string[];
   signalScoreSizingEnabled: boolean;
-  minBidToAskRatio: number;
-  minTimeToClose: number;
 };
 
 /**
@@ -177,10 +174,7 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   minAskDepthShares: 0,
   entryTickPad: 1,
   killSwitchAction: 'block_entries',
-  allowedMarketTags: [],
   signalScoreSizingEnabled: true,
-  minBidToAskRatio: 0.9,
-  minTimeToClose: 0,
 };
 
 const SIZING_MODE_OPTIONS = [
@@ -245,8 +239,6 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'killSwitchAction', label: 'Action kill-switch', kind: 'select', options: KILL_SWITCH_OPTIONS, default: 'block_entries' },
     // Misc
     { key: 'signalScoreSizingEnabled', label: 'Sizing par score de signal', kind: 'boolean', default: true },
-    { key: 'minBidToAskRatio', label: 'Ratio bid/ask min', kind: 'number', min: 0, max: 1, step: 0.05, default: 0.9 },
-    { key: 'minTimeToClose', label: 'Temps min avant fermeture (s)', kind: 'number', min: 0, max: 86_400, step: 30, default: 0 },
   ];
 }
 

@@ -133,12 +133,12 @@ describe('strategy-catalog', () => {
     const params = getStrategyParams(
       {
         weatherAlgoStrategyParams: JSON.stringify({
-          'weather-forecast': { minTimeToClose: 0, entryDepthRetryMax: 0 },
+          'weather-forecast': { minAskDepthShares: 0, entryDepthRetryMax: 0 },
         }),
       },
       'weather-forecast',
     );
-    expect(params.minTimeToClose).toBe(0);
+    expect(params.minAskDepthShares).toBe(0);
     expect(params.entryDepthRetryMax).toBe(0);
   });
 
@@ -169,11 +169,19 @@ describe('strategy-catalog', () => {
     expect(errors).toEqual([]);
   });
 
-  it('sanitizeWeatherStrategyParams keeps allowedMarketTags (bag key without UI schema)', () => {
+  it('sanitizeWeatherStrategyParams strips retired unused knobs', () => {
     const out = sanitizeWeatherStrategyParams({
-      'weather-forecast': { allowedMarketTags: ['sports', 'politics'] },
+      'weather-forecast': {
+        allowedMarketTags: ['sports', 'politics'],
+        minBidToAskRatio: 0.9,
+        minTimeToClose: 30,
+        entryTickPad: 2,
+      } as never,
     });
-    expect(out['weather-forecast']?.allowedMarketTags).toEqual(['sports', 'politics']);
+    expect(out['weather-forecast']?.allowedMarketTags).toBeUndefined();
+    expect(out['weather-forecast']?.minBidToAskRatio).toBeUndefined();
+    expect(out['weather-forecast']?.minTimeToClose).toBeUndefined();
+    expect(out['weather-forecast']?.entryTickPad).toBe(2);
   });
 
   it('sanitizeWeatherStrategyParams strips retired / unknown keys', () => {

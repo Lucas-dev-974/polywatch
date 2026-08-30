@@ -295,10 +295,7 @@ const weatherStrategyParamsBagSchema = z
     // Kill switch
     killSwitchAction: weatherKillSwitchAction,
     // Misc
-    allowedMarketTags: z.array(z.string().min(1).max(100)).max(200),
     signalScoreSizingEnabled: z.boolean(),
-    minBidToAskRatio: z.number().finite().min(0).max(1),
-    minTimeToClose: z.number().int().min(0).max(86_400),
   })
   .partial();
 

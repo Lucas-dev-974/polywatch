@@ -6,7 +6,8 @@ Ce document décrit le pipeline d’exécution en mode **sim** et les réglages 
 
 ```mermaid
 flowchart TD
-  signal[OrderSignal mode=sim] --> prepare[prepareFakMarketOrder]
+  signal[OrderSignal mode=sim] --> refresh0[forceRefreshBook avant prepare]
+  refresh0 --> prepare[prepareFakMarketOrder]
   prepare -->|fail| reject[failedExecution]
   prepare --> preflight{wallet preflight?}
   preflight -->|BUY + enabled| wallet[balance réelle read-only]
@@ -18,17 +19,17 @@ flowchart TD
   impact -->|oui| consume[soustraire fills sim récents]
   consume --> fak[simulateFakFill au limit T0]
   impact -->|non| fak
-  fak -->|qty 0| notMatched[order_not_matched]
-  fak -->|qty gt 0| finalize[ExecutionResult filled]
+  fak -->|qty lt 99pct| notMatched[order_not_matched]
+  fak -->|qty ge 99pct| finalize[ExecutionResult filled]
 ```
 
-1. **Pré-ordre partagé** (`prepareFakMarketOrder`) — identique au réel avant `POST /order` : VWAP, slippage, tick, resserrement SELL `lastTradePrice`, MOS, hold-if-winning.
+1. **Refresh REST puis pré-ordre partagé** — `forceRefreshBook` puis `prepareFakMarketOrder`, identique au réel avant `POST /order` : VWAP, slippage, tick, resserrement SELL `lastTradePrice`, MOS, hold-if-winning. Même snapshot book que le réel au prepare.
 2. **Préflight wallet** (optionnel) — BUY sim : vérifie la balance réelle si credentials CLOB présents ; sinon ignoré.
 3. **Latence** — délai avant match (fixe ou tiré des RTT réels).
 4. **Book T1** — `forceRefreshBook` (REST, ignore le cache).
 5. **Auto-impact** (optionnel) — soustrait la profondeur consommée par les fills sim récents (TTL configurable).
 6. **FAK local** — `simulateFakFill` au `limitPrice` figé en T0 ; BUY utilise le montant collatéral arrondi comme le réel.
-7. **Échec T1** → `order_not_matched` (pas `no_liquidity`).
+7. **Échec T1** (carnet vide, asks/bids qui ne croisent pas le limit, ou fill < 99 % de la quantité) → `order_not_matched` (pas `no_liquidity`, pas de fill partiel fantôme). Aligné sur le parse live (`no orders found to match with fak` / `couldn't be fully filled`).
 
 ## Réglages (`GlobalConfig`)
 

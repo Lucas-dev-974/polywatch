@@ -158,7 +158,7 @@ Source de vérité config = 4 tables isolées (`GlobalConfig` / `CopyConfig` /
 `getMode*` legacy.
 
 - `policy.ts` : `isEntryBidAskRatioAcceptable` ; `getCopyMinBidToAskRatio` /
-  `getCrypto…` / `getWeather…` ; `getCopyAllowedMarketTags` ; `evaluateSlTpTrailing`
+  `getCrypto…` ; `getCopyAllowedMarketTags` ; `evaluateSlTpTrailing`
   (ordre **SL → TP → TRAILING**, seuils en **% de la mise investie** via
   `slPercent` / `tpPercent` / `trailingPercent` ; trailing sur `peakClosurePnlPercent`).
 - `exit-decision.ts` : `evaluatePreCloseExit` — fenêtre pre-close ; keep si

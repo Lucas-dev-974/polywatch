@@ -1,6 +1,6 @@
 # Issues ouvertes — Weather Algo
 
-> Dernière mise à jour : 2026-08-28
+> Dernière mise à jour : 2026-08-30
 > Centralise les issues **encore ouvertes** identifiées dans les audits/plans du dossier `weather/`.
 > **Exclu** : les tests d'observation (laisser tourner l'algo puis re-générer un audit) — voir §5.
 
@@ -39,7 +39,7 @@ Gestion multi-intervalles de l'historique CLOB + refonte colonne « En base » �
 |------|------|
 | Badge UI `strategyId` sur positions / exécutions | ✅ implémenté (2026-08-27) |
 | Tests dédiés safe-reload + E2E `activeStrategies` | ✅ implémenté (2026-08-27) |
-| `runner-sim` multi-stratégies (sans forcer un seul `strategyId`) | ✅ implémenté (2026-08-27) |
+| `runner-sim` une stratégie active / env (clamp, plus de cascade first-wins) | ✅ (2026-08-30) |
 | SPEC spread / convergence / arbitrage | ❌ futur (hors cette étape) |
 
 ### 1.4 `2026-08-08_PLAN-weather-market-data-persistence.md` §12.2 — ✅ **implémenté (2026-08-27)**

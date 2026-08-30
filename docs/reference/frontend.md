@@ -135,7 +135,7 @@ src/
 │   │   ├── WeatherAlgoBacktestTab.tsx  Backtest : couverture, formulaire (`strategyEnv` sim/réel), liste, détail (poll `onCleanup` ; capital chart = `run.params` ; equity/positions si `completed` ; métriques byExit/byCity)
 │   │   │   ├── BacktestEquityChart.tsx courbe d'equity (SVG, axe X = champ `t`)
 │   │   │   └── backtest/ridge/         ridge plot : `RidgePlayTooltip` / `RidgeTooltip` affichent `Position #{id}` ; `fmtHolding` en ms/s sous 1 min
-│   │   ├── WeatherAlgoStrategiesTab.tsx  Stratégies : 2 sections sim/réel ; synchro listes avec CapitalHero via dashboard
+│   │   ├── WeatherAlgoStrategiesTab.tsx  Stratégies : 2 sections sim/réel, **radio** une active par env ; synchro listes avec CapitalHero via dashboard
 │   │   ├── WeatherAlgoSettingsTab.tsx  toggles recording + rétention
 │   ├── AlgoMarketCard.tsx, AlgoCarousel.tsx, AlgoCarouselNav.tsx
 │   ├── AlgoMarketChartTrigger.tsx / SurveillanceHistoryCard.tsx

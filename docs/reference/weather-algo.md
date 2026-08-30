@@ -16,7 +16,7 @@ Villes surveillées (WeatherAutoTrackRule)
 StrategyRunner (poll weatherAlgoPollMs)
         │  1. ExitEvaluator (sorties d'abord, un seul passage — pos.mode + strategyId)
         │  2. discoverWeatherMarkets + forecast (discovery 1× par cycle)
-        │  3. évaluation 2 passes : registre sim puis registre réel (catalogue, first-wins)
+        │  3. évaluation 2 passes : registre sim puis registre réel (1 stratégie active / env, pas de cascade)
         │  4. dedup + applySelectionMode par passe (chaque signal porte mode)
         ▼
 runWeatherEntryPipeline → weather-order-signals  (signal scoped à un seul mode)
@@ -75,25 +75,24 @@ stratégie active choisit son bucket via `evaluateGroup` :
 
 Puis **BUY YES uniquement** si l'edge dépasse le seuil dynamique (stratégies
 forecast) **ou**, pour `weather-highest-yes`, si le prix YES atteint le seuil
-`minYesPrice`. Plusieurs stratégies peuvent être activées (ordre catalogue =
-priorité first-wins). Modes `single` / `multi` entre **villes** (`spread`
-ignoré → traité comme `single`).
+`minYesPrice`. **Une seule stratégie active par environnement** (sim / real) ;
+pas de cascade first-wins. Un bag multi-id legacy est clampé à un id
+(`clampEnabledWeatherStrategies`, premier id d'ordre catalogue). Modes
+`single` / `multi` entre **villes** de cette stratégie (`spread` ignoré →
+traité comme `single`).
 
-**Mode `single` (défaut)** : sélectionne **une seule paire (ville, date cible)** —
-celle dont le signal a l'`edge` maximal — puis émet **tous les lanes gagnants**
-(stratégies) pour cette paire. Cela permet à `weather-highest-yes` (edge=0)
-d'être sélectionné comme fallback sur une date où aucune stratégie forecast
-n'a de signal, au lieu d'être masqué par un signal forecast sur une *autre*
-date de la même ville.
+**Mode `single` (défaut)** : sélectionne **une seule paire (ville, date cible)**
+parmi les signaux de la stratégie active — celle dont le signal a l'`edge`
+maximal.
 
-**Mode `multi`** : garantit au moins un signal par stratégie émettrice, puis
-remplit les slots restants par edge descendant (max `weatherAlgoMaxSignalsPerEvent`).
+**Mode `multi`** : top N signaux par edge descendant (max
+`weatherAlgoMaxSignalsPerEvent`) à l'intérieur de la stratégie active —
+plus de « un slot garanti par stratégie ».
 
 **UI** : onglet **Stratégies** scindé en **deux sections par environnement** —
-`Simulation (sim)` et `Réel (real)` — chacune avec son propre sélecteur de
-stratégie active et son éditeur de params (priorité first-wins = ordre du
-catalogue, pas l'ordre de cochage). L'en-tête `WeatherAlgoCapitalHero` expose
-aussi un sélecteur par env : un changement déclenche un PUT immédiat
+`Simulation (sim)` et `Réel (real)` — chacune avec un **radio** (une stratégie
+active) et l'éditeur de params de celle-ci. L'en-tête `WeatherAlgoCapitalHero`
+expose aussi un sélecteur par env : un changement déclenche un PUT immédiat
 (`setActiveStrategy` → uniquement `simWeatherAlgoStrategies` ou
 `realWeatherAlgoStrategies`). Onglet et hero partagent la `weatherConfig` du
 dashboard (`applyWeatherConfig`) : un PUT hero met à jour les listes de l'onglet
@@ -183,10 +182,12 @@ limites `maxDailyLossPusd` / `maxExposurePusd` / `maxOpenPositions` /
 
 | Knob | Défaut | Rôle |
 |------|--------|------|
-| `minTimeToClose` | `0` s | Temps minimum avant fermeture. |
-| `minBidToAskRatio` | `0.9` | Ratio bid/ask minimum requis. |
 | `signalScoreSizingEnabled` | `true` | Sizing par score de signal. Note : le weather force `multiplier: 1`, donc sans effet sur la taille. |
-| `allowedMarketTags` | `[]` | Filtre des tags marché autorisés. |
+
+`minTimeToClose`, `minBidToAskRatio` et `allowedMarketTags` ont été **retirés**
+du bag / catalogue / formulaire weather (jamais consommés par le moteur).
+Les knobs équivalents **copy-trading** (`simMinTimeToClose`, `simMinBidToAskRatio`,
+`simAllowedMarketTags` et variantes real) restent actifs.
 
 ---
 

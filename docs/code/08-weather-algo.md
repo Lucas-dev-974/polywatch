@@ -5,9 +5,13 @@ Couche de trading algorithmique sur marchés **température** Polymarket. Sélec
 Open-Meteo → edge YES → pipeline d'entrée (`weather-order-signals`) et sorties
 dédiées (`close-signals`).
 
-> État : **multi-stratégies par environnement** (`weather-forecast` +
-> `weather-forecast-aligned` + `weather-highest-yes`, évaluées séparément en
-> **sim** et **real** via deux registres — plan per-env 2026-08-27).
+> État : **une stratégie active par environnement** (sim / real), choisie parmi
+> `weather-forecast` / `weather-forecast-aligned` / `weather-highest-yes`.
+> Deux registres évaluent séparément sim et real (plan per-env 2026-08-27).
+> Pas de cascade first-wins : si la stratégie active s’abstient, rien n’est émis.
+> Un bag multi-id legacy est clampé à un id (`clampEnabledWeatherStrategies`,
+> ordre catalogue). Les positions déjà ouvertes continuent de sortir sur leur
+> `strategyId` d’origine.
 > Catalogue + filtres JSON dans les 4 colonnes per-env
 > (`simWeatherAlgoStrategies` / `realWeatherAlgoStrategies` +
 > `simWeatherAlgoStrategyParams` / `realWeatherAlgoStrategyParams`). Config runtime =
@@ -117,10 +121,10 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
   `confidence = min(1, yesPrice)` et `marketPrice = yesPrice`.
 - Seuil dynamique : `resolveDynamicMinEdge(stdDev, hoursToResolution, minEdge)`
   (stratégies forecast uniquement).
-- **Forecast optionnel** : `weather-highest-yes` s'évalue **sans** forecast. Si
-  le forecast est indisponible dans le runner, les stratégies forecast
-  s'abstiennent (`forecast_unavailable`) et seule `weather-highest-yes` est
-  évaluée (ctx placeholder).
+- **Forecast optionnel** : `weather-highest-yes` s'évalue **sans** forecast.
+  Si la stratégie **active** est forecast et que le forecast est indisponible,
+  le runner s'abstient (`forecast_unavailable`) — pas de repli automatique vers
+  `weather-highest-yes`.
 - **Tunables per-strategy** : `bag.minEdge`, `bag.maxForecastStd`,
   `bag.minForecastProbability` (stratégies forecast) + `bag.minYesPrice`
   (`weather-highest-yes`), lus via `getStrategyParamsForMode(weatherCfg,
@@ -138,7 +142,8 @@ Interface (`strategy/strategy.ts`) : `evaluate` + `evaluateGroup?` optionnel.
   `no_high_yes_bucket`.
 
 Modes `single` / `multi` : appliqués dans le **runner**
-(`applySelectionMode` / `dedupSignalsByCityDate`), pas dans la stratégie.
+(`applySelectionMode` / `dedupSignalsByCityDate`) **à l'intérieur** de la
+stratégie active (villes/dates), pas entre stratégies.
 `spread` / inconnu → traité comme `single`.
 
 **Safe reload** : les stratégies par environnement
@@ -156,9 +161,10 @@ Le bag typé `WeatherStrategyParamsBag` est défini dans
 résout le bag (catalogue defaults + stored overrides + coercition `0 → null`
 pour les nullables). Fallback legacy **uniquement** si la colonne per-env est
 `undefined` / `null` / `''` — `'[]'` / `'{}'` ne retombent pas.
-`sanitizeWeatherStrategyParams` garde les clés de
-`DEFAULT_WEATHER_STRATEGY_PARAMS` (donc `allowedMarketTags` survit même sans
-champ UI). Les colonnes legacy `weatherAlgoStrategies` /
+`sanitizeWeatherStrategyParams` ne conserve que les clés de
+`DEFAULT_WEATHER_STRATEGY_PARAMS` (`minTimeToClose` / `minBidToAskRatio` /
+`allowedMarketTags` sont retirés du bag et de l'UI ; les colonnes DB
+`weatherAlgo*` correspondantes restent non lues). Les colonnes legacy `weatherAlgoStrategies` /
 `weatherAlgoStrategyParams` restent acceptées par `weatherConfigUpdateSchema`
 (dépréciées, **retirées du patch** avant persist) ; les autres knobs
 per-strategy hors schéma (ex. `weatherAlgoMinEdge`) → 400 via `.strict()`.
@@ -192,7 +198,9 @@ BUY arrondie **au tick supérieur**, garde-fou slippage **tick-aware** (plancher
 notionnel atteigne `MIN_ORDER_PUSD` (1 pUSD) — 5 parts × 0.14 $ = 0.70 $ est
 sous le minimum CLOB live, d'où des FAK unmatched ; skip si le bump dépasse
 cash ou `maxPositionSizePusd`. Le `RealExecutor` fait un `forceRefreshBook`
-REST **avant** le prepare.
+REST **avant** le prepare. Le fill **sim** (`Executor.simulateFill`) rafraîchit
+aussi le book REST avant prepare, puis match FAK sur un second snapshot T1 ;
+profondeur insuffisante → `order_not_matched` (pas de fill partiel fantôme).
 
 **Pad d'entrée configurable** : les BUY `WEATHER_OPEN` paient `bag.entryTickPad`
 ticks (défaut 1, clampé 0-3) **après** le guard slippage pour rendre l'ordre

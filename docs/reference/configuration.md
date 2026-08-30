@@ -183,8 +183,8 @@ per-env `undefined`/`null`/`''`) relit les 2 colonnes figées.
 | `weatherAlgoMaxSignalsPerEvent` | `3` | Max villes en mode `multi` |
 | `weatherAlgoPollMs` | `1800000` | Intervalle de polling du StrategyRunner (ms, defaut 30min, min 10_000). Les polls sont **alignés sur une grille horaire UTC** : chaque cycle est planifié sur le prochain multiple de `weatherAlgoPollMs` depuis minuit UTC (`Math.ceil(now/pollMs)×pollMs`), indépendant de l'heure de démarrage (ex. 15 min → :00/:15/:30/:45 UTC), stable d'un redémarrage à l'autre. Au boot, une **passe d'exit immédiate** réévalue les positions ouvertes (reprise) mais aucun cycle d'entrée n'est déclenché : le premier cycle complet se fait au prochain créneau aligné. Hot-reload : le timer est recréé à chaud et ré-aligné sur le prochain créneau ; un cycle d'évaluation **immédiat** est quand même lancé sur `config-changed` (`kind` weather/global/absent) pour appliquer la nouvelle config sans attendre. Anti-overlap + pendingRerun si un cycle est déjà en cours. Surcharge aussi via env `WEATHER_ALGO_POLL_MS` au démarrage. |
 | `weatherAlgoStrategies` | `["weather-forecast"]` | **Legacy, lecture seule (figé)** — liste des stratégies activées (IDs catalogue : `weather-forecast`, `weather-forecast-aligned`, `weather-highest-yes`). Non écrit par l'API ; fallback backfill/rétrocompat. |
-| `simWeatherAlgoStrategies` | `["weather-forecast"]` | Stratégies actives **mode sim** (ordre = priorité first-wins) |
-| `realWeatherAlgoStrategies` | `["weather-forecast"]` | Stratégies actives **mode real** (ordre = priorité first-wins) |
+| `simWeatherAlgoStrategies` | `["weather-forecast"]` | Stratégie active **mode sim** (au plus un id ; bag multi-id legacy clampé à l'ordre catalogue, pas de first-wins) |
+| `realWeatherAlgoStrategies` | `["weather-forecast"]` | Stratégie active **mode real** (au plus un id ; même clamp) |
 | `simWeatherAlgoStrategyParams` | `{}` | Map params par stratégie **mode sim** |
 | `realWeatherAlgoStrategyParams` | `{}` | Map params par stratégie **mode real** |
 | `weatherAlgoForecastHistoryRecordingEnabled` | `true` | Enregistre `weather_forecast_history` a chaque fetch Open-Meteo reel |
@@ -247,10 +247,7 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 | `cityFollowSwitchMode` | `close_and_reenter` | `close_and_reenter` \| `hold` (`add_position` coercé) |
 | `bucketHysteresisPolls` | `2` | Polls consecutifs hors palier avant `WEATHER_BUCKET_EXIT` |
 | `reentryThrottleMs` | `1800000` | Pause apres close bucket/drift avant re-entree sur le même couple (ville, date cible) |
-| `minTimeToClose` | `0` | Secondes minimum avant cloture pour autoriser une entree |
-| `allowedMarketTags` | `[]` | Whitelist de slugs Gamma (vide = tous) |
 | `signalScoreSizingEnabled` | `true` | Ajuste la taille d'entree selon le score de qualité du signal |
-| `minBidToAskRatio` | `0.9` | Ratio bid/ask VWAP minimum pour autoriser une entree |
 
 > **`weather-highest-yes` (sans forecast)** : les knobs forecast sont **inopérants**
 > pour cette stratégie — `minEdge`, `maxForecastStd`, `minForecastProbability`
@@ -259,7 +256,11 @@ UI `NullableNumberField` — vide/`0` = `null` (désactivé).
 > gates `minYesPrice` (prix YES ≥ seuil) et `maxYesPrice` (prix YES ≤ plafond,
 > désactivé par défaut) s'appliquent à l'entrée ; SL/TP/trailing restent actifs.
 
-UI : onglet **Paramètres** (globaux) + onglet **Stratégies** (activation +
+Les knobs `minTimeToClose` / `minBidToAskRatio` / `allowedMarketTags` ne font
+plus partie du bag weather ni du formulaire (retirés : jamais lus par le
+moteur). Copy-trading conserve ses propres champs homonymes.
+
+UI : onglet **Paramètres** (globaux) + onglet **Stratégies** (radio une active +
 params per-strategy, scindé sim/réel) + sélecteurs stratégie du CapitalHero +
 onglet **Donnees** (exploration/purge, filtre `mode` sur le journal
 d'évaluation). Voir

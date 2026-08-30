@@ -100,25 +100,8 @@ async function buildTradingContext(
 
   const clobClient = createDepositWalletClobClient(apiCreds, depositAddress);
 
-  try {
-    const approvalsUrl = `${config.backendUrl}/api/internal/clob-approvals/ensure`;
-    const approvalsRes = await fetch(approvalsUrl, {
-      method: 'POST',
-      headers: { 'x-service-token': config.serviceToken },
-      signal: AbortSignal.timeout(CLOB_APPROVALS_ENSURE_TIMEOUT_MS),
-    });
-    if (!approvalsRes.ok) {
-      log.warn({ status: approvalsRes.status }, 'clob approvals check failed');
-      return { ok: false, error: 'clob_approvals_failed' };
-    }
-    log.info('clob approvals ensured');
-  } catch (err) {
-    log.warn({ err }, 'clob approvals request failed');
-    return { ok: false, error: 'clob_approvals_failed' };
-  }
-
-  // Sync AFTER ensure so a freshly mined adapter/exchange approve is visible
-  // to the CLOB matcher (server-side balance/allowance cache).
+  // Existing allowances only — per-order grants happen in ensureOrderClobApprovals
+  // immediately before post, so a weather BUY is not blocked by unrelated spenders.
   await syncDepositWalletCollateralCache(clobClient);
 
   const context: TradingContext = {
@@ -185,4 +168,46 @@ export function clearTradingContextCache(): void {
 export async function refreshTradingContext(): Promise<TradingContext | null> {
   clearTradingContextCache();
   return loadTradingContext();
+}
+
+/**
+ * Grant only the CLOB allowances required for this order (market family + side)
+ * via the backend relayer/ensure path. Syncs the CLOB matcher cache if a tx landed.
+ */
+export async function ensureOrderClobApprovals(
+  input: { negRisk: boolean; side: 'BUY' | 'SELL' },
+  clobClient?: ClobClient,
+): Promise<{ ok: true } | { ok: false; error: 'clob_approvals_failed' }> {
+  try {
+    const approvalsUrl = `${config.backendUrl}/api/internal/clob-approvals/ensure`;
+    const approvalsRes = await fetch(approvalsUrl, {
+      method: 'POST',
+      headers: {
+        'x-service-token': config.serviceToken,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ negRisk: input.negRisk, side: input.side }),
+      signal: AbortSignal.timeout(CLOB_APPROVALS_ENSURE_TIMEOUT_MS),
+    });
+    if (!approvalsRes.ok) {
+      log.warn(
+        { status: approvalsRes.status, negRisk: input.negRisk, side: input.side },
+        'clob approvals check failed',
+      );
+      return { ok: false, error: 'clob_approvals_failed' };
+    }
+    const result = (await approvalsRes.json()) as { txHash?: string | null };
+    log.info(
+      { negRisk: input.negRisk, side: input.side, txHash: result.txHash ?? null },
+      'clob approvals ensured for order',
+    );
+    // Sync AFTER ensure so a freshly mined approve is visible to the matcher.
+    if (result.txHash && clobClient) {
+      await syncDepositWalletCollateralCache(clobClient);
+    }
+    return { ok: true };
+  } catch (err) {
+    log.warn({ err, negRisk: input.negRisk, side: input.side }, 'clob approvals request failed');
+    return { ok: false, error: 'clob_approvals_failed' };
+  }
 }

@@ -73,7 +73,7 @@ Pipeline auxiliaire déclenché sur chaque mise à jour de carnet :
 
 | Fichier | Rôle |
 |---|---|
-| `trading-context.ts` | Cache singleton (TTL 30 min) : ClobClient POLY_1271, deposit wallet, credentials WS. `POST clob-approvals/ensure` (timeout 90 s, couvre une tx relayer) **puis** sync collatéral CLOB. Sync périodique 5 min. Invalidé par `config-changed` / `backend-ready`. Compteur `cacheGeneration` : un build en vol ne réécrit jamais le cache après une invalidation |
+| `trading-context.ts` | Cache singleton (TTL 30 min) : ClobClient POLY_1271, deposit wallet, credentials WS. Sync collatéral CLOB au load (pas de gate 7-approvals). `ensureOrderClobApprovals` (POST ensure avec `negRisk`+`side`, timeout 90 s) **juste avant le post** d'un ordre réel, puis sync si tx minée. Sync périodique 5 min. Invalidé par `config-changed` / `backend-ready`. Compteur `cacheGeneration` : un build en vol ne réécrit jamais le cache après une invalidation |
 | `client-factory.ts` / `credentials.ts` | Construction du ClobClient ; credentials via `/api/internal/clob-credentials` |
 | `real-executor.ts` | REST `forceRefreshBook` puis prepare FAK (prix → slippage tick-aware → tick → **mos (SELL)** → `lastTradePrice` sorties forcées) → post (timeout 30 s). BUY `WEATHER_OPEN` : pad `entryTickPad` (défaut 1) après le guard |
 | `execution-reconciler.ts` | Réconciliation `getOrder` / `getTrades` |

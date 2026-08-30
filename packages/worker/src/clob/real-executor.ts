@@ -8,7 +8,7 @@ import { failedExecution } from './execution-result.js';
 import { parseFillResponse } from './parse-fill-response.js';
 import { prepareFakMarketOrder } from './prepare-fak-order.js';
 import { withTimeout } from './with-timeout.js';
-import { loadTradingContextResult, clearTradingContextCache } from './trading-context.js';
+import { loadTradingContextResult, clearTradingContextCache, ensureOrderClobApprovals } from './trading-context.js';
 import { recordLatencySample } from '../execution/latency-calibrator.js';
 import { recordShadowFill } from '../execution/shadow-fill-recorder.js';
 import { computeSlippagePercent } from '../execution/slippage-guard.js';
@@ -80,6 +80,14 @@ export class RealExecutor {
     const { prepared } = preparedResult;
     const { limitPrice, tickSize, negRisk, platformFeeParams, entryBidVwap } =
       prepared;
+
+    const approvals = await ensureOrderClobApprovals(
+      { negRisk, side: signal.side },
+      trading.clobClient,
+    );
+    if (!approvals.ok) {
+      return failedExecution(signal, approvals.error);
+    }
 
     // --- Build and post FAK market order (C1) ---
     const clobSide = signal.side === 'BUY' ? Side.BUY : Side.SELL;

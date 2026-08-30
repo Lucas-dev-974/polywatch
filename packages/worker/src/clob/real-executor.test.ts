@@ -2,13 +2,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { OrderType } from '@polymarket/clob-client-v2';
 import type { OrderSignal } from '@polywatch/core';
 import { RealExecutor } from './real-executor.js';
-import { loadTradingContextResult, clearTradingContextCache } from './trading-context.js';
+import { loadTradingContextResult, clearTradingContextCache, ensureOrderClobApprovals } from './trading-context.js';
 import { prepareFakMarketOrder } from './prepare-fak-order.js';
 import { withTimeout } from './with-timeout.js';
 
 vi.mock('./trading-context.js', () => ({
   loadTradingContextResult: vi.fn(),
   clearTradingContextCache: vi.fn(),
+  ensureOrderClobApprovals: vi.fn(),
 }));
 
 vi.mock('./prepare-fak-order.js', () => ({
@@ -40,6 +41,7 @@ describe('RealExecutor order type mapping', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(ensureOrderClobApprovals).mockResolvedValue({ ok: true });
     vi.mocked(loadTradingContextResult).mockResolvedValue({
       ok: true,
       context: {
@@ -263,5 +265,86 @@ describe('RealExecutor order type mapping', () => {
     expect(result?.status).toBe('failed');
     expect(result?.error).toBe('insufficient_allowance');
     expect(clearTradingContextCache).toHaveBeenCalled();
+  });
+
+  it('ensures only weather BUY allowances before posting a neg-risk WEATHER_OPEN', async () => {
+    vi.mocked(prepareFakMarketOrder).mockResolvedValue({
+      ok: true,
+      prepared: {
+        limitPrice: 0.6,
+        fillPrice: 0.6,
+        usableFillPrice: 0.6,
+        tickSize: '0.01',
+        negRisk: true,
+        platformFeeParams: { feeRateBps: 0, feeExponent: 1 },
+        entryBidVwap: 0.58,
+      },
+    } as never);
+    const executor = new RealExecutor();
+    const connectionManager = { getOrderBook: vi.fn() } as never;
+    await executor.execute(
+      baseSignal({ reason: 'WEATHER_OPEN', orderType: 'FAK' }),
+      connectionManager,
+    );
+    expect(ensureOrderClobApprovals).toHaveBeenCalledWith(
+      { negRisk: true, side: 'BUY' },
+      expect.objectContaining({ createAndPostMarketOrder }),
+    );
+    expect(createAndPostMarketOrder).toHaveBeenCalled();
+  });
+
+  it('ensures only standard BUY allowances before posting a copy BUY', async () => {
+    const executor = new RealExecutor();
+    const connectionManager = { getOrderBook: vi.fn() } as never;
+    await executor.execute(
+      baseSignal({ reason: 'COPY_OPEN', orderType: 'FAK' }),
+      connectionManager,
+    );
+    expect(ensureOrderClobApprovals).toHaveBeenCalledWith(
+      { negRisk: false, side: 'BUY' },
+      expect.objectContaining({ createAndPostMarketOrder }),
+    );
+    expect(createAndPostMarketOrder).toHaveBeenCalled();
+  });
+
+  it('ensures weather SELL allowances before posting a neg-risk SELL', async () => {
+    vi.mocked(prepareFakMarketOrder).mockResolvedValue({
+      ok: true,
+      prepared: {
+        limitPrice: 0.6,
+        fillPrice: 0.6,
+        usableFillPrice: 0.6,
+        tickSize: '0.01',
+        negRisk: true,
+        platformFeeParams: { feeRateBps: 0, feeExponent: 1 },
+        entryBidVwap: 0.58,
+      },
+    } as never);
+    const executor = new RealExecutor();
+    const connectionManager = { getOrderBook: vi.fn() } as never;
+    await executor.execute(
+      baseSignal({ side: 'SELL', reason: 'WEATHER_BUCKET_EXIT', orderType: 'FAK' }),
+      connectionManager,
+    );
+    expect(ensureOrderClobApprovals).toHaveBeenCalledWith(
+      { negRisk: true, side: 'SELL' },
+      expect.anything(),
+    );
+  });
+
+  it('does not post when required CLOB approvals cannot be granted', async () => {
+    vi.mocked(ensureOrderClobApprovals).mockResolvedValue({
+      ok: false,
+      error: 'clob_approvals_failed',
+    });
+    const executor = new RealExecutor();
+    const connectionManager = { getOrderBook: vi.fn() } as never;
+    const result = await executor.execute(
+      baseSignal({ reason: 'WEATHER_OPEN' }),
+      connectionManager,
+    );
+    expect(result?.status).toBe('failed');
+    expect(result?.error).toBe('clob_approvals_failed');
+    expect(createAndPostMarketOrder).not.toHaveBeenCalled();
   });
 });

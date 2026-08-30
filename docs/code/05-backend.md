@@ -95,7 +95,7 @@ Fichiers : `suites.ts`, `process.ts`, `summary-parser.ts`, `run-dto.ts`,
 
 ### Autres
 - `proxy.ts` : détection du proxy wallet (RPC `getPolyProxyWalletAddress`, fallback Gamma public-profile).
-- `clob-approvals.ts` : vérifie et soumet en un batch relayer les 7 approbations requises (pUSD→CTF/Exchange/NegRisk Exchange/NegRiskAdapter, CTF→Exchange/NegRisk Exchange/NegRiskAdapter).
+- `clob-approvals.ts` : vérifie et soumet en un batch relayer **seulement les allowances requises pour l'ordre** (marché standard vs neg-risk/weather, BUY vs SELL). Weather BUY = pUSD→NegRiskAdapter ; weather SELL = CTF→NegRiskAdapter ; standard BUY = pUSD→Exchange V2 ; standard SELL = CTF→Exchange V2. Pas de gate 7-en-1.
 - `collateral-detection.ts` : détection du collatéral d'un marché via `assetId` (RPC payout vector CTF + `positionId`) ; parsing `PayoutRedemption` depuis les logs receipt ; lecture solde parts CTF (`fetchCtfShareBalance`).
 - `clob-redeem.ts` : encode `redeemPositions` (CTF ou NegRiskAdapter) avec **collatéral dynamique** (plus de pUSD hardcodé) ; `assetId` requis pour CTF standard ; garde `no_ctf_balance` si solde CTF = 0 ; `success: false` si payout receipt = 0 ; **auto-wrap USDC.e → pUSD** après redeem réussi (`buildWrapDepositWalletCalls`).
 - `collateral-ramp.ts` : conversions collatéral (wrap USDC.e → pUSD, etc.) ; `buildWrapTransactions`, `buildWrapDepositWalletCalls`.

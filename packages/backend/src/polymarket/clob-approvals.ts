@@ -33,32 +33,137 @@ const NEG_RISK_EXCHANGE_V2 = POLYGON_CLOB_CONTRACTS_V2.negRiskExchangeV2;
 const NEG_RISK_ADAPTER = POLYGON_CLOB_CONTRACTS_V2.negRiskAdapter;
 
 export interface ApprovalStatus {
+  /** pUSD → CTF — splitPosition only; not required to post a CLOB order. */
   pusdToCtf: boolean;
+  /** pUSD → Exchange V2 — required for standard-market BUY matching. */
   pusdToExchange: boolean;
+  /** pUSD → NegRisk Exchange V2 — not the weather/neg-risk matcher spender. */
   pusdToNegRisk: boolean;
   /** pUSD → NegRiskAdapter — required for BUY matching on neg-risk markets (weather). */
   pusdToAdapter: boolean;
+  /** CTF → Exchange V2 — required for standard-market SELL. */
   ctfToExchange: boolean;
+  /** CTF → NegRisk Exchange V2 — not the weather/neg-risk matcher operator. */
   ctfToNegRisk: boolean;
   /** CTF → NegRiskAdapter — required for SELL / redeem on neg-risk markets. */
   ctfToAdapter: boolean;
 }
 
+export type ApprovalFlag = keyof ApprovalStatus;
+export type ClobOrderSide = 'BUY' | 'SELL';
+export type ClobOrderKind =
+  | 'standard_buy'
+  | 'standard_sell'
+  | 'neg_risk_buy'
+  | 'neg_risk_sell';
+
 export interface EnsureApprovalsResult {
   needed: ApprovalStatus;
+  required: readonly ApprovalFlag[];
   txHash: string | null;
 }
 
-export function allClobApprovalsGranted(status: ApprovalStatus): boolean {
-  return (
-    status.pusdToCtf &&
-    status.pusdToExchange &&
-    status.pusdToNegRisk &&
-    status.pusdToAdapter &&
-    status.ctfToExchange &&
-    status.ctfToNegRisk &&
-    status.ctfToAdapter
-  );
+/**
+ * Minimum on-chain CLOB allowances to *match* that order.
+ *
+ * Standard BUY: Exchange V2 pulls pUSD.
+ * Standard SELL: Exchange V2 is the CTF operator.
+ * Neg-risk / weather BUY: NegRiskAdapter pulls pUSD (CLOB matcher spender).
+ * Neg-risk / weather SELL: NegRiskAdapter is the CTF operator (also redeem).
+ *
+ * Intentionally omitted: pusdToCtf (split), pusdToNegRisk / ctfToNegRisk
+ * (NegRisk Exchange V2 — not the matcher spender for these orders).
+ */
+export function requiredApprovalFlags(
+  kind: ClobOrderKind,
+): readonly ApprovalFlag[] {
+  switch (kind) {
+    case 'standard_buy':
+      return ['pusdToExchange'];
+    case 'standard_sell':
+      return ['ctfToExchange'];
+    case 'neg_risk_buy':
+      return ['pusdToAdapter'];
+    case 'neg_risk_sell':
+      return ['ctfToAdapter'];
+  }
+}
+
+export function resolveClobOrderKind(input: {
+  negRisk: boolean;
+  side: ClobOrderSide;
+}): ClobOrderKind {
+  if (input.negRisk) {
+    return input.side === 'BUY' ? 'neg_risk_buy' : 'neg_risk_sell';
+  }
+  return input.side === 'BUY' ? 'standard_buy' : 'standard_sell';
+}
+
+export function allClobApprovalsGranted(
+  status: ApprovalStatus,
+  required: readonly ApprovalFlag[],
+): boolean {
+  return required.every((flag) => status[flag]);
+}
+
+function encodePusdApprove(spender: string): string {
+  return erc20Iface.encodeFunctionData('approve', [spender, MAX_UINT256]);
+}
+
+function encodeCtfApproveAll(operator: string): string {
+  return erc1155Iface.encodeFunctionData('setApprovalForAll', [operator, true]);
+}
+
+const APPROVAL_CALLS: Record<ApprovalFlag, () => DepositWalletCall> = {
+  pusdToCtf: () => ({
+    target: PUSD_TOKEN,
+    value: '0',
+    data: encodePusdApprove(CTF_TOKEN),
+  }),
+  pusdToExchange: () => ({
+    target: PUSD_TOKEN,
+    value: '0',
+    data: encodePusdApprove(EXCHANGE_V2),
+  }),
+  pusdToNegRisk: () => ({
+    target: PUSD_TOKEN,
+    value: '0',
+    data: encodePusdApprove(NEG_RISK_EXCHANGE_V2),
+  }),
+  pusdToAdapter: () => ({
+    target: PUSD_TOKEN,
+    value: '0',
+    data: encodePusdApprove(NEG_RISK_ADAPTER),
+  }),
+  ctfToExchange: () => ({
+    target: CTF_TOKEN,
+    value: '0',
+    data: encodeCtfApproveAll(EXCHANGE_V2),
+  }),
+  ctfToNegRisk: () => ({
+    target: CTF_TOKEN,
+    value: '0',
+    data: encodeCtfApproveAll(NEG_RISK_EXCHANGE_V2),
+  }),
+  ctfToAdapter: () => ({
+    target: CTF_TOKEN,
+    value: '0',
+    data: encodeCtfApproveAll(NEG_RISK_ADAPTER),
+  }),
+};
+
+/** Relayer batch for *required* flags that are not yet granted. */
+export function buildMissingApprovalCalls(
+  status: ApprovalStatus,
+  required: readonly ApprovalFlag[],
+): DepositWalletCall[] {
+  const calls: DepositWalletCall[] = [];
+  for (const flag of required) {
+    if (!status[flag]) {
+      calls.push(APPROVAL_CALLS[flag]());
+    }
+  }
+  return calls;
 }
 
 /**
@@ -104,70 +209,30 @@ export async function checkClobApprovals(
   };
 }
 
-function encodePusdApprove(spender: string): string {
-  return erc20Iface.encodeFunctionData('approve', [spender, MAX_UINT256]);
-}
-
-function encodeCtfApproveAll(operator: string): string {
-  return erc1155Iface.encodeFunctionData('setApprovalForAll', [operator, true]);
-}
-
 /**
- * Ensure all required CLOB V2 approvals exist for the deposit wallet.
+ * Ensure the CLOB V2 approvals *required for this order* exist on the deposit
+ * wallet. Unrelated spenders are neither required nor granted.
  *
  * 1. Checks on-chain status (read-only, cheap).
- * 2. If any approval is missing, submits a single relayer batch with all
- *    missing calls. Returns the tx hash (or null if all were already present).
+ * 2. If any *required* approval is missing, submits a single relayer batch
+ *    with those calls only. Returns the tx hash (or null if already present).
  */
 export async function ensureClobApprovals(
   creds: ClobCredentials,
   depositAddress: string,
+  required: readonly ApprovalFlag[],
 ): Promise<EnsureApprovalsResult> {
+  if (required.length === 0) {
+    throw new Error('required_approvals_empty');
+  }
+
   const needed = await checkClobApprovals(depositAddress);
 
-  if (allClobApprovalsGranted(needed)) {
-    return { needed, txHash: null };
+  if (allClobApprovalsGranted(needed, required)) {
+    return { needed, required, txHash: null };
   }
 
-  const calls: DepositWalletCall[] = [];
-
-  if (!needed.pusdToCtf) {
-    calls.push({ target: PUSD_TOKEN, value: '0', data: encodePusdApprove(CTF_TOKEN) });
-  }
-  if (!needed.pusdToExchange) {
-    calls.push({ target: PUSD_TOKEN, value: '0', data: encodePusdApprove(EXCHANGE_V2) });
-  }
-  if (!needed.pusdToNegRisk) {
-    calls.push({
-      target: PUSD_TOKEN,
-      value: '0',
-      data: encodePusdApprove(NEG_RISK_EXCHANGE_V2),
-    });
-  }
-  if (!needed.pusdToAdapter) {
-    calls.push({
-      target: PUSD_TOKEN,
-      value: '0',
-      data: encodePusdApprove(NEG_RISK_ADAPTER),
-    });
-  }
-  if (!needed.ctfToExchange) {
-    calls.push({ target: CTF_TOKEN, value: '0', data: encodeCtfApproveAll(EXCHANGE_V2) });
-  }
-  if (!needed.ctfToNegRisk) {
-    calls.push({
-      target: CTF_TOKEN,
-      value: '0',
-      data: encodeCtfApproveAll(NEG_RISK_EXCHANGE_V2),
-    });
-  }
-  if (!needed.ctfToAdapter) {
-    calls.push({
-      target: CTF_TOKEN,
-      value: '0',
-      data: encodeCtfApproveAll(NEG_RISK_ADAPTER),
-    });
-  }
+  const calls = buildMissingApprovalCalls(needed, required);
 
   // Deposit-wallet batch requires a signer on the RelayClient.
   const signerPrivateKey = creds.signerPkEnc ? decrypt(creds.signerPkEnc) : null;
@@ -182,7 +247,8 @@ export async function ensureClobApprovals(
   );
   const txHash = await waitForTxHash(response);
 
-  // Post-submission verification: wait for the tx receipt and re-check approvals.
+  // Post-submission verification: wait for the tx receipt and re-check
+  // only the required flags for this order.
   if (txHash) {
     const provider = createPolygonProvider();
     const receipt = await provider.waitForTransaction(txHash, 1, 60_000);
@@ -191,10 +257,10 @@ export async function ensureClobApprovals(
     }
 
     const postCheck = await checkClobApprovals(depositAddress);
-    if (!allClobApprovalsGranted(postCheck)) {
+    if (!allClobApprovalsGranted(postCheck, required)) {
       throw new Error('approvals still missing after on-chain submission');
     }
   }
 
-  return { needed, txHash };
+  return { needed, required, txHash };
 }

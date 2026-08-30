@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import type { DataSource } from 'typeorm';
 import { TraderSnapshot } from '@polywatch/core';
-import { ensureClobApprovals } from '../../polymarket/clob-approvals.js';
+import {
+  ensureClobApprovals,
+  requiredApprovalFlags,
+  resolveClobOrderKind,
+  type ClobOrderSide,
+} from '../../polymarket/clob-approvals.js';
 import { redeemOnChain, type RedemptionWalletMode } from '../../polymarket/clob-redeem.js';
 import { resolveEffectiveWithdrawMode } from '../../polymarket/relayer-client.js';
 import {
@@ -39,8 +44,19 @@ export function createInternalClobOpsRouter(ds: DataSource): Router {
       res.status(400).json({ error: 'no_deposit_address' });
       return;
     }
+    const body = req.body as { negRisk?: unknown; side?: unknown };
+    if (typeof body?.negRisk !== 'boolean' || (body.side !== 'BUY' && body.side !== 'SELL')) {
+      res.status(400).json({ error: 'missing_required_fields' });
+      return;
+    }
+    const required = requiredApprovalFlags(
+      resolveClobOrderKind({
+        negRisk: body.negRisk,
+        side: body.side as ClobOrderSide,
+      }),
+    );
     try {
-      const result = await ensureClobApprovals(ctx.merged, ctx.depositAddress);
+      const result = await ensureClobApprovals(ctx.merged, ctx.depositAddress, required);
       res.json(result);
     } catch (err) {
       res.status(502).json({ error: 'approval_failed', detail: (err as Error).message });

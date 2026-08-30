@@ -68,5 +68,7 @@ describe('E2E audit compliance — real mode', () => {
     expect(clobApprovalsSource).toContain('pusdToAdapter');
     expect(clobApprovalsSource).toContain('ctfToAdapter');
     expect(clobApprovalsSource).toContain('negRiskAdapter');
+    expect(clobApprovalsSource).toContain('requiredApprovalFlags');
+    expect(clobApprovalsSource).toContain("case 'neg_risk_buy'");
   });
 });

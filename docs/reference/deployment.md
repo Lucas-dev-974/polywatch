@@ -40,18 +40,16 @@ Avant le premier ordre réel, vérifier les approvals on-chain :
 SELECT * FROM wallet_accounts WHERE mode = 'real';
 ```
 
-Les 7 approvals nécessaires :
-- pUSD → CTF
-- pUSD → Exchange V2
-- pUSD → NegRisk Exchange V2
-- pUSD → NegRiskAdapter (BUY matching weather / neg-risk)
-- CTF → Exchange V2
-- CTF → NegRisk Exchange V2
-- CTF → NegRiskAdapter (SELL / redeem neg-risk)
+Allowances minimales par type d'ordre (pas un gate 7-en-1) :
+- standard BUY : pUSD → Exchange V2
+- standard SELL : CTF → Exchange V2
+- weather / neg-risk BUY : pUSD → NegRiskAdapter
+- weather / neg-risk SELL (et redeem) : CTF → NegRiskAdapter
 
 Vérifier et poser les approvals via
-`POST /api/internal/clob-approvals/ensure` (auth `x-service-token`, appelé
-aussi par le worker au chargement du contexte CLOB). Il n'existe **pas** de
+`POST /api/internal/clob-approvals/ensure` (auth `x-service-token`, body
+`{ "negRisk": boolean, "side": "BUY"|"SELL" }`, appelé par le worker juste
+avant de poster un ordre réel — seulement les spenders de cet ordre). Il n'existe **pas** de
 route publique `/api/wallet/approvals`. L'aperçu portefeuille reste
 `GET /api/wallet`.
 
@@ -135,7 +133,7 @@ Ce script vérifie :
 |-------|----------|
 | Secrets non-défaut | `grep -E "change-me|0123456789abcdef" .env` (vide = OK) |
 | Credentials CLOB | `SELECT COUNT(*) FROM clob_credentials;` (> 0) |
-| Approvals | `POST /api/internal/clob-approvals/ensure` (service token) — 7 approvals on-chain |
+| Approvals | `POST /api/internal/clob-approvals/ensure` (service token, `negRisk`+`side`) — allowances required for that order |
 | WebSocket user | Logs : `WebSocket user channel connected` |
 | Mode réel | `SELECT real_trading_enabled FROM global_config;` (`false` par défaut) |
 
@@ -197,7 +195,7 @@ Ou `PUT /api/config/copy` avec `{ "realEntryPusdAmount": 5 }`.
 
 - [ ] Secrets uniques générés et configurés
 - [ ] Credentials CLOB valides dans la DB
-- [ ] Approvals on-chain complets (7 approvals, dont NegRiskAdapter)
+- [ ] Approvals on-chain pour le type d'ordre visé (pas un gate 7-en-1)
 - [ ] Dry-run passé avec succès
 - [ ] `real_trading_enabled = false` (activé manuellement après vérifications)
 - [ ] Montant minimal pour premier test

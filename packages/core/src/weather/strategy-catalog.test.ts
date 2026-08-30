@@ -142,6 +142,33 @@ describe('strategy-catalog', () => {
     expect(params.entryDepthRetryMax).toBe(0);
   });
 
+  it('getStrategyParams exposes minAskDepthShares and entryTickPad defaults', () => {
+    const params = getStrategyParams({}, 'weather-forecast');
+    expect(params.minAskDepthShares).toBe(0);
+    expect(params.entryTickPad).toBe(1);
+  });
+
+  it('getStrategyParams overlays stored minAskDepthShares and entryTickPad', () => {
+    const params = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          'weather-forecast': { minAskDepthShares: 300, entryTickPad: 2 },
+        }),
+      },
+      'weather-forecast',
+    );
+    expect(params.minAskDepthShares).toBe(300);
+    expect(params.entryTickPad).toBe(2);
+  });
+
+  it('validateWeatherStrategyParamsUpdate accepts minAskDepthShares and entryTickPad', () => {
+    const errors = validateWeatherStrategyParamsUpdate(
+      [WEATHER_FORECAST_STRATEGY_ID],
+      { 'weather-forecast': { minAskDepthShares: 300, entryTickPad: 2 } },
+    );
+    expect(errors).toEqual([]);
+  });
+
   it('sanitizeWeatherStrategyParams keeps allowedMarketTags (bag key without UI schema)', () => {
     const out = sanitizeWeatherStrategyParams({
       'weather-forecast': { allowedMarketTags: ['sports', 'politics'] },

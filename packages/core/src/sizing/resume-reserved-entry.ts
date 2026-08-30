@@ -36,6 +36,10 @@ export interface ResumeReservedEntryParams {
   resolveEffectiveEntryMos?: ResolveEffectiveEntryMos;
   hasBuyExecution?: () => Promise<boolean>;
   hasInFlightBuy?: () => Promise<boolean>;
+  /** Extra ticks added to the FAK limit price on entry (taker aggressiveness). */
+  entryTickPad?: number;
+  /** Min ask depth (shares) for the depth gate; order qty is unchanged. 0 = disabled. */
+  minAskDepthShares?: number;
 }
 
 /**
@@ -60,6 +64,8 @@ export async function resumeEntryFromReservation(
     resolveEffectiveEntryMos,
     hasBuyExecution,
     hasInFlightBuy,
+    entryTickPad,
+    minAskDepthShares,
   } = params;
   const { reservedNotionalPusd, reservationId, copiedPositionId } = reservation;
 
@@ -83,9 +89,15 @@ export async function resumeEntryFromReservation(
   }
 
   const estimatedQty = reservedNotionalPusd / roughPrices.executableAskVwap;
+  const depthTargetQty = Math.max(
+    estimatedQty,
+    typeof minAskDepthShares === 'number' && minAskDepthShares > 0
+      ? minAskDepthShares
+      : 0,
+  );
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId,
-    targetQty: estimatedQty,
+    targetQty: depthTargetQty,
     maxRetries: 1,
     delayMs: 250,
     connectionManager,
@@ -135,6 +147,7 @@ export async function resumeEntryFromReservation(
       referenceVwap: entryAskVwap,
       reason,
       mode,
+      entryTickPad,
     },
   });
 

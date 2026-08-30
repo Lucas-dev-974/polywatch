@@ -12,7 +12,6 @@ import {
   parseApiClobCredentials,
 } from './credentials.js';
 import { config } from '../config.js';
-import { BACKEND_HTTP_TIMEOUT_MS } from '../backend-client.js';
 import pino from 'pino';
 
 const log = pino({ name: 'trading-context' });
@@ -38,6 +37,8 @@ export type TradingContextResult =
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const COLLATERAL_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+/** Covers on-chain check + optional relayer batch + waitForTransaction (60 s). */
+const CLOB_APPROVALS_ENSURE_TIMEOUT_MS = 90_000;
 
 interface CachedEntry {
   context: TradingContext;
@@ -98,14 +99,13 @@ async function buildTradingContext(
   );
 
   const clobClient = createDepositWalletClobClient(apiCreds, depositAddress);
-  await syncDepositWalletCollateralCache(clobClient);
 
   try {
     const approvalsUrl = `${config.backendUrl}/api/internal/clob-approvals/ensure`;
     const approvalsRes = await fetch(approvalsUrl, {
       method: 'POST',
       headers: { 'x-service-token': config.serviceToken },
-      signal: AbortSignal.timeout(BACKEND_HTTP_TIMEOUT_MS),
+      signal: AbortSignal.timeout(CLOB_APPROVALS_ENSURE_TIMEOUT_MS),
     });
     if (!approvalsRes.ok) {
       log.warn({ status: approvalsRes.status }, 'clob approvals check failed');
@@ -116,6 +116,10 @@ async function buildTradingContext(
     log.warn({ err }, 'clob approvals request failed');
     return { ok: false, error: 'clob_approvals_failed' };
   }
+
+  // Sync AFTER ensure so a freshly mined adapter/exchange approve is visible
+  // to the CLOB matcher (server-side balance/allowance cache).
+  await syncDepositWalletCollateralCache(clobClient);
 
   const context: TradingContext = {
     depositAddress,

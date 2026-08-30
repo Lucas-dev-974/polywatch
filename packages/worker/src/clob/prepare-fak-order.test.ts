@@ -130,6 +130,54 @@ describe('prepareFakMarketOrder', () => {
     if (result.ok) expect(result.prepared.limitPrice).toBe(0.06);
   });
 
+  it('applies a configurable entryTickPad of 2 ticks on WEATHER_OPEN BUY', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.041,
+        lastTradePrice: undefined,
+        entryTickPad: 2,
+      }),
+      mockConnection({ executableBidVwap: 0.03, executableAskVwap: 0.041 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.prepared.limitPrice).toBe(0.07);
+  });
+
+  it('does not pad WEATHER_OPEN BUY when entryTickPad is 0', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.041,
+        lastTradePrice: undefined,
+        entryTickPad: 0,
+      }),
+      mockConnection({ executableBidVwap: 0.03, executableAskVwap: 0.041 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.prepared.limitPrice).toBe(0.05);
+  });
+
+  it('clamps entryTickPad above 3 to 3 ticks', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        side: 'BUY',
+        reason: 'WEATHER_OPEN',
+        referenceVwap: 0.041,
+        lastTradePrice: undefined,
+        entryTickPad: 5,
+      }),
+      mockConnection({ executableBidVwap: 0.03, executableAskVwap: 0.041 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.prepared.limitPrice).toBe(0.08);
+  });
+
   it('still rejects WEATHER_OPEN BUY when the book jumped ~20 ticks', async () => {
     const result = await prepareFakMarketOrder(
       baseSignal({

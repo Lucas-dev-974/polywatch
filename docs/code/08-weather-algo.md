@@ -192,8 +192,23 @@ BUY arrondie **au tick supérieur**, garde-fou slippage **tick-aware** (plancher
 notionnel atteigne `MIN_ORDER_PUSD` (1 pUSD) — 5 parts × 0.14 $ = 0.70 $ est
 sous le minimum CLOB live, d'où des FAK unmatched ; skip si le bump dépasse
 cash ou `maxPositionSizePusd`. Le `RealExecutor` fait un `forceRefreshBook`
-REST **avant** le prepare. Les BUY `WEATHER_OPEN` paient **+1 tick** après le
-guard slippage pour rendre l'ordre marketable sur un carnet YES fin.
+REST **avant** le prepare.
+
+**Pad d'entrée configurable** : les BUY `WEATHER_OPEN` paient `bag.entryTickPad`
+ticks (défaut 1, clampé 0-3) **après** le guard slippage pour rendre l'ordre
+marketable sur un carnet YES fin. Le plancher du guard slippage est relevé à
+`max(MIN_SLIPPAGE_TICKS, entryTickPad)` pour que le pad lui-même ne soit jamais
+compté comme un mouvement adverse. `entryTickPad = 0` désactive le pad.
+
+**Gate de profondeur ask** : `bag.minAskDepthShares` (défaut 0 = désactivé)
+relève la quantité cible du depth retry à `max(orderQty, minAskDepthShares)`
+pour ne pas envoyer un FAK sans contrepartie sur un carnet trop fin.
+
+**Diagnostic CLOB** : `parseFillResponse` distingue désormais un vrai kill FAK
+(pas de contrepartie → `order_not_matched`, code exact) d'un rejet exchange
+(statut `FAILED`/`REJECTED`, `success:false`, champ `error`/`errorMsg` non-kill →
+`clob_rejected:<raison>`). `clob_rejected` est retryable pour les sorties
+forcées (`isForcedExitRetryableError` prefix-aware).
 
 ## Sorties (`weather-exit-evaluator.ts`)
 

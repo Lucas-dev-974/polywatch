@@ -290,6 +290,8 @@ const weatherStrategyParamsBagSchema = z
     entryDepthRetryDelayMs: z.number().int().min(0).max(60_000),
     slCloseMaxRetries: z.number().int().min(0).max(20),
     slConfirmationTicks: z.number().int().min(1).max(10),
+    minAskDepthShares: z.number().int().min(0).max(1_000_000),
+    entryTickPad: z.number().int().min(0).max(3),
     // Kill switch
     killSwitchAction: weatherKillSwitchAction,
     // Misc

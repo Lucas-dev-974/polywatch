@@ -20,4 +20,11 @@ describe('forced-exit helpers', () => {
     expect(isForcedExitRetryableError('no_liquidity')).toBe(true);
     expect(isForcedExitRetryableError('position_already_closed')).toBe(false);
   });
+
+  it('treats clob_rejected and its prefixed variants as retryable', () => {
+    expect(isForcedExitRetryableError('clob_rejected')).toBe(true);
+    expect(isForcedExitRetryableError('clob_rejected:INSUFFICIENT_BALANCE')).toBe(true);
+    expect(isForcedExitRetryableError('clob_rejected:http 400: MINIMUM_ORDER_SIZE')).toBe(true);
+    expect(isForcedExitRetryableError('clob_rejectedx')).toBe(false);
+  });
 });

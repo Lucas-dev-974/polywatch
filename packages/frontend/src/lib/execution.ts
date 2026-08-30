@@ -75,6 +75,7 @@ const CLOSE_EXECUTION_ERROR_LABELS: Record<string, string> = {
   below_min_order_size: 'quantité trop faible pour le CLOB',
   tick_size_fetch_failed: 'impossible de lire le tick size CLOB',
   price_rounded_to_zero: 'prix arrondi à zéro',
+  clob_rejected: 'ordre CLOB rejeté par l’exchange',
   clob_order_failed: 'ordre CLOB rejeté',
   clob_approvals_failed: 'approbations CLOB manquantes',
   clob_credentials_not_found: 'identifiants CLOB absents',
@@ -95,7 +96,10 @@ export function closeExecutionErrorLabel(
   const [code, ...detailParts] = error.split(':');
   const detail = detailParts.join(':').trim();
   const label = CLOSE_EXECUTION_ERROR_LABELS[code.trim()] ?? error;
-  if (code.trim() === 'redemption_failed' && detail) {
+  if (
+    (code.trim() === 'redemption_failed' || code.trim() === 'clob_rejected') &&
+    detail
+  ) {
     return `${label} (${detail})`;
   }
   return label;

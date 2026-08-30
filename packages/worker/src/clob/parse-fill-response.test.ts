@@ -95,7 +95,7 @@ describe('parseFillResponse', () => {
     expect(result).toEqual({ type: 'delayed', status: 'delayed' });
   });
 
-  it('returns not_matched for FAILED and REJECTED', () => {
+  it('returns rejected for FAILED and REJECTED status', () => {
     expect(
       parseFillResponse(
         { orderID: orderId, status: 'FAILED', makingAmount: '0', takingAmount: '0' },
@@ -103,7 +103,7 @@ describe('parseFillResponse', () => {
         0.5,
         100,
       ),
-    ).toEqual({ type: 'not_matched', status: 'FAILED' });
+    ).toEqual({ type: 'rejected', status: 'FAILED', reason: 'FAILED' });
 
     expect(
       parseFillResponse(
@@ -112,7 +112,115 @@ describe('parseFillResponse', () => {
         0.5,
         100,
       ),
-    ).toEqual({ type: 'not_matched', status: 'REJECTED' });
+    ).toEqual({ type: 'rejected', status: 'REJECTED', reason: 'REJECTED' });
+  });
+
+  it('prefers errorMsg as rejected reason on FAILED/REJECTED status', () => {
+    expect(
+      parseFillResponse(
+        {
+          orderID: orderId,
+          status: 'REJECTED',
+          makingAmount: '0',
+          takingAmount: '0',
+          errorMsg: 'INSUFFICIENT_ALLOWANCE',
+        },
+        'BUY',
+        0.5,
+        100,
+      ),
+    ).toEqual({ type: 'rejected', status: 'REJECTED', reason: 'INSUFFICIENT_ALLOWANCE' });
+  });
+
+  it('returns rejected when success=false with zero fill', () => {
+    const result = parseFillResponse(
+      {
+        orderID: orderId,
+        status: 'unmatched',
+        success: false,
+        makingAmount: '0',
+        takingAmount: '0',
+        errorMsg: 'INSUFFICIENT_BALANCE',
+      },
+      'BUY',
+      0.5,
+      100,
+    );
+    expect(result.type).toBe('rejected');
+    if (result.type === 'rejected') {
+      expect(result.reason).toBe('INSUFFICIENT_BALANCE');
+    }
+  });
+
+  it('returns rejected when HTTP error field is present with zero fill', () => {
+    const result = parseFillResponse(
+      {
+        orderID: orderId,
+        status: 'unmatched',
+        makingAmount: '0',
+        takingAmount: '0',
+        error: 'MINIMUM_ORDER_SIZE',
+      },
+      'BUY',
+      0.5,
+      100,
+    );
+    expect(result.type).toBe('rejected');
+    if (result.type === 'rejected') {
+      expect(result.reason).toContain('MINIMUM_ORDER_SIZE');
+    }
+  });
+
+  it('returns rejected when error is a JSON object (non-2xx body)', () => {
+    const result = parseFillResponse(
+      {
+        orderID: orderId,
+        status: 'unmatched',
+        makingAmount: '0',
+        takingAmount: '0',
+        error: { message: 'signature invalid' },
+      },
+      'BUY',
+      0.5,
+      100,
+    );
+    expect(result.type).toBe('rejected');
+    if (result.type === 'rejected') {
+      expect(result.reason).toContain('signature invalid');
+    }
+  });
+
+  it('returns not_matched for a FAK kill even when success=false', () => {
+    const result = parseFillResponse(
+      {
+        orderID: orderId,
+        status: 'unmatched',
+        success: false,
+        makingAmount: '0',
+        takingAmount: '0',
+        errorMsg: 'No orders found to match with FAK',
+      },
+      'BUY',
+      0.5,
+      100,
+    );
+    expect(result).toEqual({ type: 'not_matched', status: 'unmatched' });
+  });
+
+  it('returns not_matched for a genuine FAK kill (no counterparty)', () => {
+    const result = parseFillResponse(
+      {
+        orderID: orderId,
+        status: 'unmatched',
+        makingAmount: '0',
+        takingAmount: '0',
+        errorMsg: 'No orders found to match with FAK',
+      },
+      'BUY',
+      0.5,
+      100,
+    );
+    expect(result).toEqual({ type: 'not_matched', status: 'unmatched' });
   });
 
   it('returns invalid when price is implausible (inverted mapping would give 2.0)', () => {

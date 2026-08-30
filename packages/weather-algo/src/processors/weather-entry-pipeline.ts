@@ -300,6 +300,8 @@ async function runMode(args: {
         });
         return effectiveEntryMos(detailed);
       },
+      entryTickPad: bag.entryTickPad,
+      minAskDepthShares: bag.minAskDepthShares,
     });
 
     if (skipReason) {
@@ -496,16 +498,25 @@ async function runMode(args: {
   }
 
   // --- Depth retry -----------------------------------------------------------
+  // The depth gate requires at least `minAskDepthShares` shares of ask depth at
+  // the entry price. Order quantity is unchanged; only the depth check target
+  // is raised so a thin book does not emit a FAK that cannot fill.
+  const depthTargetQty = Math.max(
+    orderQty,
+    typeof bag.minAskDepthShares === 'number' && bag.minAskDepthShares > 0
+      ? bag.minAskDepthShares
+      : 0,
+  );
   const depthResult = await fetchEntryAskLiquidityWithRetries({
     assetId: signal.assetId,
-    targetQty: orderQty,
+    targetQty: depthTargetQty,
     maxRetries: bag.entryDepthRetryMax,
     delayMs: bag.entryDepthRetryDelayMs,
     connectionManager,
   });
   if (!depthResult.ok) {
     log.warn(
-      { conditionId: signal.conditionId, mode, targetQty: orderQty, attempts: depthResult.attempts },
+      { conditionId: signal.conditionId, mode, targetQty: depthTargetQty, attempts: depthResult.attempts },
       'weather entry skipped — insufficient depth',
     );
     return depthResult.skipReason ?? 'Profondeur insuffisante';
@@ -563,6 +574,7 @@ async function runMode(args: {
     referenceVwap: finalAskVwap,
     reason: 'WEATHER_OPEN',
     mode,
+    entryTickPad: bag.entryTickPad,
   };
 
   const executionService = new ExecutionService(ds);

@@ -2,8 +2,9 @@ import { ethers } from 'ethers';
 import type { DepositWalletCall } from '@polymarket/builder-relayer-client';
 import { POLYGON_CLOB_CONTRACTS_V2 } from '@polywatch/core';
 import type { ClobCredentials } from '@polywatch/core';
+import { decrypt } from '../crypto/encryption.js';
 import { createPolygonProvider } from './polygon.js';
-import { createBuilderRelayClient, waitForTxHash } from './relayer-client.js';
+import { createRelayClient, waitForTxHash, RelayerWithdrawMode } from './relayer-client.js';
 import { buildDepositWalletDeadline } from './deposit-wallet-signing.js';
 
 const ERC20_APPROVE_ABI = [
@@ -12,15 +13,16 @@ const ERC20_APPROVE_ABI = [
 const ERC20_ALLOWANCE_ABI = [
   'function allowance(address owner, address spender) view returns (uint256)',
 ];
-const ERC721_APPROVE_ALL_ABI = [
+// CTF is ERC-1155; setApprovalForAll / isApprovedForAll share this signature.
+const ERC1155_APPROVE_ALL_ABI = [
   'function setApprovalForAll(address operator, bool approved)',
 ];
-const ERC721_IS_APPROVED_ABI = [
+const ERC1155_IS_APPROVED_ABI = [
   'function isApprovedForAll(address owner, address operator) view returns (bool)',
 ];
 
 const erc20Iface = new ethers.Interface(ERC20_APPROVE_ABI);
-const erc721Iface = new ethers.Interface(ERC721_APPROVE_ALL_ABI);
+const erc1155Iface = new ethers.Interface(ERC1155_APPROVE_ALL_ABI);
 
 const MAX_UINT256 = ethers.MaxUint256;
 
@@ -28,18 +30,35 @@ const PUSD_TOKEN = POLYGON_CLOB_CONTRACTS_V2.collateral;
 const CTF_TOKEN = POLYGON_CLOB_CONTRACTS_V2.conditionalTokens;
 const EXCHANGE_V2 = POLYGON_CLOB_CONTRACTS_V2.exchangeV2;
 const NEG_RISK_EXCHANGE_V2 = POLYGON_CLOB_CONTRACTS_V2.negRiskExchangeV2;
+const NEG_RISK_ADAPTER = POLYGON_CLOB_CONTRACTS_V2.negRiskAdapter;
 
 export interface ApprovalStatus {
   pusdToCtf: boolean;
   pusdToExchange: boolean;
   pusdToNegRisk: boolean;
+  /** pUSD → NegRiskAdapter — required for BUY matching on neg-risk markets (weather). */
+  pusdToAdapter: boolean;
   ctfToExchange: boolean;
   ctfToNegRisk: boolean;
+  /** CTF → NegRiskAdapter — required for SELL / redeem on neg-risk markets. */
+  ctfToAdapter: boolean;
 }
 
 export interface EnsureApprovalsResult {
   needed: ApprovalStatus;
   txHash: string | null;
+}
+
+export function allClobApprovalsGranted(status: ApprovalStatus): boolean {
+  return (
+    status.pusdToCtf &&
+    status.pusdToExchange &&
+    status.pusdToNegRisk &&
+    status.pusdToAdapter &&
+    status.ctfToExchange &&
+    status.ctfToNegRisk &&
+    status.ctfToAdapter
+  );
 }
 
 /**
@@ -52,16 +71,25 @@ export async function checkClobApprovals(
   const provider = createPolygonProvider();
 
   const pusd = new ethers.Contract(PUSD_TOKEN, ERC20_ALLOWANCE_ABI, provider);
-  const ctf = new ethers.Contract(CTF_TOKEN, ERC721_IS_APPROVED_ABI, provider);
+  const ctf = new ethers.Contract(CTF_TOKEN, ERC1155_IS_APPROVED_ABI, provider);
 
-  const [allowanceCtf, allowanceEx, allowanceNegRisk, approvedEx, approvedNegRisk] =
-    await Promise.all([
-      pusd.allowance(depositAddress, CTF_TOKEN) as Promise<bigint>,
-      pusd.allowance(depositAddress, EXCHANGE_V2) as Promise<bigint>,
-      pusd.allowance(depositAddress, NEG_RISK_EXCHANGE_V2) as Promise<bigint>,
-      ctf.isApprovedForAll(depositAddress, EXCHANGE_V2) as Promise<boolean>,
-      ctf.isApprovedForAll(depositAddress, NEG_RISK_EXCHANGE_V2) as Promise<boolean>,
-    ]);
+  const [
+    allowanceCtf,
+    allowanceEx,
+    allowanceNegRisk,
+    allowanceAdapter,
+    approvedEx,
+    approvedNegRisk,
+    approvedAdapter,
+  ] = await Promise.all([
+    pusd.allowance(depositAddress, CTF_TOKEN) as Promise<bigint>,
+    pusd.allowance(depositAddress, EXCHANGE_V2) as Promise<bigint>,
+    pusd.allowance(depositAddress, NEG_RISK_EXCHANGE_V2) as Promise<bigint>,
+    pusd.allowance(depositAddress, NEG_RISK_ADAPTER) as Promise<bigint>,
+    ctf.isApprovedForAll(depositAddress, EXCHANGE_V2) as Promise<boolean>,
+    ctf.isApprovedForAll(depositAddress, NEG_RISK_EXCHANGE_V2) as Promise<boolean>,
+    ctf.isApprovedForAll(depositAddress, NEG_RISK_ADAPTER) as Promise<boolean>,
+  ]);
 
   const sufficient = (value: bigint) => value >= MAX_UINT256 / 2n;
 
@@ -69,8 +97,10 @@ export async function checkClobApprovals(
     pusdToCtf: sufficient(allowanceCtf),
     pusdToExchange: sufficient(allowanceEx),
     pusdToNegRisk: sufficient(allowanceNegRisk),
+    pusdToAdapter: sufficient(allowanceAdapter),
     ctfToExchange: approvedEx,
     ctfToNegRisk: approvedNegRisk,
+    ctfToAdapter: approvedAdapter,
   };
 }
 
@@ -79,7 +109,7 @@ function encodePusdApprove(spender: string): string {
 }
 
 function encodeCtfApproveAll(operator: string): string {
-  return erc721Iface.encodeFunctionData('setApprovalForAll', [operator, true]);
+  return erc1155Iface.encodeFunctionData('setApprovalForAll', [operator, true]);
 }
 
 /**
@@ -95,13 +125,7 @@ export async function ensureClobApprovals(
 ): Promise<EnsureApprovalsResult> {
   const needed = await checkClobApprovals(depositAddress);
 
-  if (
-    needed.pusdToCtf &&
-    needed.pusdToExchange &&
-    needed.pusdToNegRisk &&
-    needed.ctfToExchange &&
-    needed.ctfToNegRisk
-  ) {
+  if (allClobApprovalsGranted(needed)) {
     return { needed, txHash: null };
   }
 
@@ -120,6 +144,13 @@ export async function ensureClobApprovals(
       data: encodePusdApprove(NEG_RISK_EXCHANGE_V2),
     });
   }
+  if (!needed.pusdToAdapter) {
+    calls.push({
+      target: PUSD_TOKEN,
+      value: '0',
+      data: encodePusdApprove(NEG_RISK_ADAPTER),
+    });
+  }
   if (!needed.ctfToExchange) {
     calls.push({ target: CTF_TOKEN, value: '0', data: encodeCtfApproveAll(EXCHANGE_V2) });
   }
@@ -130,8 +161,20 @@ export async function ensureClobApprovals(
       data: encodeCtfApproveAll(NEG_RISK_EXCHANGE_V2),
     });
   }
+  if (!needed.ctfToAdapter) {
+    calls.push({
+      target: CTF_TOKEN,
+      value: '0',
+      data: encodeCtfApproveAll(NEG_RISK_ADAPTER),
+    });
+  }
 
-  const client = createBuilderRelayClient(creds);
+  // Deposit-wallet batch requires a signer on the RelayClient.
+  const signerPrivateKey = creds.signerPkEnc ? decrypt(creds.signerPkEnc) : null;
+  if (!signerPrivateKey) {
+    throw new Error('signer_missing: signerPkEnc required for deposit wallet approvals');
+  }
+  const client = createRelayClient(creds, signerPrivateKey, 'deposit' as RelayerWithdrawMode);
   const response = await client.executeDepositWalletBatch(
     calls,
     depositAddress,
@@ -148,15 +191,7 @@ export async function ensureClobApprovals(
     }
 
     const postCheck = await checkClobApprovals(depositAddress);
-    if (
-      !(
-        postCheck.pusdToCtf &&
-        postCheck.pusdToExchange &&
-        postCheck.pusdToNegRisk &&
-        postCheck.ctfToExchange &&
-        postCheck.ctfToNegRisk
-      )
-    ) {
+    if (!allClobApprovalsGranted(postCheck)) {
       throw new Error('approvals still missing after on-chain submission');
     }
   }

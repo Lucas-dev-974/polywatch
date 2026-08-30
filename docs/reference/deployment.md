@@ -40,12 +40,14 @@ Avant le premier ordre réel, vérifier les approvals on-chain :
 SELECT * FROM wallet_accounts WHERE mode = 'real';
 ```
 
-Les 5 approvals nécessaires :
-- pUSD → CTF Exchange
+Les 7 approvals nécessaires :
+- pUSD → CTF
 - pUSD → Exchange V2
 - pUSD → NegRisk Exchange V2
+- pUSD → NegRiskAdapter (BUY matching weather / neg-risk)
 - CTF → Exchange V2
 - CTF → NegRisk Exchange V2
+- CTF → NegRiskAdapter (SELL / redeem neg-risk)
 
 Vérifier et poser les approvals via
 `POST /api/internal/clob-approvals/ensure` (auth `x-service-token`, appelé
@@ -133,7 +135,7 @@ Ce script vérifie :
 |-------|----------|
 | Secrets non-défaut | `grep -E "change-me|0123456789abcdef" .env` (vide = OK) |
 | Credentials CLOB | `SELECT COUNT(*) FROM clob_credentials;` (> 0) |
-| Approvals | `POST /api/internal/clob-approvals/ensure` (service token) — 5 approvals on-chain |
+| Approvals | `POST /api/internal/clob-approvals/ensure` (service token) — 7 approvals on-chain |
 | WebSocket user | Logs : `WebSocket user channel connected` |
 | Mode réel | `SELECT real_trading_enabled FROM global_config;` (`false` par défaut) |
 
@@ -195,7 +197,7 @@ Ou `PUT /api/config/copy` avec `{ "realEntryPusdAmount": 5 }`.
 
 - [ ] Secrets uniques générés et configurés
 - [ ] Credentials CLOB valides dans la DB
-- [ ] Approvals on-chain complets (5 approvals)
+- [ ] Approvals on-chain complets (7 approvals, dont NegRiskAdapter)
 - [ ] Dry-run passé avec succès
 - [ ] `real_trading_enabled = false` (activé manuellement après vérifications)
 - [ ] Montant minimal pour premier test
@@ -234,7 +236,8 @@ curl -H "x-service-token: $SERVICE_TOKEN" http://localhost:3000/metrics
 |-----|--------|
 | `WebSocket user channel connected` | ✅ OK |
 | `clob_credentials_missing` | Vérifier credentials CLOB |
-| `order_not_matched` | Vérifier liquidité marché |
+| `order_not_matched` | Vérifier liquidité marché (pas de contrepartie au prix) |
+| `clob_rejected` | Rejet exchange (balance, allowance, min size, signature) — vérifier le détail après `:` |
 | `slippage_exceeded` | Augmenter `maxSlippagePercent` |
 | `insufficient_cash` | Vérifier balance deposit wallet |
 

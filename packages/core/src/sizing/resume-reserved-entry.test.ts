@@ -139,4 +139,35 @@ describe('resumeEntryFromReservation', () => {
     const [job] = enqueueUnique.mock.calls[0];
     expect(job.orderType).toBe('FAK');
   });
+
+  it('uses minAskDepthShares as depth gate target on resume', async () => {
+    const fetchExecutablePrices = vi.fn().mockResolvedValue(mockExecutablePrices());
+    const enqueueUnique = vi.fn().mockResolvedValue(true);
+
+    await resumeEntryFromReservation({
+      conditionId: 'cond-1',
+      assetId: 'asset-1',
+      mode: 'sim',
+      signalId: 'sig-1',
+      reason: 'WEATHER_OPEN',
+      reservation: {
+        reservedNotionalPusd: 3,
+        reservationId: 10,
+        copiedPositionId: 1,
+        expiresAt: new Date(Date.now() + 120_000),
+        orderSignalId: 'sig-1',
+      },
+      connectionManager: { fetchExecutablePrices },
+      reservationService: { release: vi.fn() } as any,
+      orderQueue: { enqueueUnique, enqueue: vi.fn() } as any,
+      minAskDepthShares: 30,
+    });
+
+    expect(fetchExecutablePrices).toHaveBeenNthCalledWith(
+      2,
+      'asset-1',
+      30,
+      expect.objectContaining({ maxAgeMs: expect.any(Number) }),
+    );
+  });
 });

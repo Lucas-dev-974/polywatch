@@ -9114,14 +9114,6 @@ body.is-resizing-columns .position-market-split-handle::after {
   color: var(--text);
 }
 
-.weather-sl-tp-block__toggle-inner {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 0.625rem;
-}
-
 .weather-sl-tp-block__toggle .toggle-label {
   white-space: nowrap;
 }

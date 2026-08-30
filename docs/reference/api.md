@@ -286,7 +286,7 @@ Utilisées par le worker. Principales :
 | POST | `/api/internal/metrics/weather-question-parse` | Compteur parse questions weather |
 | GET | `/api/internal/metrics/dashboard` | Agrégats dashboard metrics (service-token) |
 | GET | `/api/internal/executions` | Liste des exécutions (worker) |
-| POST | `/api/internal/clob-approvals/ensure` | Vérifie/soumet les 5 approbations CLOB (batch relayer) |
+| POST | `/api/internal/clob-approvals/ensure` | Vérifie/soumet les 7 approbations CLOB (batch relayer, y compris NegRiskAdapter) |
 | POST | `/api/internal/redeem` | Rédemption on-chain CTF (`pending_resolution`) — voir [détail](#post-apiinternalredeem) ci-dessous |
 
 ### POST `/api/internal/redeem`

@@ -121,6 +121,12 @@ export interface OrderSignal {
   closingAttemptSeq?: number;
   /** SL close execution retry counter (0 = first attempt). */
   closeRetryAttempt?: number;
+  /**
+   * Extra ticks added to the FAK limit price on entry (taker aggressiveness).
+   * Set by the weather entry pipeline from the strategy bag; consumed by
+   * prepare-fak-order on WEATHER_OPEN BUY. Absent falls back to +1 tick.
+   */
+  entryTickPad?: number;
 }
 
 export interface ExecutionResult {

@@ -529,4 +529,45 @@ describe('runWeatherEntryPipeline skip-reasons', () => {
     const result = await runWeatherEntryPipeline(params);
     expect(result).toBe('Aucun mode exécutable');
   });
+
+  it('raises the depth gate target to minAskDepthShares when set', async () => {
+    mocks.hasAlgoEntryCooldown.mockResolvedValueOnce(false);
+    mocks.hasWeatherReentryThrottle.mockResolvedValueOnce(false);
+    mocks.computeEntryTargetQuantity.mockReturnValueOnce(100);
+    mocks.applyEntryMosGate.mockResolvedValueOnce({ ok: true, quantity: 100, askVwap: 0.5, bumped: false });
+    mocks.fetchEntryAskLiquidityWithRetries.mockResolvedValueOnce({ ok: true, attempts: 1 });
+    mocks.enqueueEntrySignal.mockResolvedValueOnce({ enqueued: true });
+    mocks.resolveEntryEnqueueBlocked.mockResolvedValueOnce(null);
+    mocks.getStrategyParamsForMode.mockReturnValueOnce({
+      minEdge: null,
+      maxForecastStd: null,
+      minForecastProbability: null,
+      entryPusd: null,
+      maxPositionSizePusd: null,
+      entryDepthRetryMax: null,
+      entryDepthRetryDelayMs: null,
+      maxOpenPositions: null,
+      maxExposurePusd: null,
+      maxDailyLossPusd: null,
+      killSwitchAction: null,
+      forecastChangeThreshold: null,
+      cityFollowSwitchMode: null,
+      bucketHysteresisPolls: null,
+      reentryThrottleMs: null,
+      maxReentriesPerCityDate: 0,
+      minAskDepthShares: 300,
+      entryTickPad: 2,
+    });
+    const params = buildParams();
+    const result = await runWeatherEntryPipeline(params);
+    expect(result).toBeNull();
+    expect(mocks.fetchEntryAskLiquidityWithRetries).toHaveBeenCalledWith(
+      expect.objectContaining({ targetQty: 300 }),
+    );
+    expect(mocks.enqueueEntrySignal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job: expect.objectContaining({ entryTickPad: 2 }),
+      }),
+    );
+  });
 });

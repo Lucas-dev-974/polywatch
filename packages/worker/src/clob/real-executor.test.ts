@@ -2,12 +2,13 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { OrderType } from '@polymarket/clob-client-v2';
 import type { OrderSignal } from '@polywatch/core';
 import { RealExecutor } from './real-executor.js';
-import { loadTradingContextResult } from './trading-context.js';
+import { loadTradingContextResult, clearTradingContextCache } from './trading-context.js';
 import { prepareFakMarketOrder } from './prepare-fak-order.js';
 import { withTimeout } from './with-timeout.js';
 
 vi.mock('./trading-context.js', () => ({
   loadTradingContextResult: vi.fn(),
+  clearTradingContextCache: vi.fn(),
 }));
 
 vi.mock('./prepare-fak-order.js', () => ({
@@ -153,5 +154,114 @@ describe('RealExecutor order type mapping', () => {
 
     expect(forceRefreshBook).toHaveBeenCalledWith('token-1');
     expect(order).toEqual(['refresh', 'prepare']);
+  });
+
+  it('maps a rejected CLOB response to clob_rejected:<reason>', async () => {
+    createAndPostMarketOrder.mockResolvedValue({
+      orderID: 'ord-1',
+      status: 'REJECTED',
+      makingAmount: '0',
+      takingAmount: '0',
+      errorMsg: 'INSUFFICIENT_BALANCE',
+    });
+    const executor = new RealExecutor();
+    const connectionManager = {
+      getOrderBook: vi.fn(),
+    } as never;
+
+    const result = await executor.execute(baseSignal(), connectionManager);
+    expect(result?.status).toBe('failed');
+    expect(result?.error).toBe('clob_rejected:INSUFFICIENT_BALANCE');
+    expect(clearTradingContextCache).not.toHaveBeenCalled();
+  });
+
+  it('maps INSUFFICIENT_ALLOWANCE error to insufficient_allowance', async () => {
+    createAndPostMarketOrder.mockResolvedValue({
+      orderID: 'ord-1',
+      status: 'unmatched',
+      makingAmount: '0',
+      takingAmount: '0',
+      errorMsg: 'INSUFFICIENT_ALLOWANCE',
+    });
+    const executor = new RealExecutor();
+    const connectionManager = {
+      getOrderBook: vi.fn(),
+    } as never;
+
+    const result = await executor.execute(baseSignal(), connectionManager);
+    expect(result?.status).toBe('failed');
+    expect(result?.error).toBe('insufficient_allowance');
+    expect(clearTradingContextCache).toHaveBeenCalled();
+  });
+
+  it('maps "allowance is not enough" error to insufficient_allowance (CLOB V2 descriptive message)', async () => {
+    createAndPostMarketOrder.mockResolvedValue({
+      orderID: 'ord-1',
+      status: 'unmatched',
+      makingAmount: '0',
+      takingAmount: '0',
+      errorMsg: 'not enough balance / allowance: the allowance is not enough -> spender: 0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296, allowance: 0',
+    });
+    const executor = new RealExecutor();
+    const connectionManager = {
+      getOrderBook: vi.fn(),
+    } as never;
+
+    const result = await executor.execute(baseSignal(), connectionManager);
+    expect(result?.status).toBe('failed');
+    expect(result?.error).toBe('insufficient_allowance');
+  });
+
+  it('maps an HTTP error response to clob_rejected with the error detail', async () => {
+    createAndPostMarketOrder.mockResolvedValue({
+      orderID: 'ord-1',
+      status: 'unmatched',
+      makingAmount: '0',
+      takingAmount: '0',
+      error: 'MINIMUM_ORDER_SIZE',
+    });
+    const executor = new RealExecutor();
+    const connectionManager = {
+      getOrderBook: vi.fn(),
+    } as never;
+
+    const result = await executor.execute(baseSignal(), connectionManager);
+    expect(result?.status).toBe('failed');
+    expect(result?.error).toContain('clob_rejected:');
+    expect(result?.error).toContain('MINIMUM_ORDER_SIZE');
+  });
+
+  it('keeps order_not_matched exact for a genuine FAK kill', async () => {
+    createAndPostMarketOrder.mockResolvedValue({
+      orderID: 'ord-1',
+      status: 'unmatched',
+      makingAmount: '0',
+      takingAmount: '0',
+      errorMsg: 'No orders found to match with FAK',
+    });
+    const executor = new RealExecutor();
+    const connectionManager = {
+      getOrderBook: vi.fn(),
+    } as never;
+
+    const result = await executor.execute(baseSignal(), connectionManager);
+    expect(result?.status).toBe('failed');
+    expect(result?.error).toBe('order_not_matched');
+  });
+
+  it('maps REJECTED + allowance errorMsg to insufficient_allowance and clears cache', async () => {
+    createAndPostMarketOrder.mockResolvedValue({
+      orderID: 'ord-1',
+      status: 'REJECTED',
+      makingAmount: '0',
+      takingAmount: '0',
+      errorMsg: 'the allowance is not enough',
+    });
+    const executor = new RealExecutor();
+    const connectionManager = { getOrderBook: vi.fn() } as never;
+    const result = await executor.execute(baseSignal(), connectionManager);
+    expect(result?.status).toBe('failed');
+    expect(result?.error).toBe('insufficient_allowance');
+    expect(clearTradingContextCache).toHaveBeenCalled();
   });
 });

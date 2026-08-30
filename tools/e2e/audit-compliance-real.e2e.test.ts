@@ -65,5 +65,8 @@ describe('E2E audit compliance — real mode', () => {
     expect(clobApprovalsSource).toContain('checkClobApprovals(depositAddress)');
     expect(clobApprovalsSource).toContain('approvals still missing after on-chain submission');
     expect(clobApprovalsSource).toContain('approval tx reverted:');
+    expect(clobApprovalsSource).toContain('pusdToAdapter');
+    expect(clobApprovalsSource).toContain('ctfToAdapter');
+    expect(clobApprovalsSource).toContain('negRiskAdapter');
   });
 });

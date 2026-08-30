@@ -8,7 +8,7 @@ import { failedExecution } from './execution-result.js';
 import { parseFillResponse } from './parse-fill-response.js';
 import { prepareFakMarketOrder } from './prepare-fak-order.js';
 import { withTimeout } from './with-timeout.js';
-import { loadTradingContextResult } from './trading-context.js';
+import { loadTradingContextResult, clearTradingContextCache } from './trading-context.js';
 import { recordLatencySample } from '../execution/latency-calibrator.js';
 import { recordShadowFill } from '../execution/shadow-fill-recorder.js';
 import { computeSlippagePercent } from '../execution/slippage-guard.js';
@@ -23,7 +23,11 @@ function normalizeError(err: unknown): string {
   const msg = (err as Error).message ?? '';
   if (msg === 'clob_order_timeout') return 'clob_order_timeout';
   if (msg.includes('INSUFFICIENT_BALANCE')) return 'insufficient_balance';
-  if (msg.includes('INSUFFICIENT_ALLOWANCE')) return 'insufficient_allowance';
+  // CLOB V2 returns descriptive messages like "the allowance is not enough"
+  // instead of the constant "INSUFFICIENT_ALLOWANCE"
+  if (msg.includes('INSUFFICIENT_ALLOWANCE') || msg.includes('allowance is not enough')) {
+    return 'insufficient_allowance';
+  }
   if (msg.includes('MINIMUM_ORDER_SIZE')) return 'below_min_order_size';
   return 'clob_order_failed';
 }
@@ -158,6 +162,35 @@ export class RealExecutor {
         return failedExecution(signal, 'order_not_matched');
       }
 
+      if (parsed.type === 'rejected') {
+        // Detect allowance issues (CLOB V2 descriptive message) and normalize to insufficient_allowance
+        // so forced exits can retry and trading context cache gets invalidated.
+        const reasonLower = parsed.reason.toLowerCase();
+        const isAllowanceIssue =
+          reasonLower.includes('insufficient_allowance') ||
+          reasonLower.includes('allowance is not enough');
+        const errorCode = isAllowanceIssue ? 'insufficient_allowance' : `clob_rejected:${parsed.reason}`;
+
+        log.warn(
+          {
+            signalId: signal.id,
+            status: parsed.status,
+            reason: parsed.reason,
+            response,
+            normalizedError: errorCode,
+          },
+          'real order rejected by exchange',
+        );
+
+        // Invalidate trading context cache so next attempt rebuilds with fresh approvals.
+        if (isAllowanceIssue) {
+          log.warn({ signalId: signal.id }, 'insufficient allowance — invalidating trading context cache');
+          clearTradingContextCache();
+        }
+
+        return failedExecution(signal, errorCode);
+      }
+
       if (parsed.type === 'invalid') {
         log.error(
           { signalId: signal.id, status: parsed.status, reason: parsed.reason, response },
@@ -223,6 +256,12 @@ export class RealExecutor {
       if (code === 'clob_order_timeout') {
         log.warn({ signalId: signal.id }, 'real order timed out — awaiting reconciliation');
         return null;
+      }
+      // If the deposit wallet lacks allowance for the NegRiskAdapter (neg-risk markets),
+      // the cached TradingContext may be stale — invalidate so next attempt rebuilds with fresh approvals.
+      if (code === 'insufficient_allowance') {
+        log.warn({ signalId: signal.id }, 'insufficient allowance — invalidating trading context cache');
+        clearTradingContextCache();
       }
       log.warn({ err, signalId: signal.id }, 'real order failed');
       return failedExecution(signal, code);

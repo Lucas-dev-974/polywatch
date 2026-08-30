@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { createInternalMetricsRouter } from './metrics-routes.js';
 import * as metricsModule from '../../metrics.js';
 
@@ -8,7 +8,7 @@ import * as metricsModule from '../../metrics.js';
  */
 function getPostHandler(router: Router, path: string) {
   for (const layer of router.stack) {
-    const route = (layer as { route?: { path?: string; methods?: Record<string, boolean>; stack: [{ handle: Function }] } }).route;
+    const route = (layer as { route?: { path?: string; methods?: Record<string, boolean>; stack: [{ handle: (req: Request, res: Response) => void }] } }).route;
     if (route?.path === path && route?.methods?.post) {
       return route.stack[0].handle;
     }

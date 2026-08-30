@@ -18,7 +18,7 @@ import { failedExecution } from './execution-result.js';
 import type { ClobMarketInfoLookup } from './min-order-size.js';
 import { resolveMinOrderSharesForSignal } from './min-order-size.js';
 import { ceilToTick, floorToTick, resolveTickSizeCached } from './tick-size.js';
-import { SLIPPAGE_GUARDED_REASONS } from '../constants.js';
+import { SLIPPAGE_GUARDED_REASONS, MIN_SLIPPAGE_TICKS } from '../constants.js';
 import pino from 'pino';
 
 const log = pino({ name: 'prepare-fak-order' });
@@ -150,10 +150,24 @@ export async function prepareFakMarketOrder(
     return { ok: false, result: failedExecution(signal, 'price_rounded_to_zero') };
   }
 
+  // Weather YES books are thin: posting *at* the ask is often unmatched by the
+  // CLOB FAK matcher. Pay extra ticks after the slippage check so the order is
+  // marketable without counting the pad as a market move. The pad is clamped to
+  // [0, 3] and the slippage guard's tick floor is raised to at least the pad so
+  // the pad itself is never treated as an adverse move.
+  let padTicks = 0;
+  if (signal.side === 'BUY' && signal.reason === 'WEATHER_OPEN') {
+    const rawPad = Number(signal.entryTickPad ?? 1);
+    padTicks = Number.isFinite(rawPad)
+      ? Math.min(3, Math.max(0, Math.floor(rawPad)))
+      : 0;
+  }
+
   if (signal.referenceVwap != null && signal.referenceVwap > 0) {
     const tick = Number(tickSize);
     const guard = evaluateSlippageGuard(signal, limitPrice, maxSlippage, {
       tickSize: Number.isFinite(tick) && tick > 0 ? tick : undefined,
+      minTicks: Math.max(MIN_SLIPPAGE_TICKS, padTicks),
     });
     if (guard.blocked) {
       return {
@@ -185,13 +199,10 @@ export async function prepareFakMarketOrder(
     );
   }
 
-  // Weather YES books are thin: posting *at* the ask is often unmatched by the
-  // CLOB FAK matcher. Pay one extra tick after the slippage check so the order
-  // is marketable without counting the pad as a market move.
-  if (signal.side === 'BUY' && signal.reason === 'WEATHER_OPEN') {
+  if (padTicks > 0) {
     const tick = Number(tickSize);
     if (Number.isFinite(tick) && tick > 0) {
-      limitPrice = ceilToTick(limitPrice + tick, tickSize);
+      limitPrice = ceilToTick(limitPrice + tick * padTicks, tickSize);
     }
     if (limitPrice <= 0) {
       return { ok: false, result: failedExecution(signal, 'price_rounded_to_zero') };

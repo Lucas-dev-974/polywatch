@@ -82,6 +82,8 @@ const PARAM_GROUPS: Array<{ id: string; title: string; keys: string[] }> = [
       'entryDepthRetryDelayMs',
       'slCloseMaxRetries',
       'slConfirmationTicks',
+      'minAskDepthShares',
+      'entryTickPad',
       'killSwitchAction',
     ],
   },
@@ -282,10 +284,8 @@ export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
                                     checked={Boolean(valueOf(block.toggleKey) ?? toggleParam()!.default)}
                                     onChange={(e) => props.onChange(block.toggleKey, e.currentTarget.checked)}
                                   />
-                                  <span class="weather-sl-tp-block__toggle-inner">
-                                    <span class="toggle-track" />
-                                    <span class="toggle-label">{block.title}</span>
-                                  </span>
+                                  <span class="toggle-track" />
+                                  <span class="toggle-label">{block.title}</span>
                                 </label>
                               </div>
                               <div class="weather-sl-tp-block__fields">

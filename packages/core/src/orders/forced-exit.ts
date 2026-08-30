@@ -13,7 +13,9 @@ export type ForcedExitCloseReason = (typeof FORCED_EXIT_CLOSE_REASONS)[number];
 export const FORCED_EXIT_RETRYABLE_ERRORS = [
   'no_liquidity',
   'order_not_matched',
+  'clob_rejected',
   'tick_size_fetch_failed',
+  'insufficient_allowance',
 ] as const;
 
 export function isForcedExitCloseReason(
@@ -28,8 +30,10 @@ export function isForcedExitCloseReason(
 export function isForcedExitRetryableError(
   error: string | null | undefined,
 ): boolean {
-  return (
-    error != null &&
-    (FORCED_EXIT_RETRYABLE_ERRORS as readonly string[]).includes(error)
+  if (error == null) return false;
+  // Prefix-aware: `clob_rejected:<reason>` must stay retryable even though the
+  // reason suffix varies. Exact match also supported for the bare code.
+  return (FORCED_EXIT_RETRYABLE_ERRORS as readonly string[]).some(
+    (code) => error === code || error.startsWith(`${code}:`),
   );
 }

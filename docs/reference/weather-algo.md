@@ -211,7 +211,7 @@ limites `maxDailyLossPusd` / `maxExposurePusd` / `maxOpenPositions` /
 | Onglet UI Données (cards, drill-down, purge) | Actif |
 | Onglet UI **Backtest** (lancer runs, métriques, equity, positions) | Actif (domaine weather) |
 | Onglet UI **Stratégies** (catalogue, activation, params) | Actif |
-| Placement réel CLOB (FAK, book REST avant POST, +1 tick WEATHER_OPEN, slippage tick-aware, bump `MIN_ORDER_PUSD`) | Actif |
+| Placement réel CLOB (FAK, book REST avant POST, pad `entryTickPad` configurable, slippage tick-aware, bump `MIN_ORDER_PUSD`, gate profondeur `minAskDepthShares`, diagnostic `clob_rejected` vs `order_not_matched`) | Actif |
 
 ---
 

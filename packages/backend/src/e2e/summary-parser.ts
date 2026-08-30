@@ -256,7 +256,7 @@ function mapLocation(
 }
 
 function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, '');
+  return text.replace(/\u001b\[[0-9;]*m/g, '');
 }
 
 function truncate(text: string, maxLen: number): string {

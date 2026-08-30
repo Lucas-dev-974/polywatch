@@ -117,6 +117,17 @@ export type WeatherStrategyParamsBag = {
   entryDepthRetryDelayMs: number;
   slCloseMaxRetries: number;
   slConfirmationTicks: number;
+  /**
+   * Min ask depth (shares) required at the entry price before emitting a
+   * signal. The depth retry gate uses max(orderQty, minAskDepthShares); order
+   * quantity is unchanged. 0 = disabled.
+   */
+  minAskDepthShares: number;
+  /**
+   * Extra ticks added to the FAK limit price on entry (taker aggressiveness)
+   * to improve fill odds on thin books. 0 = disabled. Clamped 0-3.
+   */
+  entryTickPad: number;
   // ── Kill switch ────────────────────────────────────────────────────
   killSwitchAction: 'block_entries' | 'force_close_all' | 'block_and_notify';
   // ── Misc ───────────────────────────────────────────────────────────
@@ -163,6 +174,8 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   entryDepthRetryDelayMs: 1000,
   slCloseMaxRetries: 5,
   slConfirmationTicks: 2,
+  minAskDepthShares: 0,
+  entryTickPad: 1,
   killSwitchAction: 'block_entries',
   allowedMarketTags: [],
   signalScoreSizingEnabled: true,
@@ -226,6 +239,8 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },
     { key: 'slCloseMaxRetries', label: 'Retries fermeture SL', kind: 'number', min: 0, max: 20, step: 1, default: 5 },
     { key: 'slConfirmationTicks', label: 'Confirmation SL (ticks)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
+    { key: 'minAskDepthShares', label: 'Profondeur ask min (parts)', kind: 'number', min: 0, max: 1_000_000, step: 1, default: 0, hint: '0 = désactivé. Profondeur ask minimale requise à l’entrée ; le gate de profondeur vérifie max(quantité, seuil) sans modifier la quantité envoyée.' },
+    { key: 'entryTickPad', label: 'Pad d’entrée (ticks)', kind: 'number', min: 0, max: 3, step: 1, default: 1, hint: '0 = désactivé. Ticks ajoutés au prix limite FAK à l’entrée (agressivité taker) pour améliorer le fill sur carnet fin. Défaut 1 = comportement legacy +1 tick. Clampé 0-3.' },
     // Kill switch
     { key: 'killSwitchAction', label: 'Action kill-switch', kind: 'select', options: KILL_SWITCH_OPTIONS, default: 'block_entries' },
     // Misc
@@ -287,6 +302,8 @@ function highestYesParamsSchemas(): StrategyParamSchema[] {
     { key: 'entryDepthRetryDelayMs', label: 'Délai retry profondeur (ms)', kind: 'number', min: 0, max: 60_000, step: 100, default: 1000 },
     { key: 'slCloseMaxRetries', label: 'Retries fermeture SL', kind: 'number', min: 0, max: 20, step: 1, default: 5 },
     { key: 'slConfirmationTicks', label: 'Confirmation SL (ticks)', kind: 'number', min: 1, max: 10, step: 1, default: 2 },
+    { key: 'minAskDepthShares', label: 'Profondeur ask min (parts)', kind: 'number', min: 0, max: 1_000_000, step: 1, default: 0, hint: '0 = désactivé. Profondeur ask minimale requise à l’entrée ; le gate de profondeur vérifie max(quantité, seuil) sans modifier la quantité envoyée.' },
+    { key: 'entryTickPad', label: 'Pad d’entrée (ticks)', kind: 'number', min: 0, max: 3, step: 1, default: 1, hint: '0 = désactivé. Ticks ajoutés au prix limite FAK à l’entrée (agressivité taker) pour améliorer le fill sur carnet fin. Défaut 1 = comportement legacy +1 tick. Clampé 0-3.' },
     // Kill switch
     { key: 'killSwitchAction', label: 'Action kill-switch', kind: 'select', options: KILL_SWITCH_OPTIONS, default: 'block_entries' },
     // Misc

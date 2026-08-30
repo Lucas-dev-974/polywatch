@@ -12,10 +12,43 @@ export interface ParsedFill {
 export type ParseFillOutcome =
   | { type: 'matched'; fill: ParsedFill }
   | { type: 'not_matched'; status: string }
+  | { type: 'rejected'; status: string; reason: string }
   | { type: 'delayed'; status: string }
   | { type: 'invalid'; status: string; reason: string };
 
 const FAILED_STATUSES = new Set(['FAILED', 'REJECTED']);
+
+/**
+ * errorMsg values that describe a legitimate FAK/FOK kill (no counterparty),
+ * NOT an exchange rejection. Compared case-insensitively.
+ */
+const KILLED_ERROR_PATTERNS = [
+  'no orders found to match with fak',
+  "order couldn't be fully filled",
+];
+
+function isKilledError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return KILLED_ERROR_PATTERNS.some((p) => lower.includes(p));
+}
+
+function clobErrorFields(r: {
+  error?: unknown;
+  errorMsg?: string;
+  status?: string | number;
+}): { errorText: string; errorMsg: string; httpPrefix: string } {
+  const errorText =
+    typeof r.error === "string"
+      ? r.error
+      : r.error != null
+        ? JSON.stringify(r.error)
+        : "";
+  const errorMsg = String(r.errorMsg ?? "");
+  const httpPrefix = errorText
+    ? `http ${String(r.status ?? "")}: ${errorText}`.trim()
+    : "";
+  return { errorText, errorMsg, httpPrefix };
+}
 
 function isPlausiblePrice(price: number): boolean {
   return price > 0 && price <= 1;
@@ -95,8 +128,19 @@ export function parseFillResponse(
     return { type: 'delayed', status };
   }
 
+  // Exchange-level rejection (FAILED / REJECTED status). Checked BEFORE the
+  // amounts loop so a FAILED/REJECTED response with non-zero amounts is never
+  // misread as a fill.
   if (FAILED_STATUSES.has(statusUpper)) {
-    return { type: 'not_matched', status };
+    const { errorMsg, errorText, httpPrefix } = clobErrorFields(r);
+    if (isKilledError(errorMsg) || isKilledError(errorText)) {
+      return { type: 'not_matched', status };
+    }
+    return {
+      type: 'rejected',
+      status,
+      reason: errorMsg || httpPrefix || status,
+    };
   }
 
   let best: { fillQuantity: number; actualFillPrice: number } | null = null;
@@ -128,6 +172,19 @@ export function parseFillResponse(
         type: 'invalid',
         status,
         reason: 'fill_parse_invalid_price',
+      };
+    }
+    // Zero fill. Distinguish a genuine no-counterparty kill from an exchange
+    // rejection using success / error / errorMsg.
+    const { errorText, errorMsg, httpPrefix } = clobErrorFields(r);
+    if (isKilledError(errorMsg) || isKilledError(errorText)) {
+      return { type: 'not_matched', status: status || 'zero_fill' };
+    }
+    if (r.success === false || errorText !== '' || errorMsg !== '') {
+      return {
+        type: 'rejected',
+        status: status || 'rejected',
+        reason: errorMsg || httpPrefix || status || 'rejected',
       };
     }
     return { type: 'not_matched', status: status || 'zero_fill' };

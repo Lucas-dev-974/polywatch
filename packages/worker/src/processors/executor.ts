@@ -428,9 +428,10 @@ export class Executor {
   }
 
   /**
-   * Sim fill: shared prepare (same as live pre-POST), optional latency, then
-   * FAK against a force-refreshed book T1 at the T0 limitPrice.
-   * Empty/unmatched T1 → `order_not_matched` (not `no_liquidity`).
+   * Sim fill: REST refresh + shared prepare (same as live pre-POST), optional
+   * latency, then FAK against a force-refreshed book T1 at the T0 limitPrice.
+   * Empty or insufficient T1 depth at the limit → `order_not_matched`
+   * (not a phantom partial fill; not `no_liquidity`).
    * Hold-if-winning is decided in prepare only (aligns with live).
    */
   private async simulateFill(
@@ -445,6 +446,9 @@ export class Executor {
 
     const global = await this.globalConfigService.getConfig();
     const tunables = resolveSimExecutionTunables(global);
+
+    // Same REST snapshot real uses before prepare (tick / pad / MOS / ceil).
+    await this.connectionManager.forceRefreshBook(signal.assetId);
 
     const preparedResult = await prepareFakMarketOrder(
       signal,
@@ -527,14 +531,12 @@ export class Executor {
       signal.side,
     );
 
-    if (fak.fillQuantity <= 0) {
-      return failedExecution(signal, 'order_not_matched');
-    }
-
-    if (
-      signal.orderType === 'FOK' &&
-      fak.fillQuantity + 1e-9 < signal.quantity * 0.99
-    ) {
+    // CLOB FAK/FOK kill: empty book or insufficient resting size at the
+    // limit -> order_not_matched (not a phantom partial fill). Real parse
+    // maps "no orders found to match with fak" / "couldn't be fully filled"
+    // to the same error. Allow ~1% residual for BUY collateral rounding.
+    const minFillQty = matchQuantity * 0.99;
+    if (fak.fillQuantity + 1e-9 < minFillQty) {
       return failedExecution(signal, 'order_not_matched');
     }
 
@@ -551,17 +553,6 @@ export class Executor {
       );
     }
 
-    if (fak.fillQuantity < matchQuantity) {
-      log.warn(
-        {
-          signalId: signal.id,
-          requestedQty: matchQuantity,
-          fillQuantity: fak.fillQuantity,
-          limitPrice: prepared.limitPrice,
-        },
-        'sim FAK partial fill (book depth exhausted at limit price)',
-      );
-    }
 
     const fees = computeTakerFee(
       fak.fillQuantity,

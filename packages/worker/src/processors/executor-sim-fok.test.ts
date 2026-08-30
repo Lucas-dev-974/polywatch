@@ -155,7 +155,7 @@ describe('Executor simulateFill FOK', () => {
     });
   });
 
-  it('still allows partial fill for FAK', async () => {
+  it('rejects partial fill for FAK with order_not_matched', async () => {
     connectionManager.forceRefreshBook.mockResolvedValue({
       asks: [{ price: 0.6, size: 2 }],
       bids: [{ price: 0.58, size: 10 }],
@@ -167,8 +167,58 @@ describe('Executor simulateFill FOK', () => {
     );
 
     expect(result).toMatchObject({
-      status: 'filled',
-      fillQuantity: 2,
+      status: 'failed',
+      error: 'order_not_matched',
     });
+  });
+
+  it('rejects empty T1 book with order_not_matched', async () => {
+    connectionManager.forceRefreshBook.mockResolvedValue({
+      asks: [],
+      bids: [],
+    });
+
+    const result = await (executor as any).simulateFill(
+      baseSignal({ orderType: 'FAK', reason: 'WEATHER_OPEN' }),
+      new AbortController().signal,
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: 'order_not_matched',
+    });
+  });
+
+  it('rejects asks that do not cross the FAK limit', async () => {
+    connectionManager.forceRefreshBook.mockResolvedValue({
+      asks: [{ price: 0.7, size: 100 }],
+      bids: [{ price: 0.58, size: 10 }],
+    });
+
+    const result = await (executor as any).simulateFill(
+      baseSignal({ orderType: 'FAK', reason: 'WEATHER_OPEN' }),
+      new AbortController().signal,
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: 'order_not_matched',
+    });
+  });
+
+  it('refreshes the book before prepare and again at T1', async () => {
+    connectionManager.forceRefreshBook.mockResolvedValue({
+      asks: [{ price: 0.6, size: 10 }],
+      bids: [{ price: 0.58, size: 10 }],
+    });
+
+    await (executor as any).simulateFill(
+      baseSignal({ orderType: 'FAK', reason: 'WEATHER_OPEN' }),
+      new AbortController().signal,
+    );
+
+    expect(connectionManager.forceRefreshBook).toHaveBeenCalledWith('token-fok');
+    expect(connectionManager.forceRefreshBook).toHaveBeenCalledTimes(2);
+    expect(prepareFakMarketOrder).toHaveBeenCalled();
   });
 });

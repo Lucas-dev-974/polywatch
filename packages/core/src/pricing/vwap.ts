@@ -70,7 +70,9 @@ export interface FakFillResult {
  * than `limitPrice` (asks ≤ limit for BUY, bids ≥ limit for SELL) up to
  * `quantity`. The unfilled remainder is cancelled, exactly like a FAK order —
  * the fill can therefore be partial or empty when depth at the limit price
- * is insufficient.
+ * is insufficient. Callers that model live CLOB FAK (`order couldn't be fully
+ * filled` / `no orders found to match with fak`) should treat a partial or
+ * empty result as `order_not_matched`, not as a phantom fill.
  */
 export function simulateFakFill(
   levels: OrderBookLevel[],

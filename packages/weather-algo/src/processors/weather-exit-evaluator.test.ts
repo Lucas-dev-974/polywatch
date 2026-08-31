@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { WeatherConfig, CopiedPosition } from '@polywatch/core';
+import { WEATHER_EXIT_BOOK_MAX_AGE_MS } from '../constants.js';
 
 // --- Mocks for @polywatch/core helpers used by the exit evaluator ----------
 const mocks = vi.hoisted(() => {
@@ -89,6 +90,7 @@ function buildEvaluator(overrides: {
   forecastMean?: number;
   bidVwap?: number;
   risk?: WeatherConfig;
+  withForceRefresh?: boolean;
 } = {}) {
   const positions = overrides.positions ?? [basePos()];
   const snapshot = overrides.snapshot === undefined
@@ -119,6 +121,9 @@ function buildEvaluator(overrides: {
       executableAskVwap: 0.5,
       liquidityStatus: 'ok' as const,
     })),
+    ...(overrides.withForceRefresh
+      ? { forceRefreshBook: vi.fn(async () => undefined) }
+      : {}),
   };
 
   const closeQueue = {
@@ -192,13 +197,18 @@ describe('WeatherExitEvaluator', () => {
 
   it('enqueues WEATHER_FORECAST_CHANGE and sets throttle when forecast drift exceeds threshold', async () => {
     mocks.shouldCloseForForecastDrift.mockReturnValueOnce(true);
-    const { evaluator, closeQueue } = buildEvaluator({
+    const { evaluator, closeQueue, connectionManager } = buildEvaluator({
       forecastMean: 35, // drifted from 32
     });
     await evaluator.evaluateOpenPositions();
     expect(closeQueue.enqueueUnique).toHaveBeenCalledTimes(1);
     expect(mocks.setWeatherReentryThrottle).toHaveBeenCalledTimes(1);
     expect(mocks.resetWeatherBucketHysteresis).toHaveBeenCalledTimes(1);
+    expect(connectionManager.fetchExecutablePrices).toHaveBeenCalledWith(
+      'asset-1',
+      10,
+      { maxAgeMs: WEATHER_EXIT_BOOK_MAX_AGE_MS },
+    );
   });
 
   it('enqueues WEATHER_BUCKET_EXIT when bucket left, switchMode close_and_reenter, hysteresis reached', async () => {
@@ -254,14 +264,22 @@ describe('WeatherExitEvaluator', () => {
     expect(mocks.resetWeatherBucketHysteresis).toHaveBeenCalledTimes(1);
   });
 
-  it('defers close (no enqueue) when bidVwap is 0', async () => {
-    mocks.shouldCloseForForecastDrift.mockReturnValueOnce(true);
-    const { evaluator, closeQueue } = buildEvaluator({
+  it('skips close (no enqueue) when live bidVwap is 0 and does not retry', async () => {
+    mocks.shouldCloseForForecastDrift.mockReturnValue(true);
+    const { evaluator, closeQueue, connectionManager } = buildEvaluator({
       forecastMean: 35,
       bidVwap: 0,
+      withForceRefresh: true,
     });
     await evaluator.evaluateOpenPositions();
+    await evaluator.evaluateOpenPositions();
     expect(closeQueue.enqueueUnique).not.toHaveBeenCalled();
+    expect(connectionManager.fetchExecutablePrices).toHaveBeenCalledWith(
+      'asset-1',
+      10,
+      { maxAgeMs: WEATHER_EXIT_BOOK_MAX_AGE_MS },
+    );
+    expect(connectionManager.forceRefreshBook).toHaveBeenCalled();
   });
 
   it('does not enqueue when position status is no longer open at evaluation time', async () => {

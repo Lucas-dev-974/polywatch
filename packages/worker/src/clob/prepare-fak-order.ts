@@ -33,6 +33,22 @@ const ENTRY_BUY_PREPARE_REASONS = new Set([
   'WEATHER_OPEN',
 ]);
 
+/**
+ * Weather forecast/bucket closes FAK-sell the whole position. Limit at tick
+ * floor so the matcher walks every live bid ("à tout prix") instead of posting
+ * at executable VWAP / lastTrade and missing cheaper rungs.
+ */
+const WEATHER_CLOSE_SELL_REASONS = new Set<string>([
+  'WEATHER_FORECAST_CHANGE',
+  'WEATHER_BUCKET_EXIT',
+]);
+
+function isWeatherCloseSell(
+  signal: Pick<OrderSignal, 'side' | 'reason'>,
+): boolean {
+  return signal.side === 'SELL' && WEATHER_CLOSE_SELL_REASONS.has(signal.reason);
+}
+
 export type PreparedFakOrder = {
   limitPrice: number;
   /** Executable VWAP at T0 before lastTrade tighten. */
@@ -157,6 +173,7 @@ export async function prepareFakMarketOrder(
 
   let usableFillPrice = fillPrice;
   if (
+    !isWeatherCloseSell(signal) &&
     signal.side === 'SELL' &&
     signal.lastTradePrice != null &&
     signal.lastTradePrice > 0 &&
@@ -197,7 +214,19 @@ export async function prepareFakMarketOrder(
       : 0;
   }
 
-  if (signal.referenceVwap != null && signal.referenceVwap > 0) {
+  if (isWeatherCloseSell(signal)) {
+    // Walk the entire live bid ladder. Slippage vs entry/ref VWAP must not
+    // block, and the FAK limit is the tick floor (typically 0.001) so cheap
+    // bids far below VWAP still match.
+    const tick = Number(tickSize);
+    if (Number.isFinite(tick) && tick > 0) {
+      limitPrice = tick;
+      usableFillPrice = tick;
+    }
+    if (limitPrice <= 0) {
+      return { ok: false, result: failedExecution(signal, 'price_rounded_to_zero') };
+    }
+  } else if (signal.referenceVwap != null && signal.referenceVwap > 0) {
     const tick = Number(tickSize);
     const guard = evaluateSlippageGuard(signal, limitPrice, maxSlippage, {
       tickSize: Number.isFinite(tick) && tick > 0 ? tick : undefined,

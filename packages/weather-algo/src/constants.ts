@@ -18,6 +18,13 @@ export const RUNTIME_STATUS_TTL_SECONDS = 300;
 /** TTL (seconds) for the weather close-queue dedupe key. */
 export const CLOSE_QUEUE_DEDUPE_TTL_SECONDS = 120;
 
+/**
+ * Max age (ms) for the weather-exit bid book. Weather-algo's ConnectionManager
+ * is a separate process from the worker; `fetchBook` without maxAgeMs can reuse
+ * a forever-stale snapshot while the worker REST-refreshes and sees 0 bids.
+ */
+export const WEATHER_EXIT_BOOK_MAX_AGE_MS = 15_000;
+
 /** Default re-entry throttle (ms) after a bucket exit or forecast change. */
 export const DEFAULT_REENTRY_THROTTLE_MS = 1_800_000;
 

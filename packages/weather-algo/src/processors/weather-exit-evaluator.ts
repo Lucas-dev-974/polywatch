@@ -26,7 +26,11 @@ import {
   type WeatherMetric,
   type BucketBounds,
 } from '@polywatch/core';
-import { DEFAULT_REENTRY_THROTTLE_MS, CLOSE_QUEUE_DEDUPE_TTL_SECONDS } from '../constants.js';
+import {
+  DEFAULT_REENTRY_THROTTLE_MS,
+  CLOSE_QUEUE_DEDUPE_TTL_SECONDS,
+  WEATHER_EXIT_BOOK_MAX_AGE_MS,
+} from '../constants.js';
 
 const log = pino({ name: 'weather-algo:exit-evaluator' });
 
@@ -194,15 +198,22 @@ export class WeatherExitEvaluator {
       ? 'WEATHER_FORECAST_CHANGE'
       : 'WEATHER_BUCKET_EXIT';
 
+    // Weather-algo has its own ConnectionManager (not the worker's). Without a
+    // maxAge the local book can stay frozen (e.g. 0.16) while REST already
+    // shows bids []. Fail closed: no live bid → do not enqueue a FAK SELL.
+    if (typeof this.params.connectionManager.forceRefreshBook === 'function') {
+      await this.params.connectionManager.forceRefreshBook(pos.assetId);
+    }
     const prices = await this.params.connectionManager.fetchExecutablePrices(
       pos.assetId,
       pos.quantity,
+      { maxAgeMs: WEATHER_EXIT_BOOK_MAX_AGE_MS },
     );
     const bidVwap = prices.executableBidVwap;
     if (bidVwap <= 0) {
       log.warn(
-        { positionId: pos.id, reason },
-        'weather exit deferred — no executable bid',
+        { positionId: pos.id, reason, assetId: pos.assetId },
+        'weather exit skipped — no live bid; leaving position for resolution',
       );
       return;
     }

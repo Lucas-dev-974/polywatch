@@ -48,6 +48,59 @@ describe('prepareFakMarketOrder', () => {
     if (!result.ok) expect(result.result.error).toBe('no_liquidity');
   });
 
+  it('weather SELL walks tick floor so thin far bids are not slippage-blocked', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        reason: 'WEATHER_FORECAST_CHANGE',
+        side: 'SELL',
+        assetId: 'token-weather-001',
+        referenceVwap: 0.16,
+        lastTradePrice: 0.16,
+      }),
+      mockConnection({ executableBidVwap: 0.001, executableAskVwap: 0.01 }),
+      { getTickSize: async () => '0.001' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.prepared.fillPrice).toBe(0.001);
+      expect(result.prepared.limitPrice).toBe(0.001);
+      expect(result.prepared.usableFillPrice).toBe(0.001);
+    }
+  });
+
+  it('weather BUCKET_EXIT SELL uses tick floor even when bid VWAP is far below entry', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        reason: 'WEATHER_BUCKET_EXIT',
+        side: 'SELL',
+        referenceVwap: 0.5,
+      }),
+      mockConnection({ executableBidVwap: 0.04, executableAskVwap: 0.05 }),
+      { getTickSize: async () => '0.01' as const },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.prepared.fillPrice).toBe(0.04);
+      expect(result.prepared.limitPrice).toBe(0.01);
+    }
+  });
+
+  it('weather SELL with empty bids returns no_liquidity (no lastTrade phantom)', async () => {
+    const result = await prepareFakMarketOrder(
+      baseSignal({
+        reason: 'WEATHER_FORECAST_CHANGE',
+        side: 'SELL',
+        assetId: 'token-weather-empty',
+        referenceVwap: 0.16,
+        lastTradePrice: 0.16,
+      }),
+      mockConnection({ executableBidVwap: 0, executableAskVwap: 0 }),
+      { getTickSize: async () => '0.001' as const },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.result.error).toBe('no_liquidity');
+  });
+
   it('rejects slippage_exceeded for guarded reasons', async () => {
     const result = await prepareFakMarketOrder(
       baseSignal({
@@ -305,5 +358,29 @@ describe('sim T1 FAK race (limit T0 vs book T1)', () => {
     const fak = simulateFakFill([{ price: 0.5, size: 4 }], 10, 0.5, 'SELL');
     expect(fak.fillQuantity).toBe(4);
     expect(fak.vwap).toBe(0.5);
+  });
+
+  it('SELL at tick floor walks far bids that a VWAP limit would miss', () => {
+    const atVwap = simulateFakFill(
+      [
+        { price: 0.16, size: 4 },
+        { price: 0.001, size: 20 },
+      ],
+      10,
+      0.16,
+      'SELL',
+    );
+    expect(atVwap.fillQuantity).toBe(4);
+
+    const atFloor = simulateFakFill(
+      [
+        { price: 0.16, size: 4 },
+        { price: 0.001, size: 20 },
+      ],
+      10,
+      0.001,
+      'SELL',
+    );
+    expect(atFloor.fillQuantity).toBe(10);
   });
 });

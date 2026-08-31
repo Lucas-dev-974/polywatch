@@ -93,7 +93,3 @@ export function resolveExecutionEventIso(
 ): string | null {
   return ex.executedAt || ex.createdAt || ex.updatedAt || null;
 }
-
-export function isExecutionFillTimestamp(ex: ExecutionEventTimestamps): boolean {
-  return Boolean(ex.executedAt);
-}

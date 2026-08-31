@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTimeAgo, formatTimeAgoPhrase, resolveExecutionEventIso, isExecutionFillTimestamp } from './date';
+import { formatTimeAgo, formatTimeAgoPhrase, resolveExecutionEventIso } from './date';
 
 const NOW = Date.parse('2026-08-30T10:00:00.000Z');
 
@@ -64,7 +64,6 @@ describe('resolveExecutionEventIso', () => {
       createdAt: created,
       updatedAt: updated,
     })).toBe(filled);
-    expect(isExecutionFillTimestamp({ executedAt: filled, createdAt: created })).toBe(true);
   });
 
   it('falls back to createdAt when executedAt is null (failed / unfilled)', () => {
@@ -72,7 +71,6 @@ describe('resolveExecutionEventIso', () => {
       executedAt: null,
       createdAt: created,
     })).toBe(created);
-    expect(isExecutionFillTimestamp({ executedAt: null, createdAt: created })).toBe(false);
   });
 
   it('falls back to updatedAt when executedAt and createdAt are missing', () => {

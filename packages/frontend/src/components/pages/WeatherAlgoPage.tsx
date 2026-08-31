@@ -56,7 +56,7 @@ export function WeatherAlgoPage() {
             { id: 'cities' as const, label: 'Villes' },
             { id: 'data' as const, label: 'Données' },
             { id: 'backtest' as const, label: 'Backtest' },
-            { id: 'strategies' as const, label: 'Stratégies' },
+            { id: 'strategies' as const, label: 'Config Stratégies' },
             { id: 'settings' as const, label: 'Paramètres' },
           ]}>
             {(item) => (

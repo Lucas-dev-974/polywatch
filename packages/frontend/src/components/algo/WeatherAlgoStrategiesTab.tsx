@@ -34,8 +34,11 @@ function EnvSection(props: EnvSectionProps) {
   const activeStrategy = () => props.catalog.find((s) => s.id === activeId());
 
   return (
-    <section class="weather-strategies__env">
-      <h3 class="settings-subheading">Stratégie active — {ENV_LABEL[env]}</h3>
+    <CollapsibleSection
+      title={`Stratégie active — ${ENV_LABEL[env]}`}
+      persistKey={`polywatch_weather_strategies_${env}_collapsed`}
+      class="weather-strategies__env"
+    >
       <div class="weather-strategy-cards">
         <For each={props.catalog}>
           {(strategy) => (
@@ -81,7 +84,7 @@ function EnvSection(props: EnvSectionProps) {
           />
         </div>
       </Show>
-    </section>
+    </CollapsibleSection>
   );
 }
 

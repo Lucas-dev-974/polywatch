@@ -36,8 +36,10 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
       : pos.entryInvestedAmount != null && pos.entryInvestedAmount > 0
         ? pos.entryInvestedAmount
         : pos.quantity * pos.entryPrice;
-  const pnl = isOpen ? pos.unrealizedPnl : pos.realizedPnl;
-  const pct = isFailedOpen ? undefined : pnlPercent(pnl, invested);
+  const upnl = pos.unrealizedPnl;
+  const cashPnl = isOpen ? (pos.executableCashPnl ?? null) : null;
+  const headerPnl = isOpen ? (cashPnl ?? upnl) : pos.realizedPnl;
+  const pct = isFailedOpen ? undefined : pnlPercent(headerPnl, invested);
   const qty = isFailedOpen
     ? 0
     : isOpen
@@ -62,9 +64,8 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
       ? pos.executableBidVwap.toFixed(3)
       : undefined;
   const statusBadge = isFailedOpen ? 'Entrée échouée' : isCancelled ? 'Annulée' : null;
-  const cashPnl = isOpen ? (pos.executableCashPnl ?? null) : null;
-  const cashPnlLabel = cashPnl != null ? formatPnlAmount(cashPnl, true) : undefined;
-  const cashPnlClass = cashPnl != null ? genericPnlClass(cashPnl) : '';
+  const upnlLabel = isOpen && cashPnl != null ? formatPnlAmount(upnl, true) : undefined;
+  const upnlClass = isOpen && cashPnl != null ? genericPnlClass(upnl) : '';
   return (
     <div class="weather-history-pos-item">
       <div class="weather-history-pos-item__row">
@@ -79,8 +80,8 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
           {(label) => <span class="algo-strategy-badge">{label()}</span>}
         </Show>
         <Show when={!isFailedOpen}>
-          <span class={`text-mono ${genericPnlClass(pnl)}`}>
-            {formatPnlAmount(pnl, true)}
+          <span class={`text-mono ${genericPnlClass(headerPnl)}`}>
+            {formatPnlAmount(headerPnl, true)}
             <Show when={pct != null}>
               <span class="algo-pnl-pct"> ({formatPnlPercent(pct)})</span>
             </Show>
@@ -112,9 +113,9 @@ export function WeatherPositionRow(props: WeatherPositionRowProps) {
           value={entryPriceLabel}
         />
         <WeatherPositionMetric
-          label="PnL cash"
-          className={`text-mono ${cashPnlClass}`}
-          value={cashPnlLabel}
+          label="uPnL"
+          className={`text-mono ${upnlClass}`}
+          value={upnlLabel}
         />
         <WeatherPositionMetric
           label="Bid actuel"

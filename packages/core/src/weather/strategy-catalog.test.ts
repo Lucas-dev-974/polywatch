@@ -13,6 +13,7 @@ import {
   WEATHER_HIGHEST_YES_STRATEGY_ID,
   WEATHER_STRATEGY_IDS,
   isKnownWeatherStrategyId,
+  getWeatherStrategyMeta,
   type WeatherStrategyParamsMap,
 } from './strategy-catalog.js';
 
@@ -76,6 +77,59 @@ describe('strategy-catalog', () => {
     expect(params.minYesPrice).toBe(0.5);
   });
 
+  it('getStrategyParams returns null minYesPrice for forecast strategies (filter off)', () => {
+    expect(getStrategyParams({}, WEATHER_FORECAST_STRATEGY_ID).minYesPrice).toBeNull();
+    expect(getStrategyParams({}, WEATHER_FORECAST_ALIGNED_STRATEGY_ID).minYesPrice).toBeNull();
+  });
+
+  it('getStrategyParams overlays stored minYesPrice for forecast and coerces 0/null to null', () => {
+    const overlay = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          [WEATHER_FORECAST_STRATEGY_ID]: { minYesPrice: 0.2 },
+        }),
+      },
+      WEATHER_FORECAST_STRATEGY_ID,
+    );
+    expect(overlay.minYesPrice).toBe(0.2);
+
+    const zero = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          [WEATHER_FORECAST_STRATEGY_ID]: { minYesPrice: 0 },
+        }),
+      },
+      WEATHER_FORECAST_STRATEGY_ID,
+    );
+    expect(zero.minYesPrice).toBeNull();
+
+    const storedNull = getStrategyParams(
+      {
+        weatherAlgoStrategyParams: JSON.stringify({
+          [WEATHER_FORECAST_STRATEGY_ID]: { minYesPrice: null },
+        }),
+      },
+      WEATHER_FORECAST_STRATEGY_ID,
+    );
+    expect(storedNull.minYesPrice).toBeNull();
+  });
+
+  it('forecast and aligned catalogues expose minYesPrice with the same label as highest-yes', () => {
+    const highest = getWeatherStrategyMeta(WEATHER_HIGHEST_YES_STRATEGY_ID)?.params.find(
+      (p) => p.key === 'minYesPrice',
+    );
+    expect(highest?.label).toBe('Prix YES minimal');
+    for (const id of [WEATHER_FORECAST_STRATEGY_ID, WEATHER_FORECAST_ALIGNED_STRATEGY_ID]) {
+      const param = getWeatherStrategyMeta(id)?.params.find((p) => p.key === 'minYesPrice');
+      expect(param, id).toBeDefined();
+      expect(param?.label).toBe(highest?.label);
+      expect(param?.hint).toContain('Seuil de consensus');
+      expect(param?.max).toBe(highest?.max);
+      expect(param?.step).toBe(highest?.step);
+      expect(param?.default).toBe(0);
+    }
+  });
+
   it('getStrategyParams falls back to default when stored entryPusd is null', () => {
     const params = getStrategyParams(
       {
@@ -113,6 +167,7 @@ describe('strategy-catalog', () => {
           'weather-forecast': {
             maxForecastStd: 0,
             minForecastProbability: 0,
+            minYesPrice: 0,
             slPercent: 0,
             tpPercent: 0,
             trailingPercent: 0,
@@ -124,6 +179,7 @@ describe('strategy-catalog', () => {
     );
     expect(params.maxForecastStd).toBeNull();
     expect(params.minForecastProbability).toBeNull();
+    expect(params.minYesPrice).toBeNull();
     expect(params.slPercent).toBeNull();
     expect(params.tpPercent).toBeNull();
     expect(params.trailingPercent).toBeNull();
@@ -258,7 +314,7 @@ describe('strategy-catalog', () => {
       [WEATHER_HIGHEST_YES_STRATEGY_ID, WEATHER_FORECAST_STRATEGY_ID],
       {
         'weather-highest-yes': { maxYesPrice: null },
-        'weather-forecast': { slPercent: null, maxForecastStd: null },
+        'weather-forecast': { slPercent: null, maxForecastStd: null, minYesPrice: null },
       },
     );
     expect(errors).toEqual([]);

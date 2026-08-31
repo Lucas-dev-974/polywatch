@@ -155,4 +155,73 @@ describe('WeatherForecastStrategy city-first', () => {
       expect(result.signal.conditionId).toBe('high-edge');
     }
   });
+
+  it('abstains when YES price is below minYesPrice', async () => {
+    const strategy = new WeatherForecastStrategy();
+    strategy.setMinEdge(0.05);
+    strategy.setMinYesPrice(0.2);
+
+    const result = await strategy.evaluate(
+      market({
+        outcomePrices: [
+          { outcome: 'Yes', price: 0.10 },
+          { outcome: 'No', price: 0.90 },
+        ],
+      }),
+      {
+        forecastMean: 24,
+        forecastStdDev: 0.5,
+        mode: 'sim',
+      },
+    );
+
+    expect(result.kind).toBe('abstain');
+    if (result.kind === 'abstain') {
+      expect(result.reason).toBe('yes_price_below_min');
+    }
+  });
+
+  it('emits a signal when YES price is at or above minYesPrice', async () => {
+    const strategy = new WeatherForecastStrategy();
+    strategy.setMinEdge(0.05);
+    strategy.setMinYesPrice(0.2);
+
+    const result = await strategy.evaluate(
+      market({
+        outcomePrices: [
+          { outcome: 'Yes', price: 0.20 },
+          { outcome: 'No', price: 0.80 },
+        ],
+      }),
+      {
+        forecastMean: 24,
+        forecastStdDev: 0.5,
+        mode: 'sim',
+      },
+    );
+
+    expect(result.kind).toBe('signal');
+  });
+
+  it('does not apply the YES-price floor when minYesPrice is null', async () => {
+    const strategy = new WeatherForecastStrategy();
+    strategy.setMinEdge(0.05);
+    strategy.setMinYesPrice(null);
+
+    const result = await strategy.evaluate(
+      market({
+        outcomePrices: [
+          { outcome: 'Yes', price: 0.10 },
+          { outcome: 'No', price: 0.90 },
+        ],
+      }),
+      {
+        forecastMean: 24,
+        forecastStdDev: 0.5,
+        mode: 'sim',
+      },
+    );
+
+    expect(result.kind).toBe('signal');
+  });
 });

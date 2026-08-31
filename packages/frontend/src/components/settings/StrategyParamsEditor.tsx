@@ -14,6 +14,12 @@ const NULLABLE_PARAM_KEYS = new Set([
   'trailingActivationPercent',
 ]);
 
+/** minYesPrice is nullable (off) for forecast strategies; highest-yes keeps a required 0.5 floor. */
+function isNullableParam(strategyId: string, key: string): boolean {
+  if (key === 'minYesPrice') return strategyId !== 'weather-highest-yes';
+  return NULLABLE_PARAM_KEYS.has(key);
+}
+
 /** Paramètres stockés en millisecondes — affichés et saisis en minutes. */
 const DURATION_MS_KEYS = new Set([
   'reentryThrottleMs',
@@ -181,7 +187,7 @@ export function StrategyParamsEditor(props: StrategyParamsEditorProps) {
                                     when={param.kind === 'select'}
                                     fallback={
                                       <Show
-                                        when={NULLABLE_PARAM_KEYS.has(param.key)}
+                                        when={isNullableParam(props.strategy.id, param.key)}
                                         fallback={
                                           <NumberField
                                             label={durationLabel(param.label)}

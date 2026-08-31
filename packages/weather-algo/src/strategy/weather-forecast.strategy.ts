@@ -20,6 +20,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
   private minEdge: number = DEFAULT_MIN_EDGE;
   private maxForecastStd: number | null = null;
   private minForecastProbability: number | null = null;
+  private minYesPrice: number | null = null;
 
   setMinEdge(edge: number): void {
     this.minEdge = edge;
@@ -33,10 +34,15 @@ export class WeatherForecastStrategy implements WeatherStrategy {
     this.minForecastProbability = minProb;
   }
 
+  setMinYesPrice(minPrice: number | null): void {
+    this.minYesPrice = minPrice;
+  }
+
   setRiskConfig(params: WeatherStrategyParamsBag): void {
     this.setMinEdge(params.minEdge);
     this.setMaxForecastStd(params.maxForecastStd);
     this.setMinForecastProbability(params.minForecastProbability);
+    this.setMinYesPrice(params.minYesPrice);
   }
 
   private gateOptions() {
@@ -45,6 +51,7 @@ export class WeatherForecastStrategy implements WeatherStrategy {
       minEdge: this.minEdge,
       maxForecastStd: this.maxForecastStd,
       minForecastProbability: this.minForecastProbability,
+      minYesPrice: this.minYesPrice,
     };
   }
 

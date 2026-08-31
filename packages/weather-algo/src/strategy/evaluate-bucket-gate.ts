@@ -15,6 +15,8 @@ export type EvaluateBucketGateOptions = {
   minEdge: number;
   maxForecastStd: number | null;
   minForecastProbability: number | null;
+  /** Min YES market price floor; null disables the filter. */
+  minYesPrice: number | null;
 };
 
 /**
@@ -84,6 +86,15 @@ export async function evaluateBucketGate(
 
   if (yesPrice <= 0) {
     return { kind: 'abstain', reason: 'zero_prices', forecastProb: forecastYesProb };
+  }
+
+  if (opts.minYesPrice != null && yesPrice < opts.minYesPrice) {
+    return {
+      kind: 'abstain',
+      reason: 'yes_price_below_min',
+      detail: `yesPrice=${yesPrice.toFixed(4)} < min=${opts.minYesPrice.toFixed(4)}`,
+      forecastProb: forecastYesProb,
+    };
   }
 
   const yesEdge = calculateEdge(forecastYesProb, yesPrice);

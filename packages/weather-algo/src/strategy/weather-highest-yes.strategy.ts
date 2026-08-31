@@ -14,33 +14,7 @@ import type {
 
 const log = pino({ name: 'weather-algo:highest-yes-strategy' });
 
-/**
- * Consensus / momentum strategy — fallback by design.
- *
- * Picks the bucket with the highest YES price (strongest market-implied
- * probability) among the active buckets of a city and holds it until
- * resolution. No forecast dependency: the strategy works even when weather
- * forecast data is unavailable, which is its primary role — a safety net that
- * trades cities the forecast-dependent strategies (weather-forecast,
- * weather-forecast-aligned) leave pass because of missing data.
- *
- * Because edge and dynamicMinEdge are forced to 0, this strategy never wins a
- * tie against a forecast strategy with a positive edge in selection mode
- * `single` (signals are sorted by descending edge). It only emits a tradable
- * signal when the forecast strategies abstain (e.g. forecast unavailable, all
- * buckets below minEdge). Treat it as a filet de sécurité, not a premier rang
- * strategy — it carries no view on whether the market price is right, only on
- * where the market consensus is strongest.
- *
- * `confidence` (min(1, yesPrice)) is an intensity signal stored for
- * observability (logs, reasons). The entry pipeline hardcodes the sizing
- * multiplier to 1, so confidence does NOT modulate the order size — a high
- * YES price does not produce a larger order.
- *
- * Use `allowedComparisons` to exclude cumulative buckets (or_above / or_below)
- * whose YES price is mechanically inflated by P(T ≥ threshold) and would
- * otherwise dominate the "highest YES" selection.
- */
+/** Standalone strategy: pick the bucket with the max YES price; no forecast. */
 export class WeatherHighestYesStrategy implements WeatherStrategy {
   readonly id = 'weather-highest-yes';
   private minYesPrice: number = 0.5;
@@ -48,7 +22,7 @@ export class WeatherHighestYesStrategy implements WeatherStrategy {
   private allowedComparisons: WeatherComparison[] | null = null;
 
   setRiskConfig(params: WeatherStrategyParamsBag): void {
-    this.minYesPrice = params.minYesPrice;
+    this.minYesPrice = params.minYesPrice ?? 0.5;
     this.maxYesPrice = params.maxYesPrice ?? null;
     this.allowedComparisons =
       params.allowedComparisons && params.allowedComparisons.length > 0

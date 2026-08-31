@@ -55,8 +55,12 @@ export type WeatherStrategyParamsBag = {
   maxForecastStd: number | null;
   /** Min forecast-implied YES probability; null disables the filter. */
   minForecastProbability: number | null;
-  /** Min YES market price required to emit a signal (highest-yes strategy). */
-  minYesPrice: number;
+  /**
+   * Min YES market price required to emit a signal. Null disables the floor.
+   * Highest-yes overlays a catalogue default of 0.5 (bug run #40); forecast
+   * strategies stay off until the user sets a value.
+   */
+  minYesPrice: number | null;
   /**
    * Max YES price ceiling for entry (highest-yes strategy). Null disables the
    * filter. Acts as an anti-fade gate: refuse to buy a bucket whose YES price
@@ -143,7 +147,7 @@ export const DEFAULT_WEATHER_STRATEGY_PARAMS: WeatherStrategyParamsBag = {
   minEdge: 0.1,
   maxForecastStd: null,
   minForecastProbability: null,
-  minYesPrice: 0.5,
+  minYesPrice: null,
   maxYesPrice: null,
   allowedComparisons: null,
   maxPositionsPerCityDate: 1,
@@ -203,6 +207,7 @@ function sharedParamsSchemas(): StrategyParamSchema[] {
     { key: 'minEdge', label: 'Edge minimal (YES)', kind: 'number', min: 0.01, max: 0.5, step: 0.01, default: 0.1, hint: 'Écart minimal entre probabilité forecast et prix marché.' },
     { key: 'maxForecastStd', label: 'Écart-type forecast max', kind: 'number', min: 0, max: 20, step: 0.5, default: 0, hint: '0 = désactivé. Filtre les forecasts trop incertains.' },
     { key: 'minForecastProbability', label: 'Probabilité YES min', kind: 'number', min: 0, max: 1, step: 0.05, default: 0, hint: '0 = désactivé. Filtre les buckets très peu probables.' },
+    { key: 'minYesPrice', label: 'Prix YES minimal', kind: 'number', min: 0, max: 1, step: 0.01, default: 0, hint: '0 = désactivé. Seuil de consensus : n’entre que si le prix YES du bucket est >= ce seuil.' },
     // Sizing
     { key: 'entryPusd', label: 'Taille d’entrée (pUSD)', kind: 'number', min: 1, max: 10000, step: 1, default: 10 },
     { key: 'sizingMode', label: 'Mode de sizing', kind: 'select', options: SIZING_MODE_OPTIONS, default: 'fixed_pusd' },
@@ -451,6 +456,7 @@ export function serializeWeatherAlgoStrategyParams(params: WeatherStrategyParams
 const NULLABLE_ZERO_KEYS = new Set([
   'maxForecastStd',
   'minForecastProbability',
+  'minYesPrice',
   'maxYesPrice',
   'slPercent',
   'tpPercent',
@@ -459,16 +465,24 @@ const NULLABLE_ZERO_KEYS = new Set([
 ]);
 
 /**
- * Keys whose catalogue default is NOT null. A stored `null` on such a key
- * would otherwise override the default and silently disable the gate (e.g.
- * `minYesPrice: null` disables the floor, letting near-zero YES prices
- * through). We force these back to the catalogue default when stored null.
+ * Per-strategy overlays on `DEFAULT_WEATHER_STRATEGY_PARAMS`. Highest-yes
+ * keeps a 0.5 YES-price floor (stored `null` must not disable it — bug run
+ * #40). Forecast strategies inherit the shared `minYesPrice: null` (off).
  */
-const NON_NULLABLE_DEFAULTS: (keyof WeatherStrategyParamsBag)[] = (
-  Object.entries(DEFAULT_WEATHER_STRATEGY_PARAMS) as [keyof WeatherStrategyParamsBag, unknown][]
-)
-  .filter(([, v]) => v !== null)
-  .map(([k]) => k);
+const PER_STRATEGY_PARAM_DEFAULTS: Partial<
+  Record<WeatherStrategyId, Partial<WeatherStrategyParamsBag>>
+> = {
+  [WEATHER_HIGHEST_YES_STRATEGY_ID]: { minYesPrice: 0.5 },
+};
+
+function catalogueDefaultsFor(strategyId: string): WeatherStrategyParamsBag {
+  const overlay = isKnownWeatherStrategyId(strategyId)
+    ? PER_STRATEGY_PARAM_DEFAULTS[strategyId]
+    : undefined;
+  return overlay
+    ? { ...DEFAULT_WEATHER_STRATEGY_PARAMS, ...overlay }
+    : { ...DEFAULT_WEATHER_STRATEGY_PARAMS };
+}
 
 /**
  * Resolve the full per-strategy params bag: catalogue defaults overlaid with
@@ -480,18 +494,20 @@ export function getStrategyParams(
   strategyId: string,
 ): WeatherStrategyParamsBag {
   const stored = parseWeatherAlgoStrategyParams(config.weatherAlgoStrategyParams)[strategyId] ?? {};
-  const merged: WeatherStrategyParamsBag = { ...DEFAULT_WEATHER_STRATEGY_PARAMS, ...stored };
+  const defaults = catalogueDefaultsFor(strategyId);
+  const merged: WeatherStrategyParamsBag = { ...defaults, ...stored };
   for (const key of NULLABLE_ZERO_KEYS) {
     if ((merged as Record<string, unknown>)[key] === 0) {
       (merged as Record<string, unknown>)[key] = null;
     }
   }
   // Un `null` stocké sur un champ à défaut non-null retombe sur le défaut
-  // (ex. minYesPrice: null → 0.5). Les champs nullable par conception
-  // (défaut null) restent null = désactivé.
-  for (const key of NON_NULLABLE_DEFAULTS) {
-    if ((merged as Record<string, unknown>)[key] === null) {
-      (merged as Record<string, unknown>)[key] = DEFAULT_WEATHER_STRATEGY_PARAMS[key];
+  // (ex. highest-yes minYesPrice: null → 0.5). Les champs nullable par
+  // conception (défaut null, dont minYesPrice forecast/aligned) restent
+  // null = désactivé.
+  for (const key of Object.keys(defaults) as (keyof WeatherStrategyParamsBag)[]) {
+    if (defaults[key] !== null && (merged as Record<string, unknown>)[key] === null) {
+      (merged as Record<string, unknown>)[key] = defaults[key];
     }
   }
   return merged;
